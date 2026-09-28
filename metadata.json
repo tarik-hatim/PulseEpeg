@@ -1,0 +1,6 @@
+{
+  "name": "PulseEPG — Guide TV XML.GZ Mobile",
+  "description": "Application mobile responsive de guide TV EPG (XML.GZ) avec décompression en arrière-plan, cache IndexedDB/LocalStorage et compatibilité APK Capacitor.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
