@@ -1,5 +1,5 @@
-const CACHE_NAME = 'pulse-epg-cache-v1';
-const APP_SHELL_ASSETS = [
+const CACHE_NAME = 'pulse-epg-shell-v4';
+const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
@@ -11,11 +11,9 @@ const APP_SHELL_ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
-    caches
-      .open(CACHE_NAME)
-      .then((cache) => cache.addAll(APP_SHELL_ASSETS))
-      .then(() => self.skipWaiting())
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
   );
 });
 
@@ -40,67 +38,45 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url);
 
-  // Ne pas intercepter les flux binaires EPG (.xml.gz) ni le proxy de streaming EPG
+  // Ne jamais intercepter les modules Vite de dev, les Web Workers, ni les flux API/EPG
   if (
-    url.pathname.startsWith('/api/epg-proxy') ||
+    url.origin !== self.location.origin ||
+    url.pathname.startsWith('/api/') ||
+    url.pathname.startsWith('/src/') ||
+    url.pathname.startsWith('/@') ||
+    url.pathname.startsWith('/node_modules/') ||
+    url.pathname.endsWith('.ts') ||
+    url.pathname.endsWith('.tsx') ||
     url.pathname.endsWith('.xml.gz') ||
-    url.pathname.endsWith('.gz')
+    url.pathname.endsWith('.gz') ||
+    url.search.includes('t=') ||
+    url.search.includes('v=') ||
+    url.search.includes('worker')
   ) {
     return;
   }
 
-  // Pour les requêtes d'enrichissement /api/metadata-enrich : Network-first avec repli en cache
-  if (url.pathname.startsWith('/api/')) {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          if (response.ok) {
-            const copy = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
-          }
-          return response;
-        })
-        .catch(() => caches.match(request))
-    );
-    return;
-  }
-
-  // Pour les navigations HTML : Network-first avec repli sur /index.html en cache
-  if (request.mode === 'navigate') {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
-          return response;
-        })
-        .catch(() =>
-          caches.match(request).then((cached) => cached || caches.match('/index.html'))
-        )
-    );
-    return;
-  }
-
-  // Pour les ressources statiques (JS, CSS, icônes, polices) : Stale-While-Revalidate
+  // Stratégie Network-First systématique pour garantir que le code et l'interface sont toujours à jour
   event.respondWith(
-    caches.match(request).then((cachedResponse) => {
-      const networkFetch = fetch(request)
-        .then((networkResponse) => {
-          if (
-            networkResponse &&
-            networkResponse.status === 200 &&
-            (networkResponse.type === 'basic' || networkResponse.type === 'cors')
-          ) {
-            const responseClone = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(request, responseClone);
-            });
-          }
-          return networkResponse;
-        })
-        .catch(() => cachedResponse);
-
-      return cachedResponse || networkFetch;
-    })
+    fetch(request)
+      .then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          const clone = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+        }
+        return networkResponse;
+      })
+      .catch(async () => {
+        const cached = await caches.match(request);
+        if (cached) return cached;
+        if (request.mode === 'navigate') {
+          const fallbackIndex = await caches.match('/index.html');
+          if (fallbackIndex) return fallbackIndex;
+        }
+        return new Response('Hors ligne', {
+          status: 503,
+          headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+        });
+      })
   );
 });

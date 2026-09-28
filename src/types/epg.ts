@@ -1,30 +1,73 @@
+export type AppLanguage = 'fr' | 'en' | 'ar' | 'es' | 'de' | 'pt';
+
 export type ContentCategoryFilter =
   | 'Tous'
   | 'Films & Séries'
-  | 'Sport / Football';
+  | 'Sport / Football'
+  | 'Documentaires';
+
+export type ThematicCategoryId =
+  | 'Films & Séries'
+  | 'Sport / Football'
+  | 'Documentaires'
+  | 'Classiques & Culte'
+  | 'Jeunesse & Famille';
+
+export type EpgBouquetId =
+  | 'nilesat_osn_mbc'
+  | 'astra_canal_fr'
+  | 'movistar_es'
+  | 'sky_de'
+  | 'sky_it'
+  | 'canal_pl'
+  | 'eutelsat_16e_thor'
+  | 'starone_70w_claro_br'
+  | 'amazonas_61w_latam'
+  | 'intelsat_43w_directv';
 
 export type TimeFilterPreset = 'now' | 'prime' | 'minus1h' | 'plus1h';
 
 export type ChannelGroup =
   | 'Tous'
+  | 'Toutes'
   | 'Cinéma Premières'
   | 'Action & Thriller'
   | 'Séries TV & US'
   | 'Comédie & Famille'
   | 'Classiques & Culte'
+  | 'Documentaires'
   | 'Sport / Football';
 
-export type CountryCode = 'Tous' | 'PL' | 'ES' | 'IT' | 'DE' | 'AR' | 'Autre';
+export type CountryCode =
+  | 'Tous'
+  | 'PL'
+  | 'ES'
+  | 'IT'
+  | 'DE'
+  | 'FR'
+  | 'AR'
+  | 'EU'
+  | 'BR'
+  | 'LATAM'
+  | 'Autre';
 
 export type SatelliteFilter =
   | 'Tous'
   | 'Astra 19.2°E'
   | 'Hotbird 13°E'
   | 'Hispasat 30°W'
-  | 'Nilesat 7°W';
+  | 'Nilesat 7°W'
+  | 'Eutelsat 16°E / Thor 0.8°W'
+  | 'Star One D2 70°W'
+  | 'Amazonas 61°W'
+  | 'Intelsat 43.1°W / SES-6 40.5°W'
+  | 'Intelsat 43.1°W & SES-6 40.5°W';
 
 export type BouquetFilter =
   | 'Tous'
+  | 'Nilesat OSN/MBC'
+  | 'beIN / SSC (MENA)'
+  | 'Astra Canal+'
   | 'Movistar+ / DAZN ES'
   | 'Sky DE / DAZN DE'
   | 'Sky Italia / DAZN IT'
@@ -32,13 +75,18 @@ export type BouquetFilter =
   | 'HBO / Cinemax'
   | 'AXN / Warner / Sci-Fi'
   | 'OSN / MBC (Nilesat)'
-  | 'beIN / SSC / AD Sports';
+  | 'beIN / SSC / AD Sports'
+  | 'DigitAlb / Total TV / Focus Sat'
+  | 'Claro TV Brasil'
+  | 'Vivo TV / Movistar LATAM'
+  | 'DirecTV LATAM / Sky Brasil';
 
 export interface EpgSourceItem {
   id: string;
   name: string;
   url: string;
   country: Exclude<CountryCode, 'Tous'>;
+  bouquetId?: EpgBouquetId;
   enabled: boolean;
 }
 
@@ -66,9 +114,12 @@ export interface EpgChannel {
   satellites: Exclude<SatelliteFilter, 'Tous'>[];
   orbitalPosition: string;
   bouquets: Exclude<BouquetFilter, 'Tous'>[];
+  bouquetId?: EpgBouquetId;
   audioTrackLabel: string;
   subtitleTrackLabel: string;
   lektorStatus?: string;
+  hasPolishLektor?: boolean;
+  hasSubtitles?: boolean;
   sourceId: string;
   sourceName: string;
   channelNumber: number;
@@ -85,9 +136,13 @@ export interface EpgProgramme {
   category: string;
   rawCategory?: string;
   icon?: string;
+  backdrop?: string;
+  rating?: string;
+  enrichedSource?: string;
   startMs: number;
   stopMs: number;
   date?: string;
+  country?: string;
   episodeNum?: string;
   directors?: string[];
   actors?: string[];
@@ -131,6 +186,7 @@ export interface EpgLoadingProgress {
   programmesParsed: number;
   message: string;
   currentSourceIndex?: number;
+  completedSources?: number;
   totalSources?: number;
   currentSourceName?: string;
   sourceStatuses?: EpgSourceSyncStatus[];
@@ -149,11 +205,19 @@ export interface ProgrammeReminder {
 }
 
 export interface AppSettings {
+  language: AppLanguage;
   sourceUrl: string;
   sources: EpgSourceItem[];
   cacheTtlHours: number;
+  autoRefreshHours: number;
   windowHours: number;
   theme: 'dark' | 'light';
+  autoTimezone: boolean;
+  manualTimezone: string;
+  selectedBouquets: EpgBouquetId[];
+  excludePolishLektor: boolean;
+  excludeNoSubtitles: boolean;
+  enabledCategories: ThematicCategoryId[];
 }
 
 export interface WorkerRequestMessage {
@@ -163,6 +227,10 @@ export interface WorkerRequestMessage {
     windowHours: number;
     cacheTtlHours: number;
     isNativeCapacitor: boolean;
+    selectedBouquets?: EpgBouquetId[];
+    excludePolishLektor?: boolean;
+    excludeNoSubtitles?: boolean;
+    enabledCategories?: ThematicCategoryId[];
   };
 }
 

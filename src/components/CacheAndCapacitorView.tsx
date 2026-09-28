@@ -4,10 +4,15 @@ import {
   CheckCircle2,
   Copy,
   Database,
+  ExternalLink,
+  FileText,
   Globe,
+  Lock,
   Plus,
   RefreshCw,
   RotateCcw,
+  Scale,
+  ShieldCheck,
   Smartphone,
   Trash2,
 } from 'lucide-react';
@@ -19,6 +24,7 @@ import {
 } from '../types/epg';
 import {
   DEFAULT_EPG_SOURCES,
+  inferBouquetIdForSource,
   PRESET_EPG_CATALOG,
 } from '../services/storageService';
 import {
@@ -38,12 +44,15 @@ interface CacheAndCapacitorViewProps {
 }
 
 const COUNTRY_OPTIONS: Exclude<CountryCode, 'Tous'>[] = [
-  'PL',
-  'ES',
-  'IT',
-  'DE',
   'AR',
-  'Autre',
+  'FR',
+  'ES',
+  'DE',
+  'IT',
+  'PL',
+  'EU',
+  'BR',
+  'LATAM',
 ];
 
 export const CacheAndCapacitorView: React.FC<CacheAndCapacitorViewProps> = ({
@@ -60,6 +69,16 @@ export const CacheAndCapacitorView: React.FC<CacheAndCapacitorViewProps> = ({
   const [newCountry, setNewCountry] =
     useState<Exclude<CountryCode, 'Tous'>>('PL');
   const [copiedCmd, setCopiedCmd] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+
+  const deriveSelectedBouquetsFromSources = (sources: EpgSourceItem[]) => {
+    const enabledBouquets = new Set(
+      sources
+        .filter((s) => s.enabled)
+        .map((s) => inferBouquetIdForSource(s))
+    );
+    return Array.from(enabledBouquets);
+  };
 
   const handleAddSource = (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,6 +106,7 @@ export const CacheAndCapacitorView: React.FC<CacheAndCapacitorViewProps> = ({
       {
         ...settings,
         sources: updatedSources,
+        selectedBouquets: deriveSelectedBouquetsFromSources(updatedSources),
       },
       true
     );
@@ -96,12 +116,26 @@ export const CacheAndCapacitorView: React.FC<CacheAndCapacitorViewProps> = ({
     const updated = settings.sources.map((s) =>
       s.id === id ? { ...s, enabled: !s.enabled } : s
     );
-    onUpdateSettings({ ...settings, sources: updated }, false);
+    onUpdateSettings(
+      {
+        ...settings,
+        sources: updated,
+        selectedBouquets: deriveSelectedBouquetsFromSources(updated),
+      },
+      false
+    );
   };
 
   const handleDeleteSource = (id: string) => {
     const updated = settings.sources.filter((s) => s.id !== id);
-    onUpdateSettings({ ...settings, sources: updated }, false);
+    onUpdateSettings(
+      {
+        ...settings,
+        sources: updated,
+        selectedBouquets: deriveSelectedBouquetsFromSources(updated),
+      },
+      false
+    );
   };
 
   const handleResetDefaultSources = () => {
@@ -109,6 +143,7 @@ export const CacheAndCapacitorView: React.FC<CacheAndCapacitorViewProps> = ({
       {
         ...settings,
         sources: DEFAULT_EPG_SOURCES,
+        selectedBouquets: deriveSelectedBouquetsFromSources(DEFAULT_EPG_SOURCES),
       },
       true
     );
@@ -135,10 +170,12 @@ export const CacheAndCapacitorView: React.FC<CacheAndCapacitorViewProps> = ({
       enabled: true,
     };
 
+    const updatedSources = [...settings.sources, newItem];
     onUpdateSettings(
       {
         ...settings,
-        sources: [...settings.sources, newItem],
+        sources: updatedSources,
+        selectedBouquets: deriveSelectedBouquetsFromSources(updatedSources),
       },
       false
     );
@@ -147,7 +184,7 @@ export const CacheAndCapacitorView: React.FC<CacheAndCapacitorViewProps> = ({
   const buildCommands = `npm run build
 npx cap add android
 npx cap sync android
-npx cap open android`;
+cd android && ./gradlew bundleRelease`;
 
   const copyCommands = () => {
     navigator.clipboard?.writeText(buildCommands);
@@ -626,38 +663,44 @@ npx cap open android`;
           </div>
         </div>
 
-        {/* Section 3: Export APK Android avec Capacitor */}
+        {/* Section 3: Export APK / AAB Android avec Capacitor */}
         <div className={cardClass}>
           <div className="flex items-center justify-between gap-3 mb-4">
             <div className="flex items-center gap-2.5">
               <Smartphone className="w-5 h-5 text-amber-400" />
               <h2 className="text-lg font-bold tracking-tight">
-                Export APK Android (Capacitor)
+                Export Configuration Capacitor (.AAB Ready)
               </h2>
             </div>
             <span className="text-xs font-mono tabular-nums text-amber-400">
-              capacitor.config.ts prêt
+              com.pulseepg.tvguide
             </span>
           </div>
 
           <p
-            className={`text-xs leading-relaxed mb-4 ${
+            className={`text-xs leading-relaxed mb-3 ${
               isLight ? 'text-slate-600' : 'text-slate-400'
             }`}
           >
-            L’architecture multi-sources de{' '}
-            <strong className="font-semibold">PulseEPG</strong> est prête pour
-            Android (<code className="font-mono">.apk</code>) via Capacitor. Le
-            plugin <code className="font-mono">CapacitorHttp</code> permet de
-            télécharger successivement tous les fichiers{' '}
-            <code className="font-mono">.xml.gz</code> (PL, ES, IT, DE, AR) sans
-            blocage CORS.
+            Configuration officielle Google Play Store (<code className="font-mono">.aab</code> &{' '}
+            <code className="font-mono">.apk</code>) dans{' '}
+            <code className="font-mono">capacitor.config.ts</code> :
           </p>
+
+          <pre
+            className={`rounded-2xl p-3.5 text-xs font-mono overflow-x-auto leading-relaxed mb-4 ${
+              isLight
+                ? 'bg-slate-900 text-emerald-300'
+                : 'bg-[#0B0F17] text-emerald-300 border border-slate-800/80'
+            }`}
+          >
+            {`appId: "com.pulseepg.tvguide",\nappName: "PulseEPG",\nwebDir: "dist"`}
+          </pre>
 
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-semibold">
-                Commandes de génération APK Android
+                Commandes de génération Play Store (.AAB / .APK)
               </span>
               <button
                 type="button"
@@ -693,6 +736,149 @@ npx cap open android`;
             </pre>
           </div>
         </div>
+      </div>
+
+      {/* Section 4 : CONFORMITÉ & LÉGAL (Google Play Store / À propos) */}
+      <div className={cardClass}>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-2.5">
+            <Scale className="w-5 h-5 text-amber-400" />
+            <div>
+              <h2 className="text-lg font-bold tracking-tight">
+                Conformité & Légal · À propos de PulseEPG
+              </h2>
+              <p
+                className={`text-xs mt-0.5 ${
+                  isLight ? 'text-slate-500' : 'text-slate-400'
+                }`}
+              >
+                Conformité Google Play Store, clause de non-responsabilité,
+                attribution officielle TMDB et politique de confidentialité
+              </p>
+            </div>
+          </div>
+
+          <span className="px-3 py-1 rounded-xl bg-emerald-500/15 text-emerald-400 font-mono text-xs font-semibold">
+            Play Store Compliant
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* 1. Clause de non-responsabilité explicite */}
+          <div
+            className={`rounded-2xl p-4 border space-y-2 ${
+              isLight
+                ? 'bg-amber-50/70 border-amber-200 text-slate-900'
+                : 'bg-amber-500/10 border-amber-500/30 text-slate-100'
+            }`}
+          >
+            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-500">
+              <ShieldCheck className="w-4 h-4 shrink-0" />
+              <span>Mentions Légales</span>
+            </div>
+            <p className="text-xs leading-relaxed font-medium">
+              Clause de non-responsabilité : PulseEPG est un guide de programmes
+              TV purement informatif. Il ne contient, ne diffuse et ne fournit
+              accès à aucun flux vidéo ou contenu soumis à des droits
+              d&apos;auteur.
+            </p>
+          </div>
+
+          {/* 2. Attribution TMDB officielle (Obligatoire) */}
+          <div
+            className={`rounded-2xl p-4 border flex flex-col justify-between gap-3 ${
+              isLight
+                ? 'bg-slate-50 border-slate-200'
+                : 'bg-[#0B0F17]/70 border-slate-800'
+            }`}
+          >
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="px-2.5 py-1 rounded-md bg-gradient-to-r from-[#01b4e4] to-[#90cea1] text-slate-950 font-extrabold text-xs tracking-wider uppercase">
+                  TMDB API
+                </span>
+                <a
+                  href="https://www.themoviedb.org"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-sky-400 hover:underline"
+                >
+                  <span>themoviedb.org</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              </div>
+              <p className="text-xs leading-relaxed">
+                Ce produit utilise l&apos;API TMDB mais n&apos;est ni certifié ni
+                affilié à TMDB.
+              </p>
+            </div>
+          </div>
+
+          {/* 3. Politique de confidentialité (Privacy Policy) */}
+          <div
+            className={`rounded-2xl p-4 border flex flex-col justify-between gap-3 ${
+              isLight
+                ? 'bg-slate-50 border-slate-200'
+                : 'bg-[#0B0F17]/70 border-slate-800'
+            }`}
+          >
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-400">
+                <Lock className="w-4 h-4 shrink-0" />
+                <span>Politique de confidentialité</span>
+              </div>
+              <p
+                className={`text-xs leading-relaxed ${
+                  isLight ? 'text-slate-600' : 'text-slate-300'
+                }`}
+              >
+                La géolocalisation pour le fuseau horaire et les préférences
+                utilisateur restent strictement locales sur l&apos;appareil.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowPrivacyModal((v) => !v)}
+              className="min-h-[40px] px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>
+                {showPrivacyModal
+                  ? 'Fermer la Politique de confidentialité'
+                  : 'Politique de confidentialité'}
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {showPrivacyModal && (
+          <div
+            className={`mt-4 rounded-2xl p-4 border text-xs space-y-2 leading-relaxed ${
+              isLight
+                ? 'bg-slate-50 border-slate-200 text-slate-700'
+                : 'bg-[#0B0F17] border-slate-800 text-slate-300'
+            }`}
+          >
+            <p className="font-bold text-amber-400">
+              Engagement de Confidentialité & Données Locales (Google Play Store)
+            </p>
+            <p>
+              • <strong>Fuseau horaire & Géolocalisation :</strong> La détection du
+              fuseau horaire s&apos;effectue exclusivement en local sur l&apos;appareil
+              via les paramètres horaires du système. Aucune donnée de
+              géolocalisation GPS ou IP n&apos;est transmise ni stockée sur des
+              serveurs distants.
+            </p>
+            <p>
+              • <strong>Préférences & Stockage local :</strong> Vos paramètres
+              (bouquets satellites sélectionnés, filtres VO/Sous-titres, favoris et
+              rappels) demeurent stockés à 100% sur votre appareil via{' '}
+              <code className="font-mono">LocalStorage</code> et{' '}
+              <code className="font-mono">IndexedDB</code>.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -12,6 +12,7 @@ import {
 import {
   parseChannelBlock,
   parseProgrammeBlock,
+  XmltvFilterOptions,
 } from '../utils/xmltvParser';
 
 declare const self: DedicatedWorkerGlobalScope;
@@ -97,16 +98,26 @@ async function processMultiSourceEpgSync(
   sources: EpgSourceItem[],
   windowHours: number,
   cacheTtlHours: number,
-  isNativeCapacitor: boolean
+  isNativeCapacitor: boolean,
+  filterOptions?: XmltvFilterOptions
 ) {
   const startTimePerf = performance.now();
-  const activeSources = sources.filter(
-    (s) => s.enabled && s.url.trim().length > 0
-  );
+  const activeBouquetSet =
+    filterOptions?.selectedBouquets && filterOptions.selectedBouquets.length > 0
+      ? new Set(filterOptions.selectedBouquets)
+      : null;
+
+  const activeSources = sources.filter((s) => {
+    if (!s.enabled || s.url.trim().length === 0) return false;
+    if (activeBouquetSet && s.bouquetId) {
+      return activeBouquetSet.has(s.bouquetId);
+    }
+    return true;
+  });
 
   if (activeSources.length === 0) {
     throw new Error(
-      'Aucune source EPG active sélectionnée. Activez au moins une URL EPG.'
+      'Aucun bouquet ou source EPG actif sélectionné. Activez au moins un bouquet dans les Paramètres.'
     );
   }
 
@@ -138,8 +149,9 @@ async function processMultiSourceEpgSync(
   const nowMs = Date.now();
   let referenceAnchorMs = nowMs;
   let anchorCalibrated = false;
-  let minKeepStopMs = referenceAnchorMs - 10 * 3600 * 1000;
-  let maxKeepStartMs = referenceAnchorMs + windowHours * 3600 * 1000;
+  let minKeepStopMs = referenceAnchorMs - 36 * 3600 * 1000;
+  let maxKeepStartMs =
+    referenceAnchorMs + Math.max(72, windowHours) * 3600 * 1000;
 
   let lastProgressPost = 0;
 
@@ -199,11 +211,16 @@ async function processMultiSourceEpgSync(
 
           const fullEnd = chEnd + 10;
           const block = xmlBuffer.slice(chStart, fullEnd);
-          const parsedCh = parseChannelBlock(block, channels.length, {
-            id: source.id,
-            name: source.name,
-            country: source.country,
-          });
+          const parsedCh = parseChannelBlock(
+            block,
+            channels.length,
+            {
+              id: source.id,
+              name: source.name,
+              country: source.country,
+            },
+            filterOptions
+          );
 
           if (parsedCh) {
             const existing = channelMap.get(parsedCh.id);
@@ -244,30 +261,39 @@ async function processMultiSourceEpgSync(
           const block = xmlBuffer.slice(prStart, fullEnd);
 
           if (!anchorCalibrated) {
-            const probe = parseProgrammeBlock(block, totalProgrammesRetained + 1);
+            const probe = parseProgrammeBlock(
+              block,
+              totalProgrammesRetained + 1,
+              undefined,
+              undefined,
+              filterOptions
+            );
             if (probe.startMs > 0) {
               anchorCalibrated = true;
-              if (Math.abs(nowMs - probe.startMs) > 6 * 86400 * 1000) {
+              if (Math.abs(nowMs - probe.startMs) > 3 * 86400 * 1000) {
                 referenceAnchorMs = probe.startMs + 12 * 3600 * 1000;
-                minKeepStopMs = referenceAnchorMs - 10 * 3600 * 1000;
-                maxKeepStartMs = referenceAnchorMs + windowHours * 3600 * 1000;
+                minKeepStopMs = referenceAnchorMs - 36 * 3600 * 1000;
+                maxKeepStartMs =
+                  referenceAnchorMs + Math.max(72, windowHours) * 3600 * 1000;
               }
             }
           }
 
-          const { programme, startMs, stopMs, channelId } = parseProgrammeBlock(
+          const { programme, channelId } = parseProgrammeBlock(
             block,
             totalProgrammesRetained + 1,
             minKeepStopMs,
-            maxKeepStartMs
+            maxKeepStartMs,
+            filterOptions
           );
 
-          if (startMs > 0 && stopMs > 0) {
-            if (startMs < minTimestampMs) minTimestampMs = startMs;
-            if (stopMs > maxTimestampMs) maxTimestampMs = stopMs;
-          }
-
           if (programme && channelId) {
+            if (programme.startMs < minTimestampMs) {
+              minTimestampMs = programme.startMs;
+            }
+            if (programme.stopMs > maxTimestampMs) {
+              maxTimestampMs = programme.stopMs;
+            }
             if (!schedulesByChannel[channelId]) {
               schedulesByChannel[channelId] = [];
               seenProgrammeKeysByChannel.set(channelId, new Set());
@@ -495,9 +521,20 @@ async function processMultiSourceEpgSync(
   }
 
   const now = Date.now();
+  const bouquetsSig = filterOptions?.selectedBouquets
+    ? [...filterOptions.selectedBouquets].sort().join(',')
+    : 'all';
+  const catsSig = filterOptions?.enabledCategories
+    ? [...filterOptions.enabledCategories].sort().join(',')
+    : 'all';
   const sourcesSignature =
-    'whitelist_v5|' +
-    activeSources.map((s) => `${s.country}:${s.url.trim()}`).join('|');
+    'whitelist_v6|' +
+    activeSources.map((s) => `${s.country}:${s.url.trim()}`).join('|') +
+    `|b:${bouquetsSig}|lektor:${Boolean(
+      filterOptions?.excludePolishLektor !== false
+    )}|sub:${Boolean(
+      filterOptions?.excludeNoSubtitles !== false
+    )}|cat:${catsSig}`;
 
   const metadata: EpgCacheMetadata = {
     sourceUrl: activeSources[0].url,
@@ -534,7 +571,13 @@ self.onmessage = async (event: MessageEvent<WorkerRequestMessage>) => {
         payload.sources,
         payload.windowHours,
         payload.cacheTtlHours,
-        payload.isNativeCapacitor
+        payload.isNativeCapacitor,
+        {
+          selectedBouquets: payload.selectedBouquets,
+          excludePolishLektor: payload.excludePolishLektor,
+          excludeNoSubtitles: payload.excludeNoSubtitles,
+          enabledCategories: payload.enabledCategories,
+        }
       );
     } catch (err: unknown) {
       const errorMsg =

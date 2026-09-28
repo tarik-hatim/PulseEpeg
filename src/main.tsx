@@ -7,6 +7,9 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker
       .register('/sw.js')
+      .then((registration) => {
+        void registration.update();
+      })
       .catch((err) => {
         console.warn('Échec de l’enregistrement du Service Worker PulseEPG:', err);
       });

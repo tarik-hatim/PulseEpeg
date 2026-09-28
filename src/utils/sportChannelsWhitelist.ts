@@ -3,6 +3,7 @@ import {
   ChannelGroup,
   ContentCategoryFilter,
   CountryCode,
+  EpgBouquetId,
   SatelliteFilter,
 } from '../types/epg';
 
@@ -14,10 +15,13 @@ export interface WhitelistedChannelSpec {
   satellites: Exclude<SatelliteFilter, 'Tous'>[];
   orbitalPosition: string;
   bouquets: Exclude<BouquetFilter, 'Tous'>[];
+  bouquetId?: EpgBouquetId;
   group: Exclude<ChannelGroup, 'Tous'>;
   audioTrackLabel: string;
   subtitleTrackLabel: string;
   lektorStatus?: string;
+  hasPolishLektor?: boolean;
+  hasSubtitles?: boolean;
   defaultIcon?: string;
 }
 
@@ -28,6 +32,92 @@ export interface WhitelistedChannelSpec {
  * - Compétitions UEFA / Internationales : Champions League, Europa League, Conference League, Nations League
  */
 export const SPORT_FOOTBALL_WHITELIST: Record<string, WhitelistedChannelSpec> = {
+  // 0. ASTRA 19.2°E — ASTRA CANAL+ SPORT / FOOT (FRANCE)
+  'canal+.foot.fr': {
+    canonicalId: 'CANAL+.Foot.fr',
+    displayName: 'Canal+ Foot HD (Astra 19.2°E)',
+    contentCategory: 'Sport / Football',
+    country: 'FR',
+    satellites: ['Astra 19.2°E'],
+    orbitalPosition: 'Astra 19.2°E',
+    bouquets: ['Astra Canal+'],
+    bouquetId: 'astra_canal_fr',
+    group: 'Sport / Football',
+    audioTrackLabel: 'Audio VF / Stadium',
+    subtitleTrackLabel: 'UEFA Champions League · Premier League',
+    hasSubtitles: true,
+  },
+  'canal+foot.fr': {
+    canonicalId: 'CANAL+.Foot.fr',
+    displayName: 'Canal+ Foot HD (Astra 19.2°E)',
+    contentCategory: 'Sport / Football',
+    country: 'FR',
+    satellites: ['Astra 19.2°E'],
+    orbitalPosition: 'Astra 19.2°E',
+    bouquets: ['Astra Canal+'],
+    bouquetId: 'astra_canal_fr',
+    group: 'Sport / Football',
+    audioTrackLabel: 'Audio VF / Stadium',
+    subtitleTrackLabel: 'UEFA Champions League · Premier League',
+    hasSubtitles: true,
+  },
+  'canal+.sport.fr': {
+    canonicalId: 'CANAL+.Sport.fr',
+    displayName: 'Canal+ Sport HD (Astra 19.2°E)',
+    contentCategory: 'Sport / Football',
+    country: 'FR',
+    satellites: ['Astra 19.2°E'],
+    orbitalPosition: 'Astra 19.2°E',
+    bouquets: ['Astra Canal+'],
+    bouquetId: 'astra_canal_fr',
+    group: 'Sport / Football',
+    audioTrackLabel: 'Audio VF / Stadium',
+    subtitleTrackLabel: 'UEFA Champions League · Europa · Premier League',
+    hasSubtitles: true,
+  },
+  'canal+.sport.360.fr': {
+    canonicalId: 'CANAL+.Sport.360.fr',
+    displayName: 'Canal+ Sport 360 HD (Astra 19.2°E)',
+    contentCategory: 'Sport / Football',
+    country: 'FR',
+    satellites: ['Astra 19.2°E'],
+    orbitalPosition: 'Astra 19.2°E',
+    bouquets: ['Astra Canal+'],
+    bouquetId: 'astra_canal_fr',
+    group: 'Sport / Football',
+    audioTrackLabel: 'Audio VF / Stadium',
+    subtitleTrackLabel: 'Grands Championnats & Coupes d’Europe',
+    hasSubtitles: true,
+  },
+  'bein.sports.1.fr': {
+    canonicalId: 'beIN.Sports.1.fr',
+    displayName: 'beIN Sports 1 HD (Astra Canal+)',
+    contentCategory: 'Sport / Football',
+    country: 'FR',
+    satellites: ['Astra 19.2°E'],
+    orbitalPosition: 'Astra 19.2°E',
+    bouquets: ['Astra Canal+'],
+    bouquetId: 'astra_canal_fr',
+    group: 'Sport / Football',
+    audioTrackLabel: 'Audio VF / Stadium',
+    subtitleTrackLabel: 'LaLiga · Bundesliga · FA Cup · Coupe de France',
+    hasSubtitles: true,
+  },
+  'bein.sports.2.fr': {
+    canonicalId: 'beIN.Sports.2.fr',
+    displayName: 'beIN Sports 2 HD (Astra Canal+)',
+    contentCategory: 'Sport / Football',
+    country: 'FR',
+    satellites: ['Astra 19.2°E'],
+    orbitalPosition: 'Astra 19.2°E',
+    bouquets: ['Astra Canal+'],
+    bouquetId: 'astra_canal_fr',
+    group: 'Sport / Football',
+    audioTrackLabel: 'Audio VF / Stadium',
+    subtitleTrackLabel: 'LaLiga · Bundesliga · Serie A · Coupes',
+    hasSubtitles: true,
+  },
+
   // 1. ASTRA 19.2°E — SKY SPORT DE / DAZN DE
   'sky.sport.premier.league.de': {
     canonicalId: 'Sky.Sport.Premier.League.de',

@@ -33,14 +33,19 @@ async function startServer() {
     const episodeNum = String(req.query.episodeNum || '').trim() || undefined;
     const year = String(req.query.year || '').trim() || undefined;
     const category = String(req.query.category || '').trim() || undefined;
+    const rawCategory = String(req.query.rawCategory || '').trim() || undefined;
     const country = String(req.query.country || '').trim() || undefined;
+    const xmlOriginCountry =
+      String(req.query.xmlOriginCountry || '').trim() || undefined;
+    const language =
+      String(req.query.language || req.query.lang || 'fr-FR').trim() || 'fr-FR';
 
     if (!title && !originalTitle) {
       res.status(400).json({ error: 'Paramètre title ou originalTitle requis.' });
       return;
     }
 
-    const cacheKey = `${originalTitle || title}|${subTitle || ''}|${episodeNum || ''}|${year || ''}|${(description || '').slice(0, 32)}`.toLowerCase();
+    const cacheKey = `v6|${language}|${originalTitle || title}|${subTitle || ''}|${episodeNum || ''}|${year || ''}|${(description || '').slice(0, 32)}`.toLowerCase();
     const cached = serverMetadataCache.get(cacheKey);
     if (cached) {
       res.json(cached);
@@ -58,7 +63,10 @@ async function startServer() {
           episodeNum,
           year,
           category,
+          rawCategory,
           country,
+          xmlOriginCountry,
+          lang: language,
         },
         process.env.TMDB_API_KEY
       );
@@ -74,6 +82,43 @@ async function startServer() {
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : 'Erreur enrichissement métadonnées FR';
+      res.status(500).json({ error: message });
+    }
+  });
+
+  // Endpoint de résolution de Bande-annonce YouTube (TMDB / YouTube Trailer ID) pour le lecteur modal intégré
+  app.get('/api/trailer-search', async (req, res) => {
+    const query = String(req.query.q || '').trim();
+    if (!query) {
+      res.status(400).json({ error: 'Paramètre q requis.' });
+      return;
+    }
+
+    try {
+      const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(
+        `${query} bande annonce VF trailer officiel`
+      )}`;
+      const ytRes = await fetch(searchUrl, {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          'Accept-Language': 'fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7',
+        },
+      });
+
+      if (ytRes.ok) {
+        const html = await ytRes.text();
+        const match = html.match(/"videoId":"([a-zA-Z0-9_-]{11})"/);
+        if (match && match[1]) {
+          res.setHeader('Cache-Control', 'public, max-age=86400');
+          res.json({ videoId: match[1] });
+          return;
+        }
+      }
+      res.status(404).json({ error: 'Aucune bande-annonce YouTube trouvée.' });
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : 'Erreur recherche bande-annonce';
       res.status(500).json({ error: message });
     }
   });

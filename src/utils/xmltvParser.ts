@@ -1,18 +1,35 @@
 import {
   BouquetFilter,
   ChannelGroup,
+  ContentCategoryFilter,
   CountryCode,
+  EpgBouquetId,
   EpgChannel,
   EpgProgramme,
   SatelliteFilter,
+  ThematicCategoryId,
 } from '../types/epg';
 import {
   SPORT_FOOTBALL_WHITELIST,
   translateEpgTextToFrenchSync,
   WhitelistedChannelSpec,
 } from './sportChannelsWhitelist';
+import {
+  formatSeasonEpisodeCode,
+  isProgrammeSeriesOrDocumentary,
+  parseSeasonAndEpisode,
+} from './metadataResolverCore';
 
 export type { WhitelistedChannelSpec };
+
+export interface EpgParseFilterOptions {
+  selectedBouquets?: EpgBouquetId[];
+  excludePolishLektor?: boolean;
+  excludeNoSubtitles?: boolean;
+  enabledCategories?: ThematicCategoryId[];
+}
+
+export type XmltvFilterOptions = EpgParseFilterOptions;
 
 /**
  * Décode rapidement les entités XML/HTML courantes (&quot;, &apos;, &amp;, &lt;, &gt;, &#...;)
@@ -121,6 +138,27 @@ export function normalizeCategoryLabel(
 
   if (!rawCategory) return 'Cinéma & Série VO';
   const lower = rawCategory.trim().toLowerCase();
+  const isSeriesHint =
+    /\b(?:serial|série|serie|series|sitcom|miniserie|feuilleton|telenovela)\b/i.test(
+      lower
+    ) || /\s+\d{1,2}\s*$/.test((titleHint || '').trim());
+
+  if (
+    lower.includes('dokument') ||
+    lower.includes('documental') ||
+    lower.includes('documentario') ||
+    lower.includes('documentaire') ||
+    lower.includes('documentary') ||
+    lower.includes('historia') ||
+    lower.includes('history') ||
+    lower.includes('natura') ||
+    lower.includes('nature') ||
+    lower.includes('przyrod') ||
+    lower.includes('ciencia') ||
+    lower.includes('nauka')
+  ) {
+    return 'Documentaire & Découverte';
+  }
 
   if (
     lower.includes('kryminaln') ||
@@ -132,7 +170,9 @@ export function normalizeCategoryLabel(
     lower.includes('thriller') ||
     lower.includes('suspense')
   ) {
-    return 'Thriller & Policier';
+    return isSeriesHint
+      ? 'Série TV · Thriller & Policier'
+      : 'Thriller & Policier';
   }
   if (
     lower.includes('sci-fi') ||
@@ -142,7 +182,9 @@ export function normalizeCategoryLabel(
     lower.includes('ciencia ficción') ||
     lower.includes('fantascienza')
   ) {
-    return 'Sci-Fi & Fantastique';
+    return isSeriesHint
+      ? 'Série TV · Sci-Fi & Fantastique'
+      : 'Sci-Fi & Fantastique';
   }
   if (
     lower.includes('akcj') ||
@@ -157,14 +199,14 @@ export function normalizeCategoryLabel(
     lower.includes('war') ||
     lower.includes('wojen')
   ) {
-    return 'Action & Aventure';
+    return isSeriesHint ? 'Série TV · Action & Aventure' : 'Action & Aventure';
   }
   if (
     lower.includes('horror') ||
     lower.includes('grozy') ||
     lower.includes('terror')
   ) {
-    return 'Horreur & Frissons';
+    return isSeriesHint ? 'Série TV · Horreur & Frissons' : 'Horreur & Frissons';
   }
   if (
     lower.includes('komedi') ||
@@ -174,7 +216,7 @@ export function normalizeCategoryLabel(
     lower.includes('comedy') ||
     lower.includes('sitcom')
   ) {
-    return 'Comédie';
+    return isSeriesHint ? 'Série TV · Comédie' : 'Comédie';
   }
   if (
     lower.includes('obyczajow') ||
@@ -185,12 +227,13 @@ export function normalizeCategoryLabel(
     lower.includes('romance') ||
     lower.includes('melodram')
   ) {
-    return 'Drame & Romance';
+    return isSeriesHint ? 'Série TV · Drame & Romance' : 'Drame & Romance';
   }
   if (
     lower.includes('serial') ||
     lower.includes('serie') ||
-    lower.includes('series')
+    lower.includes('series') ||
+    isSeriesHint
   ) {
     return 'Série TV US/Euro';
   }
@@ -220,14 +263,18 @@ export function normalizeCategoryLabel(
 interface RawCinemaChannelSpec {
   canonicalId: string;
   displayName: string;
+  contentCategory?: Exclude<ContentCategoryFilter, 'Tous'>;
   country: Exclude<CountryCode, 'Tous'>;
   satellites: string[];
   orbitalPosition: string;
   bouquets: string[];
+  bouquetId?: EpgBouquetId;
   group: Exclude<ChannelGroup, 'Tous'>;
   audioTrackLabel: string;
   subtitleTrackLabel: string;
   lektorStatus?: string;
+  hasPolishLektor?: boolean;
+  hasSubtitles?: boolean;
   defaultIcon?: string;
 }
 
@@ -1595,9 +1642,352 @@ const STRICT_CHANNEL_WHITELIST: Record<string, RawCinemaChannelSpec> = {
     satellites: ['Nilesat 7°W'],
     orbitalPosition: 'Nilesat 7°W',
     bouquets: ['OSN / MBC (Nilesat)'],
+    bouquetId: 'nilesat_osn_mbc',
     group: 'Cinéma Premières',
     audioTrackLabel: 'VO Anglais 100%',
     subtitleTrackLabel: 'Subtitles DVB / Open Sub',
+  },
+
+  // ===========================================================================
+  // 6. ASTRA 19.2°E — ASTRA CANAL+ (FRANCE · CINÉMA, SÉRIES & DOCUMENTAIRES)
+  // ===========================================================================
+  'canal+.fr': {
+    canonicalId: 'CANAL+.HD.fr',
+    displayName: 'Canal+ HD (Astra 19.2°E)',
+    country: 'FR',
+    satellites: ['Astra 19.2°E'],
+    orbitalPosition: 'Astra 19.2°E',
+    bouquets: ['Astra Canal+'],
+    bouquetId: 'astra_canal_fr',
+    group: 'Cinéma Premières',
+    audioTrackLabel: 'VM Français / VO Anglais',
+    subtitleTrackLabel: 'DVB-Sub FR / Malentendants',
+  },
+  'canal+.cinema.fr': {
+    canonicalId: 'CANAL+.Cinema.fr',
+    displayName: 'Canal+ Cinéma(s) HD (Astra)',
+    country: 'FR',
+    satellites: ['Astra 19.2°E'],
+    orbitalPosition: 'Astra 19.2°E',
+    bouquets: ['Astra Canal+'],
+    bouquetId: 'astra_canal_fr',
+    group: 'Cinéma Premières',
+    audioTrackLabel: 'VM Français / VO Anglais',
+    subtitleTrackLabel: 'DVB-Sub FR / VOST',
+  },
+  'canal+.box.office.fr': {
+    canonicalId: 'CANAL+.Box.Office.fr',
+    displayName: 'Canal+ Box Office HD (Astra)',
+    country: 'FR',
+    satellites: ['Astra 19.2°E'],
+    orbitalPosition: 'Astra 19.2°E',
+    bouquets: ['Astra Canal+'],
+    bouquetId: 'astra_canal_fr',
+    group: 'Cinéma Premières',
+    audioTrackLabel: 'VM Français / VO Anglais',
+    subtitleTrackLabel: 'DVB-Sub FR / VOST',
+  },
+  'canal+.grand.ecran.fr': {
+    canonicalId: 'CANAL+.Grand.Ecran.fr',
+    displayName: 'Canal+ Grand Écran HD (Astra)',
+    country: 'FR',
+    satellites: ['Astra 19.2°E'],
+    orbitalPosition: 'Astra 19.2°E',
+    bouquets: ['Astra Canal+'],
+    bouquetId: 'astra_canal_fr',
+    group: 'Classiques & Culte',
+    audioTrackLabel: 'VM Français / VO Anglais',
+    subtitleTrackLabel: 'DVB-Sub FR / VOST',
+  },
+  'canal+.series.fr': {
+    canonicalId: 'CANAL+.Series.fr',
+    displayName: 'Canal+ Séries HD (Astra)',
+    country: 'FR',
+    satellites: ['Astra 19.2°E'],
+    orbitalPosition: 'Astra 19.2°E',
+    bouquets: ['Astra Canal+'],
+    bouquetId: 'astra_canal_fr',
+    group: 'Séries TV & US',
+    audioTrackLabel: 'VM Français / VO Anglais',
+    subtitleTrackLabel: 'DVB-Sub FR / VOST',
+  },
+  'canal+.docs.fr': {
+    canonicalId: 'CANAL+.Docs.fr',
+    displayName: 'Canal+ Docs HD (Astra)',
+    contentCategory: 'Documentaires',
+    country: 'FR',
+    satellites: ['Astra 19.2°E'],
+    orbitalPosition: 'Astra 19.2°E',
+    bouquets: ['Astra Canal+'],
+    bouquetId: 'astra_canal_fr',
+    group: 'Documentaires',
+    audioTrackLabel: 'VM Français / VO Anglais',
+    subtitleTrackLabel: 'DVB-Sub FR / VOST',
+  },
+  'cine+.premier.fr': {
+    canonicalId: 'Cine+.Premier.fr',
+    displayName: 'Ciné+ OCS Premier HD (Astra)',
+    country: 'FR',
+    satellites: ['Astra 19.2°E'],
+    orbitalPosition: 'Astra 19.2°E',
+    bouquets: ['Astra Canal+'],
+    bouquetId: 'astra_canal_fr',
+    group: 'Cinéma Premières',
+    audioTrackLabel: 'VM Français / VO Anglais',
+    subtitleTrackLabel: 'DVB-Sub FR / VOST',
+  },
+  'cine+.frisson.fr': {
+    canonicalId: 'Cine+.Frisson.fr',
+    displayName: 'Ciné+ Frisson HD (Astra)',
+    country: 'FR',
+    satellites: ['Astra 19.2°E'],
+    orbitalPosition: 'Astra 19.2°E',
+    bouquets: ['Astra Canal+'],
+    bouquetId: 'astra_canal_fr',
+    group: 'Action & Thriller',
+    audioTrackLabel: 'VM Français / VO Anglais',
+    subtitleTrackLabel: 'DVB-Sub FR / VOST',
+  },
+  'planete+.fr': {
+    canonicalId: 'Planete+.fr',
+    displayName: 'Planète+ HD (Astra Canal+)',
+    contentCategory: 'Documentaires',
+    country: 'FR',
+    satellites: ['Astra 19.2°E'],
+    orbitalPosition: 'Astra 19.2°E',
+    bouquets: ['Astra Canal+'],
+    bouquetId: 'astra_canal_fr',
+    group: 'Documentaires',
+    audioTrackLabel: 'Audio Français / VO',
+    subtitleTrackLabel: 'DVB-Sub FR',
+  },
+
+  // ===========================================================================
+  // 7. CHAÎNES DOCUMENTAIRES MULTI-SATELLITES (PL, DE, ES, IT, AR)
+  // ===========================================================================
+  'canal+.dokument.hd.pl': {
+    canonicalId: 'CANAL+.Dokument.HD.pl',
+    displayName: 'Canal+ Dokument HD (PL)',
+    contentCategory: 'Documentaires',
+    country: 'PL',
+    satellites: ['Hotbird 13°E'],
+    orbitalPosition: 'Hotbird 13°E',
+    bouquets: ['Canal+ / FilmBox'],
+    bouquetId: 'canal_pl',
+    group: 'Documentaires',
+    audioTrackLabel: 'VO Anglais / Original',
+    subtitleTrackLabel: 'DVB-Sub PL/EN',
+    lektorStatus: 'Sans Lektor PL · VO Propre',
+  },
+  'canal+.dokument.pl': {
+    canonicalId: 'CANAL+.Dokument.HD.pl',
+    displayName: 'Canal+ Dokument HD (PL)',
+    contentCategory: 'Documentaires',
+    country: 'PL',
+    satellites: ['Hotbird 13°E'],
+    orbitalPosition: 'Hotbird 13°E',
+    bouquets: ['Canal+ / FilmBox'],
+    bouquetId: 'canal_pl',
+    group: 'Documentaires',
+    audioTrackLabel: 'VO Anglais / Original',
+    subtitleTrackLabel: 'DVB-Sub PL/EN',
+    lektorStatus: 'Sans Lektor PL · VO Propre',
+  },
+  'planete+.hd.pl': {
+    canonicalId: 'Planete+.HD.pl',
+    displayName: 'Planete+ HD (Hotbird)',
+    contentCategory: 'Documentaires',
+    country: 'PL',
+    satellites: ['Hotbird 13°E'],
+    orbitalPosition: 'Hotbird 13°E',
+    bouquets: ['Canal+ / FilmBox'],
+    bouquetId: 'canal_pl',
+    group: 'Documentaires',
+    audioTrackLabel: 'VO Anglais / Original',
+    subtitleTrackLabel: 'DVB-Sub PL/EN',
+    lektorStatus: 'Sans Lektor PL · VO Propre',
+  },
+  'planete+.pl': {
+    canonicalId: 'Planete+.HD.pl',
+    displayName: 'Planete+ HD (Hotbird)',
+    contentCategory: 'Documentaires',
+    country: 'PL',
+    satellites: ['Hotbird 13°E'],
+    orbitalPosition: 'Hotbird 13°E',
+    bouquets: ['Canal+ / FilmBox'],
+    bouquetId: 'canal_pl',
+    group: 'Documentaires',
+    audioTrackLabel: 'VO Anglais / Original',
+    subtitleTrackLabel: 'DVB-Sub PL/EN',
+    lektorStatus: 'Sans Lektor PL · VO Propre',
+  },
+  'sky.documentaries.hd.de': {
+    canonicalId: 'Sky.Documentaries.HD.de',
+    displayName: 'Sky Documentaries HD (DE)',
+    contentCategory: 'Documentaires',
+    country: 'DE',
+    satellites: ['Astra 19.2°E'],
+    orbitalPosition: 'Astra 19.2°E',
+    bouquets: ['Sky DE'],
+    bouquetId: 'sky_de',
+    group: 'Documentaires',
+    audioTrackLabel: 'Dual VO Anglais',
+    subtitleTrackLabel: 'DVB-Sub / Teletext',
+  },
+  'sky.documentaries.de': {
+    canonicalId: 'Sky.Documentaries.HD.de',
+    displayName: 'Sky Documentaries HD (DE)',
+    contentCategory: 'Documentaires',
+    country: 'DE',
+    satellites: ['Astra 19.2°E'],
+    orbitalPosition: 'Astra 19.2°E',
+    bouquets: ['Sky DE'],
+    bouquetId: 'sky_de',
+    group: 'Documentaires',
+    audioTrackLabel: 'Dual VO Anglais',
+    subtitleTrackLabel: 'DVB-Sub / Teletext',
+  },
+  'sky.nature.hd.de': {
+    canonicalId: 'Sky.Nature.HD.de',
+    displayName: 'Sky Nature HD (DE)',
+    contentCategory: 'Documentaires',
+    country: 'DE',
+    satellites: ['Astra 19.2°E'],
+    orbitalPosition: 'Astra 19.2°E',
+    bouquets: ['Sky DE'],
+    bouquetId: 'sky_de',
+    group: 'Documentaires',
+    audioTrackLabel: 'Dual VO Anglais',
+    subtitleTrackLabel: 'DVB-Sub / Teletext',
+  },
+  'sky.nature.de': {
+    canonicalId: 'Sky.Nature.HD.de',
+    displayName: 'Sky Nature HD (DE)',
+    contentCategory: 'Documentaires',
+    country: 'DE',
+    satellites: ['Astra 19.2°E'],
+    orbitalPosition: 'Astra 19.2°E',
+    bouquets: ['Sky DE'],
+    bouquetId: 'sky_de',
+    group: 'Documentaires',
+    audioTrackLabel: 'Dual VO Anglais',
+    subtitleTrackLabel: 'DVB-Sub / Teletext',
+  },
+  'sky.documentaries.it': {
+    canonicalId: 'Sky.Documentaries.it',
+    displayName: 'Sky Documentaries HD (IT)',
+    contentCategory: 'Documentaires',
+    country: 'IT',
+    satellites: ['Hotbird 13°E'],
+    orbitalPosition: 'Hotbird 13°E',
+    bouquets: ['Sky Italia'],
+    bouquetId: 'sky_it',
+    group: 'Documentaires',
+    audioTrackLabel: 'Dual VO Anglais',
+    subtitleTrackLabel: 'DVB-Sub / Teletext',
+  },
+  'sky.nature.it': {
+    canonicalId: 'Sky.Nature.it',
+    displayName: 'Sky Nature HD (IT)',
+    contentCategory: 'Documentaires',
+    country: 'IT',
+    satellites: ['Hotbird 13°E'],
+    orbitalPosition: 'Hotbird 13°E',
+    bouquets: ['Sky Italia'],
+    bouquetId: 'sky_it',
+    group: 'Documentaires',
+    audioTrackLabel: 'Dual VO Anglais',
+    subtitleTrackLabel: 'DVB-Sub / Teletext',
+  },
+  'm+.documentales.es': {
+    canonicalId: 'M+.Documentales.es',
+    displayName: 'Movistar Documentales HD (ES)',
+    contentCategory: 'Documentaires',
+    country: 'ES',
+    satellites: ['Hispasat 30°W', 'Astra 19.2°E'],
+    orbitalPosition: 'Hispasat 30°W / Astra 19.2°E',
+    bouquets: ['Movistar+'],
+    bouquetId: 'movistar_es',
+    group: 'Documentaires',
+    audioTrackLabel: 'Dual VO Anglais',
+    subtitleTrackLabel: 'DVB-Sub / Teletext',
+  },
+  'documentales.por.m+.es': {
+    canonicalId: 'M+.Documentales.es',
+    displayName: 'Movistar Documentales HD (ES)',
+    contentCategory: 'Documentaires',
+    country: 'ES',
+    satellites: ['Hispasat 30°W', 'Astra 19.2°E'],
+    orbitalPosition: 'Hispasat 30°W / Astra 19.2°E',
+    bouquets: ['Movistar+'],
+    bouquetId: 'movistar_es',
+    group: 'Documentaires',
+    audioTrackLabel: 'Dual VO Anglais',
+    subtitleTrackLabel: 'DVB-Sub / Teletext',
+  },
+
+  // ===========================================================================
+  // 8. CHAÎNES POLOGNE AVEC DOUBLAGE LEKTOR / SANS SOUS-TITRES (FILTRABLES VIA TOGGLES)
+  // ===========================================================================
+  'polsat.film.hd.pl': {
+    canonicalId: 'Polsat.Film.HD.pl',
+    displayName: 'Polsat Film HD (Lektor PL)',
+    country: 'PL',
+    satellites: ['Hotbird 13°E'],
+    orbitalPosition: 'Hotbird 13°E',
+    bouquets: ['Canal+ / FilmBox'],
+    bouquetId: 'canal_pl',
+    group: 'Cinéma Premières',
+    audioTrackLabel: 'Lektor Polonais',
+    subtitleTrackLabel: 'Sans sous-titres DVB',
+    lektorStatus: 'Doublage Lektor PL',
+    hasPolishLektor: true,
+    hasSubtitles: false,
+  },
+  'polsat.film.pl': {
+    canonicalId: 'Polsat.Film.HD.pl',
+    displayName: 'Polsat Film HD (Lektor PL)',
+    country: 'PL',
+    satellites: ['Hotbird 13°E'],
+    orbitalPosition: 'Hotbird 13°E',
+    bouquets: ['Canal+ / FilmBox'],
+    bouquetId: 'canal_pl',
+    group: 'Cinéma Premières',
+    audioTrackLabel: 'Lektor Polonais',
+    subtitleTrackLabel: 'Sans sous-titres DVB',
+    lektorStatus: 'Doublage Lektor PL',
+    hasPolishLektor: true,
+    hasSubtitles: false,
+  },
+  'tvn.fabula.hd.pl': {
+    canonicalId: 'TVN.Fabula.HD.pl',
+    displayName: 'TVN Fabuła HD (Lektor PL)',
+    country: 'PL',
+    satellites: ['Hotbird 13°E'],
+    orbitalPosition: 'Hotbird 13°E',
+    bouquets: ['Canal+ / FilmBox'],
+    bouquetId: 'canal_pl',
+    group: 'Séries TV & US',
+    audioTrackLabel: 'Lektor Polonais',
+    subtitleTrackLabel: 'Teletext partiel',
+    lektorStatus: 'Doublage Lektor PL',
+    hasPolishLektor: true,
+    hasSubtitles: false,
+  },
+  'tvn.fabula.pl': {
+    canonicalId: 'TVN.Fabula.HD.pl',
+    displayName: 'TVN Fabuła HD (Lektor PL)',
+    country: 'PL',
+    satellites: ['Hotbird 13°E'],
+    orbitalPosition: 'Hotbird 13°E',
+    bouquets: ['Canal+ / FilmBox'],
+    bouquetId: 'canal_pl',
+    group: 'Séries TV & US',
+    audioTrackLabel: 'Lektor Polonais',
+    subtitleTrackLabel: 'Teletext partiel',
+    lektorStatus: 'Doublage Lektor PL',
+    hasPolishLektor: true,
+    hasSubtitles: false,
   },
 };
 
@@ -1614,34 +2004,319 @@ function normalizeSatelliteName(raw: string): Exclude<SatelliteFilter, 'Tous'> {
   return raw as Exclude<SatelliteFilter, 'Tous'>;
 }
 
+export function inferChannelBouquetId(
+  spec: {
+    bouquetId?: EpgBouquetId;
+    country: Exclude<CountryCode, 'Tous'>;
+    bouquets?: string[];
+  }
+): EpgBouquetId {
+  if (spec.bouquetId) return spec.bouquetId;
+  if (spec.country === 'FR') return 'astra_canal_fr';
+  if (spec.country === 'ES') return 'movistar_es';
+  if (spec.country === 'DE') return 'sky_de';
+  if (spec.country === 'IT') return 'sky_it';
+  if (spec.country === 'PL') return 'canal_pl';
+  if (spec.country === 'EU') return 'eutelsat_16e_thor';
+  if (spec.country === 'BR') return 'starone_70w_claro_br';
+  if (spec.country === 'LATAM') return 'intelsat_43w_directv';
+  return 'nilesat_osn_mbc';
+}
+
+function resolveDynamicGlobalSpec(rawId: string): WhitelistedChannelSpec | null {
+  const key = rawId.trim().toLowerCase();
+
+  // Eutelsat 16°E / Thor 0.8°W (RO / EU - Focus Sat, Total TV, DigitAlb)
+  if (key.endsWith('.ro') || key.endsWith('.hr') || key.endsWith('.rs')) {
+    const isSport =
+      key.includes('sport') ||
+      key.includes('digisport') ||
+      key.includes('digi.sport') ||
+      key.includes('primasport') ||
+      key.includes('prima.sport') ||
+      key.includes('arena') ||
+      key.includes('eurosport');
+    const isDoc =
+      key.includes('discovery') ||
+      key.includes('nat.geo') ||
+      key.includes('national.geographic') ||
+      key.includes('viasat.explore') ||
+      key.includes('viasat.history') ||
+      key.includes('viasat.nature') ||
+      key.includes('history') ||
+      key.includes('docu') ||
+      key.includes('animal.planet');
+    const isCinemaOrSeries =
+      key.includes('hbo') ||
+      key.includes('cinemax') ||
+      key.includes('filmbox') ||
+      key.includes('axn') ||
+      key.includes('warner') ||
+      key.includes('diva') ||
+      key.includes('pro.cinema') ||
+      key.includes('film.cafe') ||
+      key.includes('epic.drama') ||
+      key.includes('amc') ||
+      key.includes('comedy.central');
+
+    if (!isSport && !isDoc && !isCinemaOrSeries) return null;
+
+    const cleanName = rawId
+      .replace(/\.(ro|hr|rs)$/i, '')
+      .replace(/\./g, ' ')
+      .trim();
+
+    return {
+      canonicalId: rawId,
+      displayName: `${cleanName} (Eutelsat/Thor)`,
+      contentCategory: isSport
+        ? 'Sport / Football'
+        : isDoc
+        ? 'Documentaires'
+        : 'Films & Séries',
+      country: 'EU',
+      satellites: ['Eutelsat 16°E / Thor 0.8°W'],
+      orbitalPosition: 'Eutelsat 16°E / Thor 0.8°W',
+      bouquets: ['DigitAlb / Total TV / Focus Sat'],
+      bouquetId: 'eutelsat_16e_thor',
+      group: isSport
+        ? 'Sport / Football'
+        : isDoc
+        ? 'Documentaires'
+        : key.includes('axn') || key.includes('action')
+        ? 'Action & Thriller'
+        : 'Cinéma Premières',
+      audioTrackLabel: 'Dual VO / Multi-Audio',
+      subtitleTrackLabel: 'DVB-Sub EU / Teletext',
+      hasPolishLektor: false,
+      hasSubtitles: true,
+    };
+  }
+
+  // Star One D2 70°W / Amazonas 61°W / Intelsat 43.1°W & SES-6 40.5°W (BR & LATAM)
+  if (
+    key.endsWith('.br') ||
+    key.endsWith('.ar') ||
+    key.endsWith('.co') ||
+    key.endsWith('.cl') ||
+    key.endsWith('.mx')
+  ) {
+    const isSport =
+      key.includes('sportv') ||
+      key.includes('premiere') ||
+      key.includes('espn') ||
+      key.includes('band.sports') ||
+      key.includes('fox.sports') ||
+      key.includes('tnt.sports') ||
+      key.includes('tyc.sports') ||
+      key.includes('directv.sports') ||
+      key.includes('win.sports');
+    const isDoc =
+      key.includes('discovery') ||
+      key.includes('nat.geo') ||
+      key.includes('national.geographic') ||
+      key.includes('history') ||
+      key.includes('animal.planet') ||
+      key.includes('curta');
+    const isCinemaOrSeries =
+      key.includes('telecine') ||
+      key.includes('hbo') ||
+      key.includes('cinemax') ||
+      key.includes('megapix') ||
+      key.includes('tnt') ||
+      key.includes('space') ||
+      key.includes('warner') ||
+      key.includes('sony') ||
+      key.includes('axn') ||
+      key.includes('universal') ||
+      key.includes('studio.universal') ||
+      key.includes('paramount') ||
+      key.includes('amc') ||
+      key.includes('star.channel') ||
+      key.includes('cinelatino') ||
+      key.includes('golden');
+
+    if (!isSport && !isDoc && !isCinemaOrSeries) return null;
+
+    const cleanName = rawId
+      .replace(/\.(br|ar|co|cl|mx)$/i, '')
+      .replace(/\./g, ' ')
+      .trim();
+    const isBrazil = key.endsWith('.br');
+
+    return {
+      canonicalId: rawId,
+      displayName: `${cleanName} (${isBrazil ? 'BR 70°W' : 'LATAM'})`,
+      contentCategory: isSport
+        ? 'Sport / Football'
+        : isDoc
+        ? 'Documentaires'
+        : 'Films & Séries',
+      country: isBrazil ? 'BR' : 'LATAM',
+      satellites: isBrazil
+        ? ['Star One D2 70°W', 'Amazonas 61°W', 'Intelsat 43.1°W / SES-6 40.5°W']
+        : ['Amazonas 61°W', 'Intelsat 43.1°W / SES-6 40.5°W'],
+      orbitalPosition: isBrazil
+        ? 'Star One D2 70°W / SES-6'
+        : 'Amazonas 61°W / Intelsat 43.1°W',
+      bouquets: isBrazil
+        ? ['Claro TV Brasil', 'Vivo TV / Movistar LATAM', 'DirecTV LATAM / Sky Brasil']
+        : ['Vivo TV / Movistar LATAM', 'DirecTV LATAM / Sky Brasil'],
+      bouquetId: isBrazil ? 'starone_70w_claro_br' : 'intelsat_43w_directv',
+      group: isSport
+        ? 'Sport / Football'
+        : isDoc
+        ? 'Documentaires'
+        : key.includes('action') || key.includes('space') || key.includes('axn')
+        ? 'Action & Thriller'
+        : 'Cinéma Premières',
+      audioTrackLabel: 'Dual Audio PT/ES + VO EN',
+      subtitleTrackLabel: 'Closed Captions / DVB-Sub',
+      hasPolishLektor: false,
+      hasSubtitles: true,
+    };
+  }
+
+  return null;
+}
+
+export function matchesChannelFilterOptions(
+  spec: WhitelistedChannelSpec,
+  filterOptions?: EpgParseFilterOptions
+): boolean {
+  if (!filterOptions) return !spec.hasPolishLektor && spec.hasSubtitles !== false;
+
+  const bouquetId = inferChannelBouquetId(spec);
+  if (
+    filterOptions.selectedBouquets &&
+    filterOptions.selectedBouquets.length > 0
+  ) {
+    const selected = filterOptions.selectedBouquets;
+    const isLatamMatch =
+      (spec.country === 'BR' || spec.country === 'LATAM') &&
+      (selected.includes('starone_70w_claro_br') ||
+        selected.includes('amazonas_61w_latam') ||
+        selected.includes('intelsat_43w_directv'));
+    if (!selected.includes(bouquetId) && !isLatamMatch) {
+      return false;
+    }
+  }
+
+  const excludeLektor = filterOptions.excludePolishLektor !== false;
+  if (excludeLektor && spec.hasPolishLektor) {
+    return false;
+  }
+
+  const excludeNoSub = filterOptions.excludeNoSubtitles !== false;
+  if (
+    excludeNoSub &&
+    spec.hasSubtitles === false &&
+    spec.contentCategory !== 'Sport / Football'
+  ) {
+    return false;
+  }
+
+  if (
+    filterOptions.enabledCategories &&
+    filterOptions.enabledCategories.length > 0
+  ) {
+    const enabled = filterOptions.enabledCategories;
+    const cat =
+      spec.contentCategory ||
+      (spec.group === 'Sport / Football'
+        ? 'Sport / Football'
+        : spec.group === 'Documentaires'
+        ? 'Documentaires'
+        : 'Films & Séries');
+
+    let matchedCategory = false;
+    if (cat === 'Sport / Football' && enabled.includes('Sport / Football')) {
+      matchedCategory = true;
+    }
+    if (cat === 'Documentaires' && enabled.includes('Documentaires')) {
+      matchedCategory = true;
+    }
+    if (cat === 'Films & Séries') {
+      if (enabled.includes('Films & Séries')) {
+        matchedCategory = true;
+      } else if (
+        spec.group === 'Classiques & Culte' &&
+        enabled.includes('Classiques & Culte')
+      ) {
+        matchedCategory = true;
+      } else if (
+        spec.group === 'Comédie & Famille' &&
+        enabled.includes('Jeunesse & Famille')
+      ) {
+        matchedCategory = true;
+      }
+    }
+    if (!matchedCategory) return false;
+  }
+
+  return true;
+}
+
 /**
  * Résout l'identifiant canonique d'une chaîne si et seulement si elle figure
- * dans la liste blanche stricte (Films/Séries VO+Sub Sans Lektor OU Sport/Football Grands Championnats).
+ * dans la liste blanche stricte et respecte les filtres actifs de l'utilisateur.
  */
 export function resolveWhitelistedChannelSpec(
-  rawId: string
+  rawId: string,
+  filterOptions?: EpgParseFilterOptions
 ): WhitelistedChannelSpec | null {
   if (!rawId) return null;
   const key = rawId.trim().toLowerCase();
 
   const sportSpec = SPORT_FOOTBALL_WHITELIST[key];
   if (sportSpec) {
-    return sportSpec;
+    const fullSportSpec: WhitelistedChannelSpec = {
+      ...sportSpec,
+      bouquetId: inferChannelBouquetId(sportSpec),
+      hasSubtitles: sportSpec.hasSubtitles ?? true,
+    };
+    return matchesChannelFilterOptions(fullSportSpec, filterOptions)
+      ? fullSportSpec
+      : null;
   }
 
-  const cinemaSpec = STRICT_CHANNEL_WHITELIST[key];
+  const cinemaSpec =
+    STRICT_CHANNEL_WHITELIST[key] || resolveDynamicGlobalSpec(rawId);
   if (!cinemaSpec) return null;
 
-  return {
+  const normalizedBouquets = cinemaSpec.bouquets.map(normalizeBouquetName);
+  const bouquetId = inferChannelBouquetId(cinemaSpec);
+  if (
+    bouquetId === 'nilesat_osn_mbc' &&
+    !normalizedBouquets.includes('Nilesat OSN/MBC')
+  ) {
+    normalizedBouquets.push('Nilesat OSN/MBC');
+  }
+
+  const fullCinemaSpec: WhitelistedChannelSpec = {
     ...cinemaSpec,
-    contentCategory: 'Films & Séries',
+    bouquetId,
+    contentCategory:
+      cinemaSpec.contentCategory ||
+      (cinemaSpec.group === 'Documentaires'
+        ? 'Documentaires'
+        : 'Films & Séries'),
     satellites: cinemaSpec.satellites.map(normalizeSatelliteName),
-    bouquets: cinemaSpec.bouquets.map(normalizeBouquetName),
+    bouquets: normalizedBouquets,
+    hasPolishLektor: cinemaSpec.hasPolishLektor ?? false,
+    hasSubtitles: cinemaSpec.hasSubtitles ?? true,
   };
+
+  return matchesChannelFilterOptions(fullCinemaSpec, filterOptions)
+    ? fullCinemaSpec
+    : null;
 }
 
-export function resolveCanonicalChannelId(rawId: string): string | null {
-  const spec = resolveWhitelistedChannelSpec(rawId);
+export function resolveCanonicalChannelId(
+  rawId: string,
+  filterOptions?: EpgParseFilterOptions
+): string | null {
+  const spec = resolveWhitelistedChannelSpec(rawId, filterOptions);
   return spec ? spec.canonicalId : null;
 }
 
@@ -1734,7 +2409,8 @@ export function parseChannelBlock(
     id: string;
     name: string;
     country: Exclude<CountryCode, 'Tous'>;
-  }
+  },
+  filterOptions?: EpgParseFilterOptions
 ): EpgChannel | null {
   const headerEnd = block.indexOf('>');
   if (headerEnd === -1) return null;
@@ -1743,8 +2419,8 @@ export function parseChannelBlock(
   const rawId = decodeXmlEntities(extractXmlAttr(header, 'id'));
   if (!rawId) return null;
 
-  // Vérification dans la Whitelist stricte Cinéma/Séries + VO + Sous-titres
-  const spec = resolveWhitelistedChannelSpec(rawId);
+  // Vérification dans la Whitelist stricte Cinéma/Séries + VO + Sous-titres + Filtres Utilisateur
+  const spec = resolveWhitelistedChannelSpec(rawId, filterOptions);
   if (!spec) {
     return null;
   }
@@ -1771,15 +2447,20 @@ export function parseChannelBlock(
       spec.contentCategory ||
       (spec.group === 'Sport / Football'
         ? 'Sport / Football'
+        : spec.group === 'Documentaires'
+        ? 'Documentaires'
         : 'Films & Séries'),
     group: spec.group,
     country: spec.country,
     satellites: spec.satellites,
     orbitalPosition: spec.orbitalPosition,
     bouquets: spec.bouquets,
+    bouquetId: spec.bouquetId,
     audioTrackLabel: spec.audioTrackLabel,
     subtitleTrackLabel: spec.subtitleTrackLabel,
     lektorStatus: spec.lektorStatus,
+    hasPolishLektor: spec.hasPolishLektor,
+    hasSubtitles: spec.hasSubtitles,
     sourceId: sourceMeta?.id || 'default',
     sourceName: sourceMeta?.name || spec.orbitalPosition,
     channelNumber: index + 1,
@@ -1794,12 +2475,13 @@ export function parseChannelBlock(
 function isExcludedProgrammeContent(
   title: string,
   rawCategory: string,
-  block: string
+  block: string,
+  filterOptions?: EpgParseFilterOptions
 ): boolean {
   const lowerTitle = title.toLowerCase();
   const lowerCat = rawCategory.toLowerCase();
 
-  // Exclure le télé-achat, les journaux télévisés ou le sport pur s'il en apparaît en inter-programme
+  // Exclure le télé-achat, les journaux télévisés ou la publicité en inter-programme
   if (
     lowerCat.includes('teleshopping') ||
     lowerCat.includes('telezakupy') ||
@@ -1812,11 +2494,18 @@ function isExcludedProgrammeContent(
     return true;
   }
 
-  // Si un bloc XML mentionne explicitement un doublage Lektor sans sous-titres
+  const excludeLektor = filterOptions?.excludePolishLektor !== false;
   if (
-    block.includes('lektor') &&
-    (block.includes('brak napisów') || block.includes('tylko lektor'))
+    excludeLektor &&
+    block.toLowerCase().includes('lektor') &&
+    (block.toLowerCase().includes('brak napisów') ||
+      block.toLowerCase().includes('tylko lektor'))
   ) {
+    return true;
+  }
+
+  const excludeNoSub = filterOptions?.excludeNoSubtitles !== false;
+  if (excludeNoSub && block.toLowerCase().includes('brak napisów')) {
     return true;
   }
 
@@ -1830,7 +2519,8 @@ export function parseProgrammeBlock(
   block: string,
   index: number,
   minKeepStopMs?: number,
-  maxKeepStartMs?: number
+  maxKeepStartMs?: number,
+  filterOptions?: EpgParseFilterOptions
 ): {
   programme: EpgProgramme | null;
   startMs: number;
@@ -1848,8 +2538,11 @@ export function parseProgrammeBlock(
     return { programme: null, startMs: 0, stopMs: 0, channelId: '' };
   }
 
-  // Filtrage O(1) : ignorer immédiatement tout programme d'une chaîne hors Whitelist
-  const canonicalChannelId = resolveCanonicalChannelId(rawChannelId);
+  // Filtrage O(1) : ignorer immédiatement tout programme d'une chaîne hors Whitelist ou hors Bouquets cochés
+  const canonicalChannelId = resolveCanonicalChannelId(
+    rawChannelId,
+    filterOptions
+  );
   if (!canonicalChannelId) {
     return { programme: null, startMs: 0, stopMs: 0, channelId: '' };
   }
@@ -1883,7 +2576,14 @@ export function parseProgrammeBlock(
 
   const rawCategory = extractXmlTagContent(block, 'category') || '';
 
-  if (isExcludedProgrammeContent(rawPrimaryTitle, rawCategory, block)) {
+  if (
+    isExcludedProgrammeContent(
+      rawPrimaryTitle,
+      rawCategory,
+      block,
+      filterOptions
+    )
+  ) {
     return { programme: null, startMs, stopMs, channelId: canonicalChannelId };
   }
 
@@ -1894,7 +2594,26 @@ export function parseProgrammeBlock(
   const description = extractXmlTagContent(block, 'desc') || undefined;
   const category = normalizeCategoryLabel(rawCategory, rawPrimaryTitle);
   const date = extractXmlTagContent(block, 'date') || undefined;
-  const episodeNum = extractXmlTagContent(block, 'episode-num') || undefined;
+  const country = extractXmlTagContent(block, 'country') || undefined;
+  const rawEpisodeNum = extractXmlTagContent(block, 'episode-num') || undefined;
+
+  // Conditionnement strict Saison / Épisode : uniquement pour Séries TV & Documentaires avec saison/épisode valides
+  let episodeNum: string | undefined = undefined;
+  if (
+    isProgrammeSeriesOrDocumentary({
+      category,
+      rawCategory,
+      title: rawPrimaryTitle,
+      subTitle: rawSubTitle,
+    })
+  ) {
+    const { season, episode } = parseSeasonAndEpisode(
+      rawEpisodeNum,
+      originalTitle || rawPrimaryTitle,
+      rawSubTitle
+    );
+    episodeNum = formatSeasonEpisodeCode(season, episode);
+  }
 
   let icon: string | undefined;
   const iconIdx = block.indexOf('<icon');
@@ -1931,6 +2650,7 @@ export function parseProgrammeBlock(
       startMs,
       stopMs,
       date,
+      country,
       episodeNum,
       directors,
       actors,

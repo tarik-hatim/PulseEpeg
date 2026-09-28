@@ -1,282 +1,331 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  Compass,
   Film,
   Globe,
-  Orbit,
+  Heart,
+  Radio,
+  RotateCcw,
+  Satellite,
+  Sparkles,
+  Subtitles,
   Trophy,
   Tv,
+  Volume2,
 } from 'lucide-react';
 import {
+  AppLanguage,
   BouquetFilter,
+  ChannelGroup,
   ContentCategoryFilter,
   CountryCode,
   EpgChannel,
   EpgProgramme,
   SatelliteFilter,
-  TimeFilterPreset,
 } from '../types/epg';
-import { formatLocalTime, formatShortDate } from '../utils/timeFormat';
 import {
-  enrichProgrammeWithFrenchMetadata,
-  getCachedEnrichedMetadata,
-} from '../services/metadataEnricher';
+  APP_TIMEZONE_LABEL,
+  floorToHalfHourCasablanca,
+  formatDayLabel,
+  formatTimeShort,
+  getCasablancaTimestampForHour,
+} from '../utils/timeFormat';
+import {
+  formatSeasonEpisodeCode,
+  isProgrammeSeriesOrDocumentary,
+  parseSeasonAndEpisode,
+  translateEpgTextToFrenchSync,
+} from '../utils/metadataResolverCore';
+import {
+  getActiveLanguage,
+  getTranslations,
+  translateBouquetFilter,
+  translateCategoryFilter,
+  translateCountryFilter,
+  translateDynamicGenre,
+  translateSatelliteFilter,
+  translateSubGenreGroup,
+} from '../utils/i18n';
 
 interface TimeGridViewProps {
   channels: EpgChannel[];
-  schedulesByChannel: Record<string, EpgProgramme[]>;
-  referenceTimeMs: number;
-  onChangeReferenceTime: (newTimeMs: number, preset?: TimeFilterPreset) => void;
-  activeTimeFilter?: TimeFilterPreset;
-  onSelectTimeFilter?: (preset: TimeFilterPreset) => void;
-  onSelectChannel: (channelId: string) => void;
+  programmesByChannel: Record<string, EpgProgramme[]>;
+  nowMs: number;
+  favorites: string[];
+  onToggleFavorite: (channelId: string) => void;
+  onSelectChannel: (channel: EpgChannel, programme?: EpgProgramme) => void;
   selectedCategory: ContentCategoryFilter;
-  onSelectCategory: (cat: ContentCategoryFilter) => void;
-  categoryCounts: Record<string, number>;
+  onSelectCategory: (category: ContentCategoryFilter) => void;
   selectedSatellite: SatelliteFilter;
   onSelectSatellite: (sat: SatelliteFilter) => void;
-  satelliteCounts: Record<string, number>;
-  selectedCountry: CountryCode;
-  onSelectCountry: (country: CountryCode) => void;
-  countryCounts: Record<string, number>;
   selectedBouquet: BouquetFilter;
   onSelectBouquet: (bouquet: BouquetFilter) => void;
-  bouquetCounts: Record<string, number>;
-  isLight: boolean;
+  selectedCountry: CountryCode;
+  onSelectCountry: (country: CountryCode) => void;
+  selectedGroup: ChannelGroup;
+  onSelectGroup: (group: ChannelGroup) => void;
+  categoryCounts: Record<ContentCategoryFilter, number>;
+  satelliteCounts: Record<SatelliteFilter, number>;
+  bouquetCounts: Record<BouquetFilter, number>;
+  countryCounts: Record<CountryCode, number>;
+  groupCounts: Record<ChannelGroup, number>;
+  language?: AppLanguage;
 }
 
-const WINDOW_DURATION_MS = 3 * 3600 * 1000; // Fenêtre de 3 heures sur la grille
+const PIXELS_PER_MINUTE = 4.6;
+const WINDOW_HOURS = 4;
+const WINDOW_MINUTES = WINDOW_HOURS * 60;
+const TOTAL_TIMELINE_WIDTH = WINDOW_MINUTES * PIXELS_PER_MINUTE;
 
-const CATEGORIES: { code: ContentCategoryFilter; label: string }[] = [
-  { code: 'Tous', label: 'Tous' },
-  { code: 'Films & Séries', label: 'Films & Séries' },
-  { code: 'Sport / Football', label: 'Sport / Football' },
+const CATEGORY_OPTIONS: {
+  code: ContentCategoryFilter;
+  icon: 'all' | 'cinema' | 'sport' | 'doc';
+}[] = [
+  { code: 'Tous', icon: 'all' },
+  { code: 'Films & Séries', icon: 'cinema' },
+  { code: 'Sport / Football', icon: 'sport' },
+  { code: 'Documentaires', icon: 'doc' },
 ];
 
-const SATELLITES: { code: SatelliteFilter; label: string }[] = [
-  { code: 'Tous', label: 'Tous satellites' },
-  { code: 'Astra 19.2°E', label: 'Astra 19.2°E' },
-  { code: 'Hotbird 13°E', label: 'Hotbird 13°E' },
-  { code: 'Hispasat 30°W', label: 'Hispasat 30°W' },
-  { code: 'Nilesat 7°W', label: 'Nilesat 7°W' },
-];
-
-const COUNTRIES: { code: CountryCode; label: string }[] = [
-  { code: 'Tous', label: 'Tous pays' },
-  { code: 'PL', label: 'PL · Pologne (VO / Sport)' },
-  { code: 'ES', label: 'ES · Movistar+ / DAZN' },
-  { code: 'DE', label: 'DE · Allemagne / Sky DE' },
-  { code: 'IT', label: 'IT · Sky Italia / DAZN' },
-  { code: 'AR', label: 'Nilesat 7°W · OSN / MBC / beIN' },
-];
-
-const BOUQUETS: BouquetFilter[] = [
+const SATELLITE_OPTIONS: SatelliteFilter[] = [
   'Tous',
+  'Nilesat 7°W',
+  'Astra 19.2°E',
+  'Hotbird 13°E',
+  'Hispasat 30°W',
+  'Eutelsat 16°E / Thor 0.8°W',
+  'Star One D2 70°W',
+  'Amazonas 61°W',
+  'Intelsat 43.1°W & SES-6 40.5°W',
+];
+
+const BOUQUET_OPTIONS: BouquetFilter[] = [
+  'Tous',
+  'Nilesat OSN/MBC',
+  'beIN / SSC (MENA)',
+  'Astra Canal+',
   'Movistar+ / DAZN ES',
   'Sky DE / DAZN DE',
   'Sky Italia / DAZN IT',
   'Canal+ / Eleven / FilmBox',
   'HBO / Cinemax',
   'AXN / Warner / Sci-Fi',
-  'OSN / MBC (Nilesat)',
-  'beIN / SSC / AD Sports',
+  'DigitAlb / Total TV / Focus Sat',
+  'Claro TV Brasil',
+  'Vivo TV / Movistar LATAM',
+  'DirecTV LATAM / Sky Brasil',
 ];
+
+const COUNTRY_OPTIONS: {
+  code: CountryCode;
+  flag: string;
+}[] = [
+  { code: 'Tous', flag: '🛰️' },
+  { code: 'AR', flag: '🇲🇦/🇦🇪' },
+  { code: 'FR', flag: '🇫🇷' },
+  { code: 'ES', flag: '🇪🇸' },
+  { code: 'DE', flag: '🇩🇪' },
+  { code: 'IT', flag: '🇮🇹' },
+  { code: 'PL', flag: '🇵🇱' },
+  { code: 'EU', flag: '🇪🇺' },
+  { code: 'BR', flag: '🇧🇷' },
+  { code: 'LATAM', flag: '🌎' },
+];
+
+const GROUP_OPTIONS: ChannelGroup[] = [
+  'Toutes',
+  'Sport / Football',
+  'Documentaires',
+  'Cinéma Premières',
+  'Séries TV & US',
+  'Action & Thriller',
+  'Comédie & Famille',
+  'Classiques & Culte',
+];
+
+const COUNTRY_FLAGS: Record<string, string> = {
+  DE: '🇩🇪',
+  ES: '🇪🇸',
+  FR: '🇫🇷',
+  IT: '🇮🇹',
+  PL: '🇵🇱',
+  AR: '🇲🇦/🇦🇪',
+  EU: '🇪🇺',
+  BR: '🇧🇷',
+  LATAM: '🌎',
+};
 
 export const TimeGridView: React.FC<TimeGridViewProps> = ({
   channels,
-  schedulesByChannel,
-  referenceTimeMs,
-  onChangeReferenceTime,
-  activeTimeFilter,
-  onSelectTimeFilter,
+  programmesByChannel,
+  nowMs,
+  favorites,
+  onToggleFavorite,
   onSelectChannel,
   selectedCategory,
   onSelectCategory,
-  categoryCounts,
   selectedSatellite,
   onSelectSatellite,
-  satelliteCounts,
-  selectedCountry,
-  onSelectCountry,
-  countryCounts,
   selectedBouquet,
   onSelectBouquet,
+  selectedCountry,
+  onSelectCountry,
+  selectedGroup,
+  onSelectGroup,
+  categoryCounts,
+  satelliteCounts,
   bouquetCounts,
-  isLight,
+  countryCounts,
+  groupCounts,
+  language,
 }) => {
-  const [page, setPage] = useState(0);
-  const [activePreset, setActivePreset] = useState<TimeFilterPreset>(
-    activeTimeFilter || 'now'
+  const activeLang = language || getActiveLanguage();
+  const tr = getTranslations(activeLang);
+
+  const [windowStartMs, setWindowStartMs] = useState<number>(() =>
+    floorToHalfHourCasablanca(nowMs - 30 * 60000)
   );
-  const [, setGridEnrichTick] = useState(0);
-  const pageSize = 30;
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (activeTimeFilter) {
-      setActivePreset(activeTimeFilter);
-    }
-  }, [activeTimeFilter]);
+  const windowEndMs = windowStartMs + WINDOW_MINUTES * 60000;
 
-  const currentActiveTimeFilter: TimeFilterPreset =
-    activeTimeFilter ?? activePreset;
-
-  useEffect(() => {
-    setPage(0);
-  }, [
-    selectedCategory,
-    selectedSatellite,
-    selectedCountry,
-    selectedBouquet,
-    channels.length,
-  ]);
-
-  const windowStartMs = useMemo(() => {
-    const d = new Date(referenceTimeMs);
-    d.setMinutes(d.getMinutes() >= 30 ? 30 : 0, 0, 0);
-    return d.getTime();
-  }, [referenceTimeMs]);
-
-  const windowEndMs = windowStartMs + WINDOW_DURATION_MS;
-
-  const halfHourSlots = useMemo(() => {
+  const timeSlots = useMemo(() => {
     const slots: number[] = [];
-    for (let t = windowStartMs; t < windowEndMs; t += 30 * 60 * 1000) {
-      slots.push(t);
+    const count = WINDOW_HOURS * 2;
+    for (let i = 0; i < count; i++) {
+      slots.push(windowStartMs + i * 30 * 60000);
     }
     return slots;
-  }, [windowStartMs, windowEndMs]);
+  }, [windowStartMs]);
 
-  const totalPages = Math.max(1, Math.ceil(channels.length / pageSize));
-  const safePage = Math.min(page, totalPages - 1);
-  const visibleChannels = useMemo(
-    () => channels.slice(safePage * pageSize, (safePage + 1) * pageSize),
-    [channels, safePage]
+  const nowOffsetPx = useMemo(() => {
+    if (nowMs < windowStartMs || nowMs > windowEndMs) return null;
+    return ((nowMs - windowStartMs) / 60000) * PIXELS_PER_MINUTE;
+  }, [nowMs, windowStartMs, windowEndMs]);
+
+  const shiftWindow = (hours: number) => {
+    setWindowStartMs((prev) => prev + hours * 3600000);
+  };
+
+  const resetToNow = () => {
+    setWindowStartMs(floorToHalfHourCasablanca(nowMs - 30 * 60000));
+  };
+
+  const jumpToPrimeTime = () => {
+    setWindowStartMs(getCasablancaTimestampForHour(nowMs, 20, 30));
+  };
+
+  const favoriteSet = useMemo(() => new Set(favorites), [favorites]);
+
+  const visibleCategoryOptions = useMemo(
+    () =>
+      CATEGORY_OPTIONS.filter(
+        (cat) => cat.code === 'Tous' || (categoryCounts[cat.code] ?? 0) > 0
+      ),
+    [categoryCounts]
   );
 
-  // Enrichissement systématique TMDB + Traduction FR sur les programmes visibles de la Grille TV
+  const visibleSatelliteOptions = useMemo(
+    () =>
+      SATELLITE_OPTIONS.filter(
+        (sat) => sat === 'Tous' || (satelliteCounts[sat] ?? 0) > 0
+      ),
+    [satelliteCounts]
+  );
+
+  const visibleBouquetOptions = useMemo(
+    () =>
+      BOUQUET_OPTIONS.filter(
+        (bq) => bq === 'Tous' || (bouquetCounts[bq] ?? 0) > 0
+      ),
+    [bouquetCounts]
+  );
+
+  const visibleCountryOptions = useMemo(
+    () =>
+      COUNTRY_OPTIONS.filter(
+        (c) => c.code === 'Tous' || (countryCounts[c.code] ?? 0) > 0
+      ),
+    [countryCounts]
+  );
+
+  const visibleGroupOptions = useMemo(
+    () =>
+      GROUP_OPTIONS.filter(
+        (grp) => grp === 'Toutes' || (groupCounts[grp] ?? 0) > 0
+      ),
+    [groupCounts]
+  );
+
   useEffect(() => {
-    let cancelled = false;
-
-    async function enrichVisibleGridProgrammes() {
-      for (const ch of visibleChannels) {
-        if (cancelled) break;
-        const schedule = schedulesByChannel[ch.id] || [];
-        const activeInWindow = schedule
-          .filter((p) => p.stopMs > windowStartMs && p.startMs < windowEndMs)
-          .slice(0, 2);
-
-        for (const prog of activeInWindow) {
-          if (cancelled) break;
-          if (!getCachedEnrichedMetadata(prog)) {
-            try {
-              await enrichProgrammeWithFrenchMetadata(prog, ch.country);
-              if (!cancelled) {
-                setGridEnrichTick((t) => t + 1);
-              }
-            } catch {
-              // Ignore
-            }
-          }
-        }
-      }
+    if (nowOffsetPx !== null && scrollContainerRef.current) {
+      const targetScroll = Math.max(0, nowOffsetPx - 160);
+      scrollContainerRef.current.scrollLeft = targetScroll;
     }
-
-    const timer = setTimeout(enrichVisibleGridProgrammes, 180);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [visibleChannels, schedulesByChannel, windowStartMs, windowEndMs]);
-
-  const handleMinusOneHour = () => {
-    setActivePreset('minus1h');
-    onSelectTimeFilter?.('minus1h');
-    onChangeReferenceTime(referenceTimeMs - 3600 * 1000, 'minus1h');
-  };
-
-  const handleJumpToNow = () => {
-    setActivePreset('now');
-    onSelectTimeFilter?.('now');
-    onChangeReferenceTime(Date.now(), 'now');
-  };
-
-  const jumpToTonightPrime = () => {
-    setActivePreset('prime');
-    onSelectTimeFilter?.('prime');
-    const d = new Date(referenceTimeMs);
-    d.setHours(20, 45, 0, 0);
-    onChangeReferenceTime(d.getTime(), 'prime');
-  };
-
-  const handlePlusOneHour = () => {
-    setActivePreset('plus1h');
-    onSelectTimeFilter?.('plus1h');
-    onChangeReferenceTime(referenceTimeMs + 3600 * 1000, 'plus1h');
-  };
-
-  const getTimePresetButtonClass = (preset: TimeFilterPreset) => {
-    const isActive = currentActiveTimeFilter === preset;
-    if (isActive) {
-      return 'min-h-[40px] px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1 bg-amber-500 hover:bg-amber-400 text-slate-950 transition-colors whitespace-nowrap active btn-orange-active';
-    }
-    return `min-h-[40px] px-3 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1 transition-colors whitespace-nowrap btn-normal-inactive ${
-      isLight
-        ? 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-        : 'bg-slate-800/80 hover:bg-slate-700 text-slate-200'
-    }`;
-  };
+  }, []);
 
   return (
-    <div
-      className={`rounded-3xl border overflow-hidden ${
-        isLight
-          ? 'bg-white border-slate-200 text-slate-900'
-          : 'bg-[#131B2E] border-slate-800/90 text-slate-100'
-      }`}
-    >
-      {/* Category, Satellite, Bouquet & Country Quick Filters inside Grille TV Header */}
-      <div
-        className={`p-4 border-b space-y-2.5 ${
-          isLight
-            ? 'bg-slate-50/70 border-slate-200'
-            : 'bg-[#0B0F17]/50 border-slate-800/80'
-        }`}
-      >
-        {/* Row 0: Quick Category Filter ("Tous", "Films & Séries", "Sport / Football") */}
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-          <div
-            className={`flex items-center gap-1.5 text-xs font-semibold pr-1 shrink-0 ${
-              isLight ? 'text-slate-700' : 'text-slate-200'
-            }`}
-          >
-            <Film className="w-3.5 h-3.5 text-amber-400" />
-            <span>Catégorie :</span>
-          </div>
-          {CATEGORIES.map((cat) => {
+    <div className="rounded-2xl border border-slate-800 bg-slate-900/95 overflow-hidden shadow-2xl">
+      {/* Barre de Filtres Satellite / Bouquet / Genre dédiée à la Grille TV */}
+      <div className="p-3 sm:p-4 bg-slate-950/90 border-b border-slate-800/90 space-y-2.5">
+        {/* Ligne 0 : Catégories principales */}
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 border-b border-slate-800/70">
+          <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-amber-400 me-1 shrink-0">
+            <Film className="w-3.5 h-3.5" />
+            {tr.filterCatLabel}
+          </span>
+          {visibleCategoryOptions.map((cat) => {
             const active = selectedCategory === cat.code;
-            const count = categoryCounts[cat.code] || 0;
+            const count = categoryCounts[cat.code] ?? 0;
+            const label = translateCategoryFilter(cat.code, activeLang);
             return (
               <button
                 key={cat.code}
-                type="button"
                 onClick={() => onSelectCategory(cat.code)}
-                className={`min-h-[40px] px-4 py-1.5 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer border ${
                   active
-                    ? 'bg-amber-500 text-slate-950 font-bold'
-                    : isLight
-                    ? 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
-                    : 'bg-[#131B2E] border border-slate-800 text-slate-200 hover:bg-slate-800'
+                    ? cat.code === 'Sport / Football'
+                      ? 'bg-emerald-500 text-slate-950 border-emerald-400 shadow-md shadow-emerald-500/20'
+                      : cat.code === 'Documentaires'
+                      ? 'bg-cyan-500 text-slate-950 border-cyan-400 shadow-md shadow-cyan-500/20'
+                      : 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/20'
+                    : 'bg-slate-900 text-slate-200 border-slate-800 hover:bg-slate-800 hover:border-slate-700'
                 }`}
               >
-                {cat.code === 'Sport / Football' && (
-                  <Trophy className="w-3.5 h-3.5" />
+                {cat.icon === 'sport' ? (
+                  <Trophy
+                    className={`w-3.5 h-3.5 ${
+                      active ? 'text-slate-950' : 'text-emerald-400'
+                    }`}
+                  />
+                ) : cat.icon === 'cinema' ? (
+                  <Film
+                    className={`w-3.5 h-3.5 ${
+                      active ? 'text-slate-950' : 'text-amber-400'
+                    }`}
+                  />
+                ) : cat.icon === 'doc' ? (
+                  <Compass
+                    className={`w-3.5 h-3.5 ${
+                      active ? 'text-slate-950' : 'text-cyan-400'
+                    }`}
+                  />
+                ) : (
+                  <Tv
+                    className={`w-3.5 h-3.5 ${
+                      active ? 'text-slate-950' : 'text-indigo-400'
+                    }`}
+                  />
                 )}
-                <span>{cat.label}</span>
+                <span>{label}</span>
                 <span
-                  className={`font-mono tabular-nums text-[11px] ${
-                    active ? 'text-slate-900/80' : 'text-slate-500'
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                    active
+                      ? 'bg-slate-950/20 text-slate-950 font-extrabold'
+                      : 'bg-slate-800 text-slate-400'
                   }`}
                 >
                   {count}
@@ -286,366 +335,442 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
           })}
         </div>
 
-        {/* Row 1: Satellite Quick Filter (Astra 19.2°E, Hotbird 13°E, Hispasat 30°W, Nilesat 7°W) */}
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-          <div
-            className={`flex items-center gap-1.5 text-xs font-semibold pr-1 shrink-0 ${
-              isLight ? 'text-slate-700' : 'text-slate-300'
-            }`}
-          >
-            <Orbit className="w-3.5 h-3.5 text-amber-400" />
-            <span>Satellite :</span>
-          </div>
-          {SATELLITES.map((sat) => {
-            const active = selectedSatellite === sat.code;
-            const count = satelliteCounts[sat.code] || 0;
-            return (
-              <button
-                key={sat.code}
-                type="button"
-                onClick={() => onSelectSatellite(sat.code)}
-                className={`min-h-[38px] px-3.5 py-1 rounded-xl text-xs font-medium transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
-                  active
-                    ? 'bg-amber-500 text-slate-950 font-semibold'
-                    : isLight
-                    ? 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
-                    : 'bg-[#131B2E] border border-slate-800 text-slate-200 hover:bg-slate-800'
-                }`}
-              >
-                <span>{sat.label}</span>
-                <span
-                  className={`font-mono tabular-nums text-[11px] ${
-                    active ? 'text-slate-900/80' : 'text-slate-500'
-                  }`}
-                >
-                  {count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Row 2: Bouquet Filter (Movistar+, Sky DE, Sky Italia, HBO/Cinemax, Canal+/FilmBox, AXN/Warner, OSN/MBC) */}
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-          <div
-            className={`flex items-center gap-1.5 text-xs font-semibold pr-1 shrink-0 ${
-              isLight ? 'text-slate-600' : 'text-slate-400'
-            }`}
-          >
-            <Tv className="w-3.5 h-3.5 text-amber-400" />
-            <span>Bouquet :</span>
-          </div>
-          {BOUQUETS.map((b) => {
-            const active = selectedBouquet === b;
-            const count = bouquetCounts[b] || 0;
-            return (
-              <button
-                key={b}
-                type="button"
-                onClick={() => onSelectBouquet(b)}
-                className={`min-h-[38px] px-3 py-1 rounded-xl text-xs font-medium transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
-                  active
-                    ? 'bg-amber-500 text-slate-950 font-semibold'
-                    : isLight
-                    ? 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
-                    : 'bg-[#131B2E] border border-slate-800 text-slate-300 hover:bg-slate-800'
-                }`}
-              >
-                <span>{b === 'Tous' ? 'Tous bouquets' : b}</span>
-                <span
-                  className={`font-mono tabular-nums text-[11px] ${
-                    active ? 'text-slate-900/80' : 'text-slate-500'
-                  }`}
-                >
-                  {count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Row 3: Country Filter (PL, ES, DE, IT, AR) */}
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-          <div
-            className={`flex items-center gap-1.5 text-xs font-semibold pr-1 shrink-0 ${
-              isLight ? 'text-slate-600' : 'text-slate-400'
-            }`}
-          >
-            <Globe className="w-3.5 h-3.5 text-amber-400" />
-            <span>Zone :</span>
-          </div>
-          {COUNTRIES.map((c) => {
-            const active = selectedCountry === c.code;
-            const count = countryCounts[c.code] || 0;
-            return (
-              <button
-                key={c.code}
-                type="button"
-                onClick={() => onSelectCountry(c.code)}
-                className={`min-h-[36px] px-3 py-1 rounded-xl text-xs font-medium transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
-                  active
-                    ? 'bg-amber-500 text-slate-950 font-semibold'
-                    : isLight
-                    ? 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
-                    : 'bg-[#131B2E] border border-slate-800 text-slate-300 hover:bg-slate-800'
-                }`}
-              >
-                <span>{c.label}</span>
-                <span
-                  className={`font-mono tabular-nums text-[11px] ${
-                    active ? 'text-slate-900/80' : 'text-slate-500'
-                  }`}
-                >
-                  {count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Time Navigation Header */}
-      <div
-        className={`p-4 border-b flex flex-wrap items-center justify-between gap-3 ${
-          isLight ? 'border-slate-200' : 'border-slate-800/80'
-        }`}
-      >
-        <div className="flex items-center gap-2">
-          <Clock className="w-4 h-4 text-amber-400" />
-          <span className="text-sm font-semibold">
-            {formatShortDate(windowStartMs)} · {formatLocalTime(windowStartMs)} à{' '}
-            {formatLocalTime(windowEndMs)}
-          </span>
-          <span
-            className={`hidden sm:inline text-xs font-mono ${
-              isLight ? 'text-slate-500' : 'text-slate-400'
-            }`}
-          >
-            · Films/Séries (VO+Sub) & Sport/Football
-          </span>
-        </div>
-
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-          <button
-            type="button"
-            aria-pressed={currentActiveTimeFilter === 'minus1h'}
-            onClick={handleMinusOneHour}
-            className={getTimePresetButtonClass('minus1h')}
-          >
-            <ChevronLeft className="w-3.5 h-3.5" />
-            <span>-1h</span>
-          </button>
-
-          <button
-            type="button"
-            aria-pressed={currentActiveTimeFilter === 'now'}
-            onClick={handleJumpToNow}
-            className={getTimePresetButtonClass('now')}
-          >
-            <span>Maintenant</span>
-          </button>
-
-          <button
-            type="button"
-            aria-pressed={currentActiveTimeFilter === 'prime'}
-            onClick={jumpToTonightPrime}
-            className={getTimePresetButtonClass('prime')}
-          >
-            <span>Prime 20h45</span>
-          </button>
-
-          <button
-            type="button"
-            aria-pressed={currentActiveTimeFilter === 'plus1h'}
-            onClick={handlePlusOneHour}
-            className={getTimePresetButtonClass('plus1h')}
-          >
-            <span>+1h</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      </div>
-
-      {/* Scrollable Timeline Matrix */}
-      <div className="overflow-x-auto">
-        <div className="min-w-[780px]">
-          {/* Time Ruler */}
-          <div
-            className={`flex border-b text-xs font-mono tabular-nums ${
-              isLight
-                ? 'bg-slate-50 border-slate-200 text-slate-500'
-                : 'bg-[#0B0F17]/70 border-slate-800/80 text-slate-400'
-            }`}
-          >
-            <div className="w-56 shrink-0 px-4 py-2.5 font-sans font-semibold border-r border-slate-800/40">
-              Chaîne Cinéma/Séries ({channels.length})
+        {/* Ligne 1 : Satellites + Zones */}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          {visibleSatelliteOptions.length > 1 && (
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-amber-400 me-1 shrink-0">
+                <Satellite className="w-3.5 h-3.5" />
+                {tr.filterSatLabel}
+              </span>
+              {visibleSatelliteOptions.map((sat) => {
+                const active = selectedSatellite === sat;
+                const count = satelliteCounts[sat] ?? 0;
+                const label = translateSatelliteFilter(sat, activeLang);
+                return (
+                  <button
+                    key={sat}
+                    onClick={() => onSelectSatellite(sat)}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all shrink-0 cursor-pointer border ${
+                      active
+                        ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold shadow-sm'
+                        : 'bg-slate-900 text-slate-300 border-slate-800 hover:bg-slate-800'
+                    }`}
+                  >
+                    <span>{label}</span>
+                    <span
+                      className={`text-[10px] px-1.5 rounded-full ${
+                        active
+                          ? 'bg-slate-950/20 text-slate-950 font-extrabold'
+                          : 'bg-slate-800 text-slate-400'
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
-            <div className="flex-1 grid grid-cols-6">
-              {halfHourSlots.map((slotMs) => (
+          )}
+
+          {/* Zones / Pays */}
+          {visibleCountryOptions.length > 1 && (
+            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-0.5">
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-slate-400 me-1 shrink-0">
+                <Globe className="w-3 h-3 text-indigo-400" />
+                {tr.filterZoneLabel}
+              </span>
+              {visibleCountryOptions.map((c) => {
+                const active = selectedCountry === c.code;
+                const count = countryCounts[c.code] ?? 0;
+                const label = translateCountryFilter(c.code, activeLang);
+                return (
+                  <button
+                    key={c.code}
+                    onClick={() => onSelectCountry(c.code)}
+                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium transition-all shrink-0 cursor-pointer border ${
+                      active
+                        ? 'bg-indigo-600 text-white border-indigo-400 font-bold'
+                        : 'bg-slate-900 text-slate-300 border-slate-800 hover:bg-slate-800'
+                    }`}
+                  >
+                    <span>{c.flag}</span>
+                    <span>{label}</span>
+                    <span
+                      className={`text-[10px] px-1 rounded-full ${
+                        active
+                          ? 'bg-white/20 text-white'
+                          : 'bg-slate-800 text-slate-400'
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Ligne 2 : Bouquets + Genres */}
+        {(visibleBouquetOptions.length > 1 ||
+          visibleGroupOptions.length > 1) && (
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-800/60">
+            {visibleBouquetOptions.length > 1 && (
+              <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-0.5">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 me-1 shrink-0">
+                  {tr.filterBouquetLabel}
+                </span>
+                {visibleBouquetOptions.map((bq) => {
+                  const active = selectedBouquet === bq;
+                  const count = bouquetCounts[bq] ?? 0;
+                  const label = translateBouquetFilter(bq, activeLang);
+                  return (
+                    <button
+                      key={bq}
+                      onClick={() => onSelectBouquet(bq)}
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all shrink-0 cursor-pointer border ${
+                        active
+                          ? 'bg-emerald-500 text-slate-950 border-emerald-400 font-bold'
+                          : 'bg-slate-900 text-slate-300 border-slate-800 hover:bg-slate-800'
+                      }`}
+                    >
+                      <span>{label}</span>
+                      <span
+                        className={`text-[10px] px-1 rounded-full ${
+                          active
+                            ? 'bg-slate-950/20 text-slate-950 font-bold'
+                            : 'bg-slate-800 text-slate-400'
+                        }`}
+                      >
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {visibleGroupOptions.length > 1 && (
+              <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-0.5">
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-amber-300 me-1 shrink-0">
+                  <Sparkles className="w-3 h-3" />
+                  {tr.filterGenreLabel}
+                </span>
+                {visibleGroupOptions.map((grp) => {
+                  const active = selectedGroup === grp;
+                  const count = groupCounts[grp] ?? 0;
+                  const label = translateSubGenreGroup(grp, activeLang);
+                  return (
+                    <button
+                      key={grp}
+                      onClick={() => onSelectGroup(grp)}
+                      className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium transition-all shrink-0 cursor-pointer border ${
+                        active
+                          ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 font-bold'
+                          : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
+                      }`}
+                    >
+                      <span>{label}</span>
+                      <span className="text-[10px] text-slate-500">
+                        ({count})
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Contrôles Temporels de la Grille */}
+      <div className="p-3 sm:p-4 bg-slate-900 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/90 border border-slate-700/70 text-xs font-semibold text-slate-200">
+            <Clock className="w-3.5 h-3.5 text-amber-400" />
+            <span>{formatDayLabel(windowStartMs, activeLang)}</span>
+            <span className="text-slate-500">·</span>
+            <span className="font-mono text-amber-300">
+              {formatTimeShort(windowStartMs)} – {formatTimeShort(windowEndMs)}
+            </span>
+            <span className="hidden md:inline-block ms-1 px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[10px] font-mono">
+              {APP_TIMEZONE_LABEL}
+            </span>
+          </div>
+
+          <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-[11px] font-semibold text-emerald-300">
+            <Volume2 className="w-3 h-3" />
+            {channels.length} {tr.activeChannelsOnGrid}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => shiftWindow(-2)}
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 border border-slate-700 transition-colors cursor-pointer"
+          >
+            <ChevronLeft className="w-3.5 h-3.5 rtl:rotate-180" />
+            2h
+          </button>
+
+          <button
+            onClick={resetToNow}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-xs font-semibold text-amber-300 border border-amber-500/30 transition-colors cursor-pointer"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            {tr.presetNow}
+          </button>
+
+          <button
+            onClick={jumpToPrimeTime}
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 text-xs font-semibold text-indigo-300 border border-indigo-500/30 transition-colors cursor-pointer"
+          >
+            <Radio className="w-3.5 h-3.5" />
+            20h45
+          </button>
+
+          <button
+            onClick={() => shiftWindow(2)}
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 border border-slate-700 transition-colors cursor-pointer"
+          >
+            2h
+            <ChevronRight className="w-3.5 h-3.5 rtl:rotate-180" />
+          </button>
+        </div>
+      </div>
+
+      {/* Corps de la Grille multi-colonnes (Forcé en LTR pour l'axe chronologique horizontal) */}
+      <div dir="ltr" className="relative flex overflow-hidden max-h-[68vh]">
+        {/* Colonne Fixe Gauche : Chaînes Satellite */}
+        <div className="w-52 sm:w-64 shrink-0 border-r border-slate-800 bg-slate-950/95 z-20 overflow-y-hidden select-none">
+          <div className="h-10 border-b border-slate-800 px-3 flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-400 bg-slate-950">
+            <span>{tr.gridChannelHeader}</span>
+            <span className="text-emerald-400 text-[10px]">
+              {tr.gridVoSubHeader}
+            </span>
+          </div>
+
+          <div className="divide-y divide-slate-800/70">
+            {channels.map((ch) => {
+              const isFav = favoriteSet.has(ch.id);
+              const flag = COUNTRY_FLAGS[ch.country] || '🛰️';
+              return (
+                <div
+                  key={ch.id}
+                  onClick={() => onSelectChannel(ch)}
+                  className="h-20 px-2.5 flex items-center justify-between gap-2 hover:bg-slate-900 transition-colors cursor-pointer group"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-9 h-9 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center p-1 shrink-0">
+                      {ch.icon ? (
+                        <img
+                          src={ch.icon}
+                          alt={ch.displayName}
+                          className="max-w-full max-h-full object-contain"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <Tv className="w-4 h-4 text-slate-500" />
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1">
+                        <span className="text-[10px]">{flag}</span>
+                        <p className="text-xs font-bold text-slate-200 truncate group-hover:text-amber-300 transition-colors">
+                          {ch.displayName}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <span className="text-[9px] font-semibold px-1 py-0.2 rounded bg-slate-800 text-amber-300 border border-slate-700 truncate">
+                          {ch.orbitalPosition}
+                        </span>
+                        <span className="inline-flex items-center gap-0.5 text-[9px] text-cyan-300 font-medium">
+                          <Subtitles className="w-2.5 h-2.5" />
+                          SUB
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleFavorite(ch.id);
+                    }}
+                    className={`p-1.5 rounded-lg transition-colors cursor-pointer shrink-0 ${
+                      isFav
+                        ? 'text-rose-400'
+                        : 'text-slate-600 hover:text-slate-300'
+                    }`}
+                  >
+                    <Heart
+                      className={`w-3.5 h-3.5 ${isFav ? 'fill-rose-500' : ''}`}
+                    />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Zone Scrollable Horizontale : Timeline & Programmes */}
+        <div
+          ref={scrollContainerRef}
+          className="flex-1 overflow-x-auto overflow-y-auto relative"
+        >
+          <div
+            style={{ width: `${TOTAL_TIMELINE_WIDTH}px` }}
+            className="relative"
+          >
+            {/* En-tête gradué toutes les 30 minutes */}
+            <div className="h-10 border-b border-slate-800 bg-slate-950/90 sticky top-0 z-10 flex">
+              {timeSlots.map((slotMs) => (
                 <div
                   key={slotMs}
-                  className="px-3 py-2.5 border-r border-slate-800/30 last:border-r-0"
+                  style={{ width: `${30 * PIXELS_PER_MINUTE}px` }}
+                  className="border-r border-slate-800/80 px-2.5 flex items-center text-xs font-mono font-semibold text-slate-300 shrink-0"
                 >
-                  {formatLocalTime(slotMs)}
+                  {formatTimeShort(slotMs)}
                 </div>
               ))}
             </div>
-          </div>
 
-          {/* Channel Rows */}
-          <div className="divide-y divide-slate-800/40">
-            {visibleChannels.length === 0 ? (
-              <div className="p-8 text-center text-xs text-slate-400">
-                Aucune chaîne ne correspond au filtre satellite/bouquet sélectionné.
+            {/* Marqueur vertical Temps Réel */}
+            {nowOffsetPx !== null && (
+              <div
+                style={{ left: `${nowOffsetPx}px` }}
+                className="absolute top-0 bottom-0 w-0.5 bg-amber-400 z-20 pointer-events-none shadow-[0_0_10px_rgba(251,191,36,0.9)]"
+              >
+                <div className="px-1.5 py-0.5 rounded bg-amber-400 text-slate-950 font-mono font-bold text-[9px] -translate-x-1/2 whitespace-nowrap shadow">
+                  {formatTimeShort(nowMs)}
+                </div>
               </div>
-            ) : (
-              visibleChannels.map((channel) => {
-                const schedule = schedulesByChannel[channel.id] || [];
-                const overlapping = schedule.filter(
+            )}
+
+            {/* Lignes des programmes */}
+            <div className="divide-y divide-slate-800/70">
+              {channels.map((ch) => {
+                const progs = (programmesByChannel[ch.id] || []).filter(
                   (p) => p.stopMs > windowStartMs && p.startMs < windowEndMs
                 );
 
                 return (
                   <div
-                    key={channel.id}
-                    onClick={() => onSelectChannel(channel.id)}
-                    className={`flex items-stretch cursor-pointer transition-colors min-h-[64px] ${
-                      isLight ? 'hover:bg-slate-50' : 'hover:bg-slate-800/30'
-                    }`}
+                    key={ch.id}
+                    className="h-20 relative bg-slate-900/40 hover:bg-slate-900/80 transition-colors"
                   >
-                    {/* Channel Identity Cell */}
-                    <div
-                      className={`w-56 shrink-0 px-4 py-2.5 border-r flex flex-col justify-center ${
-                        isLight
-                          ? 'border-slate-200 bg-white'
-                          : 'border-slate-800/60 bg-[#131B2E]'
-                      }`}
-                    >
-                      <p className="text-xs font-semibold truncate">
-                        {channel.displayName}
-                      </p>
-                      <p
-                        className={`text-[10px] truncate mt-0.5 ${
-                          isLight ? 'text-slate-500' : 'text-slate-400'
-                        }`}
-                      >
-                        <span className="font-mono tabular-nums font-semibold text-amber-400">
-                          {channel.orbitalPosition}
-                        </span>
-                      </p>
-                      <p className="text-[10px] font-mono text-emerald-400 truncate mt-0.5">
-                        {channel.audioTrackLabel} · {channel.subtitleTrackLabel}
-                      </p>
-                    </div>
+                    {progs.map((prog) => {
+                      const clampedStart = Math.max(
+                        prog.startMs,
+                        windowStartMs
+                      );
+                      const clampedStop = Math.min(prog.stopMs, windowEndMs);
+                      const leftPx =
+                        ((clampedStart - windowStartMs) / 60000) *
+                        PIXELS_PER_MINUTE;
+                      const widthPx = Math.max(
+                        36,
+                        ((clampedStop - clampedStart) / 60000) *
+                          PIXELS_PER_MINUTE -
+                          3
+                      );
+                      const isLive =
+                        prog.startMs <= nowMs && prog.stopMs > nowMs;
 
-                    {/* Proportional Timeline Track */}
-                    <div className="flex-1 relative min-h-[64px] flex items-center">
-                      {overlapping.length === 0 ? (
-                        <span
-                          className={`px-4 text-xs italic ${
-                            isLight ? 'text-slate-400' : 'text-slate-600'
+                      const allowGridSE = isProgrammeSeriesOrDocumentary({
+                        category: prog.category,
+                        rawCategory: prog.rawCategory,
+                        title: prog.originalTitle || prog.title,
+                        subTitle: prog.subTitle,
+                        channelCategory: ch.contentCategory,
+                      });
+                      const parsedGridSE = allowGridSE
+                        ? parseSeasonAndEpisode(
+                            prog.episodeNum,
+                            prog.originalTitle || prog.title,
+                            prog.subTitle
+                          )
+                        : {};
+                      const formattedGridSE = allowGridSE
+                        ? formatSeasonEpisodeCode(
+                            parsedGridSE.season,
+                            parsedGridSE.episode
+                          )
+                        : undefined;
+
+                      return (
+                        <div
+                          key={prog.id}
+                          onClick={() => onSelectChannel(ch, prog)}
+                          style={{
+                            left: `${leftPx}px`,
+                            width: `${widthPx}px`,
+                          }}
+                          className={`absolute top-1.5 bottom-1.5 rounded-xl px-2.5 py-1.5 border overflow-hidden cursor-pointer transition-all flex flex-col justify-between ${
+                            isLive
+                              ? 'bg-gradient-to-br from-amber-500/25 via-amber-500/10 to-slate-900 border-amber-500/60 shadow-md z-10'
+                              : 'bg-slate-800/75 hover:bg-slate-800 border-slate-700/70 hover:border-slate-600'
                           }`}
+                          title={`${
+                            activeLang === 'fr'
+                              ? translateEpgTextToFrenchSync(prog.title)
+                              : prog.title
+                          } (${formatTimeShort(prog.startMs)} - ${formatTimeShort(
+                            prog.stopMs
+                          )})`}
                         >
-                          Aucun programme sur cette tranche horaire
-                        </span>
-                      ) : (
-                        overlapping.map((prog) => {
-                          const clampedStart = Math.max(
-                            windowStartMs,
-                            prog.startMs
-                          );
-                          const clampedEnd = Math.min(windowEndMs, prog.stopMs);
-                          const leftPct =
-                            ((clampedStart - windowStartMs) /
-                              WINDOW_DURATION_MS) *
-                            100;
-                          const widthPct = Math.max(
-                            2,
-                            ((clampedEnd - clampedStart) / WINDOW_DURATION_MS) *
-                              100
-                          );
-                          const isLive =
-                            prog.startMs <= referenceTimeMs &&
-                            prog.stopMs > referenceTimeMs;
-                          const cachedFr = getCachedEnrichedMetadata(prog);
-                          const cellTitle = cachedFr?.frenchTitle || prog.title;
-
-                          return (
-                            <div
-                              key={prog.id}
-                              style={{
-                                left: `${leftPct}%`,
-                                width: `${widthPct}%`,
-                              }}
-                              className={`absolute top-1.5 bottom-1.5 px-2.5 py-1 rounded-lg border overflow-hidden flex flex-col justify-center transition-colors ${
-                                isLive
-                                  ? isLight
-                                    ? 'bg-amber-100/90 border-amber-400 text-slate-900'
-                                    : 'bg-amber-500/15 border-amber-500/60 text-slate-100'
-                                  : isLight
-                                  ? 'bg-slate-100 border-slate-200/90 text-slate-800'
-                                  : 'bg-[#0B0F17]/90 border-slate-800 text-slate-200'
-                              }`}
-                            >
-                              <p className="text-xs font-semibold truncate">
-                                {cellTitle}
-                              </p>
-                              <p
-                                className={`text-[10px] font-mono tabular-nums truncate ${
-                                  isLive
-                                    ? 'text-amber-400'
-                                    : isLight
-                                    ? 'text-slate-500'
-                                    : 'text-slate-400'
-                                }`}
-                              >
-                                {formatLocalTime(prog.startMs)} –{' '}
-                                {formatLocalTime(prog.stopMs)} · {prog.category}
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              {isLive && (
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping shrink-0" />
+                              )}
+                              <p className="text-xs font-bold text-white truncate">
+                                {activeLang === 'fr'
+                                  ? translateEpgTextToFrenchSync(prog.title)
+                                  : prog.title}
                               </p>
                             </div>
-                          );
-                        })
-                      )}
-                    </div>
+                            {prog.subTitle && allowGridSE && widthPx > 130 && (
+                              <p className="text-[10px] text-amber-300/90 truncate">
+                                {activeLang === 'fr'
+                                  ? translateEpgTextToFrenchSync(prog.subTitle)
+                                  : prog.subTitle}
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="flex items-center justify-between gap-1 text-[10px] text-slate-400 font-mono">
+                            <span className="truncate">
+                              {formatTimeShort(prog.startMs)} -{' '}
+                              {formatTimeShort(prog.stopMs)}
+                            </span>
+                            {formattedGridSE && widthPx > 140 ? (
+                              <span className="px-1 py-0.2 rounded bg-indigo-500/20 text-indigo-300 text-[9px] font-sans font-bold truncate max-w-[65px]">
+                                {formattedGridSE}
+                              </span>
+                            ) : (
+                              prog.category &&
+                              widthPx > 140 && (
+                                <span className="px-1.5 py-0.2 rounded bg-slate-900/70 text-slate-300 text-[9px] font-sans truncate max-w-[90px]">
+                                  {translateDynamicGenre(
+                                    prog.category,
+                                    activeLang
+                                  )}
+                                </span>
+                              )
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 );
-              })
-            )}
+              })}
+            </div>
           </div>
         </div>
       </div>
-
-      {/* Pagination Footer */}
-      {totalPages > 1 && (
-        <div
-          className={`px-4 py-3 border-t flex items-center justify-between text-xs ${
-            isLight ? 'border-slate-200' : 'border-slate-800/80'
-          }`}
-        >
-          <span className="font-mono tabular-nums">
-            Page {safePage + 1} sur {totalPages} ({channels.length} chaînes
-            Cinéma/Séries)
-          </span>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              disabled={safePage === 0}
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
-              className="min-h-[40px] px-3 py-1.5 rounded-xl font-medium disabled:opacity-40 bg-slate-800/70 text-slate-200 hover:bg-slate-700 transition-colors"
-            >
-              Précédent
-            </button>
-            <button
-              type="button"
-              disabled={safePage >= totalPages - 1}
-              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-              className="min-h-[40px] px-3 py-1.5 rounded-xl font-medium disabled:opacity-40 bg-slate-800/70 text-slate-200 hover:bg-slate-700 transition-colors"
-            >
-              Suivant
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
