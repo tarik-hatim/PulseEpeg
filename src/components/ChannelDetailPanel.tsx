@@ -321,18 +321,18 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
   return (
     <div
       dir={langOpt.dir}
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[#090d14]/88 backdrop-blur-md p-0 sm:p-4 animate-fadeIn"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[#0a0e17]/88 backdrop-blur-md p-0 sm:p-4 animate-fadeIn"
       onClick={onClose}
     >
       {/* Conteneur principal du modal avec défilement vertical garanti sur mobile */}
       <div
-        className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-[#121824] border border-[#1f293d] rounded-t-xl sm:rounded-xl shadow-2xl"
+        className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-[#141a26] border border-[#1a202c] rounded-t-xl sm:rounded-xl shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* En-tête simplifié et collant : Nom de chaîne + Actions */}
-        <div className="sticky top-0 z-20 px-4 py-3 bg-[#090d14]/95 backdrop-blur-md border-b border-[#1f293d] flex items-center justify-between gap-3">
+        <div className="sticky top-0 z-20 px-4 py-3 bg-[#0a0e17]/95 backdrop-blur-md border-b border-[#1a202c] flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-lg bg-[#090d14] border border-[#1f293d] flex items-center justify-center p-1.5 shrink-0">
+            <div className="w-10 h-10 rounded-lg bg-[#0a0e17] border border-[#1a202c] flex items-center justify-center p-1.5 shrink-0">
               <img
                 src={
                   ensureHttpsUrl(
@@ -377,7 +377,7 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                   .trim()}
               </h2>
               <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#121824] text-[#cbd5e1] border border-[#1f293d] uppercase tracking-wider">
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50 uppercase tracking-wider">
                   {getSingleSatelliteBadgeForChannel(
                     channel,
                     activeSatellite,
@@ -389,7 +389,7 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                   activeSatellite,
                   activeBouquet
                 ) && (
-                  <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#121824] text-[#cbd5e1] border border-[#1f293d]">
+                  <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50">
                     {getActiveBouquetBadgeForChannel(
                       channel,
                       activeSatellite,
@@ -407,8 +407,8 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
               onClick={() => onToggleFavorite(channel.id)}
               className={`p-2 rounded-lg transition-all cursor-pointer ${
                 isFavorite
-                  ? 'bg-[#2563eb] border-[1.5px] border-[#60a5fa] text-[#ffffff] shadow-[0_0_12px_rgba(37,99,235,0.45)]'
-                  : 'bg-[#121824] border border-[#1f293d] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#3b82f6]/50'
+                  ? 'bg-[#e11d48] border-[1.5px] border-[#ff0033] text-[#ffffff] shadow-[0_0_12px_rgba(225,29,72,0.45)]'
+                  : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60'
               }`}
               title={isFavorite ? tr.removeFromFavorites : tr.addToFavorites}
             >
@@ -417,7 +417,7 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="p-2 rounded-lg bg-[#121824] border border-[#1f293d] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#3b82f6]/50 transition-colors cursor-pointer"
+              className="p-2 rounded-lg bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#e11d48]/60 transition-colors cursor-pointer"
               title={tr.close}
             >
               <X className="w-4 h-4" />
@@ -428,20 +428,20 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
         {/* Corps de la fiche programme */}
         <div className="p-4 sm:p-5 space-y-4">
           {displayProg && displayMetadata && (
-            <div className="rounded-lg bg-[#090d14] border border-[#1f293d] p-3.5 sm:p-4">
+            <div className="rounded-lg bg-[#0a0e17] border border-[#1a202c] p-3.5 sm:p-4">
               {/* En-tête épuré : Horaires/Progression + Badge Fiche FR */}
               <div className="flex items-center justify-between gap-2 flex-wrap mb-3">
                 <div className="flex items-center gap-2 flex-wrap">
                   {isLiveActiveProg ? (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-[#2563eb] text-[#ffffff] border border-[#60a5fa] shadow-[0_0_12px_rgba(37,99,235,0.45)]">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[11px] font-extrabold uppercase tracking-wider bg-[#e11d48] text-[#ffffff] border border-[#ff0033] shadow-[0_0_12px_rgba(225,29,72,0.5)]">
                       <span className="w-1.5 h-1.5 rounded-full bg-[#ffffff] animate-pulse shadow-[0_0_6px_#ffffff] shrink-0" />
                       {tr.liveBadge} · {formatTimeShort(displayProg.startMs)} →{' '}
                       {formatTimeShort(displayProg.stopMs)} (
                       {formatRemainingTime(displayProg.stopMs, nowMs, activeLang)})
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[11px] font-medium bg-[#121824] text-[#cbd5e1] border border-[#1f293d]">
-                      <Clock className="w-3 h-3 text-[#cbd5e1]" />
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[11px] font-medium bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50">
+                      <Clock className="w-3 h-3 text-[#60a5fa]" />
                       {formatTimeShort(displayProg.startMs)} →{' '}
                       {formatTimeShort(displayProg.stopMs)} (
                       {formatDurationMinutes(
@@ -452,7 +452,7 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                     </span>
                   )}
 
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-[#121824] text-[#cbd5e1] border border-[#1f293d]">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50">
                     <Sparkles className="w-3 h-3 text-[#60a5fa]" />
                     {tr.officialSheet} {langOpt.shortLabel}
                   </span>
@@ -464,8 +464,8 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                     onClick={() => onToggleReminder(displayProg, channel)}
                     className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-all cursor-pointer shrink-0 ${
                       reminderIds.has(displayProg.id)
-                        ? 'bg-[#2563eb] border-[1.5px] border-[#60a5fa] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(37,99,235,0.45)]'
-                        : 'bg-[#121824] border border-[#1f293d] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#3b82f6]/50 font-medium'
+                        ? 'bg-[#e11d48] border-[1.5px] border-[#ff0033] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(225,29,72,0.45)]'
+                        : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#e11d48]/60 font-medium'
                     }`}
                   >
                     {reminderIds.has(displayProg.id) ? (
@@ -483,12 +483,12 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                 )}
               </div>
 
-              {/* Barre de progression compacte si en direct */}
+              {/* Barre de progression compacte si en direct (Rouge / Crimson Sky Sport) */}
               {isLiveActiveProg && (
                 <div className="mb-3.5">
-                  <div className="h-1.5 w-full bg-[#121824] border border-[#1f293d] rounded-full overflow-hidden">
+                  <div className="h-1.5 w-full bg-[#141a26] border border-[#1a202c] rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-[#3b82f6] shadow-[0_0_10px_#3b82f6] rounded-full transition-all duration-500"
+                      className="h-full bg-gradient-to-r from-[#e11d48] to-[#ff0033] shadow-[0_0_10px_#e11d48] rounded-full transition-all duration-500"
                       style={{ width: `${activeProgress}%` }}
                     />
                   </div>
@@ -502,12 +502,12 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                     <img
                       src={ensureHttpsUrl(displayProg.icon)}
                       alt={displayMetadata.mainTitle}
-                      className="w-[112px] sm:w-[120px] h-[164px] sm:h-[176px] rounded-lg object-cover bg-[#121824] border border-[#1f293d]"
+                      className="w-[112px] sm:w-[120px] h-[164px] sm:h-[176px] rounded-lg object-cover bg-[#141a26] border border-[#1a202c]"
                       loading="lazy"
                     />
                   </div>
                 ) : (
-                  <div className="w-[112px] sm:w-[120px] h-[164px] sm:h-[176px] rounded-lg bg-[#121824] border border-[#1f293d] flex flex-col items-center justify-center p-2.5 text-center shrink-0">
+                  <div className="w-[112px] sm:w-[120px] h-[164px] sm:h-[176px] rounded-lg bg-[#141a26] border border-[#1a202c] flex flex-col items-center justify-center p-2.5 text-center shrink-0">
                     <Film className="w-7 h-7 text-[#cbd5e1] mb-1.5" />
                     <span className="text-[10px] font-semibold text-[#cbd5e1] line-clamp-3">
                       {displayMetadata.mainTitle}
@@ -526,7 +526,7 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                       displayMetadata.cleanEpisodeTitle) && (
                       <div className="mt-1 flex items-center gap-1.5 flex-wrap">
                         {displayMetadata.formattedSE && (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-[#121824] text-[#cbd5e1] border border-[#1f293d]">
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50">
                             {displayMetadata.formattedSE}
                           </span>
                         )}
@@ -579,9 +579,9 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
 
                   {displayProg.rating && (
                     <div className="mt-2.5">
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-bold bg-[#121824] text-[#ffffff] border border-[#1f293d]">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-bold bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50">
                         <span>{displayProg.rating}</span>
-                        <Star className="w-3.5 h-3.5 fill-[#3b82f6] text-[#3b82f6]" />
+                        <Star className="w-3.5 h-3.5 fill-[#e11d48] text-[#e11d48]" />
                         <span className="text-[10px] font-semibold text-[#cbd5e1] uppercase tracking-wider">
                           TMDB
                         </span>
@@ -592,7 +592,7 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
               </div>
 
               {/* Section Résumé / Description */}
-              <div className="mt-4 pt-3.5 border-t border-[#1f293d]">
+              <div className="mt-4 pt-3.5 border-t border-[#1a202c]">
                 <div className="text-[11px] font-bold uppercase tracking-wider text-[#ffffff] mb-1.5">
                   {tr.modalSummary}
                 </div>
@@ -610,11 +610,11 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
               {/* Casting & Réalisation (si disponibles) */}
               {(displayProg.directors?.length ||
                 displayProg.actors?.length) && (
-                <div className="mt-3 pt-2.5 border-t border-[#1f293d] flex flex-wrap gap-x-5 gap-y-1.5 text-[11px] text-[#cbd5e1]">
+                <div className="mt-3 pt-2.5 border-t border-[#1a202c] flex flex-wrap gap-x-5 gap-y-1.5 text-[11px] text-[#cbd5e1]">
                   {displayProg.directors &&
                     displayProg.directors.length > 0 && (
                       <div className="flex items-center gap-1.5">
-                        <Film className="w-3.5 h-3.5 text-[#cbd5e1] shrink-0" />
+                        <Film className="w-3.5 h-3.5 text-[#0055ff] shrink-0" />
                         <span className="text-[#cbd5e1]">
                           {tr.modalDirectedBy}
                         </span>
@@ -625,7 +625,7 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                     )}
                   {displayProg.actors && displayProg.actors.length > 0 && (
                     <div className="flex items-center gap-1.5">
-                      <Users className="w-3.5 h-3.5 text-[#cbd5e1] shrink-0" />
+                      <Users className="w-3.5 h-3.5 text-[#0055ff] shrink-0" />
                       <span className="text-[#cbd5e1]">{tr.modalCast}</span>
                       <span className="text-[#ffffff] font-medium">
                         {displayProg.actors.join(', ')}
@@ -637,10 +637,10 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
             </div>
           )}
 
-          {/* Sélecteur de Jour & Tranche Horaire — Bleu d'accent vif pour les boutons actifs */}
-          <div className="rounded-lg bg-[#090d14] border border-[#1f293d] p-3 space-y-2.5">
+          {/* Sélecteur de Jour & Tranche Horaire — Rouge Crimson pour les boutons actifs */}
+          <div className="rounded-lg bg-[#0a0e17] border border-[#1a202c] p-3 space-y-2.5">
             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
-              <Calendar className="w-4 h-4 text-[#cbd5e1] shrink-0 me-1" />
+              <Calendar className="w-4 h-4 text-[#0055ff] shrink-0 me-1" />
               {dayTabs.map((tab) => {
                 const isSelected = tab.offset === selectedDayOffset;
                 return (
@@ -650,16 +650,16 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                     onClick={() => setSelectedDayOffset(tab.offset)}
                     className={`px-3 py-1.5 rounded-lg text-xs transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
                       isSelected
-                        ? 'bg-[#2563eb] border-[1.5px] border-[#60a5fa] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(37,99,235,0.45)]'
-                        : 'bg-[#121824] border border-[#1f293d] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#3b82f6]/50 font-medium'
+                        ? 'bg-[#e11d48] border-[1.5px] border-[#ff0033] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(225,29,72,0.45)]'
+                        : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60 font-medium'
                     }`}
                   >
                     <span>{tab.label}</span>
                     <span
                       className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${
                         isSelected
-                          ? 'bg-[#090d14]/80 text-[#ffffff] border border-[#93c5fd]/50 font-bold'
-                          : 'bg-[#090d14] text-[#cbd5e1]'
+                          ? 'bg-[#0a0e17]/80 text-[#ffffff] border border-[#ff0033]/50 font-bold'
+                          : 'bg-[#0a0e17] text-[#cbd5e1]'
                       }`}
                     >
                       {tab.count}
@@ -686,8 +686,8 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                     onClick={() => setPeriodFilter(period.id)}
                     className={`px-2.5 py-1 rounded-lg text-[11px] transition-all cursor-pointer ${
                       active
-                        ? 'bg-[#2563eb] border-[1.5px] border-[#60a5fa] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(37,99,235,0.45)]'
-                        : 'bg-[#121824] border border-[#1f293d] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#3b82f6]/50 font-medium'
+                        ? 'bg-[#e11d48] border-[1.5px] border-[#ff0033] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(225,29,72,0.45)]'
+                        : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60 font-medium'
                     }`}
                   >
                     {period.label}
@@ -700,7 +700,7 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
           {/* Liste chronologique des programmes */}
           <div className="space-y-2">
             {filteredProgrammes.length === 0 ? (
-              <div className="text-center py-10 px-4 rounded-lg border border-dashed border-[#1f293d] bg-[#090d14]">
+              <div className="text-center py-10 px-4 rounded-lg border border-dashed border-[#1a202c] bg-[#0a0e17]">
                 <Info className="w-7 h-7 text-[#cbd5e1] mx-auto mb-2" />
                 <p className="text-sm font-medium text-[#ffffff]">
                   {tr.noProgramForSlot}
@@ -754,12 +754,12 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                     }}
                     className={`tv-card-focusable group rounded-lg p-3 transition-all cursor-pointer ${
                       isSelected
-                        ? 'bg-[#121824] border-[1.5px] border-[#3b82f6] shadow-[0_0_12px_rgba(59,130,246,0.25)]'
+                        ? 'bg-[#1a202c] border-[1.5px] border-[#e11d48] shadow-[0_0_12px_rgba(225,29,72,0.35)]'
                         : isLive
-                        ? 'bg-[#090d14] border border-[#3b82f6]/50'
+                        ? 'bg-[#0a0e17] border border-[#e11d48]/60'
                         : isPast
-                        ? 'bg-[#090d14]/60 border border-[#1f293d] opacity-70 hover:opacity-100'
-                        : 'bg-[#090d14] border border-[#1f293d] hover:border-[#3b82f6]/50'
+                        ? 'bg-[#0a0e17]/60 border border-[#1a202c] opacity-70 hover:opacity-100'
+                        : 'bg-[#0a0e17] border border-[#1a202c] hover:border-[#0055ff]/60'
                     }`}
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -772,7 +772,7 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                             → {formatTimeShort(prog.stopMs)}
                           </div>
                           {isLive && (
-                            <span className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-[#2563eb] text-[#ffffff] border border-[#60a5fa] shadow-[0_0_8px_rgba(37,99,235,0.45)] rounded">
+                            <span className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wider bg-[#e11d48] text-[#ffffff] border border-[#ff0033] shadow-[0_0_8px_rgba(225,29,72,0.45)] rounded">
                               <span className="w-1.5 h-1.5 rounded-full bg-[#ffffff] animate-pulse shadow-[0_0_6px_#ffffff] shrink-0" />
                               {tr.liveBadge}
                             </span>
@@ -787,17 +787,17 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                                 : prog.title}
                             </h4>
                             {formattedListSE && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#121824] text-[#cbd5e1] border border-[#1f293d] font-medium">
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50 font-medium">
                                 {formattedListSE}
                               </span>
                             )}
                             {prog.date && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#121824] text-[#cbd5e1] border border-[#1f293d] font-medium">
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#1d4ed8]/15 text-[#cbd5e1] border border-[#0055ff]/40 font-medium">
                                 {formatReleaseYearOrDate(prog.date)}
                               </span>
                             )}
                             {prog.category && (
-                              <span className="text-[10px] px-2 py-0.5 rounded bg-[#121824] text-[#cbd5e1] border border-[#1f293d]">
+                              <span className="text-[10px] px-2 py-0.5 rounded bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50">
                                 {translateDynamicGenre(
                                   prog.category,
                                   activeLang
@@ -828,9 +828,9 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                           )}
 
                           {isLive && (
-                            <div className="mt-2 h-1.5 w-full bg-[#121824] border border-[#1f293d] rounded-full overflow-hidden">
+                            <div className="mt-2 h-1.5 w-full bg-[#141a26] border border-[#1a202c] rounded-full overflow-hidden">
                               <div
-                                className="h-full bg-[#3b82f6] shadow-[0_0_8px_#3b82f6] rounded-full"
+                                className="h-full bg-gradient-to-r from-[#e11d48] to-[#ff0033] shadow-[0_0_8px_#e11d48] rounded-full"
                                 style={{ width: `${progProgress}%` }}
                               />
                             </div>
@@ -851,8 +851,8 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                             }}
                             className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
                               hasReminder
-                                ? 'bg-[#2563eb] border-[1.5px] border-[#60a5fa] text-[#ffffff] shadow-[0_0_10px_rgba(37,99,235,0.45)]'
-                                : 'bg-[#121824] border border-[#1f293d] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#3b82f6]/50'
+                                ? 'bg-[#e11d48] border-[1.5px] border-[#ff0033] text-[#ffffff] shadow-[0_0_10px_rgba(225,29,72,0.45)]'
+                                : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60'
                             }`}
                             title={
                               hasReminder ? tr.cancelReminder : tr.remindProgram
