@@ -268,57 +268,58 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const getCategoryIcon = (id: ThematicCategoryId) => {
     if (id === 'Sport / Football')
-      return <Trophy className="w-4 h-4 text-emerald-400" />;
+      return <Trophy className="w-4 h-4 text-cyan-400" />;
     if (id === 'Documentaires')
       return <Compass className="w-4 h-4 text-cyan-400" />;
     if (id === 'Films & Séries')
-      return <Film className="w-4 h-4 text-amber-400" />;
-    return <Sparkles className="w-4 h-4 text-indigo-400" />;
+      return <Film className="w-4 h-4 text-blue-400" />;
+    return <Sparkles className="w-4 h-4 text-blue-400" />;
   };
 
   return (
     <div
       dir={langOpt.dir}
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-fadeIn"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-[#0B0F17]/85 backdrop-blur-md animate-fadeIn"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]"
+        className="w-full max-w-4xl bg-[#131927] border border-[#1E2638] rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header Modal */}
-        <div className="p-4 sm:p-5 bg-slate-950/90 border-b border-slate-800 flex items-center justify-between gap-3">
+        <div className="p-4 sm:p-5 bg-[#0B0F17] border-b border-[#1E2638] flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
+            <div className="w-10 h-10 rounded-lg bg-[#131927] border border-[#2A324B] flex items-center justify-center text-[#3B82F6]">
               <Filter className="w-5 h-5" />
             </div>
             <div>
               <h2 className="text-base sm:text-lg font-bold text-white">
                 {tr.settingsModalTitle}
               </h2>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-[#94A3B8]">
                 {tr.settingsModalSubtitle}
               </p>
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-2 rounded-xl bg-slate-800/80 text-slate-400 hover:text-white transition-colors cursor-pointer"
+            className="p-2 rounded-lg bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white transition-colors cursor-pointer"
             title={tr.close}
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Navigation par Onglets */}
-        <div className="px-4 sm:px-5 pt-3 bg-slate-950/60 border-b border-slate-800 flex items-center gap-2 overflow-x-auto no-scrollbar">
+        {/* Navigation par Onglets — Style Ghost / Outline */}
+        <div className="px-4 sm:px-5 py-2.5 bg-[#0B0F17] border-b border-[#1E2638] flex items-center gap-2 overflow-x-auto no-scrollbar">
           <button
             type="button"
             onClick={() => setActiveTab('filters')}
-            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-t-xl text-xs sm:text-sm font-bold border-b-2 transition-all cursor-pointer shrink-0 ${
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm transition-all cursor-pointer shrink-0 ${
               activeTab === 'filters'
-                ? 'border-amber-400 text-amber-300 bg-amber-500/10'
-                : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold'
+                : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white font-medium'
             }`}
           >
             <Satellite className="w-4 h-4" />
@@ -328,10 +329,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('sources')}
-            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-t-xl text-xs sm:text-sm font-bold border-b-2 transition-all cursor-pointer shrink-0 ${
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm transition-all cursor-pointer shrink-0 ${
               activeTab === 'sources'
-                ? 'border-indigo-400 text-indigo-300 bg-indigo-500/10'
-                : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold'
+                : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white font-medium'
             }`}
           >
             <Database className="w-4 h-4" />
@@ -341,10 +342,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('legal')}
-            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-t-xl text-xs sm:text-sm font-bold border-b-2 transition-all cursor-pointer shrink-0 ${
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm transition-all cursor-pointer shrink-0 ${
               activeTab === 'legal'
-                ? 'border-emerald-400 text-emerald-300 bg-emerald-500/10'
-                : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold'
+                : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white font-medium'
             }`}
           >
             <Scale className="w-4 h-4" />
@@ -355,18 +356,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {/* Body */}
         <div className="p-4 sm:p-5 overflow-y-auto space-y-6 flex-1">
           {/* Sélecteur de Langue International (i18n + RTL) toujours accessible */}
-          <div className="p-4 rounded-2xl bg-slate-950/90 border border-slate-800/90 space-y-3">
+          <div className="p-4 rounded-lg bg-[#0B0F17] border border-[#1E2638] space-y-3">
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <div>
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <Languages className="w-4 h-4 text-amber-400" />
+                  <Languages className="w-4 h-4 text-[#3B82F6]" />
                   {tr.languageSectionTitle}
                 </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
+                <p className="text-xs text-[#94A3B8] mt-0.5">
                   {tr.languageSectionDesc}
                 </p>
               </div>
-              <span className="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-amber-500/15 text-amber-300 border border-amber-500/30 font-bold">
+              <span className="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border border-[#2A324B] font-semibold">
                 {langOpt.flag} {langOpt.label} · TMDB {langOpt.tmdbLocale}
               </span>
             </div>
@@ -379,17 +380,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     key={opt.code}
                     type="button"
                     onClick={() => handleSelectLanguage(opt.code)}
-                    className={`flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                    className={`flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg text-xs transition-all cursor-pointer ${
                       isSelected
-                        ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/20'
-                        : 'bg-slate-900/90 text-slate-200 border-slate-800 hover:bg-slate-800 hover:border-slate-700'
+                        ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold'
+                        : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white font-medium'
                     }`}
                   >
                     <span className="flex items-center gap-1.5 truncate">
                       <span className="text-base leading-none">{opt.flag}</span>
                       <span className="truncate">{opt.label}</span>
                     </span>
-                    {isSelected && <Check className="w-3.5 h-3.5 shrink-0" />}
+                    {isSelected && <Check className="w-3.5 h-3.5 text-[#3B82F6] shrink-0" />}
                   </button>
                 );
               })}
@@ -403,22 +404,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div>
                     <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                      <Satellite className="w-4 h-4 text-amber-400" />
+                      <Satellite className="w-4 h-4 text-[#3B82F6]" />
                       {tr.bouquetsSectionTitle}
                     </h3>
-                    <p className="text-xs text-slate-400 mt-0.5">
+                    <p className="text-xs text-[#94A3B8] mt-0.5">
                       {tr.bouquetsSectionDesc}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-xs font-mono font-bold">
+                    <span className="px-2.5 py-1 rounded-lg bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border border-[#2A324B] text-xs font-mono font-medium">
                       RAM &lt; 50 Mo · Max {MAX_ACTIVE_BOUQUETS} Bouquets /{' '}
                       {MAX_ACTIVE_SATELLITES} Satellites
                     </span>
                     <button
                       type="button"
                       onClick={selectAllBouquets}
-                      className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 text-xs font-semibold cursor-pointer"
+                      className="px-2.5 py-1 rounded-lg bg-[rgba(255,255,255,0.03)] hover:bg-[#1E293B] text-[#94A3B8] hover:text-white border border-[#2A324B] text-xs font-semibold cursor-pointer"
                     >
                       Top {MAX_ACTIVE_BOUQUETS} Bouquets
                     </button>
@@ -426,8 +427,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
 
                 {limitWarning && (
-                  <div className="p-3 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center gap-2">
-                    <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0" />
+                  <div className="p-3 rounded-lg bg-[#1E293B] border border-[#3B82F6]/50 text-white text-xs font-medium flex items-center gap-2">
+                    <ShieldAlert className="w-4 h-4 text-[#3B82F6] shrink-0" />
                     <span>{limitWarning}</span>
                   </div>
                 )}
@@ -446,26 +447,34 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     return (
                       <div
                         key={satGroup.satelliteId}
-                        className={`rounded-2xl border p-3.5 transition-all flex flex-col gap-2.5 ${
+                        className={`rounded-lg border p-3.5 transition-all flex flex-col gap-2.5 ${
                           someChecked
-                            ? 'bg-slate-950/90 border-amber-500/40 shadow-md shadow-amber-500/5'
-                            : 'bg-slate-950/50 border-slate-800/80 opacity-75 hover:opacity-100'
+                            ? 'bg-[#0B0F17] border-[#2A324B]'
+                            : 'bg-[#0B0F17]/60 border-[#1E2638] opacity-75 hover:opacity-100'
                         }`}
                       >
                         {/* En-tête de la carte Satellite par Position Orbitale */}
-                        <div className="flex items-start justify-between gap-2 pb-2 border-b border-slate-800/80">
+                        <div className="flex items-start justify-between gap-2 pb-2 border-b border-[#1E2638]">
                           <div
+                            tabIndex={0}
+                            role="button"
                             onClick={() => toggleSatelliteGroup(groupIds)}
-                            className="flex items-start gap-2.5 cursor-pointer min-w-0 flex-1"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                toggleSatelliteGroup(groupIds);
+                              }
+                            }}
+                            className="flex items-start gap-2.5 cursor-pointer min-w-0 flex-1 rounded-md p-0.5"
                           >
-                            <div className="mt-0.5 text-amber-400 shrink-0">
+                            <div className="mt-0.5 text-[#3B82F6] shrink-0">
                               {allChecked ? (
                                 <CheckSquare className="w-4 h-4" />
                               ) : (
                                 <Square
                                   className={`w-4 h-4 ${
                                     someChecked
-                                      ? 'text-amber-400/70'
+                                      ? 'text-[#3B82F6]/70'
                                       : 'text-slate-600'
                                   }`}
                                 />
@@ -476,17 +485,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 <span className="text-sm font-bold text-white">
                                   {satGroup.flag} {satGroup.title}
                                 </span>
-                                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                                <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border border-[#2A324B]">
                                   {satGroup.orbitalPosition}
                                 </span>
                               </div>
-                              <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
+                              <p className="text-[11px] text-[#94A3B8] mt-0.5 leading-snug">
                                 {satGroup.subtitle}
                               </p>
                             </div>
                           </div>
 
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-900 text-slate-300 border border-slate-800 shrink-0">
+                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border border-[#2A324B] shrink-0">
                             {activeCount}/{groupIds.length}
                           </span>
                         </div>
@@ -506,18 +515,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             return (
                               <div
                                 key={bq.id}
+                                tabIndex={0}
+                                role="button"
                                 onClick={() => toggleBouquet(bq.id)}
-                                className={`p-2.5 rounded-xl border transition-all cursor-pointer flex items-start gap-2.5 ${
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    toggleBouquet(bq.id);
+                                  }
+                                }}
+                                className={`p-2.5 rounded-lg transition-all cursor-pointer flex items-start gap-2.5 ${
                                   checked
-                                    ? 'bg-amber-500/12 border-amber-500/45 text-white'
-                                    : 'bg-slate-900/60 border-slate-800/80 text-slate-400 hover:bg-slate-900 hover:text-slate-200'
+                                    ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white'
+                                    : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white'
                                 }`}
                               >
-                                <div className="mt-0.5 text-amber-400 shrink-0">
+                                <div className="mt-0.5 shrink-0">
                                   {checked ? (
-                                    <CheckSquare className="w-4 h-4" />
+                                    <CheckSquare className="w-4 h-4 text-[#3B82F6]" />
                                   ) : (
-                                    <Square className="w-4 h-4 text-slate-600" />
+                                    <Square className="w-4 h-4 text-slate-500" />
                                   )}
                                 </div>
                                 <div className="min-w-0 flex-1">
@@ -526,9 +543,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                       {bq.flag} {loc.label}
                                     </span>
                                   </div>
-                                  <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                                  <p className="text-[11px] text-[#94A3B8] mt-0.5 leading-relaxed">
                                     {loc.description}
                                   </p>
+                                  {bq.sampleChannels &&
+                                    bq.sampleChannels.length > 0 && (
+                                      <div className="flex flex-wrap gap-1.5 mt-2">
+                                        {bq.sampleChannels.map((sample) => (
+                                          <span
+                                            key={sample}
+                                            className={`text-[10px] font-medium px-2 py-0.5 rounded border ${
+                                              checked
+                                                ? 'bg-[#0B0F17] text-white border-[#3B82F6]/40'
+                                                : 'bg-[#0B0F17] text-[#94A3B8] border-[#1E2638]'
+                                            }`}
+                                          >
+                                            {sample}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )}
                                 </div>
                               </div>
                             );
@@ -541,13 +575,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
 
               {/* Section 2 : Catégories Thématiques */}
-              <div className="space-y-3 pt-2 border-t border-slate-800/80">
+              <div className="space-y-3 pt-2 border-t border-[#1E2638]">
                 <div>
                   <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <Film className="w-4 h-4 text-emerald-400" />
+                    <Film className="w-4 h-4 text-[#3B82F6]" />
                     {tr.thematicCategoriesTitle}
                   </h3>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-xs text-[#94A3B8] mt-0.5">
                     {tr.thematicCategoriesDesc}
                   </p>
                 </div>
@@ -564,16 +598,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     return (
                       <div
                         key={cat.id}
+                        tabIndex={0}
+                        role="button"
                         onClick={() => toggleCategory(cat.id)}
-                        className={`p-3 rounded-xl border transition-all cursor-pointer flex items-start gap-2.5 ${
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            toggleCategory(cat.id);
+                          }
+                        }}
+                        className={`p-3 rounded-lg transition-all cursor-pointer flex items-start gap-2.5 ${
                           checked
-                            ? 'bg-emerald-500/10 border-emerald-500/40'
-                            : 'bg-slate-950/60 border-slate-800/80 opacity-60 hover:opacity-100'
+                            ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6]'
+                            : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] opacity-75 hover:opacity-100'
                         }`}
                       >
                         <div className="mt-0.5 shrink-0">
                           {checked ? (
-                            <CheckSquare className="w-4 h-4 text-emerald-400" />
+                            <CheckSquare className="w-4 h-4 text-[#3B82F6]" />
                           ) : (
                             <Square className="w-4 h-4 text-slate-600" />
                           )}
@@ -585,7 +627,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               {locCat.label}
                             </span>
                           </div>
-                          <p className="text-[11px] text-slate-400 mt-1 leading-snug">
+                          <p className="text-[11px] text-[#94A3B8] mt-1 leading-snug">
                             {locCat.description}
                           </p>
                         </div>
@@ -596,74 +638,96 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
 
               {/* Section 3 : Filtres Audio VO & Anti-Lektor Polonais */}
-              <div className="space-y-3 pt-2 border-t border-slate-800/80">
+              <div className="space-y-3 pt-2 border-t border-[#1E2638]">
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <Volume2 className="w-4 h-4 text-indigo-400" />
+                  <Volume2 className="w-4 h-4 text-[#3B82F6]" />
                   {tr.audioSubtitlesTitle}
                 </h3>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div
+                    tabIndex={0}
+                    role="button"
                     onClick={() =>
                       setDraft((prev) => ({
                         ...prev,
                         excludePolishLektor: !prev.excludePolishLektor,
                       }))
                     }
-                    className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-start gap-3 ${
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setDraft((prev) => ({
+                          ...prev,
+                          excludePolishLektor: !prev.excludePolishLektor,
+                        }));
+                      }
+                    }}
+                    className={`p-3.5 rounded-lg transition-all cursor-pointer flex items-start gap-3 ${
                       draft.excludePolishLektor
-                        ? 'bg-indigo-500/10 border-indigo-500/40'
-                        : 'bg-slate-950/70 border-slate-800'
+                        ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6]'
+                        : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B]'
                     }`}
                   >
                     <div className="mt-0.5">
                       {draft.excludePolishLektor ? (
-                        <CheckSquare className="w-4 h-4 text-indigo-400" />
+                        <CheckSquare className="w-4 h-4 text-[#3B82F6]" />
                       ) : (
                         <Square className="w-4 h-4 text-slate-600" />
                       )}
                     </div>
                     <div>
                       <div className="flex items-center gap-1.5">
-                        <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
+                        <ShieldAlert className="w-3.5 h-3.5 text-[#3B82F6]" />
                         <span className="text-xs font-bold text-white">
                           {tr.excludePolishLektorTitle}
                         </span>
                       </div>
-                      <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+                      <p className="text-[11px] text-[#94A3B8] mt-1 leading-relaxed">
                         {tr.excludePolishLektorDesc}
                       </p>
                     </div>
                   </div>
 
                   <div
+                    tabIndex={0}
+                    role="button"
                     onClick={() =>
                       setDraft((prev) => ({
                         ...prev,
                         excludeNoSubtitles: !prev.excludeNoSubtitles,
                       }))
                     }
-                    className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-start gap-3 ${
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setDraft((prev) => ({
+                          ...prev,
+                          excludeNoSubtitles: !prev.excludeNoSubtitles,
+                        }));
+                      }
+                    }}
+                    className={`p-3.5 rounded-lg transition-all cursor-pointer flex items-start gap-3 ${
                       draft.excludeNoSubtitles
-                        ? 'bg-cyan-500/10 border-cyan-500/40'
-                        : 'bg-slate-950/70 border-slate-800'
+                        ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6]'
+                        : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B]'
                     }`}
                   >
                     <div className="mt-0.5">
                       {draft.excludeNoSubtitles ? (
-                        <CheckSquare className="w-4 h-4 text-cyan-400" />
+                        <CheckSquare className="w-4 h-4 text-[#3B82F6]" />
                       ) : (
                         <Square className="w-4 h-4 text-slate-600" />
                       )}
                     </div>
                     <div>
                       <div className="flex items-center gap-1.5">
-                        <Subtitles className="w-3.5 h-3.5 text-cyan-400" />
+                        <Subtitles className="w-3.5 h-3.5 text-[#3B82F6]" />
                         <span className="text-xs font-bold text-white">
                           {tr.requireSubtitlesTitle}
                         </span>
                       </div>
-                      <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+                      <p className="text-[11px] text-[#94A3B8] mt-1 leading-relaxed">
                         {tr.requireSubtitlesDesc}
                       </p>
                     </div>
@@ -676,15 +740,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {activeTab === 'sources' && (
             <>
               {/* État du Cache IndexedDB */}
-              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 flex flex-wrap items-center justify-between gap-4">
+              <div className="p-4 rounded-lg bg-[#0B0F17] border border-[#1E2638] flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <HardDrive className="w-5 h-5 text-emerald-400 shrink-0" />
+                  <HardDrive className="w-5 h-5 text-[#3B82F6] shrink-0" />
                   <div>
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-white">
                       {tr.cacheIndexedDbTitle}
                     </h3>
                     {cacheMeta ? (
-                      <p className="text-xs text-slate-400 mt-0.5">
+                      <p className="text-xs text-[#94A3B8] mt-0.5">
                         {cacheMeta.channelCount} {tr.channelsCountLabel} ·{' '}
                         {cacheMeta.programmeCount.toLocaleString()}{' '}
                         {tr.programmesCountLabel} · {tr.updatedAtLabel}{' '}
@@ -697,7 +761,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         )}
                       </p>
                     ) : (
-                      <p className="text-xs text-slate-500 mt-0.5">
+                      <p className="text-xs text-[#94A3B8] mt-0.5">
                         {tr.noCacheStored}
                       </p>
                     )}
@@ -705,7 +769,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                  <label className="flex items-center gap-2 text-xs text-white cursor-pointer">
                     <input
                       type="checkbox"
                       checked={draft.autoRefreshHours > 0}
@@ -715,7 +779,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           autoRefreshHours: e.target.checked ? 12 : 0,
                         }))
                       }
-                      className="rounded border-slate-700 bg-slate-800 text-amber-500 focus:ring-amber-500"
+                      className="rounded border-[#2A324B] bg-[#131927] text-[#3B82F6] focus:ring-[#3B82F6]"
                     />
                     {tr.autoRefresh12h}
                   </label>
@@ -723,9 +787,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <button
                     type="button"
                     onClick={onClearCache}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 text-xs font-medium transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[rgba(255,255,255,0.03)] hover:bg-[#1E293B] text-white border border-[#2A324B] text-xs font-medium transition-colors cursor-pointer"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Trash2 className="w-3.5 h-3.5 text-[#94A3B8]" />
                     {tr.clearCacheBtn}
                   </button>
                 </div>
@@ -734,8 +798,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               {/* Liste des flux XMLTV configurés */}
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                    <Globe className="w-3.5 h-3.5 text-amber-400" />
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[#94A3B8] flex items-center gap-1.5">
+                    <Globe className="w-3.5 h-3.5 text-[#3B82F6]" />
                     {tr.xmltvSourcesActiveTitle} (
                     {draft.sources.filter((s) => s.enabled).length}/
                     {draft.sources.length})
@@ -743,7 +807,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <button
                     type="button"
                     onClick={onResetDefaults}
-                    className="inline-flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300 cursor-pointer"
+                    className="inline-flex items-center gap-1 text-xs text-[#94A3B8] hover:text-white cursor-pointer"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     {tr.restoreDefaultCatalog}
@@ -754,10 +818,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   {draft.sources.map((source) => (
                     <div
                       key={source.id}
-                      className={`p-3 rounded-xl border flex items-center justify-between gap-3 transition-colors ${
+                      className={`p-3 rounded-lg border flex items-center justify-between gap-3 transition-colors ${
                         source.enabled
-                          ? 'bg-slate-950/90 border-slate-800'
-                          : 'bg-slate-950/40 border-slate-800/50 opacity-60'
+                          ? 'bg-[#0B0F17] border-[#1E2638]'
+                          : 'bg-[#0B0F17]/40 border-[#1E2638]/50 opacity-60'
                       }`}
                     >
                       <label className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer">
@@ -765,18 +829,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           type="checkbox"
                           checked={source.enabled}
                           onChange={() => handleToggleSource(source.id)}
-                          className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-amber-500 focus:ring-amber-500"
+                          className="w-4 h-4 rounded border-[#2A324B] bg-[#131927] text-[#3B82F6] focus:ring-[#3B82F6]"
                         />
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold px-1.5 py-0.5 rounded bg-slate-800 text-amber-300 border border-slate-700">
+                            <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border border-[#2A324B]">
                               {source.country}
                             </span>
                             <span className="text-sm font-semibold text-white truncate">
                               {source.name}
                             </span>
                           </div>
-                          <p className="text-[11px] font-mono text-slate-400 truncate mt-0.5">
+                          <p className="text-[11px] font-mono text-[#94A3B8] truncate mt-0.5">
                             {source.url}
                           </p>
                         </div>
@@ -786,7 +850,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         <button
                           type="button"
                           onClick={() => handleDeleteSource(source.id)}
-                          className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                          className="p-1.5 rounded-lg text-[#94A3B8] hover:text-white hover:bg-[#1E293B] transition-colors cursor-pointer"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -799,10 +863,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               {/* Ajouter un flux XMLTV personnalisé */}
               <form
                 onSubmit={handleAddSource}
-                className="p-4 rounded-xl bg-slate-950/70 border border-slate-800/90 space-y-3"
+                className="p-4 rounded-lg bg-[#0B0F17] border border-[#1E2638] space-y-3"
               >
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-                  <Plus className="w-3.5 h-3.5 text-amber-400" />
+                <h3 className="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-1.5">
+                  <Plus className="w-3.5 h-3.5 text-[#3B82F6]" />
                   {tr.addCustomXmltvTitle}
                 </h3>
 
@@ -814,7 +878,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         e.target.value as Exclude<CountryCode, 'Tous'>
                       )
                     }
-                    className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white focus:outline-none focus:border-amber-500"
+                    className="px-3 py-2 rounded-lg bg-[#131927] border border-[#2A324B] text-xs text-white focus:outline-none focus:border-[#3B82F6]"
                   >
                     <option value="AR">🇲🇦/🇦🇪 Nilesat 7°W / Badr 26°E (AR)</option>
                     <option value="FR">🇫🇷 France (FR)</option>
@@ -822,7 +886,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <option value="DE">🇩🇪 Allemagne (DE)</option>
                     <option value="IT">🇮🇹 Italie (IT)</option>
                     <option value="PL">🇵🇱 Pologne (PL)</option>
-                    <option value="EU">🇪🇺 Eutelsat 16°E / Thor (EU)</option>
+                    <option value="EU">🇷🇴/🇭🇺 Thor 0.8°W / Balkans 16°E (EU)</option>
                     <option value="BR">🇧🇷 Brésil Star One D2 (BR)</option>
                     <option value="LATAM">🌎 Amérique Latine (LATAM)</option>
                   </select>
@@ -832,7 +896,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
                     placeholder={tr.sourceNamePlaceholder}
-                    className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
+                    className="px-3 py-2 rounded-lg bg-[#131927] border border-[#2A324B] text-xs text-white placeholder-[#94A3B8] focus:outline-none focus:border-[#3B82F6]"
                   />
 
                   <input
@@ -840,14 +904,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     value={newUrl}
                     onChange={(e) => setNewUrl(e.target.value)}
                     placeholder="https://.../epg.xml.gz"
-                    className="sm:col-span-2 px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white placeholder-slate-500 font-mono focus:outline-none focus:border-amber-500"
+                    className="sm:col-span-2 px-3 py-2 rounded-lg bg-[#131927] border border-[#2A324B] text-xs text-white placeholder-[#94A3B8] font-mono focus:outline-none focus:border-[#3B82F6]"
                   />
                 </div>
 
                 <div className="flex justify-end">
                   <button
                     type="submit"
-                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-amber-300 border border-slate-700 transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-xs font-bold text-white transition-colors cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     {tr.addSourceBtn}
@@ -860,33 +924,33 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {activeTab === 'legal' && (
             <div className="space-y-4">
               {/* Mention de non-fourniture de flux vidéo (Clause Google Play Store) */}
-              <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 space-y-2">
-                <div className="flex items-center gap-2 text-emerald-300 font-bold text-sm">
-                  <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0" />
+              <div className="p-4 rounded-lg bg-[#0B0F17] border border-[#1E2638] space-y-2">
+                <div className="flex items-center gap-2 text-white font-bold text-sm">
+                  <ShieldCheck className="w-5 h-5 text-[#3B82F6] shrink-0" />
                   <span>{tr.legalNonStreamingTitle}</span>
                 </div>
-                <p className="text-xs text-slate-300 leading-relaxed">
+                <p className="text-xs text-[#94A3B8] leading-relaxed">
                   {tr.legalNonStreamingClause}
                 </p>
               </div>
 
               {/* Attribution Officielle TMDB & TVMaze */}
-              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+              <div className="p-4 rounded-lg bg-[#0B0F17] border border-[#1E2638] space-y-3">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <div className="flex items-center gap-2 text-amber-300 font-bold text-sm">
-                    <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+                  <div className="flex items-center gap-2 text-white font-bold text-sm">
+                    <Sparkles className="w-4 h-4 text-[#3B82F6] shrink-0" />
                     <span>{tr.legalTmdbTitle}</span>
                   </div>
-                  <span className="px-2.5 py-0.5 rounded-md bg-[#01b4e4]/15 text-[#01b4e4] border border-[#01b4e4]/30 text-[11px] font-extrabold tracking-wider">
+                  <span className="px-2.5 py-0.5 rounded bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border border-[#2A324B] text-[11px] font-bold tracking-wider">
                     TMDB API v3
                   </span>
                 </div>
 
-                <p className="text-xs text-slate-300 leading-relaxed">
+                <p className="text-xs text-[#94A3B8] leading-relaxed">
                   {tr.legalTmdbNotice}
                 </p>
 
-                <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-[11px] text-slate-300 font-mono leading-relaxed">
+                <div className="p-3 rounded-lg bg-[#131927] border border-[#1E2638] text-[11px] text-[#94A3B8] font-mono leading-relaxed">
                   "This product uses the TMDB API but is not endorsed or
                   certified by TMDB."
                 </div>
@@ -896,17 +960,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     href="https://www.themoviedb.org/"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-amber-400 hover:text-amber-300 font-semibold"
+                    className="inline-flex items-center gap-1.5 text-[#94A3B8] hover:text-white font-semibold"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
                     The Movie Database (TMDB)
                   </a>
-                  <span className="text-slate-600">•</span>
+                  <span className="text-[#94A3B8]">•</span>
                   <a
                     href="https://www.tvmaze.com/"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-indigo-400 hover:text-indigo-300 font-semibold"
+                    className="inline-flex items-center gap-1.5 text-[#94A3B8] hover:text-white font-semibold"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
                     TVMaze API (CC BY-SA)
@@ -915,41 +979,41 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
 
               {/* Politique de Confidentialité & RGPD */}
-              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2.5">
-                <div className="flex items-center gap-2 text-indigo-300 font-bold text-sm">
-                  <Lock className="w-4 h-4 text-indigo-400 shrink-0" />
+              <div className="p-4 rounded-lg bg-[#0B0F17] border border-[#1E2638] space-y-2.5">
+                <div className="flex items-center gap-2 text-white font-bold text-sm">
+                  <Lock className="w-4 h-4 text-[#3B82F6] shrink-0" />
                   <span>{tr.legalPrivacyTitle}</span>
                 </div>
-                <p className="text-xs text-slate-300 leading-relaxed">
+                <p className="text-xs text-[#94A3B8] leading-relaxed">
                   {tr.legalPrivacyDesc}
                 </p>
               </div>
 
               {/* Informations de Version & PWA / Android */}
-              <div className="p-4 rounded-2xl bg-slate-950/70 border border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400">
+              <div className="p-4 rounded-lg bg-[#0B0F17] border border-[#1E2638] flex flex-wrap items-center justify-between gap-3 text-xs text-[#94A3B8]">
                 <div className="flex items-center gap-2">
-                  <Info className="w-4 h-4 text-slate-500" />
+                  <Info className="w-4 h-4 text-[#94A3B8]" />
                   <span>
                     <strong className="text-white">
-                      PulseEPG - Global TV Guide
+                      PulseEPG - Your Ultimate TV Guide
                     </strong>{' '}
                     · v2.5.0 (Play Store Release Ready)
                   </span>
                 </div>
-                <span className="px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-semibold text-[11px]">
-                  PWA Standalone & TWA Ready
+                <span className="px-2.5 py-1 rounded bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border border-[#2A324B] font-semibold text-[11px]">
+                  PWA Standalone & Android TV Ready
                 </span>
               </div>
             </div>
           )}
         </div>
 
-        {/* Footer Actions */}
-        <div className="p-4 sm:p-5 bg-slate-950/90 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3">
+        {/* Footer Actions — Style Ghost / Outline */}
+        <div className="p-4 sm:p-5 bg-[#0B0F17] border-t border-[#1E2638] flex flex-wrap items-center justify-between gap-3">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 transition-colors cursor-pointer"
+            className="px-4 py-2 rounded-lg bg-[rgba(255,255,255,0.03)] hover:bg-[#1E293B] text-xs font-semibold text-[#94A3B8] hover:text-white border border-[#2A324B] transition-colors cursor-pointer"
           >
             {tr.cancelBtn}
           </button>
@@ -961,9 +1025,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 onSaveSettings(draft, false);
                 onClose();
               }}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-white border border-slate-700 transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[rgba(255,255,255,0.03)] hover:bg-[#1E293B] text-xs font-semibold text-white border border-[#2A324B] transition-colors cursor-pointer"
             >
-              <Check className="w-4 h-4 text-emerald-400" />
+              <Check className="w-4 h-4 text-[#3B82F6]" />
               {tr.saveBtn}
             </button>
 
@@ -973,7 +1037,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 onSaveSettings(draft, true);
                 onClose();
               }}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-xs font-bold text-slate-950 shadow-lg shadow-amber-500/20 transition-all cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#1E293B] hover:bg-[#253248] border-[1.5px] border-[#3B82F6] text-xs font-bold text-white transition-all cursor-pointer"
             >
               <RefreshCw className="w-4 h-4" />
               {tr.saveAndApplyBtn}

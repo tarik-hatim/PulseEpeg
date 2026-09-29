@@ -1,6 +1,7 @@
 import {
   AppLanguage,
   BouquetFilter,
+  ChannelCountryFilter,
   ChannelGroup,
   ContentCategoryFilter,
   CountryCode,
@@ -145,6 +146,7 @@ export interface Translations {
   filterSatLabel: string;
   filterBouquetLabel: string;
   filterZoneLabel: string;
+  filterCountryLabel?: string;
   filterGenreLabel: string;
   resetFiltersBtn: string;
   channelsDisplayed: string;
@@ -1423,12 +1425,12 @@ const COUNTRY_FILTER_LABELS: Record<CountryCode, Record<AppLanguage, string>> =
       pt: 'PL · Canal+ / Polsat / Eleven',
     },
     EU: {
-      fr: 'EU · Eutelsat 16°E / Thor 0.8°W',
-      en: 'EU · Eutelsat 16°E / Thor 0.8°W',
-      ar: 'أوروبا · Eutelsat 16°E / Thor',
-      es: 'EU · Eutelsat 16°E / Thor 0.8°W',
-      de: 'EU · Eutelsat 16°E / Thor 0.8°W',
-      pt: 'EU · Eutelsat 16°E / Thor 0.8°W',
+      fr: 'EU · Europe Centrale & Balkans',
+      en: 'EU · Central Europe & Balkans',
+      ar: 'أوروبا الوسطى والبلقان',
+      es: 'EU · Europa Central y Balcanes',
+      de: 'EU · Mitteleuropa & Balkan',
+      pt: 'EU · Europa Central e Balcãs',
     },
     BR: {
       fr: 'BR · Star One D2 70°W (Claro)',
@@ -1462,6 +1464,225 @@ export function translateCountryFilter(
 ): string {
   const l = lang || currentActiveLanguage;
   return COUNTRY_FILTER_LABELS[c]?.[l] || c;
+}
+
+export const CHANNEL_COUNTRY_FLAGS: Record<ChannelCountryFilter, string> = {
+  Tous: '🌍',
+  TR: '🇹🇷',
+  AL: '🇦🇱',
+  SN: '🇸🇳',
+  CI: '🇨🇮',
+  CM: '🇨🇲',
+  ML: '🇲🇱',
+  FR: '🇫🇷',
+  ES: '🇪🇸',
+  PT: '🇵🇹',
+  DE: '🇩🇪',
+  IT: '🇮🇹',
+  PL: '🇵🇱',
+  RO: '🇷🇴',
+  HU: '🇭🇺',
+  RS: '🇷🇸',
+  HR: '🇭🇷',
+  TM: '🇹🇲',
+  IR: '🇮🇷',
+  AR: '🇸🇦',
+  BR: '🇧🇷',
+  LATAM: '🌎',
+};
+
+const CHANNEL_COUNTRY_LABELS: Record<
+  ChannelCountryFilter,
+  Record<AppLanguage, string>
+> = {
+  Tous: {
+    fr: 'Tous',
+    en: 'All',
+    ar: 'الكل',
+    es: 'Todos',
+    de: 'Alle',
+    pt: 'Todos',
+  },
+  TR: {
+    fr: 'Turquie',
+    en: 'Turkey',
+    ar: 'تركيا',
+    es: 'Turquía',
+    de: 'Türkei',
+    pt: 'Turquia',
+  },
+  AL: {
+    fr: 'Albanie',
+    en: 'Albania',
+    ar: 'ألبانيا',
+    es: 'Albania',
+    de: 'Albanien',
+    pt: 'Albânia',
+  },
+  SN: {
+    fr: 'Sénégal',
+    en: 'Senegal',
+    ar: 'السنغال',
+    es: 'Senegal',
+    de: 'Senegal',
+    pt: 'Senegal',
+  },
+  CI: {
+    fr: 'Côte d’Ivoire',
+    en: 'Ivory Coast',
+    ar: 'ساحل العاج',
+    es: 'Costa de Marfil',
+    de: 'Elfenbeinküste',
+    pt: 'Costa do Marfim',
+  },
+  CM: {
+    fr: 'Cameroun',
+    en: 'Cameroon',
+    ar: 'الكاميرون',
+    es: 'Camerún',
+    de: 'Kamerun',
+    pt: 'Camarões',
+  },
+  ML: {
+    fr: 'Mali',
+    en: 'Mali',
+    ar: 'مالي',
+    es: 'Malí',
+    de: 'Mali',
+    pt: 'Mali',
+  },
+  FR: {
+    fr: 'France',
+    en: 'France',
+    ar: 'فرنسا',
+    es: 'Francia',
+    de: 'Frankreich',
+    pt: 'França',
+  },
+  ES: {
+    fr: 'Espagne',
+    en: 'Spain',
+    ar: 'إسبانيا',
+    es: 'España',
+    de: 'Spanien',
+    pt: 'Espanha',
+  },
+  PT: {
+    fr: 'Portugal',
+    en: 'Portugal',
+    ar: 'البرتغال',
+    es: 'Portugal',
+    de: 'Portugal',
+    pt: 'Portugal',
+  },
+  DE: {
+    fr: 'Allemagne',
+    en: 'Germany',
+    ar: 'ألمانيا',
+    es: 'Alemania',
+    de: 'Deutschland',
+    pt: 'Alemanha',
+  },
+  IT: {
+    fr: 'Italie',
+    en: 'Italy',
+    ar: 'إيطاليا',
+    es: 'Italia',
+    de: 'Italien',
+    pt: 'Itália',
+  },
+  PL: {
+    fr: 'Pologne',
+    en: 'Poland',
+    ar: 'بولندا',
+    es: 'Polonia',
+    de: 'Polen',
+    pt: 'Polônia',
+  },
+  RO: {
+    fr: 'Roumanie',
+    en: 'Romania',
+    ar: 'رومانيا',
+    es: 'Rumania',
+    de: 'Rumänien',
+    pt: 'Romênia',
+  },
+  HU: {
+    fr: 'Hongrie',
+    en: 'Hungary',
+    ar: 'المجر',
+    es: 'Hungría',
+    de: 'Ungarn',
+    pt: 'Hungria',
+  },
+  RS: {
+    fr: 'Serbie / Balkans',
+    en: 'Serbia / Balkans',
+    ar: 'صربيا / البلقان',
+    es: 'Serbia / Balcanes',
+    de: 'Serbien / Balkan',
+    pt: 'Sérvia / Balcãs',
+  },
+  HR: {
+    fr: 'Croatie',
+    en: 'Croatia',
+    ar: 'كرواتيا',
+    es: 'Croacia',
+    de: 'Kroatien',
+    pt: 'Croácia',
+  },
+  TM: {
+    fr: 'Turkménistan',
+    en: 'Turkmenistan',
+    ar: 'تركمانستان',
+    es: 'Turkmenistán',
+    de: 'Turkmenistan',
+    pt: 'Turcomenistão',
+  },
+  IR: {
+    fr: 'Iran / Farsi',
+    en: 'Iran / Persian',
+    ar: 'إيران / فارسي',
+    es: 'Irán / Persa',
+    de: 'Iran / Persisch',
+    pt: 'Irã / Persa',
+  },
+  AR: {
+    fr: 'Monde Arabe',
+    en: 'Arab World',
+    ar: 'العالم العربي',
+    es: 'Mundo Árabe',
+    de: 'Arabische Welt',
+    pt: 'Mundo Árabe',
+  },
+  BR: {
+    fr: 'Brésil',
+    en: 'Brazil',
+    ar: 'البرازيل',
+    es: 'Brasil',
+    de: 'Brasilien',
+    pt: 'Brasil',
+  },
+  LATAM: {
+    fr: 'Amérique Latine',
+    en: 'Latin America',
+    ar: 'أمريكا اللاتينية',
+    es: 'Latinoamérica',
+    de: 'Lateinamerika',
+    pt: 'América Latina',
+  },
+};
+
+export function getChannelCountryFlag(c: ChannelCountryFilter): string {
+  return CHANNEL_COUNTRY_FLAGS[c] || '🌍';
+}
+
+export function translateChannelCountryFilter(
+  c: ChannelCountryFilter,
+  lang?: AppLanguage
+): string {
+  const l = lang || currentActiveLanguage;
+  return CHANNEL_COUNTRY_LABELS[c]?.[l] || c;
 }
 
 export function translateCountryFilterLabel(
@@ -1983,16 +2204,84 @@ export function getBouquetLocalizedText(
           'بولندا: قنوات Canal+ و HBO 1-3 و Cinemax و Eleven Sports 1-4 و Polsat Box',
       },
     },
-    eutelsat_16e_thor: {
+    eutelsat_16e_digitalb: {
       en: {
-        label: 'Eutelsat 16°E / Thor 0.8°W (DigitAlb, Total TV, Focus Sat)',
+        label:
+          'Eutelsat 16°E — DigitAlb, Total TV (Balkans), MAXtv / A1 Croatia, New World TV & Canal+ Réunion / Afrique',
         description:
-          'Central Europe & Balkans: DigitAlb, Total TV, Focus Sat, HBO, Cinemax, FilmBox, Digi Sport & Arena Sport',
+          'Eutelsat 16°E: DigitAlb (Albania), Total TV (Balkans / Serbia / Croatia / Bosnia / Slovenia), MAXtv / A1 Croatia, New World TV (Africa), Canal+ Réunion / Africa & Other African / Francophone channels',
       },
       ar: {
-        label: 'يوتلسات 16°E / ثور 0.8°W (DigitAlb، Total TV، Focus Sat)',
+        label:
+          'يوتلسات 16°E — باقات DigitAlb، Total TV، MAXtv / A1 Croatia، New World TV و Canal+ Réunion / Afrique',
         description:
-          'أوروبا الوسطى والبلقان: باقات DigitAlb و Total TV و Focus Sat و HBO و Digi Sport',
+          'يوتلسات 16°E: باقات DigitAlb (ألبانيا)، Total TV (البلقان)، MAXtv / A1 Croatia، New World TV (أفريقيا)، Canal+ Réunion / Afrique وقنوات أفريقيا الفرنكوفونية',
+      },
+    },
+    trt_network: {
+      en: {
+        label:
+          'Türksat 42°E / Eutelsat 7°E — TRT Network (TRT 1 HD, TRT Haber HD, TRT Spor HD, TRT Spor 2, TRT World, TRT Çocuk, TRT Belgesel, TRT Müzik, TRT Avaz, TRT Türk)',
+        description:
+          'Official TRT Network Bouquet (Türksat 42°E / Eutelsat 7°E): TRT 1 HD, TRT Haber HD, TRT Spor HD, TRT Spor 2, TRT World, TRT Çocuk, TRT Belgesel, TRT Müzik, TRT Avaz, TRT Türk',
+      },
+      ar: {
+        label:
+          'توركسات 42°E / يوتلسات 7°E — باقة TRT Network الكاملة (TRT 1 HD، TRT Haber HD، TRT Spor HD، TRT Spor 2، TRT World، TRT Çocuk، TRT Belgesel، TRT Müzik، TRT Avaz، TRT Türk)',
+        description:
+          'باقة TRT Network التركية الرسمية الكاملة على Türksat 42°E / Eutelsat 7°E: TRT 1 HD و TRT Haber HD و TRT Spor HD و TRT Spor 2 و TRT World و TRT Çocuk و TRT Belgesel و TRT Müzik و TRT Avaz و TRT Türk',
+      },
+    },
+    thor_08w_focussat: {
+      en: {
+        label: 'Thor 0.8°W / Intelsat 10-02 — Focus Sat (Romania), Direct One (Hungary), Digi TV',
+        description:
+          'Thor 0.8°W / Intelsat 10-02: Focus Sat (Romania), Direct One (Hungary), Digi TV, Pro TV, Digi Sport, HBO & FilmBox',
+      },
+      ar: {
+        label: 'ثور 0.8°W / إنتلسات 10-02 — باقات Focus Sat (رومانيا)، Direct One (المجر)، Digi TV',
+        description:
+          'ثور 0.8°W / إنتلسات 10-02: باقات Focus Sat و Direct One و Digi TV و Pro TV و Digi Sport',
+      },
+    },
+    turkmenalem_52e_alem: {
+      en: {
+        label:
+          'TurkmenÄlem 52°E — Turkmen National Bouquet & Alem TV (Alem Sport 1 & 2 HD, Alem Cinema Premiere HD, Alem Discovery)',
+        description:
+          'TurkmenÄlem / MonacoSat 52°E: Turkmen National Bouquet (Altyn Asyr, Yaslyk, Miras, Turkmenistan Sport), Alem TV (Alem Sport 1 & 2 HD, Alem Cinema Premiere HD, Alem Discovery), Persiana Group, WNS Group & News',
+      },
+      ar: {
+        label:
+          'تركمان عالم 52°E — الباقة الوطنية التركمانية وباقة Alem TV (Alem Sport 1 & 2 HD، Alem Cinema، Alem Discovery)',
+        description:
+          'تركمان عالم 52°E: الباقة الوطنية التركمانية (Altyn Asyr، Yaslyk، Miras، Turkmenistan Sport) وباقة Alem TV الرياضية والسينمائية',
+      },
+    },
+    monacosat_52e_persiana: {
+      en: {
+        label:
+          'MonacoSat 52°E — Persiana Group, WNS Group & News (Iran International, Afghanistan International)',
+        description:
+          'MonacoSat / TurkmenÄlem 52°E: Persiana Group (Sports 1 & 2, Cinema, Series, Family, Junior, Comedy, Docs, Music), WNS Group (AVA Family/Series, FX 1 & 2, Avang TV, 4U Family, PMC Royale) & News (Iran Intl, Afghanistan Intl)',
+      },
+      ar: {
+        label:
+          'موناكو سات 52°E — مجموعة Persiana، مجموعة WNS وقنوات الأخبار (Iran International، Afghanistan International)',
+        description:
+          'موناكو سات 52°E: باقة Persiana الكاملة (Sports 1 & 2، Cinema، Series، Family، Junior، Comedy، Docs، Music) ومجموعة WNS (AVA، FX 1 & 2، Avang TV، 4U Family، PMC Royale)',
+      },
+    },
+    eutelsat_16e_thor: {
+      en: {
+        label: 'Eutelsat 16°E — DigitAlb (Albania), Total TV (Balkans)',
+        description:
+          'Eutelsat 16°E: DigitAlb (Albania), Total TV (Balkans), SuperSport & Arena Sport',
+      },
+      ar: {
+        label: 'يوتلسات 16°E — باقات DigitAlb و Total TV',
+        description:
+          'يوتلسات 16°E: باقات DigitAlb و Total TV و SuperSport',
       },
     },
     starone_70w_claro_br: {

@@ -7,8 +7,29 @@
     --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
   }
 
+  html {
+    background-color: #0B0F17;
+    color: #FFFFFF;
+    scroll-behavior: smooth;
+  }
+
+  /* 10-Foot UI (Android TV / Grands écrans TV >= 1536px) : Texte lisible à 3m */
+  @media (min-width: 1536px) {
+    html {
+      font-size: 17px;
+    }
+  }
+
+  @media (min-width: 1920px) {
+    html {
+      font-size: 18.5px;
+    }
+  }
+
   body {
     font-family: var(--font-sans);
+    background-color: #0B0F17;
+    color: #FFFFFF;
     -webkit-tap-highlight-color: transparent;
     overscroll-behavior-y: none;
   }
@@ -21,6 +42,43 @@
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
   }
+}
+
+/* ==========================================================================
+   GESTION DU FOCUS TÉLÉCOMMANDE (D-PAD NAVIGATION ANDROID TV / TV BOX)
+   Contour / Halo Bleu Électrique (#3B82F6) brillant + léger agrandissement (scale: 1.05)
+   ========================================================================== */
+button:focus-visible,
+[role="button"]:focus-visible,
+a:focus-visible,
+select:focus-visible,
+input[type="checkbox"]:focus-visible,
+.tv-focusable:focus-visible {
+  outline: 2px solid #3B82F6 !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.35), 0 0 20px rgba(59, 130, 246, 0.85) !important;
+  transform: scale(1.05);
+  z-index: 30;
+  transition: transform 150ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 150ms ease, border-color 150ms ease;
+}
+
+/* Cartes larges (lignes de chaînes) : halo D-Pad intense + scale 1.05 ou adapté sans rognage */
+.tv-card-focusable:focus-visible {
+  outline: 2px solid #3B82F6 !important;
+  outline-offset: 2px !important;
+  border-color: #3B82F6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.35), 0 0 24px rgba(59, 130, 246, 0.85) !important;
+  transform: scale(1.02);
+  z-index: 25;
+  transition: transform 150ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 150ms ease, border-color 150ms ease;
+}
+
+input[type="text"]:focus-visible,
+input[type="url"]:focus-visible,
+input[type="search"]:focus-visible {
+  outline: 1.5px solid #3B82F6 !important;
+  border-color: #3B82F6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.28), 0 0 16px rgba(59, 130, 246, 0.6) !important;
 }
 
 .tabular-nums {

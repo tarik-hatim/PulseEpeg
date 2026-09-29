@@ -1,7 +1,5 @@
-const CACHE_NAME = 'pulse-epg-shell-v4';
+const CACHE_NAME = 'pulse-epg-shell-v5';
 const STATIC_ASSETS = [
-  '/',
-  '/index.html',
   '/manifest.json',
   '/icon.svg',
   '/pwa-192x192.png',
@@ -36,17 +34,25 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
 
+  // Ne jamais intercepter les requêtes de navigation HTML pour éviter toute page blanche en iframe/Cloud Run
+  if (request.mode === 'navigate') return;
+
   const url = new URL(request.url);
 
-  // Ne jamais intercepter les modules Vite de dev, les Web Workers, ni les flux API/EPG
+  // Ne jamais intercepter les modules Vite de dev, les Web Workers, le document racine ni les flux API/EPG
   if (
     url.origin !== self.location.origin ||
+    url.pathname === '/' ||
+    url.pathname === '/index.html' ||
     url.pathname.startsWith('/api/') ||
     url.pathname.startsWith('/src/') ||
     url.pathname.startsWith('/@') ||
     url.pathname.startsWith('/node_modules/') ||
+    url.pathname.startsWith('/assets/') ||
     url.pathname.endsWith('.ts') ||
     url.pathname.endsWith('.tsx') ||
+    url.pathname.endsWith('.js') ||
+    url.pathname.endsWith('.css') ||
     url.pathname.endsWith('.xml.gz') ||
     url.pathname.endsWith('.gz') ||
     url.search.includes('t=') ||

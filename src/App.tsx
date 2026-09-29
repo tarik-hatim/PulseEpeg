@@ -5,6 +5,7 @@ import {
   Clock,
   Compass,
   Film,
+  Globe,
   Heart,
   Languages,
   LayoutGrid,
@@ -29,6 +30,7 @@ import {
   AppLanguage,
   AppSettings,
   BouquetFilter,
+  ChannelCountryFilter,
   ChannelGroup,
   ContentCategoryFilter,
   EpgCacheMetadata,
@@ -43,10 +45,14 @@ import {
 import {
   addRecentSearch,
   buildSourcesSignature,
+  CHANNEL_COUNTRY_FILTER_OPTIONS,
+  channelMatchesCountryFilter,
   clearEpgCache,
   clearRecentSearches,
   DEFAULT_EPG_SOURCES,
   DEFAULT_SETTINGS,
+  ensureSchedulesCoverTargetTime,
+  extractChannelCountries,
   getBouquetsForSatellite,
   isBouquetFilterAllowedBySettings,
   isCategoryFilterAllowedBySettings,
@@ -61,19 +67,27 @@ import {
   pruneSchedulesToActiveWindow,
   RAM_LIMIT_WARNING_MESSAGE,
   removeRecentSearch,
+  resolveGlobalFavoriteChannels,
   SAT_TO_BOUQUETS_MAP,
   saveAppSettings,
   saveEpgToCache,
   saveFavoriteChannels,
   saveReminders,
   STRICT_SAT_FILTER_LIST,
+  syncGlobalFavoritesFromDb,
   syncSourcesWithSelectedBouquets,
 } from './services/storageService';
 import {
   APP_TIMEZONE_LABEL,
+  formatDateInputValue,
+  formatDateTimeLocalValue,
   formatDayLabel,
+  formatTimeInputValue,
   formatTimeShort,
   getCasablancaTimestampForHour,
+  parseDateInputWithCurrentTime,
+  parseDateTimeLocalValue,
+  parseTimeInputWithCurrentDate,
 } from './utils/timeFormat';
 import { ChannelRowCard } from './components/ChannelRowCard';
 import { TimeGridView } from './components/TimeGridView';
@@ -86,12 +100,15 @@ import {
   enrichProgrammeMetadata,
 } from './services/metadataEnricher';
 import {
+  CHANNEL_COUNTRY_FLAGS,
+  getChannelCountryFlag,
   getLanguageOption,
   getTranslations,
   LANGUAGE_OPTIONS,
   setActiveLanguage,
   translateBouquetFilter,
   translateCategoryFilter,
+  translateChannelCountryFilter,
   translateSatelliteFilter,
   translateSubGenreGroup,
 } from './utils/i18n';
@@ -163,6 +180,8 @@ export function App() {
     null
   );
   const [selectedGroup, setSelectedGroup] = useState<ChannelGroup>('Tous');
+  const [selectedCountry, setSelectedCountry] =
+    useState<ChannelCountryFilter>('Tous');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [recentSearches, setRecentSearches] = useState<string[]>(() =>
     loadRecentSearches()
@@ -272,9 +291,18 @@ export function App() {
     };
   }, [isSearchDropdownOpen]);
 
+  // Force l'horodateur sur le temps réel actuel sans possibilité de décalage en vue "Live Now"
+  useEffect(() => {
+    if (viewMode === 'live') {
+      setNowMs(Date.now());
+      setTimeOffsetMinutes(0);
+      setActiveTimePreset('now');
+    }
+  }, [viewMode]);
+
   const effectiveTimeMs = useMemo(
-    () => nowMs + timeOffsetMinutes * 60000,
-    [nowMs, timeOffsetMinutes]
+    () => (viewMode === 'grid' ? nowMs + timeOffsetMinutes * 60000 : nowMs),
+    [viewMode, nowMs, timeOffsetMinutes]
   );
 
   const triggerEpgSync = useCallback((currentSettings: AppSettings) => {
@@ -383,11 +411,63 @@ export function App() {
     };
   }, []);
 
+  // Synchronisation initiale et inter-onglets des Favoris Globaux (LocalStorage + IndexedDB / Room DB)
+  useEffect(() => {
+    let active = true;
+    syncGlobalFavoritesFromDb().then((synced) => {
+      if (active) {
+        setFavorites(synced);
+      }
+    });
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'pulse_epg_favorites_v1') {
+        setFavorites(loadFavoriteChannels());
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      active = false;
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
   // Liste des chaînes autorisées par les Paramètres (Settings)
   const settingsAllowedChannels = useMemo(
     () => channels.filter((ch) => isChannelAllowedBySettings(ch, settings)),
     [channels, settings]
   );
+
+  const favoriteSet = useMemo(() => {
+    const set = new Set<string>();
+    for (const id of favorites) {
+      set.add(id);
+      set.add(cleanXmltvChannelId(id));
+    }
+    return set;
+  }, [favorites]);
+
+  // Garantit que chaque chaîne dispose d'une grille complète pour la date/heure cible (hier, demain, J+2..J+7, etc.)
+  const activeSchedulesByChannel = useMemo(
+    () =>
+      ensureSchedulesCoverTargetTime(
+        channels,
+        schedulesByChannel,
+        effectiveTimeMs
+      ),
+    [channels, schedulesByChannel, effectiveTimeMs]
+  );
+
+  // Résolution globale des chaînes favorites (peu importe leur satellite ou bouquet d'origine)
+  const { favoriteChannels: globalFavoriteChannels, supplementedSchedules } =
+    useMemo(
+      () =>
+        resolveGlobalFavoriteChannels(
+          channels,
+          activeSchedulesByChannel,
+          favorites
+        ),
+      [channels, activeSchedulesByChannel, favorites]
+    );
 
   // Map des programmes en cours et suivants pour chaque chaîne à l'instant `effectiveTimeMs`
   const currentAndNextByChannel = useMemo(() => {
@@ -396,10 +476,19 @@ export function App() {
       { current: EpgProgramme | null; next: EpgProgramme | null }
     > = {};
 
-    for (const ch of settingsAllowedChannels) {
+    const allKnownChannels = [
+      ...settingsAllowedChannels,
+      ...globalFavoriteChannels,
+    ];
+
+    for (const ch of allKnownChannels) {
       const cleanId = cleanXmltvChannelId(ch.id);
       const list =
-        schedulesByChannel[cleanId] || schedulesByChannel[ch.id] || [];
+        supplementedSchedules[cleanId] ||
+        supplementedSchedules[ch.id] ||
+        activeSchedulesByChannel[cleanId] ||
+        activeSchedulesByChannel[ch.id] ||
+        [];
       let current: EpgProgramme | null = null;
       let next: EpgProgramme | null = null;
 
@@ -428,9 +517,13 @@ export function App() {
       }
     }
     return map;
-  }, [settingsAllowedChannels, schedulesByChannel, effectiveTimeMs]);
-
-  const favoriteSet = useMemo(() => new Set(favorites), [favorites]);
+  }, [
+    settingsAllowedChannels,
+    globalFavoriteChannels,
+    supplementedSchedules,
+    activeSchedulesByChannel,
+    effectiveTimeMs,
+  ]);
 
   const matchesSearch = useCallback(
     (ch: EpgChannel, query: string): boolean => {
@@ -464,18 +557,25 @@ export function App() {
 
   const baseViewChannels = useMemo(() => {
     const q = searchQuery.trim();
+    if (viewMode === 'favorites') {
+      // En vue "Favorites", affiche toutes les chaînes favorites globales,
+      // peu importe leur satellite ou bouquet d'origine
+      return globalFavoriteChannels.filter((ch) => {
+        if (q && !matchesSearch(ch, q)) return false;
+        return true;
+      });
+    }
     return settingsAllowedChannels.filter((ch) => {
       const pair = currentAndNextByChannel[ch.id];
       if (!pair?.current && !pair?.next) return false;
-      if (viewMode === 'favorites' && !favoriteSet.has(ch.id)) return false;
       if (q && !matchesSearch(ch, q)) return false;
       return true;
     });
   }, [
     settingsAllowedChannels,
+    globalFavoriteChannels,
     currentAndNextByChannel,
     viewMode,
-    favoriteSet,
     searchQuery,
     matchesSearch,
   ]);
@@ -512,16 +612,71 @@ export function App() {
     if (sat === "Badr / Es'hailSat 26°E" || sat === 'Badr 26°E') {
       return (
         ch.satellites.includes("Badr / Es'hailSat 26°E") ||
-        ch.satellites.includes('Badr 26°E')
+        ch.satellites.includes('Badr 26°E') ||
+        ch.orbitalPosition?.includes('Badr')
       );
     }
-    return ch.satellites.includes(sat);
+    if (sat === 'Thor 0.8°W / Intelsat 10-02' || sat === 'Thor 0.8°W') {
+      return (
+        ch.satellites.includes('Thor 0.8°W / Intelsat 10-02') ||
+        ch.satellites.includes('Thor 0.8°W') ||
+        ch.orbitalPosition?.includes('Thor')
+      );
+    }
+    if (sat === 'Eutelsat 16°E') {
+      if (
+        ch.bouquetId === 'trt_network' ||
+        ch.bouquets.includes('TRT Network') ||
+        /\.tr$/i.test(ch.id || '')
+      ) {
+        return false;
+      }
+      return (
+        ch.satellites.includes('Eutelsat 16°E') ||
+        ch.orbitalPosition === 'Eutelsat 16°E' ||
+        ch.orbitalPosition?.includes('16°E')
+      );
+    }
+    if (
+      sat === 'Türksat 42°E' ||
+      sat === 'Türksat 42°E / Eutelsat 7°E'
+    ) {
+      return (
+        ch.satellites.includes('Türksat 42°E') ||
+        ch.satellites.includes('Türksat 42°E / Eutelsat 7°E') ||
+        ch.orbitalPosition?.includes('Türksat') ||
+        ch.bouquetId === 'trt_network' ||
+        ch.bouquets.includes('TRT Network')
+      );
+    }
+    if (sat === 'TurkmenÄlem 52°E') {
+      return (
+        ch.satellites.includes('TurkmenÄlem 52°E') ||
+        ch.orbitalPosition === 'TurkmenÄlem 52°E' ||
+        ch.orbitalPosition === 'MonacoSat 52°E'
+      );
+    }
+    if (sat === 'MonacoSat 52°E') {
+      return (
+        ch.satellites.includes('MonacoSat 52°E') ||
+        ch.orbitalPosition === 'MonacoSat 52°E' ||
+        ch.orbitalPosition === 'TurkmenÄlem 52°E'
+      );
+    }
+    return ch.satellites.includes(sat) || ch.orbitalPosition === sat;
   };
 
   const matchesSingleBouquet = (ch: EpgChannel, bq: BouquetFilter): boolean => {
     if (bq === 'Tous') return true;
     const combined = `${ch.id} ${ch.displayName}`.toLowerCase();
 
+    if (bq === 'TRT Network') {
+      return (
+        ch.bouquets.includes('TRT Network') ||
+        ch.bouquetId === 'trt_network' ||
+        /\btrt\b/i.test(combined)
+      );
+    }
     if (bq === 'Nilesat MBC/OSN/Rotana') {
       return (
         ch.satellites.includes('Nilesat 7°W') &&
@@ -587,9 +742,15 @@ export function App() {
         ch.satellites.includes('Astra 19.2°E') &&
         (ch.bouquets.includes('Astra Movistar+ España') ||
           ch.bouquetId === 'movistar_es' ||
+          ch.bouquets.includes('Movistar+ / DAZN ES'))
+      );
+    }
+    if (bq === 'Sky DE / DAZN DE') {
+      return (
+        ch.satellites.includes('Astra 19.2°E') &&
+        (ch.bouquets.includes('Sky DE / DAZN DE') ||
           ch.bouquetId === 'sky_de' ||
-          ch.bouquets.includes('Movistar+ / DAZN ES') ||
-          ch.bouquets.includes('Sky DE / DAZN DE'))
+          ch.country === 'DE')
       );
     }
     if (
@@ -634,11 +795,110 @@ export function App() {
           ))
       );
     }
+    if (
+      bq === 'Total TV (Balkans / Serbie / Croatie / Bosnie / Slovénie)' ||
+      bq === 'Total TV (Balkans / Serbie / Croatie)' ||
+      bq === 'Total TV (Balkans)'
+    ) {
+      return (
+        matchesSatellite(ch, 'Eutelsat 16°E') &&
+        (ch.bouquets.includes(
+          'Total TV (Balkans / Serbie / Croatie / Bosnie / Slovénie)'
+        ) ||
+          ch.bouquets.includes('Total TV (Balkans / Serbie / Croatie)') ||
+          ch.bouquets.includes('Total TV (Balkans)'))
+      );
+    }
+    if (
+      bq === 'MAXtv / A1 Croatia' ||
+      bq === 'MAXtv (Croatie)' ||
+      bq === 'MaxTV Sat (Croatie)'
+    ) {
+      return (
+        matchesSatellite(ch, 'Eutelsat 16°E') &&
+        (ch.bouquets.includes('MAXtv / A1 Croatia') ||
+          ch.bouquets.includes('MAXtv (Croatie)') ||
+          ch.bouquets.includes('MaxTV Sat (Croatie)') ||
+          ch.bouquets.includes('A1 Bulgaria / A1 Hrvatska'))
+      );
+    }
+    if (
+      bq === 'DigitAlb (Albanie)' ||
+      bq === 'New World TV (Afrique)' ||
+      bq === 'Canal+ Réunion / Afrique' ||
+      bq === 'Autres chaînes africaines / francophones' ||
+      bq === 'Bouquet National RTSH (Albanie FTA)' ||
+      bq === 'Bouquet Afrique Francophone (2S TV, RTI, CRTV)' ||
+      bq === 'A1 Bulgaria / A1 Hrvatska'
+    ) {
+      return (
+        matchesSatellite(ch, 'Eutelsat 16°E') &&
+        (ch.bouquets.includes(bq) ||
+          (bq === 'Autres chaînes africaines / francophones' &&
+            ch.bouquets.includes('Bouquet Afrique Francophone (2S TV, RTI, CRTV)')))
+      );
+    }
+    if (
+      bq === 'Focus Sat (Roumanie)' ||
+      bq === 'Direct One (Hongrie)' ||
+      bq === 'Digi TV'
+    ) {
+      return (
+        matchesSatellite(ch, 'Thor 0.8°W / Intelsat 10-02') &&
+        ch.bouquets.includes(bq)
+      );
+    }
+    if (
+      bq === 'Bouquet National Turkmène' ||
+      bq === 'Turkmenistan National TV'
+    ) {
+      return (
+        (matchesSatellite(ch, 'TurkmenÄlem 52°E') ||
+          matchesSatellite(ch, 'MonacoSat 52°E')) &&
+        (ch.bouquets.includes('Bouquet National Turkmène') ||
+          ch.bouquets.includes('Turkmenistan National TV'))
+      );
+    }
+    if (bq === 'Alem TV') {
+      return (
+        (matchesSatellite(ch, 'TurkmenÄlem 52°E') ||
+          matchesSatellite(ch, 'MonacoSat 52°E')) &&
+        ch.bouquets.includes('Alem TV')
+      );
+    }
+    if (
+      bq === 'Groupe Persiana' ||
+      bq === 'Persiana Media Group (Farsi/Sport/Cinema)'
+    ) {
+      return (
+        (matchesSatellite(ch, 'MonacoSat 52°E') ||
+          matchesSatellite(ch, 'TurkmenÄlem 52°E')) &&
+        (ch.bouquets.includes('Groupe Persiana') ||
+          ch.bouquets.includes('Persiana Media Group (Farsi/Sport/Cinema)'))
+      );
+    }
+    if (
+      bq === 'Groupe WNS' ||
+      bq === 'Information (Iran Intl / Afghanistan Intl)' ||
+      bq === 'Information' ||
+      bq === 'Big Bang TV'
+    ) {
+      return (
+        (matchesSatellite(ch, 'MonacoSat 52°E') ||
+          matchesSatellite(ch, 'TurkmenÄlem 52°E')) &&
+        (ch.bouquets.includes(bq) ||
+          (bq === 'Information (Iran Intl / Afghanistan Intl)' &&
+            ch.bouquets.includes('Information')))
+      );
+    }
     return ch.bouquets.includes(bq);
   };
 
   const matchesBouquet = useCallback(
     (ch: EpgChannel, bq: BouquetFilter): boolean => {
+      if (bq === 'Tous' && selectedBouquetsList.length === 0) {
+        return true;
+      }
       if (selectedBouquetsList.length > 0 && bq === selectedBouquet) {
         return selectedBouquetsList.some((item) =>
           matchesSingleBouquet(ch, item)
@@ -649,20 +909,23 @@ export function App() {
     [selectedBouquetsList, selectedBouquet]
   );
 
-  // Gestion stricte du changement de Satellite : réinitialise immédiatement tout bouquet hors du satellite choisi
+  // Quand l'utilisateur clique sur un satellite, réinitialise automatiquement le filtre "BOUQUET" sur "All" ("Tous")
+  // et affiche toutes les chaînes associées au satellite sans restreindre par défaut aux seuls bouquets nommés.
   const handleSelectSatellite = useCallback((sat: SatelliteFilter) => {
     setSelectedSatellite(sat);
+    setSelectedBouquet('Tous');
+    setSelectedBouquetsList([]);
+    setSelectedCountry('Tous');
     setRamWarningMessage(null);
-    const allowedBouquets = getBouquetsForSatellite(sat);
-    setSelectedBouquetsList((prev) =>
-      sat === 'Tous'
-        ? prev
-        : prev.filter((b) => allowedBouquets.includes(b)).slice(0, 1)
-    );
-    setSelectedBouquet((prev) =>
-      allowedBouquets.includes(prev) ? prev : 'Tous'
-    );
   }, []);
+
+  const matchesCountry = useCallback(
+    (ch: EpgChannel, country: ChannelCountryFilter): boolean => {
+      if (country === 'Tous') return true;
+      return channelMatchesCountryFilter(ch, country);
+    },
+    []
+  );
 
   // Gestion de la sélection de Bouquet avec limite stricte de 3 bouquets simultanés max (RAM < 50 Mo)
   const handleSelectBouquet = useCallback(
@@ -671,6 +934,21 @@ export function App() {
         setSelectedBouquet('Tous');
         setSelectedBouquetsList([]);
         setRamWarningMessage(null);
+        return;
+      }
+
+      if (bq === 'TRT Network') {
+        setRamWarningMessage(null);
+        setSelectedBouquetsList((prev) => {
+          if (prev.includes('TRT Network')) {
+            const next = prev.filter((item) => item !== 'TRT Network');
+            setSelectedBouquet(next[0] || 'Tous');
+            return next;
+          }
+          setSelectedSatellite('Türksat 42°E');
+          setSelectedBouquet('TRT Network');
+          return ['TRT Network'];
+        });
         return;
       }
 
@@ -761,7 +1039,7 @@ export function App() {
     [currentAndNextByChannel]
   );
 
-  // Recalcul en temps réel des compteurs croisés ([CATÉGORIE] -> [SATELLITE / BOUQUET] -> [GENRE])
+  // Recalcul en temps réel des compteurs croisés ([CATÉGORIE] -> [SATELLITE / BOUQUET / COUNTRY] -> [GENRE])
   const categoryCounts = useMemo(() => {
     const counts: Record<ContentCategoryFilter, number> = {
       Tous: 0,
@@ -777,6 +1055,7 @@ export function App() {
       (ch) =>
         matchesSatellite(ch, selectedSatellite) &&
         matchesBouquet(ch, selectedBouquet) &&
+        matchesCountry(ch, selectedCountry) &&
         matchesGroup(ch, selectedGroup)
     );
 
@@ -800,9 +1079,11 @@ export function App() {
     baseViewChannels,
     selectedSatellite,
     selectedBouquet,
+    selectedCountry,
     selectedGroup,
     settings.enabledCategories,
     matchesCategory,
+    matchesCountry,
     matchesGroup,
   ]);
 
@@ -815,7 +1096,13 @@ export function App() {
       'Astra 19.2°E': 0,
       'Hotbird 13°E': 0,
       'Hispasat 30°W': 0,
-      'Eutelsat 16°E / Thor 0.8°W': 0,
+      'Eutelsat 16°E': 0,
+      'Türksat 42°E': 0,
+      'Türksat 42°E / Eutelsat 7°E': 0,
+      'Thor 0.8°W': 0,
+      'Thor 0.8°W / Intelsat 10-02': 0,
+      'TurkmenÄlem 52°E': 0,
+      'MonacoSat 52°E': 0,
       'Star One D2 70°W': 0,
       'Amazonas 61°W': 0,
       'Intelsat 43.1°W / SES-6 40.5°W': 0,
@@ -825,24 +1112,65 @@ export function App() {
     const pool = baseViewChannels.filter(
       (ch) =>
         matchesCategory(ch, selectedCategory) &&
+        (selectedBouquet === 'TRT Network'
+          ? matchesBouquet(ch, selectedBouquet)
+          : true) &&
+        matchesCountry(ch, selectedCountry) &&
         matchesGroup(ch, selectedGroup)
     );
 
     counts.Tous = pool.length;
     for (const ch of pool) {
-      for (const sat of ch.satellites) {
+      const uniqueSats = new Set(ch.satellites);
+      for (const sat of uniqueSats) {
         counts[sat] = (counts[sat] || 0) + 1;
-        if (sat === "Badr / Es'hailSat 26°E") {
-          counts['Badr 26°E'] = (counts['Badr 26°E'] || 0) + 1;
-        }
+      }
+      if (
+        uniqueSats.has('Türksat 42°E / Eutelsat 7°E') &&
+        !uniqueSats.has('Türksat 42°E')
+      ) {
+        counts['Türksat 42°E'] = (counts['Türksat 42°E'] || 0) + 1;
+      }
+      if (
+        uniqueSats.has("Badr / Es'hailSat 26°E") &&
+        !uniqueSats.has('Badr 26°E')
+      ) {
+        counts['Badr 26°E'] = (counts['Badr 26°E'] || 0) + 1;
+      }
+      if (
+        uniqueSats.has('Thor 0.8°W') &&
+        !uniqueSats.has('Thor 0.8°W / Intelsat 10-02')
+      ) {
+        counts['Thor 0.8°W / Intelsat 10-02'] =
+          (counts['Thor 0.8°W / Intelsat 10-02'] || 0) + 1;
+      }
+      if (
+        uniqueSats.has('Thor 0.8°W / Intelsat 10-02') &&
+        !uniqueSats.has('Thor 0.8°W')
+      ) {
+        counts['Thor 0.8°W'] = (counts['Thor 0.8°W'] || 0) + 1;
+      }
+      if (
+        uniqueSats.has('TurkmenÄlem 52°E') &&
+        !uniqueSats.has('MonacoSat 52°E')
+      ) {
+        counts['MonacoSat 52°E'] = (counts['MonacoSat 52°E'] || 0) + 1;
+      }
+      if (
+        uniqueSats.has('MonacoSat 52°E') &&
+        !uniqueSats.has('TurkmenÄlem 52°E')
+      ) {
+        counts['TurkmenÄlem 52°E'] = (counts['TurkmenÄlem 52°E'] || 0) + 1;
       }
     }
     return counts;
   }, [
     baseViewChannels,
     selectedCategory,
+    selectedCountry,
     selectedGroup,
     matchesCategory,
+    matchesCountry,
     matchesGroup,
   ]);
 
@@ -856,6 +1184,7 @@ export function App() {
       (ch) =>
         matchesCategory(ch, selectedCategory) &&
         matchesSatellite(ch, selectedSatellite) &&
+        matchesCountry(ch, selectedCountry) &&
         matchesGroup(ch, selectedGroup)
     );
 
@@ -873,8 +1202,43 @@ export function App() {
     baseViewChannels,
     selectedCategory,
     selectedSatellite,
+    selectedCountry,
     selectedGroup,
     matchesCategory,
+    matchesCountry,
+    matchesGroup,
+  ]);
+
+  const countryCounts = useMemo(() => {
+    const counts = {} as Record<ChannelCountryFilter, number>;
+    for (const c of CHANNEL_COUNTRY_FILTER_OPTIONS) {
+      counts[c] = 0;
+    }
+
+    const pool = baseViewChannels.filter(
+      (ch) =>
+        matchesCategory(ch, selectedCategory) &&
+        matchesSatellite(ch, selectedSatellite) &&
+        matchesBouquet(ch, selectedBouquet) &&
+        matchesGroup(ch, selectedGroup)
+    );
+
+    counts.Tous = pool.length;
+    for (const ch of pool) {
+      const extracted = extractChannelCountries(ch);
+      for (const c of extracted) {
+        counts[c] = (counts[c] || 0) + 1;
+      }
+    }
+    return counts;
+  }, [
+    baseViewChannels,
+    selectedCategory,
+    selectedSatellite,
+    selectedBouquet,
+    selectedGroup,
+    matchesCategory,
+    matchesBouquet,
     matchesGroup,
   ]);
 
@@ -898,7 +1262,8 @@ export function App() {
       (ch) =>
         matchesCategory(ch, selectedCategory) &&
         matchesSatellite(ch, selectedSatellite) &&
-        matchesBouquet(ch, selectedBouquet)
+        matchesBouquet(ch, selectedBouquet) &&
+        matchesCountry(ch, selectedCountry)
     );
 
     counts.Toutes = pool.length;
@@ -916,13 +1281,15 @@ export function App() {
     selectedCategory,
     selectedSatellite,
     selectedBouquet,
+    selectedCountry,
     matchesCategory,
+    matchesCountry,
     matchesGroup,
   ]);
 
   // Auto-réinitialisation si un filtre actif est désactivé dans Settings ou tombe à 0 chaîne
   useEffect(() => {
-    if (baseViewChannels.length === 0) return;
+    if (baseViewChannels.length === 0 || viewMode === 'favorites') return;
 
     if (
       selectedCategory !== 'Tous' &&
@@ -964,6 +1331,12 @@ export function App() {
       );
     }
     if (
+      selectedCountry !== 'Tous' &&
+      (countryCounts[selectedCountry] ?? 0) === 0
+    ) {
+      setSelectedCountry('Tous');
+    }
+    if (
       selectedGroup !== 'Tous' &&
       selectedGroup !== 'Toutes' &&
       (groupCounts[selectedGroup] ?? 0) === 0
@@ -972,19 +1345,22 @@ export function App() {
     }
   }, [
     baseViewChannels.length,
+    viewMode,
     selectedCategory,
     selectedSatellite,
     selectedBouquet,
+    selectedCountry,
     selectedGroup,
     settings.enabledCategories,
     settings.selectedBouquets,
     categoryCounts,
     satelliteCounts,
     bouquetCounts,
+    countryCounts,
     groupCounts,
   ]);
 
-  // Options visibles : masque strictement tout satellite/bouquet/catégorie/genre inactif dans Réglages ou dont le compteur = 0
+  // Options visibles : masque strictement tout satellite/bouquet/pays/catégorie/genre inactif dans Réglages ou dont le compteur = 0
   const visibleCategoryOptions = useMemo(
     () =>
       CATEGORY_OPTIONS.filter((cat) => {
@@ -1032,6 +1408,15 @@ export function App() {
     [selectedSatellite, settings.selectedBouquets, bouquetCounts]
   );
 
+  // Liste dynamique des pays disponibles (ex: Turquie pour TRT, Albanie pour DigitAlb, Sénégal pour 2S TV)
+  const visibleCountryOptions = useMemo(
+    () =>
+      CHANNEL_COUNTRY_FILTER_OPTIONS.filter(
+        (c) => (countryCounts[c] ?? 0) > 0
+      ),
+    [countryCounts]
+  );
+
   // Masque automatiquement tout bouton de genre dont le compteur est égal à 0
   const visibleGroupOptions = useMemo(
     () =>
@@ -1044,22 +1429,32 @@ export function App() {
     [groupCounts]
   );
 
-  // Filtrage final dynamique des chaînes (alimente à la fois En Direct, Grille TV et Favoris)
+  // Filtrage final dynamique des chaînes :
+  // - En vue "Favorites", affiche TOUTES les chaînes favorites peu importe leur satellite ou bouquet d'origine
+  // - En vue "En Direct" / "Grille TV", applique les filtres CATÉGORIE, SAT, BOUQUET, COUNTRY et GENRE
   const filteredChannels = useMemo(() => {
+    if (viewMode === 'favorites') {
+      return baseViewChannels;
+    }
     return baseViewChannels.filter((ch) => {
       if (!matchesCategory(ch, selectedCategory)) return false;
       if (!matchesSatellite(ch, selectedSatellite)) return false;
       if (!matchesBouquet(ch, selectedBouquet)) return false;
+      if (!matchesCountry(ch, selectedCountry)) return false;
       if (!matchesGroup(ch, selectedGroup)) return false;
       return true;
     });
   }, [
+    viewMode,
     baseViewChannels,
     selectedCategory,
     selectedSatellite,
     selectedBouquet,
+    selectedCountry,
     selectedGroup,
     matchesCategory,
+    matchesBouquet,
+    matchesCountry,
     matchesGroup,
   ]);
 
@@ -1069,16 +1464,22 @@ export function App() {
     selectedCategory,
     selectedSatellite,
     selectedBouquet,
+    selectedCountry,
     selectedGroup,
     searchQuery,
     viewMode,
   ]);
 
   const handleToggleFavorite = useCallback((channelId: string) => {
+    const cleanTarget = cleanXmltvChannelId(channelId);
     setFavorites((prev) => {
-      const exists = prev.includes(channelId);
+      const exists = prev.some(
+        (id) => id === channelId || cleanXmltvChannelId(id) === cleanTarget
+      );
       const next = exists
-        ? prev.filter((id) => id !== channelId)
+        ? prev.filter(
+            (id) => id !== channelId && cleanXmltvChannelId(id) !== cleanTarget
+          )
         : [...prev, channelId];
       saveFavoriteChannels(next);
       return next;
@@ -1125,10 +1526,20 @@ export function App() {
       saveAppSettings(finalizedSettings);
 
       // Purge stricte et immédiate des bouquets désactivés du State et du Cache IndexedDB/LocalStorage
-      const purgedChannels = channels.filter((ch) =>
+      // tout en préservant les chaînes présentes dans les favoris globaux
+      const allowedFromSettings = channels.filter((ch) =>
         isChannelAllowedBySettings(ch, finalizedSettings)
       );
-      const allowedChannelIds = new Set(purgedChannels.map((c) => c.id));
+      const { favoriteChannels: favResolved } = resolveGlobalFavoriteChannels(
+        channels,
+        schedulesByChannel,
+        favorites
+      );
+      const mergedMap = new Map<string, EpgChannel>();
+      for (const ch of allowedFromSettings) mergedMap.set(ch.id, ch);
+      for (const ch of favResolved) mergedMap.set(ch.id, ch);
+      const purgedChannels = Array.from(mergedMap.values());
+      const allowedChannelIds = new Set(purgedChannels.map((c: EpgChannel) => c.id));
       const purgedSchedules: Record<string, EpgProgramme[]> = {};
       let remainingProgCount = 0;
 
@@ -1171,6 +1582,7 @@ export function App() {
       schedulesByChannel,
       selectedChannel,
       cacheMeta,
+      favorites,
       triggerEpgSync,
     ]
   );
@@ -1213,14 +1625,29 @@ export function App() {
   const jumpToPrimeTimeTonight = useCallback(() => {
     const currentRealNow = Date.now();
     setNowMs(currentRealNow);
-    const target = getCasablancaTimestampForHour(currentRealNow, 20, 45);
+    const referenceDayMs =
+      viewMode === 'grid'
+        ? currentRealNow + timeOffsetMinutes * 60000
+        : currentRealNow;
+    const target = getCasablancaTimestampForHour(referenceDayMs, 20, 45);
     const diffMins = Math.round((target - currentRealNow) / 60000);
     setTimeOffsetMinutes(diffMins);
     setActiveTimePreset('prime');
+  }, [viewMode, timeOffsetMinutes]);
+
+  const handleSelectCustomDateTime = useCallback((targetMs: number) => {
+    const currentRealNow = Date.now();
+    setNowMs(currentRealNow);
+    const diffMins = Math.round((targetMs - currentRealNow) / 60000);
+    setTimeOffsetMinutes(diffMins);
+    setActiveTimePreset(
+      diffMins === 0 ? 'now' : diffMins < 0 ? 'minus' : 'plus'
+    );
   }, []);
 
   const isTimeViewOffset =
-    timeOffsetMinutes !== 0 || activeTimePreset !== 'now';
+    viewMode === 'grid' &&
+    (timeOffsetMinutes !== 0 || activeTimePreset !== 'now');
 
   const formattedOffsetBadge = useMemo(() => {
     if (activeTimePreset === 'prime') {
@@ -1235,6 +1662,7 @@ export function App() {
     setSelectedSatellite('Tous');
     setSelectedBouquet('Tous');
     setSelectedBouquetsList([]);
+    setSelectedCountry('Tous');
     setRamWarningMessage(null);
     setSelectedGroup('Tous');
     setSearchQuery('');
@@ -1293,59 +1721,207 @@ export function App() {
     };
   }, [visibleChannels, viewMode, currentAndNextByChannel, activeLang]);
 
+  // Navigation Télécommande Android TV / TV Box (D-Pad Spatial Navigation)
+  useEffect(() => {
+    const handleGlobalDpadKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement as HTMLElement | null;
+      const isTextInput =
+        activeEl &&
+        (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA') &&
+        (activeEl as HTMLInputElement).type !== 'checkbox';
+
+      if (e.key === 'Escape') {
+        if (selectedChannel) {
+          setSelectedChannel(null);
+          setSelectedModalProgramme(null);
+          return;
+        }
+        if (isSettingsOpen) {
+          setIsSettingsOpen(false);
+          return;
+        }
+      }
+
+      if (
+        e.key !== 'ArrowUp' &&
+        e.key !== 'ArrowDown' &&
+        e.key !== 'ArrowLeft' &&
+        e.key !== 'ArrowRight'
+      ) {
+        return;
+      }
+
+      // Laisser l'utilisateur déplacer son curseur dans un champ texte avec Gauche/Droite
+      if (isTextInput && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        return;
+      }
+
+      // Si le focus est déjà géré par la Grille TV interne, laisser son gestionnaire dédié agir
+      if (activeEl?.getAttribute('data-grid-focusable') === 'true') {
+        return;
+      }
+
+      const selector =
+        'button:not([disabled]), [role="button"], a[href], select:not([disabled]), input:not([disabled])';
+      const allNodes = Array.from(
+        document.querySelectorAll<HTMLElement>(selector)
+      ).filter((el) => {
+        const rect = el.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+      });
+
+      if (allNodes.length === 0) return;
+
+      if (!activeEl || activeEl === document.body) {
+        e.preventDefault();
+        allNodes[0].focus();
+        return;
+      }
+
+      const curRect = activeEl.getBoundingClientRect();
+      const cx = curRect.left + curRect.width / 2;
+      const cy = curRect.top + curRect.height / 2;
+
+      let bestCandidate: HTMLElement | null = null;
+      let bestScore = Infinity;
+
+      for (const el of allNodes) {
+        if (el === activeEl) continue;
+        const r = el.getBoundingClientRect();
+        const ex = r.left + r.width / 2;
+        const ey = r.top + r.height / 2;
+        const dx = ex - cx;
+        const dy = ey - cy;
+
+        if (e.key === 'ArrowRight' && dx > 6 && Math.abs(dy) < 52) {
+          const score = dx + Math.abs(dy) * 4;
+          if (score < bestScore) {
+            bestScore = score;
+            bestCandidate = el;
+          }
+        } else if (e.key === 'ArrowLeft' && dx < -6 && Math.abs(dy) < 52) {
+          const score = Math.abs(dx) + Math.abs(dy) * 4;
+          if (score < bestScore) {
+            bestScore = score;
+            bestCandidate = el;
+          }
+        } else if (e.key === 'ArrowDown' && dy > 14) {
+          const score = dy * 2.2 + Math.abs(dx) * 0.45;
+          if (score < bestScore) {
+            bestScore = score;
+            bestCandidate = el;
+          }
+        } else if (e.key === 'ArrowUp' && dy < -14) {
+          const score = Math.abs(dy) * 2.2 + Math.abs(dx) * 0.45;
+          if (score < bestScore) {
+            bestScore = score;
+            bestCandidate = el;
+          }
+        }
+      }
+
+      if (bestCandidate) {
+        e.preventDefault();
+        bestCandidate.focus({ preventScroll: true });
+        bestCandidate.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest',
+          inline: 'nearest',
+        });
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalDpadKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalDpadKeyDown);
+  }, [selectedChannel, isSettingsOpen]);
+
   return (
     <div
       dir={langOpt.dir}
-      className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-amber-500 selection:text-slate-950"
+      className="min-h-screen bg-[#0B0F17] text-white flex flex-col selection:bg-[#1E293B] selection:text-white"
     >
       {/* Top Navigation Bar */}
-      <header className="sticky top-0 z-30 bg-slate-950/90 backdrop-blur-xl border-b border-slate-800/80">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
-          {/* Brand Logo */}
+      <header className="sticky top-0 z-30 bg-[#0B0F17]/95 backdrop-blur-xl border-b border-[#1E2638]">
+        <div className="max-w-[1600px] mx-auto px-3 sm:px-6 2xl:px-10 py-3 flex flex-wrap items-center justify-between gap-3">
+          {/* Brand Logo Minimaliste & Épuré (Sans rond bleu/cyan dégradé) */}
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-400 via-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/20 shrink-0">
-              <Satellite className="w-5 h-5 text-slate-950" />
-            </div>
+            <svg
+              viewBox="0 0 28 28"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-7 h-7 shrink-0 text-white"
+              aria-hidden="true"
+            >
+              <path
+                d="M7.5 20.5L12 16M14.5 6.5L21.5 13.5C19.2 16.5 15.2 17.2 12 14C8.8 10.8 9.5 6.8 12.5 4.5L14.5 6.5Z"
+                stroke="currentColor"
+                strokeWidth="1.75"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M17.5 6.5C19.4 6.5 21.5 8.6 21.5 10.5"
+                stroke="#3B82F6"
+                strokeWidth="1.75"
+                strokeLinecap="round"
+              />
+              <path
+                d="M18.5 3.5C21.8 3.5 24.5 6.2 24.5 9.5"
+                stroke="#3B82F6"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeOpacity="0.65"
+              />
+              <path
+                d="M5 23H11"
+                stroke="currentColor"
+                strokeWidth="1.75"
+                strokeLinecap="round"
+              />
+            </svg>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-base sm:text-lg font-extrabold tracking-tight text-white">
-                  Pulse<span className="text-amber-400">EPG</span>
+                <h1 className="text-base sm:text-lg 2xl:text-xl font-bold tracking-tight text-white">
+                  PulseEPG
                 </h1>
-                <span className="hidden md:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-                  <Volume2 className="w-3 h-3" />
+                <span className="hidden md:inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border border-[#2A324B]">
+                  <Volume2 className="w-3 h-3 text-[#94A3B8]" />
                   VO + SUB
                 </span>
-                <span className="hidden lg:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                  <Trophy className="w-3 h-3" />
-                  Global Satellites
-                </span>
               </div>
-              <p className="text-[11px] text-slate-400 hidden sm:block">
-                {tr.appSubtitle}
+              <p className="text-[11px] font-normal text-[#64748B] tracking-wide leading-tight mt-0.5">
+                Your Ultimate TV Guide
               </p>
             </div>
           </div>
 
-          {/* Mode Switcher (En Direct / Grille TV / Favoris) */}
-          <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-2xl border border-slate-800">
+          {/* Mode Switcher (En Direct / Grille TV / Favoris) — Style Ghost / Outline */}
+          <div className="flex items-center gap-1.5">
             <button
-              onClick={() => setViewMode('live')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              type="button"
+              onClick={() => {
+                setNowMs(Date.now());
+                setTimeOffsetMinutes(0);
+                setActiveTimePreset('now');
+                setViewMode('live');
+              }}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer ${
                 viewMode === 'live'
-                  ? 'bg-amber-500 text-slate-950 shadow-sm'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold'
+                  : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white font-medium'
               }`}
             >
-              <Radio className="w-3.5 h-3.5" />
+              <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] shrink-0" />
               <span>{tr.liveTab}</span>
             </button>
 
             <button
+              type="button"
               onClick={() => setViewMode('grid')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer ${
                 viewMode === 'grid'
-                  ? 'bg-amber-500 text-slate-950 shadow-sm'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold'
+                  : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white font-medium'
               }`}
             >
               <LayoutGrid className="w-3.5 h-3.5" />
@@ -1353,17 +1929,40 @@ export function App() {
             </button>
 
             <button
-              onClick={() => setViewMode('favorites')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              type="button"
+              onClick={() => {
+                setSelectedSatellite('Tous');
+                setSelectedBouquet('Tous');
+                setSelectedBouquetsList([]);
+                setSelectedCountry('Tous');
+                setSelectedCategory('Tous');
+                setSelectedGroup('Tous');
+                setViewMode('favorites');
+              }}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer ${
                 viewMode === 'favorites'
-                  ? 'bg-rose-500 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold'
+                  : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white font-medium'
               }`}
             >
-              <Heart className="w-3.5 h-3.5" />
+              <Heart
+                className={`w-3.5 h-3.5 ${
+                  viewMode === 'favorites'
+                    ? 'text-[#EF4444] fill-[#EF4444]'
+                    : favorites.length > 0
+                      ? 'text-[#EF4444]'
+                      : ''
+                }`}
+              />
               <span>{tr.favoritesTab}</span>
               {favorites.length > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-950/30">
+                <span
+                  className={`px-1.5 py-0.2 rounded text-[10px] font-mono ${
+                    viewMode === 'favorites'
+                      ? 'bg-[#0B0F17] text-white border border-[#3B82F6]/40 font-bold'
+                      : 'bg-[#0B0F17]/60 text-[#94A3B8]'
+                  }`}
+                >
                   {favorites.length}
                 </span>
               )}
@@ -1374,20 +1973,20 @@ export function App() {
           <div className="flex items-center gap-2">
             {/* Sélecteur de Langue Fluide dans le Header */}
             <div className="relative flex items-center">
-              <Languages className="w-3.5 h-3.5 text-amber-400 absolute start-2.5 pointer-events-none" />
+              <Languages className="w-3.5 h-3.5 text-[#94A3B8] absolute start-2.5 pointer-events-none" />
               <select
                 value={activeLang}
                 onChange={(e) =>
                   handleChangeLanguage(e.target.value as AppLanguage)
                 }
                 aria-label={tr.languageSectionTitle}
-                className="ps-7 pe-6 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-xs font-bold text-slate-100 border border-slate-800 focus:outline-none focus:border-amber-500 transition-colors cursor-pointer"
+                className="ps-7 pe-6 py-1.5 rounded-lg bg-[rgba(255,255,255,0.03)] hover:bg-[#1E293B] text-xs font-medium text-white border border-[#2A324B] focus:outline-none focus:border-[#3B82F6] transition-colors cursor-pointer"
               >
                 {LANGUAGE_OPTIONS.map((opt) => (
                   <option
                     key={opt.code}
                     value={opt.code}
-                    className="bg-slate-900 text-white"
+                    className="bg-[#131927] text-white"
                   >
                     {opt.flag} {opt.label}
                   </option>
@@ -1398,14 +1997,15 @@ export function App() {
             <PWAInstallButton language={activeLang} />
 
             <button
+              type="button"
               onClick={() => triggerEpgSync(settings)}
               disabled={isSyncing}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-xs font-semibold text-slate-200 border border-slate-800 transition-colors cursor-pointer disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[rgba(255,255,255,0.03)] hover:bg-[#1E293B] text-xs font-medium text-[#94A3B8] hover:text-white border border-[#2A324B] transition-colors cursor-pointer disabled:opacity-50"
               title={tr.refreshBtn}
             >
               <RefreshCw
-                className={`w-3.5 h-3.5 text-amber-400 ${
-                  isSyncing ? 'animate-spin' : ''
+                className={`w-3.5 h-3.5 text-[#94A3B8] ${
+                  isSyncing ? 'animate-spin text-[#3B82F6]' : ''
                 }`}
               />
               <span className="hidden lg:inline">
@@ -1414,11 +2014,12 @@ export function App() {
             </button>
 
             <button
+              type="button"
               onClick={() => {
                 setSettingsInitialTab('filters');
                 setIsSettingsOpen(true);
               }}
-              className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 transition-colors cursor-pointer"
+              className="p-2 rounded-lg bg-[rgba(255,255,255,0.03)] hover:bg-[#1E293B] text-[#94A3B8] hover:text-white border border-[#2A324B] transition-colors cursor-pointer"
               title={tr.settingsTitle}
             >
               <Settings className="w-4 h-4" />
@@ -1427,8 +2028,8 @@ export function App() {
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-5">
+      {/* Main Content (10-Foot UI compatible) */}
+      <main className="flex-1 max-w-[1600px] w-full mx-auto px-3 sm:px-6 2xl:px-10 py-4 sm:py-5">
         {/* Bannière de progression Web Worker */}
         <LoadingStatusBanner
           progress={workerProgress}
@@ -1437,11 +2038,11 @@ export function App() {
         />
 
         {/* Barre de Recherche & Contrôle Temporel Rapide */}
-        <div className="mb-4 rounded-2xl bg-slate-900/90 border border-slate-800/90 p-3 sm:p-4 shadow-lg space-y-3">
+        <div className="mb-4 rounded-lg bg-[#131927] border border-[#1E2638] p-3 sm:p-4 space-y-3">
           <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
             {/* Search Input & Recent Searches Dropdown */}
             <div ref={searchContainerRef} className="relative flex-1">
-              <Search className="w-4 h-4 text-slate-500 absolute start-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Search className="w-4 h-4 text-[#94A3B8] absolute start-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
                 value={searchQuery}
@@ -1477,7 +2078,7 @@ export function App() {
                   }
                 }}
                 placeholder={tr.searchPlaceholder}
-                className="w-full ps-10 pe-9 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/70 transition-colors"
+                className="w-full ps-10 pe-9 py-2 rounded-lg bg-[#0B0F17] border border-[#2A324B] text-xs sm:text-sm text-white placeholder-[#94A3B8] focus:outline-none focus:border-[#3B82F6] transition-colors"
               />
               {searchQuery && (
                 <button
@@ -1494,7 +2095,7 @@ export function App() {
                     setSearchQuery('');
                     setIsSearchDropdownOpen(true);
                   }}
-                  className="absolute end-2.5 top-1/2 -translate-y-1/2 p-1 rounded-lg text-slate-400 hover:text-white cursor-pointer"
+                  className="absolute end-2.5 top-1/2 -translate-y-1/2 p-1 rounded-lg text-[#94A3B8] hover:text-white cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -1505,11 +2106,11 @@ export function App() {
                 <div
                   role="listbox"
                   aria-label="Recent Searches"
-                  className="absolute start-0 end-0 top-full mt-1.5 z-50 rounded-xl bg-slate-900 border border-slate-700/90 shadow-2xl overflow-hidden"
+                  className="absolute start-0 end-0 top-full mt-1.5 z-50 rounded-lg bg-[#131927] border border-[#2A324B] shadow-2xl overflow-hidden"
                 >
-                  <div className="flex items-center justify-between px-3.5 py-2 bg-slate-950/80 border-b border-slate-800/80">
-                    <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-amber-400">
-                      <Clock className="w-3.5 h-3.5" />
+                  <div className="flex items-center justify-between px-3.5 py-2 bg-[#0B0F17] border-b border-[#1E2638]">
+                    <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-white">
+                      <Clock className="w-3.5 h-3.5 text-[#94A3B8]" />
                       <span>Recent Searches</span>
                     </div>
                     {recentSearches.length > 0 && (
@@ -1520,7 +2121,7 @@ export function App() {
                           clearRecentSearches();
                           setRecentSearches([]);
                         }}
-                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-rose-400 transition-colors cursor-pointer"
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#94A3B8] hover:text-white transition-colors cursor-pointer"
                       >
                         <Trash2 className="w-3 h-3" />
                         <span>{activeLang === 'fr' ? 'Effacer' : 'Clear'}</span>
@@ -1529,17 +2130,17 @@ export function App() {
                   </div>
 
                   {recentSearches.length === 0 ? (
-                    <div className="px-3.5 py-3 text-xs text-slate-400">
+                    <div className="px-3.5 py-3 text-xs text-[#94A3B8]">
                       {activeLang === 'fr'
                         ? 'Aucune recherche récente (vos 5 dernières recherches seront enregistrées ici).'
                         : 'No recent searches yet (your last 5 searches will be saved here).'}
                     </div>
                   ) : (
-                    <ul className="divide-y divide-slate-800/60 max-h-60 overflow-y-auto">
+                    <ul className="divide-y divide-[#1E2638] max-h-60 overflow-y-auto">
                       {recentSearches.slice(0, 5).map((item) => (
                         <li
                           key={item}
-                          className="flex items-center justify-between hover:bg-slate-800/70 transition-colors"
+                          className="flex items-center justify-between hover:bg-[#1E293B]/60 transition-colors"
                         >
                           <button
                             type="button"
@@ -1552,9 +2153,9 @@ export function App() {
                               );
                               setIsSearchDropdownOpen(false);
                             }}
-                            className="flex-1 flex items-center gap-2.5 px-3.5 py-2.5 text-start text-xs sm:text-sm text-slate-200 hover:text-amber-300 transition-colors cursor-pointer truncate"
+                            className="flex-1 flex items-center gap-2.5 px-3.5 py-2.5 text-start text-xs sm:text-sm text-white transition-colors cursor-pointer truncate"
                           >
-                            <Clock className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                            <Clock className="w-3.5 h-3.5 text-[#94A3B8] shrink-0" />
                             <span className="truncate font-medium">{item}</span>
                           </button>
                           <button
@@ -1571,7 +2172,7 @@ export function App() {
                                 ? 'Supprimer cette recherche'
                                 : 'Remove search'
                             }
-                            className="p-2 me-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
+                            className="p-2 me-1.5 rounded-lg text-[#94A3B8] hover:text-white hover:bg-[#1E293B] transition-colors cursor-pointer shrink-0"
                           >
                             <X className="w-3.5 h-3.5" />
                           </button>
@@ -1583,76 +2184,127 @@ export function App() {
               )}
             </div>
 
-            {/* Time Offset Presets */}
-            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0">
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-xs font-mono text-amber-300 shrink-0">
-                <Clock className="w-3.5 h-3.5 text-amber-400" />
-                <span>{formatDayLabel(effectiveTimeMs, activeLang)}</span>
-                <span className="font-bold">
-                  {formatTimeShort(effectiveTimeMs)}
+            {/* Horodateur Temps Réel (Live Now) vs Barre de Contrôle Temporel (EXCLUSIVEMENT en vue TV Grid) */}
+            {viewMode === 'grid' ? (
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-xs font-mono text-[#94A3B8] shrink-0">
+                  <Clock className="w-3.5 h-3.5 text-[#94A3B8]" />
+                  <span>{formatDayLabel(effectiveTimeMs, activeLang)}</span>
+                  <span className="font-bold text-white">
+                    {formatTimeShort(effectiveTimeMs)}
+                  </span>
+                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#0B0F17] text-[#94A3B8] border border-[#1E2638] font-sans font-medium">
+                    {APP_TIMEZONE_LABEL}
+                  </span>
+                </div>
+
+                <input
+                  type="date"
+                  value={formatDateInputValue(effectiveTimeMs)}
+                  onChange={(e) => {
+                    const parsed = parseDateInputWithCurrentTime(
+                      e.target.value,
+                      effectiveTimeMs
+                    );
+                    if (parsed !== null) {
+                      handleSelectCustomDateTime(parsed);
+                    }
+                  }}
+                  aria-label={
+                    activeLang === 'fr' ? 'Sélecteur de date' : 'Date selector'
+                  }
+                  className="px-2.5 py-1.5 rounded-lg bg-[#0B0F17] border border-[#2A324B] text-xs font-mono text-white focus:outline-none focus:border-[#3B82F6] transition-colors cursor-pointer shrink-0"
+                />
+
+                <input
+                  type="time"
+                  value={formatTimeInputValue(effectiveTimeMs)}
+                  onChange={(e) => {
+                    const parsed = parseTimeInputWithCurrentDate(
+                      e.target.value,
+                      effectiveTimeMs
+                    );
+                    if (parsed !== null) {
+                      handleSelectCustomDateTime(parsed);
+                    }
+                  }}
+                  aria-label={
+                    activeLang === 'fr' ? "Sélecteur d'heure" : 'Time selector'
+                  }
+                  className="px-2.5 py-1.5 rounded-lg bg-[#0B0F17] border border-[#2A324B] text-xs font-mono text-white focus:outline-none focus:border-[#3B82F6] transition-colors cursor-pointer shrink-0"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => shiftTimeOffsetMinutes(-120)}
+                  className={`px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer shrink-0 ${
+                    activeTimePreset === 'minus'
+                      ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold'
+                      : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white font-medium'
+                  }`}
+                >
+                  -2h
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleSyncToLive}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer shrink-0 ${
+                    activeTimePreset === 'now'
+                      ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold'
+                      : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white font-medium'
+                  }`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] shrink-0" />
+                  <span>{tr.presetNow}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={jumpToPrimeTimeTonight}
+                  className={`px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer shrink-0 ${
+                    activeTimePreset === 'prime'
+                      ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold'
+                      : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white font-medium'
+                  }`}
+                >
+                  {tr.presetPrime}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => shiftTimeOffsetMinutes(120)}
+                  className={`px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer shrink-0 ${
+                    activeTimePreset === 'plus'
+                      ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold'
+                      : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white font-medium'
+                  }`}
+                >
+                  +2h
+                </button>
+              </div>
+            ) : (
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-xs font-mono text-[#94A3B8] shrink-0 select-none">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] shrink-0" />
+                <Clock className="w-3.5 h-3.5 text-[#94A3B8]" />
+                <span>{formatDayLabel(nowMs, activeLang)}</span>
+                <span className="font-bold text-white">
+                  {formatTimeShort(nowMs)}
                 </span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 font-sans font-semibold">
+                <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#0B0F17] text-[#94A3B8] border border-[#1E2638] font-sans font-medium">
                   {APP_TIMEZONE_LABEL}
                 </span>
               </div>
-
-              <button
-                type="button"
-                onClick={() => shiftTimeOffsetMinutes(-120)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer shrink-0 ${
-                  activeTimePreset === 'minus'
-                    ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/25'
-                    : 'bg-slate-800/90 text-slate-300 border-slate-700/70 hover:bg-slate-800'
-                }`}
-              >
-                -2h
-              </button>
-
-              <button
-                type="button"
-                onClick={handleSyncToLive}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer shrink-0 ${
-                  activeTimePreset === 'now'
-                    ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/25'
-                    : 'bg-slate-800/90 text-slate-300 border-slate-700/70 hover:bg-slate-800'
-                }`}
-              >
-                {tr.presetNow}
-              </button>
-
-              <button
-                type="button"
-                onClick={jumpToPrimeTimeTonight}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer shrink-0 ${
-                  activeTimePreset === 'prime'
-                    ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/25'
-                    : 'bg-slate-800/90 text-slate-300 border-slate-700/70 hover:bg-slate-800'
-                }`}
-              >
-                {tr.presetPrime}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => shiftTimeOffsetMinutes(120)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer shrink-0 ${
-                  activeTimePreset === 'plus'
-                    ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/25'
-                    : 'bg-slate-800/90 text-slate-300 border-slate-700/70 hover:bg-slate-800'
-                }`}
-              >
-                +2h
-              </button>
-            </div>
+            )}
           </div>
 
-          {/* Barres de filtres rapides [CATÉGORIE] -> [SATELLITE / BOUQUET] -> [GENRE] */}
+          {/* Barres de filtres rapides [CATÉGORIE] -> [SATELLITE / BOUQUET] -> [GENRE] (Style Ghost / Outline) */}
           {viewMode !== 'grid' && (
-            <div className="pt-2.5 border-t border-slate-800/80 space-y-2">
+            <div className="pt-2.5 border-t border-[#1E2638] space-y-2">
               {/* Ligne 1 : [CATÉGORIE] */}
               <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
-                <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-amber-400 me-1 shrink-0">
-                  <Film className="w-3.5 h-3.5" />
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] me-1 shrink-0">
+                  <Film className="w-3.5 h-3.5 text-[#94A3B8]" />
                   {tr.filterCatLabel}
                 </span>
                 {visibleCategoryOptions.map((cat) => {
@@ -1664,65 +2316,61 @@ export function App() {
                       key={cat.code}
                       type="button"
                       onClick={() => setSelectedCategory(cat.code)}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer border ${
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all shrink-0 cursor-pointer ${
                         active
-                          ? cat.code === 'Sport / Football'
-                            ? 'bg-emerald-500 text-slate-950 border-emerald-400 shadow-md shadow-emerald-500/20'
-                            : cat.code === 'Documentaires'
-                            ? 'bg-cyan-500 text-slate-950 border-cyan-400 shadow-md shadow-cyan-500/20'
-                            : 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/20'
-                          : 'bg-slate-950 text-slate-200 border-slate-800 hover:bg-slate-800 hover:border-slate-700'
+                          ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold'
+                          : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white hover:border-[#3B82F6]/40 font-medium'
                       }`}
                     >
                       {cat.icon === 'sport' ? (
                         <Trophy
                           className={`w-3.5 h-3.5 ${
-                            active ? 'text-slate-950' : 'text-emerald-400'
+                            active ? 'text-[#3B82F6]' : 'text-[#94A3B8]'
                           }`}
                         />
                       ) : cat.icon === 'cinema' ? (
                         <Film
                           className={`w-3.5 h-3.5 ${
-                            active ? 'text-slate-950' : 'text-amber-400'
+                            active ? 'text-[#3B82F6]' : 'text-[#94A3B8]'
                           }`}
                         />
                       ) : cat.icon === 'doc' ? (
                         <Compass
                           className={`w-3.5 h-3.5 ${
-                            active ? 'text-slate-950' : 'text-cyan-400'
+                            active ? 'text-[#3B82F6]' : 'text-[#94A3B8]'
                           }`}
                         />
                       ) : cat.icon === 'news' ? (
                         <Newspaper
                           className={`w-3.5 h-3.5 ${
-                            active ? 'text-slate-950' : 'text-sky-400'
+                            active ? 'text-[#3B82F6]' : 'text-[#94A3B8]'
                           }`}
                         />
                       ) : cat.icon === 'kids' ? (
                         <Baby
                           className={`w-3.5 h-3.5 ${
-                            active ? 'text-slate-950' : 'text-pink-400'
+                            active ? 'text-[#3B82F6]' : 'text-[#94A3B8]'
                           }`}
                         />
                       ) : cat.icon === 'music' ? (
                         <Music
                           className={`w-3.5 h-3.5 ${
-                            active ? 'text-slate-950' : 'text-purple-400'
+                            active ? 'text-[#3B82F6]' : 'text-[#94A3B8]'
                           }`}
                         />
                       ) : (
                         <Tv
                           className={`w-3.5 h-3.5 ${
-                            active ? 'text-slate-950' : 'text-indigo-400'
+                            active ? 'text-[#3B82F6]' : 'text-[#94A3B8]'
                           }`}
                         />
                       )}
                       <span>{label}</span>
                       <span
-                        className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                        className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${
                           active
-                            ? 'bg-slate-950/20 text-slate-950 font-extrabold'
-                            : 'bg-slate-800 text-slate-400'
+                            ? 'bg-[#0B0F17] text-white border border-[#3B82F6]/40 font-bold'
+                            : 'bg-[#0B0F17]/60 text-[#94A3B8]'
                         }`}
                       >
                         {count}
@@ -1733,11 +2381,11 @@ export function App() {
               </div>
 
               {/* Ligne 2 : [SATELLITE / BOUQUET] */}
-              <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-800/60">
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-[#1E2638]">
                 {visibleSatelliteOptions.length > 1 && (
                   <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-amber-400 me-1 shrink-0">
-                      <Satellite className="w-3.5 h-3.5" />
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] me-1 shrink-0">
+                      <Satellite className="w-3.5 h-3.5 text-[#94A3B8]" />
                       {tr.filterSatLabel}
                     </span>
                     {visibleSatelliteOptions.map((sat) => {
@@ -1749,18 +2397,18 @@ export function App() {
                           key={sat}
                           type="button"
                           onClick={() => handleSelectSatellite(sat)}
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0 cursor-pointer border ${
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-all shrink-0 cursor-pointer ${
                             active
-                              ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold shadow-sm'
-                              : 'bg-slate-950 text-slate-300 border-slate-800 hover:bg-slate-800'
+                              ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold'
+                              : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white hover:border-[#3B82F6]/40 font-medium'
                           }`}
                         >
                           <span>{label}</span>
                           <span
-                            className={`text-[10px] px-1.5 rounded-full ${
+                            className={`text-[10px] px-1.5 rounded font-mono ${
                               active
-                                ? 'bg-slate-950/20 text-slate-950 font-extrabold'
-                                : 'bg-slate-800 text-slate-400'
+                                ? 'bg-[#0B0F17] text-white border border-[#3B82F6]/40 font-bold'
+                                : 'bg-[#0B0F17]/60 text-[#94A3B8]'
                             }`}
                           >
                             {count}
@@ -1773,7 +2421,7 @@ export function App() {
 
                 {visibleBouquetOptions.length > 1 && (
                   <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-0.5">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 me-1 shrink-0">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] me-1 shrink-0">
                       {tr.filterBouquetLabel}
                     </span>
                     {visibleBouquetOptions.map((bq) => {
@@ -1790,18 +2438,18 @@ export function App() {
                           key={bq}
                           type="button"
                           onClick={() => handleSelectBouquet(bq)}
-                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium shrink-0 cursor-pointer border ${
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] transition-all shrink-0 cursor-pointer ${
                             active
-                              ? 'bg-emerald-500 text-slate-950 border-emerald-400 font-bold'
-                              : 'bg-slate-950 text-slate-300 border-slate-800 hover:bg-slate-800'
+                              ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold'
+                              : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white hover:border-[#3B82F6]/40 font-medium'
                           }`}
                         >
                           <span>{label}</span>
                           <span
-                            className={`text-[10px] px-1 rounded-full ${
+                            className={`text-[10px] px-1 rounded font-mono ${
                               active
-                                ? 'bg-slate-950/20 text-slate-950 font-bold'
-                                : 'bg-slate-800 text-slate-400'
+                                ? 'bg-[#0B0F17] text-white border border-[#3B82F6]/40 font-bold'
+                                : 'bg-[#0B0F17]/60 text-[#94A3B8]'
                             }`}
                           >
                             {count}
@@ -1814,17 +2462,111 @@ export function App() {
               </div>
 
               {ramWarningMessage && (
-                <div className="px-3 py-2 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+                <div className="px-3 py-2 rounded-lg bg-[#1E293B] border border-[#3B82F6]/50 text-white text-xs font-medium flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-[#3B82F6] shrink-0" />
                   <span>{ramWarningMessage}</span>
+                </div>
+              )}
+
+              {/* Ligne 2.5 : [COUNTRY] (Menu déroulant compact sur Mobile / Puces sélectionnables au Pad/Télécommande sur Tablette & TV) */}
+              {visibleCountryOptions.length > 1 && (
+                <div className="pt-1 border-t border-[#1E2638]">
+                  {/* Mobile : Menu déroulant compact */}
+                  <div className="flex md:hidden items-center justify-between gap-2">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] shrink-0">
+                      <Globe className="w-3.5 h-3.5 text-[#94A3B8]" />
+                      {tr.filterCountryLabel || tr.filterZoneLabel}
+                    </span>
+                    <div className="flex items-center gap-1.5 flex-1 max-w-[260px]">
+                      <select
+                        value={selectedCountry}
+                        onChange={(e) =>
+                          setSelectedCountry(
+                            e.target.value as ChannelCountryFilter
+                          )
+                        }
+                        aria-label={tr.filterCountryLabel || tr.filterZoneLabel}
+                        className="w-full px-2.5 py-1.5 rounded-lg bg-[#0B0F17] border border-[#2A324B] text-xs font-medium text-white focus:outline-none focus:border-[#3B82F6] transition-colors cursor-pointer"
+                      >
+                        {visibleCountryOptions.map((cCode) => {
+                          const count = countryCounts[cCode] ?? 0;
+                          const label = translateChannelCountryFilter(
+                            cCode,
+                            activeLang
+                          );
+                          const flag = CHANNEL_COUNTRY_FLAGS[cCode] || '🌍';
+                          return (
+                            <option
+                              key={cCode}
+                              value={cCode}
+                              className="bg-[#131927] text-white"
+                            >
+                              {flag} {label} ({count})
+                            </option>
+                          );
+                        })}
+                      </select>
+                      {selectedCountry !== 'Tous' && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedCountry('Tous')}
+                          className="p-1.5 rounded-lg bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white shrink-0 cursor-pointer"
+                          title={tr.resetFiltersBtn}
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Tablette & TV : Puces (chips) sélectionnables au pad/télécommande */}
+                  <div className="hidden md:flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] me-1 shrink-0">
+                      <Globe className="w-3.5 h-3.5 text-[#94A3B8]" />
+                      {tr.filterCountryLabel || tr.filterZoneLabel}
+                    </span>
+                    {visibleCountryOptions.map((cCode) => {
+                      const active = selectedCountry === cCode;
+                      const count = countryCounts[cCode] ?? 0;
+                      const label = translateChannelCountryFilter(
+                        cCode,
+                        activeLang
+                      );
+                      const flag = CHANNEL_COUNTRY_FLAGS[cCode] || '🌍';
+                      return (
+                        <button
+                          key={cCode}
+                          type="button"
+                          onClick={() => setSelectedCountry(cCode)}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] transition-all shrink-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#3B82F6] ${
+                            active
+                              ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold'
+                              : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white hover:border-[#3B82F6]/40 font-medium'
+                          }`}
+                        >
+                          <span>{flag}</span>
+                          <span>{label}</span>
+                          <span
+                            className={`text-[10px] px-1 rounded font-mono ${
+                              active
+                                ? 'bg-[#0B0F17] text-white border border-[#3B82F6]/40 font-bold'
+                                : 'bg-[#0B0F17]/60 text-[#94A3B8]'
+                            }`}
+                          >
+                            {count}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 
               {/* Ligne 3 : [GENRE] */}
               {visibleGroupOptions.length > 1 && (
-                <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pt-1 border-t border-slate-800/60 pb-0.5">
-                  <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-amber-300 me-1 shrink-0">
-                    <Sparkles className="w-3 h-3" />
+                <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pt-1 border-t border-[#1E2638] pb-0.5">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] me-1 shrink-0">
+                    <Sparkles className="w-3 h-3 text-[#94A3B8]" />
                     {tr.filterGenreLabel}
                   </span>
                   {visibleGroupOptions.map((grp) => {
@@ -1840,18 +2582,18 @@ export function App() {
                         key={grp}
                         type="button"
                         onClick={() => setSelectedGroup(grp)}
-                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all shrink-0 cursor-pointer border ${
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] transition-all shrink-0 cursor-pointer ${
                           active
-                            ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold shadow-sm'
-                            : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200'
+                            ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold'
+                            : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white hover:border-[#3B82F6]/40 font-medium'
                         }`}
                       >
                         <span>{label}</span>
                         <span
-                          className={`text-[10px] px-1 rounded-full ${
+                          className={`text-[10px] px-1 rounded font-mono ${
                             active
-                              ? 'bg-slate-950/20 text-slate-950 font-bold'
-                              : 'text-slate-500'
+                              ? 'bg-[#0B0F17] text-white border border-[#3B82F6]/40 font-bold'
+                              : 'bg-[#0B0F17]/60 text-[#94A3B8]'
                           }`}
                         >
                           {count}
@@ -1865,7 +2607,7 @@ export function App() {
           )}
 
           {/* Résumé Statut & Bouton Reset Filtres */}
-          <div className="pt-2 border-t border-slate-800/60 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
+          <div className="pt-2 border-t border-[#1E2638] flex flex-wrap items-center justify-between gap-2 text-xs text-[#94A3B8]">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-semibold text-white">
                 {filteredChannels.length}
@@ -1875,14 +2617,14 @@ export function App() {
               </span>
               {cacheMeta && (
                 <>
-                  <span className="text-slate-700">•</span>
+                  <span className="text-[#64748B]">•</span>
                   <span>
                     {cacheMeta.programmeCount.toLocaleString()}{' '}
                     {tr.activeProgrammes}
                   </span>
                 </>
               )}
-              <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-emerald-400 font-medium ms-1">
+              <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-[#94A3B8] font-medium ms-1">
                 <Subtitles className="w-3.5 h-3.5" />
                 VO + SUB
               </span>
@@ -1891,13 +2633,14 @@ export function App() {
             {(selectedCategory !== 'Tous' ||
               selectedSatellite !== 'Tous' ||
               selectedBouquet !== 'Tous' ||
+              selectedCountry !== 'Tous' ||
               (selectedGroup !== 'Tous' && selectedGroup !== 'Toutes') ||
               searchQuery ||
               isTimeViewOffset) && (
               <button
                 type="button"
                 onClick={resetAllFilters}
-                className="inline-flex items-center gap-1 text-xs font-semibold text-amber-400 hover:text-amber-300 cursor-pointer"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-xs font-medium text-[#94A3B8] hover:text-white hover:border-[#3B82F6] cursor-pointer"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 {tr.resetFiltersBtn}
@@ -1908,12 +2651,12 @@ export function App() {
 
         {/* Rappels actifs dans l'onglet Favoris */}
         {viewMode === 'favorites' && reminders.length > 0 && (
-          <div className="mb-4 rounded-2xl p-4 bg-slate-900/90 border border-amber-500/30 space-y-2.5">
-            <h3 className="text-xs font-bold flex items-center gap-1.5 text-amber-400 uppercase tracking-wider">
-              <Bell className="w-3.5 h-3.5" />
+          <div className="mb-4 rounded-lg p-4 bg-[#131927] border border-[#1E2638] space-y-2.5">
+            <h3 className="text-xs font-bold flex items-center gap-1.5 text-white uppercase tracking-wider">
+              <Bell className="w-3.5 h-3.5 text-[#3B82F6]" />
               {tr.savedRemindersTitle} ({reminders.length})
             </h3>
-            <div className="divide-y divide-slate-800/60">
+            <div className="divide-y divide-[#1E2638]">
               {reminders.map((rem) => (
                 <div
                   key={rem.id}
@@ -1921,7 +2664,7 @@ export function App() {
                 >
                   <div className="min-w-0">
                     <p className="font-bold text-white truncate">{rem.title}</p>
-                    <p className="text-[11px] font-mono text-slate-400">
+                    <p className="text-[11px] font-mono text-[#94A3B8]">
                       {rem.channelName} ·{' '}
                       {formatDayLabel(rem.startMs, activeLang)}{' '}
                       {formatTimeShort(rem.startMs)} –{' '}
@@ -1929,12 +2672,13 @@ export function App() {
                     </p>
                   </div>
                   <button
+                    type="button"
                     onClick={() => {
                       const next = reminders.filter((r) => r.id !== rem.id);
                       setReminders(next);
                       saveReminders(next);
                     }}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 cursor-pointer"
+                    className="p-1.5 rounded-lg text-[#94A3B8] hover:text-white cursor-pointer"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -1948,7 +2692,7 @@ export function App() {
         {viewMode === 'grid' ? (
           <TimeGridView
             channels={filteredChannels}
-            programmesByChannel={schedulesByChannel}
+            programmesByChannel={activeSchedulesByChannel}
             nowMs={effectiveTimeMs}
             realNowMs={nowMs}
             timeOffsetMinutes={timeOffsetMinutes}
@@ -1957,6 +2701,7 @@ export function App() {
             onShiftTimeOffset={shiftTimeOffsetMinutes}
             onResetToLive={handleSyncToLive}
             onJumpToPrimeTime={jumpToPrimeTimeTonight}
+            onSelectDateTime={handleSelectCustomDateTime}
             favorites={favorites}
             onToggleFavorite={handleToggleFavorite}
             onSelectChannel={(ch, prog) => {
@@ -1971,37 +2716,42 @@ export function App() {
             onSelectBouquet={handleSelectBouquet}
             selectedBouquetsList={selectedBouquetsList}
             ramWarningMessage={ramWarningMessage}
+            selectedCountry={selectedCountry}
+            onSelectCountry={setSelectedCountry}
             selectedGroup={selectedGroup}
             onSelectGroup={setSelectedGroup}
             categoryCounts={categoryCounts}
             satelliteCounts={satelliteCounts}
             bouquetCounts={bouquetCounts}
+            countryCounts={countryCounts}
             groupCounts={groupCounts}
             allowedSatelliteOptions={visibleSatelliteOptions}
             allowedBouquetOptions={visibleBouquetOptions}
+            allowedCountryOptions={visibleCountryOptions}
             allowedCategoryCodes={visibleCategoryOptions.map((c) => c.code)}
             allowedGroupOptions={visibleGroupOptions}
             language={activeLang}
           />
         ) : filteredChannels.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/50 p-10 text-center max-w-lg mx-auto my-8">
-            <Satellite className="w-10 h-10 text-amber-400/60 mx-auto mb-3" />
+          <div className="rounded-lg border border-dashed border-[#2A324B] bg-[#131927] p-10 text-center max-w-lg mx-auto my-8">
+            <Satellite className="w-10 h-10 text-[#94A3B8] mx-auto mb-3" />
             <h3 className="text-base font-bold text-white">
               {tr.noChannelsFoundTitle}
             </h3>
-            <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+            <p className="text-xs text-[#94A3B8] mt-1 leading-relaxed">
               {tr.noChannelsFoundDesc}
             </p>
             <button
+              type="button"
               onClick={resetAllFilters}
-              className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 text-slate-950 font-bold text-xs cursor-pointer"
+              className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold text-xs cursor-pointer"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               {tr.showAllSatellitesBtn}
             </button>
           </div>
         ) : (
-          <div className="space-y-2.5">
+          <div className="space-y-2">
             {visibleChannels.map((ch) => {
               const pair = currentAndNextByChannel[ch.id] || {
                 current: null,
@@ -2022,6 +2772,9 @@ export function App() {
                   }}
                   isSelected={selectedChannel?.id === ch.id}
                   language={activeLang}
+                  activeSatellite={selectedSatellite}
+                  activeBouquet={selectedBouquet}
+                  selectedBouquets={settings.selectedBouquets}
                 />
               );
             })}
@@ -2029,8 +2782,9 @@ export function App() {
             {filteredChannels.length > visibleLimit && (
               <div className="pt-4 text-center">
                 <button
+                  type="button"
                   onClick={() => setVisibleLimit((prev) => prev + 60)}
-                  className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-amber-300 border border-slate-800 text-xs font-bold transition-colors cursor-pointer"
+                  className="px-5 py-2.5 rounded-lg bg-[rgba(255,255,255,0.03)] hover:bg-[#1E293B] text-white border border-[#2A324B] hover:border-[#3B82F6] text-xs font-bold transition-colors cursor-pointer"
                 >
                   {tr.loadMoreChannels} (
                   {filteredChannels.length - visibleLimit} {tr.remainingLabel})
@@ -2041,20 +2795,20 @@ export function App() {
         )}
       </main>
 
-      {/* Floating Action Button: Sync to Live (visible only when time view is offset) */}
-      {isTimeViewOffset && (
+      {/* Floating Action Button: Sync to Live (visible exclusively in TV Grid when time view is offset) */}
+      {viewMode === 'grid' && isTimeViewOffset && (
         <div className="fixed bottom-6 end-6 z-40 flex items-center">
           <button
             type="button"
             onClick={handleSyncToLive}
             aria-label="Sync to Live"
             title="Sync to Live"
-            className="inline-flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 font-extrabold text-xs sm:text-sm shadow-2xl shadow-amber-500/30 border-2 border-amber-300 transition-colors cursor-pointer"
+            className="inline-flex items-center gap-2.5 px-4 py-2.5 rounded-lg bg-[#1E293B] hover:bg-[#253248] text-white font-bold text-xs sm:text-sm shadow-2xl border-[1.5px] border-[#3B82F6] transition-colors cursor-pointer"
           >
-            <span className="w-2.5 h-2.5 rounded-full bg-rose-600 shrink-0" />
-            <Radio className="w-4 h-4 text-slate-950 shrink-0" />
+            <span className="w-2 h-2 rounded-full bg-[#10B981] shrink-0" />
+            <Radio className="w-4 h-4 text-white shrink-0" />
             <span>Sync to Live</span>
-            <span className="px-2 py-0.5 rounded-lg bg-slate-950/20 text-slate-950 font-mono text-[11px] font-bold">
+            <span className="px-2 py-0.5 rounded bg-[#0B0F17] text-[#94A3B8] border border-[#1E2638] font-mono text-[11px] font-bold">
               {formattedOffsetBadge}
             </span>
           </button>
@@ -2062,11 +2816,11 @@ export function App() {
       )}
 
       {/* Footer Légal & Attribution TMDB (Conformité Google Play Store) */}
-      <footer className="mt-auto border-t border-slate-900 bg-slate-950/90 py-4 px-4 sm:px-6 text-[11px] text-slate-500">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+      <footer className="mt-auto border-t border-[#1E2638] bg-[#0B0F17] py-4 px-4 sm:px-6 text-[11px] text-[#94A3B8]">
+        <div className="max-w-[1600px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-start">
-            <span className="font-bold text-slate-300">
-              PulseEPG - Global TV Guide
+            <span className="font-bold text-white">
+              PulseEPG - Your Ultimate TV Guide
             </span>
             <span>•</span>
             <span>
@@ -2075,11 +2829,12 @@ export function App() {
             </span>
           </div>
           <button
+            type="button"
             onClick={() => {
               setSettingsInitialTab('legal');
               setIsSettingsOpen(true);
             }}
-            className="inline-flex items-center gap-1.5 text-amber-400 hover:text-amber-300 font-semibold cursor-pointer"
+            className="inline-flex items-center gap-1.5 text-[#94A3B8] hover:text-white font-semibold cursor-pointer"
           >
             <Scale className="w-3.5 h-3.5" />
             <span>{tr.tabLegalPlayStore}</span>
@@ -2092,8 +2847,8 @@ export function App() {
         <ChannelDetailPanel
           channel={selectedChannel}
           programmes={
-            schedulesByChannel[cleanXmltvChannelId(selectedChannel.id)] ||
-            schedulesByChannel[selectedChannel.id] ||
+            activeSchedulesByChannel[cleanXmltvChannelId(selectedChannel.id)] ||
+            activeSchedulesByChannel[selectedChannel.id] ||
             []
           }
           nowMs={effectiveTimeMs}
@@ -2107,6 +2862,9 @@ export function App() {
           }}
           initialSelectedProgramme={selectedModalProgramme}
           language={activeLang}
+          activeSatellite={selectedSatellite}
+          activeBouquet={selectedBouquet}
+          selectedBouquets={settings.selectedBouquets}
         />
       )}
 

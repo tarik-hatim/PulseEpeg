@@ -9,7 +9,18 @@ import {
   Tv,
   Volume2,
 } from 'lucide-react';
-import { AppLanguage, EpgChannel, EpgProgramme } from '../types/epg';
+import {
+  AppLanguage,
+  BouquetFilter,
+  EpgBouquetId,
+  EpgChannel,
+  EpgProgramme,
+  SatelliteFilter,
+} from '../types/epg';
+import {
+  getActiveBouquetBadgeForChannel,
+  getSingleSatelliteBadgeForChannel,
+} from '../services/storageService';
 import {
   calculateProgress,
   formatRemainingTime,
@@ -21,6 +32,7 @@ import {
   parseSeasonAndEpisode,
   translateEpgTextToFrenchSync,
 } from '../utils/metadataResolverCore';
+import { cleanOfficialChannelName } from '../utils/xmltvParser';
 import {
   getActiveLanguage,
   getTranslations,
@@ -37,6 +49,9 @@ interface ChannelRowCardProps {
   onSelectChannel: (channel: EpgChannel) => void;
   isSelected: boolean;
   language?: AppLanguage;
+  activeSatellite?: SatelliteFilter;
+  activeBouquet?: BouquetFilter;
+  selectedBouquets?: EpgBouquetId[];
 }
 
 const COUNTRY_ACCENTS: Record<
@@ -44,57 +59,57 @@ const COUNTRY_ACCENTS: Record<
   { badge: string; border: string; glow: string; flag: string }
 > = {
   DE: {
-    badge: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
-    border: 'hover:border-amber-500/40',
-    glow: 'from-amber-500/5',
+    badge: 'bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border-[#2A324B]',
+    border: 'hover:border-[#3B82F6]/50',
+    glow: 'from-transparent',
     flag: '🇩🇪',
   },
   ES: {
-    badge: 'bg-rose-500/15 text-rose-300 border-rose-500/30',
-    border: 'hover:border-rose-500/40',
-    glow: 'from-rose-500/5',
+    badge: 'bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border-[#2A324B]',
+    border: 'hover:border-[#3B82F6]/50',
+    glow: 'from-transparent',
     flag: '🇪🇸',
   },
   FR: {
-    badge: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30',
-    border: 'hover:border-indigo-500/40',
-    glow: 'from-indigo-500/5',
+    badge: 'bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border-[#2A324B]',
+    border: 'hover:border-[#3B82F6]/50',
+    glow: 'from-transparent',
     flag: '🇫🇷',
   },
   IT: {
-    badge: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
-    border: 'hover:border-emerald-500/40',
-    glow: 'from-emerald-500/5',
+    badge: 'bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border-[#2A324B]',
+    border: 'hover:border-[#3B82F6]/50',
+    glow: 'from-transparent',
     flag: '🇮🇹',
   },
   PL: {
-    badge: 'bg-sky-500/15 text-sky-300 border-sky-500/30',
-    border: 'hover:border-sky-500/40',
-    glow: 'from-sky-500/5',
+    badge: 'bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border-[#2A324B]',
+    border: 'hover:border-[#3B82F6]/50',
+    glow: 'from-transparent',
     flag: '🇵🇱',
   },
   AR: {
-    badge: 'bg-violet-500/15 text-violet-300 border-violet-500/30',
-    border: 'hover:border-violet-500/40',
-    glow: 'from-violet-500/5',
+    badge: 'bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border-[#2A324B]',
+    border: 'hover:border-[#3B82F6]/50',
+    glow: 'from-transparent',
     flag: '🇲🇦/🇦🇪',
   },
   EU: {
-    badge: 'bg-blue-500/15 text-blue-300 border-blue-500/30',
-    border: 'hover:border-blue-500/40',
-    glow: 'from-blue-500/5',
+    badge: 'bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border-[#2A324B]',
+    border: 'hover:border-[#3B82F6]/50',
+    glow: 'from-transparent',
     flag: '🇪🇺',
   },
   BR: {
-    badge: 'bg-green-500/15 text-green-300 border-green-500/30',
-    border: 'hover:border-green-500/40',
-    glow: 'from-green-500/5',
+    badge: 'bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border-[#2A324B]',
+    border: 'hover:border-[#3B82F6]/50',
+    glow: 'from-transparent',
     flag: '🇧🇷',
   },
   LATAM: {
-    badge: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30',
-    border: 'hover:border-cyan-500/40',
-    glow: 'from-cyan-500/5',
+    badge: 'bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border-[#2A324B]',
+    border: 'hover:border-[#3B82F6]/50',
+    glow: 'from-transparent',
     flag: '🌎',
   },
 };
@@ -109,9 +124,22 @@ export const ChannelRowCard: React.FC<ChannelRowCardProps> = ({
   onSelectChannel,
   isSelected,
   language,
+  activeSatellite,
+  activeBouquet,
+  selectedBouquets,
 }) => {
   const activeLang = language || getActiveLanguage();
   const tr = getTranslations(activeLang);
+  const singleSatBadge = getSingleSatelliteBadgeForChannel(
+    channel,
+    activeSatellite,
+    selectedBouquets
+  );
+  const activeBouquetBadge = getActiveBouquetBadgeForChannel(
+    channel,
+    activeSatellite,
+    activeBouquet
+  );
 
   const progress = currentProgramme
     ? calculateProgress(currentProgramme.startMs, currentProgramme.stopMs, nowMs)
@@ -149,20 +177,26 @@ export const ChannelRowCard: React.FC<ChannelRowCardProps> = ({
 
   return (
     <div
+      tabIndex={0}
+      role="button"
       onClick={() => onSelectChannel(channel)}
-      className={`group relative rounded-2xl border cursor-pointer overflow-hidden bg-slate-900/95 ${
-        isActualLive ? 'border-l-4 border-l-amber-500' : ''
-      } ${
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onSelectChannel(channel);
+        }
+      }}
+      className={`tv-card-focusable group relative rounded-lg border cursor-pointer overflow-hidden transition-all ${
         isSelected
-          ? 'border-amber-500/70 ring-1 ring-amber-500/30 shadow-lg shadow-amber-950/30'
-          : `border-slate-800/80 ${accent.border} hover:bg-slate-900`
+          ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6]'
+          : `bg-[#131927] border-[#1E2638] ${accent.border} hover:bg-[#171F30]`
       }`}
     >
-      <div className="p-3.5 sm:p-4 flex flex-col lg:flex-row lg:items-center gap-3.5 sm:gap-4">
+      <div className="p-3.5 sm:p-4 2xl:p-5 flex flex-col lg:flex-row lg:items-center gap-3.5 sm:gap-4 2xl:gap-6">
         {/* Identité Chaîne Satellite */}
-        <div className="flex items-center justify-between lg:w-72 shrink-0 gap-3">
+        <div className="flex items-center justify-between lg:w-72 2xl:w-80 shrink-0 gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="relative w-12 h-12 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center p-1.5 shrink-0 shadow-inner">
+            <div className="relative w-12 h-12 2xl:w-14 2xl:h-14 rounded-lg bg-[#0B0F17] border border-[#1E2638] flex items-center justify-center p-1.5 shrink-0">
               {channel.icon ? (
                 <img
                   src={channel.icon}
@@ -174,7 +208,7 @@ export const ChannelRowCard: React.FC<ChannelRowCardProps> = ({
                   }}
                 />
               ) : (
-                <Tv className="w-5 h-5 text-slate-500" />
+                <Tv className="w-5 h-5 text-[#94A3B8]" />
               )}
               <span className="absolute -bottom-1 -right-1 text-[11px] leading-none">
                 {accent.flag}
@@ -182,44 +216,44 @@ export const ChannelRowCard: React.FC<ChannelRowCardProps> = ({
             </div>
 
             <div className="min-w-0">
-              <div className="flex items-center gap-1.5 flex-wrap">
+              <h3 className="font-bold text-white text-sm sm:text-base 2xl:text-lg truncate">
+                {cleanOfficialChannelName(channel.displayName)}
+              </h3>
+
+              <div className="flex items-center gap-1.5 flex-wrap mt-1">
                 <span
-                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider ${accent.badge}`}
+                  className={`text-[10px] font-medium px-1.5 py-0.5 rounded border uppercase tracking-wider ${accent.badge}`}
                 >
-                  {channel.orbitalPosition}
+                  {singleSatBadge}
                 </span>
-                {channel.bouquets[0] && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-800/90 text-slate-300 border border-slate-700/70">
-                    <Satellite className="w-2.5 h-2.5 text-amber-400" />
-                    {channel.bouquets[0]}
+                {activeBouquetBadge && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border border-[#2A324B]">
+                    <Satellite className="w-2.5 h-2.5 text-[#94A3B8]" />
+                    {activeBouquetBadge}
                   </span>
                 )}
               </div>
-
-              <h3 className="font-bold text-slate-100 text-sm sm:text-base truncate mt-1 group-hover:text-amber-300 transition-colors">
-                {channel.displayName}
-              </h3>
 
               {/* Badges techniques Audio & Sous-titres */}
               <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                 {channel.contentCategory === 'Sport / Football' ? (
                   <>
-                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">
-                      <Volume2 className="w-2.5 h-2.5" />
+                    <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border border-[#1E2638]">
+                      <Volume2 className="w-2.5 h-2.5 text-[#94A3B8]" />
                       {channel.audioTrackLabel || tr.badgeAudioStadium}
                     </span>
-                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/25">
+                    <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border border-[#1E2638]">
                       ⚽ {channel.subtitleTrackLabel || tr.badgeFootballLive}
                     </span>
                   </>
                 ) : (
                   <>
-                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">
-                      <Volume2 className="w-2.5 h-2.5" />
+                    <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border border-[#1E2638]">
+                      <Volume2 className="w-2.5 h-2.5 text-[#94A3B8]" />
                       {channel.audioTrackLabel || tr.badgeVoEnglish}
                     </span>
-                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/25">
-                      <Subtitles className="w-2.5 h-2.5" />
+                    <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border border-[#1E2638]">
+                      <Subtitles className="w-2.5 h-2.5 text-[#94A3B8]" />
                       {channel.subtitleTrackLabel || tr.badgeSubDvb}
                     </span>
                   </>
@@ -229,64 +263,59 @@ export const ChannelRowCard: React.FC<ChannelRowCardProps> = ({
           </div>
 
           <button
+            type="button"
             onClick={(e) => {
               e.stopPropagation();
               onToggleFavorite(channel.id);
             }}
-            className={`p-2 rounded-xl border transition-all lg:hidden cursor-pointer ${
+            className={`p-2 rounded-lg transition-all lg:hidden cursor-pointer ${
               isFavorite
-                ? 'bg-rose-500/15 border-rose-500/40 text-rose-400'
-                : 'bg-slate-800/60 border-slate-700/60 text-slate-400 hover:text-slate-200'
+                ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white'
+                : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white'
             }`}
             aria-label={tr.favLabel}
           >
-            <Heart className={`w-4 h-4 ${isFavorite ? 'fill-rose-500' : ''}`} />
+            <Heart className={`w-4 h-4 ${isFavorite ? 'fill-[#3B82F6] text-[#3B82F6]' : ''}`} />
           </button>
         </div>
 
         {/* Programme En Direct */}
-        <div
-          className={`flex-1 min-w-0 lg:ps-4 ${
-            isActualLive
-              ? 'border-l-4 border-amber-500 ps-3'
-              : 'lg:border-s lg:border-slate-800/80'
-          }`}
-        >
+        <div className="flex-1 min-w-0 lg:ps-4 lg:border-s lg:border-[#1E2638]">
           {currentProgramme ? (
             <div>
               <div className="flex items-center justify-between gap-2 text-xs">
                 <div className="flex items-center gap-2 min-w-0 flex-wrap">
                   {isActualLive ? (
-                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                      <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider bg-[#10B981]/15 text-[#10B981] border border-[#10B981]/30">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] shadow-[0_0_6px_#10B981] shrink-0" />
                       {tr.liveBadge}
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border border-[#2A324B]">
                       <Clock className="w-2.5 h-2.5" />
                       {tr.slotBadge}
                     </span>
                   )}
 
-                  <span className="text-slate-300 font-mono text-[11px] font-semibold">
+                  <span className="text-[#94A3B8] font-mono text-[11px] font-medium">
                     {formatTimeShort(currentProgramme.startMs)} –{' '}
                     {formatTimeShort(currentProgramme.stopMs)}
                   </span>
 
                   {formattedCurrentSE && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-bold">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border border-[#2A324B] font-medium">
                       {formattedCurrentSE}
                     </span>
                   )}
 
                   {currentProgramme.date && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 font-semibold">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border border-[#2A324B] font-medium">
                       {currentProgramme.date}
                     </span>
                   )}
 
                   {currentProgramme.category && (
-                    <span className="hidden sm:inline-block text-[10px] px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 truncate max-w-[140px]">
+                    <span className="hidden sm:inline-block text-[10px] px-2 py-0.5 rounded bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border border-[#1E2638] truncate max-w-[140px]">
                       {translateDynamicGenre(
                         currentProgramme.category,
                         activeLang
@@ -296,7 +325,7 @@ export const ChannelRowCard: React.FC<ChannelRowCardProps> = ({
                 </div>
 
                 {isActualLive && (
-                  <span className="text-[11px] font-medium text-amber-400/90 shrink-0">
+                  <span className="text-[11px] font-medium text-[#94A3B8] shrink-0">
                     {formatRemainingTime(
                       currentProgramme.stopMs,
                       nowMs,
@@ -307,13 +336,13 @@ export const ChannelRowCard: React.FC<ChannelRowCardProps> = ({
               </div>
 
               <div className="mt-1 flex items-baseline gap-2">
-                <h4 className="font-bold text-white text-sm sm:text-base truncate">
+                <h4 className="font-bold text-white text-sm sm:text-base 2xl:text-lg truncate">
                   {activeLang === 'fr'
                     ? translateEpgTextToFrenchSync(currentProgramme.title)
                     : currentProgramme.title}
                 </h4>
                 {currentProgramme.subTitle && allowCurrentSE && (
-                  <span className="text-xs text-amber-300/90 truncate hidden md:inline">
+                  <span className="text-xs text-[#94A3B8] truncate hidden md:inline">
                     —{' '}
                     {activeLang === 'fr'
                       ? translateEpgTextToFrenchSync(currentProgramme.subTitle)
@@ -323,48 +352,48 @@ export const ChannelRowCard: React.FC<ChannelRowCardProps> = ({
               </div>
 
               {currentProgramme.description && (
-                <p className="text-xs text-slate-400 line-clamp-1 mt-0.5">
+                <p className="text-xs 2xl:text-sm text-[#94A3B8] line-clamp-1 mt-0.5">
                   {currentProgramme.description}
                 </p>
               )}
 
-              {/* Barre de progression statique économe en batterie */}
-              <div className="mt-2.5 h-1.5 w-full bg-slate-800/90 rounded-full overflow-hidden">
+              {/* Barre de progression fine et sobre */}
+              <div className="mt-2.5 h-1 w-full bg-[#0B0F17] rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-amber-500 rounded-full"
+                  className="h-full bg-[#3B82F6] rounded-full"
                   style={{ width: `${isActualLive ? progress : 100}%` }}
                 />
               </div>
             </div>
           ) : (
-            <div className="py-2 text-xs text-slate-500 italic flex items-center gap-2">
-              <Clock className="w-3.5 h-3.5 text-slate-600" />
+            <div className="py-2 text-xs text-[#94A3B8] italic flex items-center gap-2">
+              <Clock className="w-3.5 h-3.5 text-[#94A3B8]" />
               {tr.noProgramCommunicated}
             </div>
           )}
         </div>
 
         {/* Programme Suivant */}
-        <div className="lg:w-64 shrink-0 lg:border-s lg:border-slate-800/80 lg:ps-4 flex items-center justify-between gap-3 pt-2 lg:pt-0 border-t border-slate-800/60 lg:border-t-0">
+        <div className="lg:w-64 2xl:w-72 shrink-0 lg:border-s lg:border-[#1E2638] lg:ps-4 flex items-center justify-between gap-3 pt-2 lg:pt-0 border-t border-[#1E2638] lg:border-t-0">
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-medium">
-              <span className="uppercase tracking-wider text-[10px] text-slate-500 font-bold">
+            <div className="flex items-center gap-1.5 text-[11px] text-[#94A3B8] font-medium">
+              <span className="uppercase tracking-wider text-[10px] text-[#94A3B8] font-semibold">
                 {tr.upNext}
               </span>
               {nextProgramme && (
-                <span className="font-mono text-amber-400/90">
+                <span className="font-mono text-[#94A3B8]">
                   {formatTimeShort(nextProgramme.startMs)}
                 </span>
               )}
             </div>
             {nextProgramme ? (
-              <p className="text-xs sm:text-sm font-medium text-slate-200 truncate mt-0.5">
+              <p className="text-xs sm:text-sm font-medium text-white truncate mt-0.5">
                 {activeLang === 'fr'
                   ? translateEpgTextToFrenchSync(nextProgramme.title)
                   : nextProgramme.title}
               </p>
             ) : (
-              <p className="text-xs text-slate-500 italic mt-0.5">
+              <p className="text-xs text-[#94A3B8] italic mt-0.5">
                 {tr.unspecified}
               </p>
             )}
@@ -372,21 +401,22 @@ export const ChannelRowCard: React.FC<ChannelRowCardProps> = ({
 
           <div className="flex items-center gap-1.5 shrink-0">
             <button
+              type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 onToggleFavorite(channel.id);
               }}
-              className={`hidden lg:flex p-2 rounded-xl border transition-all cursor-pointer ${
+              className={`hidden lg:flex p-2 rounded-lg transition-all cursor-pointer ${
                 isFavorite
-                  ? 'bg-rose-500/15 border-rose-500/40 text-rose-400'
-                  : 'bg-slate-800/60 border-slate-700/60 text-slate-400 hover:text-slate-200'
+                  ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white'
+                  : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white'
               }`}
               title={isFavorite ? tr.removeFromFavorites : tr.addToFavorites}
             >
-              <Heart className={`w-4 h-4 ${isFavorite ? 'fill-rose-500' : ''}`} />
+              <Heart className={`w-4 h-4 ${isFavorite ? 'fill-[#3B82F6] text-[#3B82F6]' : ''}`} />
             </button>
 
-            <div className="p-2 rounded-xl bg-slate-800/50 text-slate-400 group-hover:text-amber-300 group-hover:bg-amber-500/15 transition-colors">
+            <div className="p-2 rounded-lg bg-[rgba(255,255,255,0.03)] border border-[#1E2638] text-[#94A3B8] group-hover:text-white group-hover:border-[#3B82F6]/40 transition-colors">
               <ChevronRight className="w-4 h-4 rtl:rotate-180" />
             </div>
           </div>

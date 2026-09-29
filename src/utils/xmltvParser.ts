@@ -19,6 +19,7 @@ import {
   isProgrammeSeriesOrDocumentary,
   parseSeasonAndEpisode,
 } from './metadataResolverCore';
+import { buildEutelsat16eExhaustiveChannels } from './eutelsat16eCatalog';
 
 export type { WhitelistedChannelSpec };
 
@@ -30,6 +31,16 @@ export interface EpgParseFilterOptions {
 }
 
 export type XmltvFilterOptions = EpgParseFilterOptions;
+
+export const EUTELSAT_16E_AFRICA_TRANSPONDERS = [
+  '10804/H/30000',
+  '11024/H/3333',
+  '12562/H/30000',
+  '12604/H/30000',
+  '12687/H/29980',
+  '11596/H/29980',
+  '11637/H/30000',
+] as const;
 
 /**
  * Nettoie strictement tout identifiant de chaîne (Channel ID / XMLTV ID)
@@ -115,7 +126,7 @@ export function isExclusivelySportChannel(ch: {
   ) {
     return false;
   }
-  return /\b(bein\s*sport|bein\s*sports|bein_sport|ssc|al\s*kass|alkass|ad\s*sport|abu\s*dhabi\s*sport|dubai\s*sport|on\s*time\s*sport|arryadia|canal\+?\s*foot|canal\+?\s*sport|rmc\s*sport|eurosport|l'equipe|l’équipe|lequipe|dazn|sky\s*sport|eleven\s*sport|polsat\s*sport|sport\s*tv|movistar\s*laliga|liga\s*de\s*campeones|teledeporte|spor\s*tv)\b/i.test(
+  return /\b(bein\s*sport|bein\s*sports|bein_sport|ssc|al\s*kass|alkass|ad\s*sport|abu\s*dhabi\s*sport|dubai\s*sport|on\s*time\s*sport|arryadia|canal\+?\s*foot|canal\+?\s*sport|rmc\s*sport|eurosport|l'equipe|l’équipe|lequipe|dazn|sky\s*sport|eleven\s*sport|polsat\s*sport|sport\s*tv|movistar\s*laliga|liga\s*de\s*campeones|teledeporte|spor\s*tv|persiana\s*sport|alem\s*sport|turkmenistan\s*sport|türkmenistan\s*sport|supersport|sport\s*klub|maxsport|rtsh\s*sport|crtv\s*sport|digi\s*sport|spiler|spíler)\b/i.test(
     combined
   );
 }
@@ -2843,6 +2854,35 @@ function normalizeBouquetName(raw: string): Exclude<BouquetFilter, 'Tous'> {
   if (raw === 'Sky DE') return 'Sky DE / DAZN DE';
   if (raw === 'Sky Italia') return 'Sky Italia / DAZN IT';
   if (raw === 'Canal+ / FilmBox') return 'Canal+ / Eleven / FilmBox';
+  if (
+    raw === 'Total TV (Balkans)' ||
+    raw === 'Total TV (Balkans / Serbie / Croatie)'
+  ) {
+    return 'Total TV (Balkans / Serbie / Croatie / Bosnie / Slovénie)';
+  }
+  if (
+    raw === 'MaxTV Sat (Croatie)' ||
+    raw === 'MAXtv (Croatie)' ||
+    raw === 'A1 Bulgaria / A1 Hrvatska'
+  ) {
+    return 'MAXtv / A1 Croatia';
+  }
+  if (raw === 'Bouquet National RTSH (Albanie FTA)') {
+    return 'DigitAlb (Albanie)';
+  }
+  if (raw === 'Bouquet Afrique Francophone (2S TV, RTI, CRTV)') {
+    return 'Autres chaînes africaines / francophones';
+  }
+  if (
+    raw === 'TVR / Chaînes Nationales (Roumanie)' ||
+    raw === 'Bouquet National TVR (Roumanie FTA)'
+  ) {
+    return 'Focus Sat (Roumanie)';
+  }
+  if (raw === 'Turkmenistan National TV') return 'Bouquet National Turkmène';
+  if (raw === 'Persiana Media Group (Farsi/Sport/Cinema)') {
+    return 'Groupe Persiana';
+  }
   return raw as Exclude<BouquetFilter, 'Tous'>;
 }
 
@@ -2853,30 +2893,94 @@ function normalizeSatelliteName(raw: string): Exclude<SatelliteFilter, 'Tous'> {
 
 export function inferChannelBouquetId(
   spec: {
+    canonicalId?: string;
     bouquetId?: EpgBouquetId;
     country: Exclude<CountryCode, 'Tous'>;
     bouquets?: string[];
     satellites?: string[];
   }
 ): EpgBouquetId {
-  if (spec.bouquetId) return spec.bouquetId;
+  if (spec.bouquetId && spec.bouquetId !== 'eutelsat_16e_thor') {
+    return spec.bouquetId;
+  }
   if (spec.bouquets?.includes('TNT France')) return 'tnt_fr';
   if (spec.bouquets?.includes('Bis TV France')) return 'hotbird_bis_fr';
   if (
     spec.bouquets?.includes('Badr Sport & MENA') ||
-    spec.satellites?.includes('Badr / Es\'hailSat 26°E')
+    spec.satellites?.includes("Badr / Es'hailSat 26°E")
   ) {
     return 'badr_bein_ssc';
   }
   if (spec.bouquets?.includes('Meo / NOS / Movistar 30°W')) {
     return 'hispasat_meo_nos';
   }
+  if (
+    spec.satellites?.includes('TurkmenÄlem 52°E') ||
+    spec.bouquets?.some(
+      (b) =>
+        b === 'Alem TV' ||
+        b === 'Bouquet National Turkmène' ||
+        b === 'Turkmenistan National TV'
+    ) ||
+    /\.(tm|uz)$/i.test(spec.canonicalId || '')
+  ) {
+    return 'turkmenalem_52e_alem';
+  }
+  if (
+    spec.satellites?.includes('MonacoSat 52°E') ||
+    spec.bouquets?.some(
+      (b) =>
+        b.includes('Persiana') ||
+        b === 'Groupe WNS' ||
+        b === 'Information' ||
+        b === 'Big Bang TV'
+    ) ||
+    /\.(mc|ir|52e)$/i.test(spec.canonicalId || '')
+  ) {
+    return 'monacosat_52e_persiana';
+  }
+  if (
+    spec.satellites?.includes('Thor 0.8°W / Intelsat 10-02') ||
+    spec.satellites?.includes('Thor 0.8°W') ||
+    spec.bouquets?.some(
+      (b) =>
+        b.includes('Focus Sat') ||
+        b.includes('Direct One') ||
+        b.includes('Digi TV')
+    ) ||
+    /\.(ro|hu|sk|cz)$/i.test(spec.canonicalId || '')
+  ) {
+    return 'thor_08w_focussat';
+  }
+  if (
+    spec.bouquets?.includes('TRT Network') ||
+    /\.tr$/i.test(spec.canonicalId || '')
+  ) {
+    return 'trt_network';
+  }
+  if (
+    spec.satellites?.includes('Eutelsat 16°E') ||
+    spec.bouquets?.some(
+      (b) =>
+        b.includes('DigitAlb') ||
+        b.includes('Total TV') ||
+        b.includes('MAXtv') ||
+        b.includes('MaxTV') ||
+        b.includes('RTSH') ||
+        b.includes('Afrique Francophone') ||
+        b.includes('A1 ') ||
+        b.includes('TVR')
+    ) ||
+    /\.(al|rs|hr|ba|si|mk|me|bg|16e|sn|ci|cm|ml|bf|ga)$/i.test(spec.canonicalId || '')
+  ) {
+    return 'eutelsat_16e_digitalb';
+  }
   if (spec.country === 'FR') return 'astra_canal_fr';
   if (spec.country === 'ES') return 'movistar_es';
   if (spec.country === 'DE') return 'sky_de';
   if (spec.country === 'IT') return 'sky_it';
   if (spec.country === 'PL') return 'canal_pl';
-  if (spec.country === 'EU') return 'eutelsat_16e_thor';
+  if (spec.country === 'EU') return 'thor_08w_focussat';
   if (spec.country === 'BR') return 'starone_70w_claro_br';
   if (spec.country === 'LATAM') return 'intelsat_43w_directv';
   return 'nilesat_osn_mbc';
@@ -3532,6 +3636,31 @@ const FRENCH_TNT_AND_CINEMA_MAP: Record<string, FrenchTntSpecDef> = {
   },
 };
 
+export function isAdultChannel(
+  idOrName?: string | null,
+  displayName?: string | null
+): boolean {
+  const combined = `${idOrName || ''} ${displayName || ''}`.toLowerCase();
+  if (!combined.trim()) return false;
+  return (
+    /\b(dorcel|penthouse|hustler|playboy|redlight|vivid\s*red|vivid\s*tv|vivid\s*touch|private\s*tv|private\s*hd|xxl\s*tv|xxl\b|x1\s*tv|x2\s*tv|brazzers|vixen|babes\s*tv|erox|eroxxx|erotik|erotic|superone|dusk\s*tv|extasy|pink\s*erotic|pink\s*o\b|man-x|centoxcento|sct\s*hd|sextreme|passion\s*xxx|venus\s*tv)\b/i.test(
+      combined
+    ) ||
+    combined.includes('dorcel') ||
+    combined.includes('penthouse') ||
+    combined.includes('redlight') ||
+    combined.includes('vivid.red') ||
+    combined.includes('private.tv') ||
+    combined.includes('x1.tv') ||
+    combined.includes('xxl.tv') ||
+    combined.includes('adult') ||
+    combined.includes('xxx') ||
+    combined.includes('playboy') ||
+    combined.includes('hustler') ||
+    combined.includes('brazzers')
+  );
+}
+
 function classifyChannelCategoryAndGroup(
   lowerKey: string
 ): {
@@ -3545,11 +3674,7 @@ function classifyChannelCategoryAndGroup(
     lowerKey.includes('teletienda') ||
     lowerKey.includes('qvc') ||
     lowerKey.includes('hse24') ||
-    lowerKey.includes('adult') ||
-    lowerKey.includes('xxx') ||
-    lowerKey.includes('playboy') ||
-    lowerKey.includes('penthouse') ||
-    lowerKey.includes('hustler')
+    isAdultChannel(lowerKey)
   ) {
     return null;
   }
@@ -3930,13 +4055,99 @@ function classifyChannelCategoryAndGroup(
 }
 
 function formatCleanChannelDisplayName(rawId: string, suffixRegex: RegExp): string {
-  return rawId
+  const base = rawId
     .replace(/^en:\.?/i, '')
     .replace(suffixRegex, '')
     .replace(/_digital_mono(?:-\d+)?(?:_en|_ar)?/gi, '')
     .replace(/_(?:en|ar)$/i, '')
     .replace(/[._]+/g, ' ')
     .trim();
+  return cleanOfficialChannelName(base);
+}
+
+/**
+ * Supprime tout suffixe entre parenthèses (satellite combiné, bouquet, pays, VOSTFR...)
+ * pour ne conserver que le nom propre officiel de la chaîne (ex: "Pro 7", "Pro TV", "Canal+ HD").
+ */
+export function cleanOfficialChannelName(rawName: string): string {
+  if (!rawName) return '';
+  return rawName
+    .replace(/\s*\([^)]*\)\s*/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+/**
+ * Retourne uniquement la position orbitale réelle de diffusion d'une chaîne (jamais de regroupement combiné).
+ */
+export function normalizeSingleOrbitalPosition(
+  rawOrbitalPosition?: string,
+  satellites?: string[]
+): string {
+  const primary = (rawOrbitalPosition || satellites?.[0] || '').trim();
+  const combined = `${primary} ${(satellites || []).join(' ')}`;
+  if (/Türksat|Turksat|42°E/i.test(primary) || /Türksat|Turksat|42°E/i.test(combined)) {
+    return 'Türksat 42°E / Eutelsat 7°E';
+  }
+  if (
+    /MonacoSat/i.test(primary) ||
+    (/MonacoSat/i.test(combined) && !/Turkmen/i.test(primary))
+  ) {
+    return 'MonacoSat 52°E';
+  }
+  if (/Turkmen/i.test(primary) || /Turkmen/i.test(combined)) {
+    return 'TurkmenÄlem 52°E';
+  }
+  if (
+    /Thor\s*0\.8°W/i.test(primary) ||
+    /Intelsat\s*10-02/i.test(primary) ||
+    (/Thor\s*0\.8°W/i.test(combined) && !/Eutelsat\s*16/i.test(primary))
+  ) {
+    return 'Thor 0.8°W';
+  }
+  if (/Eutelsat\s*16°E/i.test(primary) || /Eutelsat\s*16°E/i.test(combined)) {
+    return 'Eutelsat 16°E';
+  }
+  if (/Badr/i.test(primary) || /26°E/i.test(primary)) {
+    return 'Badr 26°E';
+  }
+  if (/Nilesat/i.test(primary) || /7°W/i.test(primary)) {
+    return 'Nilesat 7°W';
+  }
+  if (/Badr/i.test(combined) || /26°E/i.test(combined)) {
+    return 'Badr 26°E';
+  }
+  if (/Nilesat/i.test(combined) || /7°W/i.test(combined)) {
+    return 'Nilesat 7°W';
+  }
+  if (/Hispasat/i.test(primary) || /30°W/i.test(primary)) {
+    return 'Hispasat 30°W';
+  }
+  if (/Hotbird/i.test(primary) || /13°E/i.test(primary)) {
+    return 'Hotbird 13°E';
+  }
+  if (/Astra/i.test(primary) || /19\.2°E/i.test(primary)) {
+    return 'Astra 19.2°E';
+  }
+  if (/Hispasat/i.test(combined) || /30°W/i.test(combined)) {
+    return 'Hispasat 30°W';
+  }
+  if (/Hotbird/i.test(combined) || /13°E/i.test(combined)) {
+    return 'Hotbird 13°E';
+  }
+  if (/Astra/i.test(combined) || /19\.2°E/i.test(combined)) {
+    return 'Astra 19.2°E';
+  }
+  if (/Star\s*One/i.test(combined) || /70°W/i.test(combined)) {
+    return 'Star One D2 70°W';
+  }
+  if (/Amazonas/i.test(combined) || /61°W/i.test(combined)) {
+    return 'Amazonas 61°W';
+  }
+  if (/Intelsat\s*43/i.test(combined) || /43\.1°W/i.test(combined)) {
+    return 'Intelsat 43.1°W';
+  }
+  return (rawOrbitalPosition || 'Astra 19.2°E').split('/')[0].trim();
 }
 
 function resolveCanonicalBeinChannelSpec(
@@ -4186,15 +4397,13 @@ function resolveDynamicGlobalSpec(rawId: string): WhitelistedChannelSpec | null 
       key.includes('trek');
     return {
       canonicalId: key,
-      displayName: `${cleanName} (Astra 19.2°E)`,
+      displayName: cleanName,
       contentCategory: classified.contentCategory,
       country: 'FR',
       satellites: isBis
         ? ['Astra 19.2°E', 'Hotbird 13°E']
         : ['Astra 19.2°E'],
-      orbitalPosition: isBis
-        ? 'Astra 19.2°E / Hotbird 13°E'
-        : 'Astra 19.2°E',
+      orbitalPosition: 'Astra 19.2°E',
       bouquets: isBis
         ? ['Astra Canal+ France', 'Hotbird Bis TV/Rai', 'Canal+ France', 'Bis TV France']
         : ['Astra Canal+ France', 'Canal+ France'],
@@ -4276,14 +4485,14 @@ function resolveDynamicGlobalSpec(rawId: string): WhitelistedChannelSpec | null 
       return {
         canonicalId: canonicalBein ? canonicalBein.canonicalId : key,
         displayName: canonicalBein
-          ? canonicalBein.displayName
-          : `${cleanName} (Badr 26°E)`,
+          ? cleanOfficialChannelName(canonicalBein.displayName)
+          : cleanName,
         contentCategory: canonicalBein
           ? canonicalBein.contentCategory
           : classified.contentCategory,
         country: 'AR',
         satellites: ["Badr / Es'hailSat 26°E"],
-        orbitalPosition: "Badr / Es'hailSat 26°E",
+        orbitalPosition: 'Badr 26°E',
         bouquets: ['Badr beIN (Sports & Movies)'],
         bouquetId: 'badr_bein_ssc',
         group: canonicalBein ? canonicalBein.group : classified.group,
@@ -4297,11 +4506,11 @@ function resolveDynamicGlobalSpec(rawId: string): WhitelistedChannelSpec | null 
     if (isSscOffer) {
       return {
         canonicalId: key,
-        displayName: `${cleanName} (Badr 26°E)`,
+        displayName: cleanName,
         contentCategory: classified.contentCategory,
         country: 'AR',
         satellites: ["Badr / Es'hailSat 26°E"],
-        orbitalPosition: "Badr / Es'hailSat 26°E",
+        orbitalPosition: 'Badr 26°E',
         bouquets: ['Badr SSC'],
         bouquetId: 'badr_bein_ssc',
         group: classified.group,
@@ -4315,11 +4524,11 @@ function resolveDynamicGlobalSpec(rawId: string): WhitelistedChannelSpec | null 
     if (isBadrGulfOrAlKass) {
       return {
         canonicalId: key,
-        displayName: `${cleanName} (Badr 26°E)`,
+        displayName: cleanName,
         contentCategory: classified.contentCategory,
         country: 'AR',
         satellites: ["Badr / Es'hailSat 26°E"],
-        orbitalPosition: "Badr / Es'hailSat 26°E",
+        orbitalPosition: 'Badr 26°E',
         bouquets: ['Badr TV Arabes/Al Kass'],
         bouquetId: 'badr_bein_ssc',
         group: classified.group,
@@ -4333,7 +4542,7 @@ function resolveDynamicGlobalSpec(rawId: string): WhitelistedChannelSpec | null 
     if (isNilesatMbcOsnRotana) {
       return {
         canonicalId: key,
-        displayName: `${cleanName} (Nilesat 7°W)`,
+        displayName: cleanName,
         contentCategory: classified.contentCategory,
         country: 'AR',
         satellites: ['Nilesat 7°W'],
@@ -4351,7 +4560,7 @@ function resolveDynamicGlobalSpec(rawId: string): WhitelistedChannelSpec | null 
     // Autres chaînes arabes / égyptiennes / maghrébines -> Nilesat 7°W [TNT Arabe/Égypte]
     return {
       canonicalId: key,
-      displayName: `${cleanName} (Nilesat 7°W)`,
+      displayName: cleanName,
       contentCategory: classified.contentCategory,
       country: 'AR',
       satellites: ['Nilesat 7°W'],
@@ -4375,11 +4584,11 @@ function resolveDynamicGlobalSpec(rawId: string): WhitelistedChannelSpec | null 
 
     return {
       canonicalId: key,
-      displayName: `${cleanName} (Astra 19.2°E / 30°W)`,
+      displayName: cleanName,
       contentCategory: classified.contentCategory,
       country: 'ES',
       satellites: ['Astra 19.2°E', 'Hispasat 30°W'],
-      orbitalPosition: 'Astra 19.2°E / Hispasat 30°W',
+      orbitalPosition: 'Astra 19.2°E',
       bouquets: ['Astra Movistar+ España', 'Hispasat Meo/NOS/Movistar'],
       bouquetId: 'movistar_es',
       group: classified.group,
@@ -4400,7 +4609,7 @@ function resolveDynamicGlobalSpec(rawId: string): WhitelistedChannelSpec | null 
 
     return {
       canonicalId: key,
-      displayName: `${cleanName} (Hispasat 30°W)`,
+      displayName: cleanName,
       contentCategory: classified.contentCategory,
       country: 'ES',
       satellites: ['Hispasat 30°W'],
@@ -4424,12 +4633,12 @@ function resolveDynamicGlobalSpec(rawId: string): WhitelistedChannelSpec | null 
 
     return {
       canonicalId: key,
-      displayName: `${cleanName} (Astra 19.2°E)`,
+      displayName: cleanName,
       contentCategory: classified.contentCategory,
       country: 'DE',
       satellites: ['Astra 19.2°E'],
       orbitalPosition: 'Astra 19.2°E',
-      bouquets: ['Astra Movistar+ España', 'Sky DE / DAZN DE'],
+      bouquets: ['Sky DE / DAZN DE'],
       bouquetId: 'sky_de',
       group: classified.group,
       audioTrackLabel: 'Dual Audio DE / VO EN',
@@ -4448,7 +4657,7 @@ function resolveDynamicGlobalSpec(rawId: string): WhitelistedChannelSpec | null 
 
     return {
       canonicalId: key,
-      displayName: `${cleanName} (Hotbird 13°E)`,
+      displayName: cleanName,
       contentCategory: classified.contentCategory,
       country: 'IT',
       satellites: ['Hotbird 13°E'],
@@ -4472,7 +4681,7 @@ function resolveDynamicGlobalSpec(rawId: string): WhitelistedChannelSpec | null 
 
     return {
       canonicalId: key,
-      displayName: `${cleanName} (Hotbird 13°E)`,
+      displayName: cleanName,
       contentCategory: classified.contentCategory,
       country: 'PL',
       satellites: ['Hotbird 13°E'],
@@ -4487,29 +4696,370 @@ function resolveDynamicGlobalSpec(rawId: string): WhitelistedChannelSpec | null 
     };
   }
 
-  // 9. Eutelsat 16°E / Thor 0.8°W (RO / EU - Focus Sat, Total TV, DigitAlb) — Toutes catégories
-  if (key.endsWith('.ro') || key.endsWith('.hr') || key.endsWith('.rs')) {
+  // 9a. Eutelsat 16°E (Albanie, Balkans, Croatie, Bulgarie & TVR Roumanie : .al, .rs, .hr, .ba, .si, .mk, .me, .bg)
+  // Bouquets officiels : DigitAlb (Albanie), Total TV (Balkans / Serbie / Croatie), MaxTV Sat (Croatie), A1 Bulgaria / A1 Hrvatska, TVR / Chaînes Nationales (Roumanie)
+  if (
+    key.endsWith('.al') ||
+    key.endsWith('.rs') ||
+    key.endsWith('.hr') ||
+    key.endsWith('.ba') ||
+    key.endsWith('.si') ||
+    key.endsWith('.mk') ||
+    key.endsWith('.me') ||
+    key.endsWith('.bg')
+  ) {
     const classified = classifyChannelCategoryAndGroup(key);
     if (!classified) return null;
 
-    const cleanName = formatCleanChannelDisplayName(rawId, /\.(ro|hr|rs)$/i);
+    const cleanName = formatCleanChannelDisplayName(
+      rawId,
+      /\.(al|rs|hr|ba|si|mk|me|bg)$/i
+    );
     if (!cleanName) return null;
+
+    const isRtshNationalAl =
+      key.includes('rtsh') || cleanName.toLowerCase().startsWith('rtsh');
+
+    const isDigitAlb =
+      key.endsWith('.al') ||
+      key.includes('digitalb') ||
+      key.includes('klan') ||
+      key.includes('top.channel') ||
+      key.includes('supersport') ||
+      key.includes('vizion') ||
+      key.includes('tring');
+
+    const isMaxTvHr =
+      key.endsWith('.hr') ||
+      key.includes('hrt') ||
+      key.includes('maxsport') ||
+      key.includes('maxtv') ||
+      key.includes('doma');
+
+    const isA1 =
+      key.endsWith('.bg') ||
+      key.includes('diema') ||
+      key.includes('bnt') ||
+      key.includes('btv') ||
+      key.includes('a1');
+
+    const isPanBalkan =
+      key.includes('arena') ||
+      key.includes('sport.klub') ||
+      key.includes('cinestar') ||
+      key.includes('hbo') ||
+      key.includes('cinemax') ||
+      key.includes('fox') ||
+      key.includes('star') ||
+      key.includes('discovery') ||
+      key.includes('nat.geo') ||
+      key.includes('national.geographic') ||
+      key.includes('history') ||
+      key.includes('viasat') ||
+      key.includes('pickbox') ||
+      key.includes('diva') ||
+      key.includes('epic.drama') ||
+      key.includes('sci.fi') ||
+      key.includes('axn');
+
+    const eu16Bouquets: Exclude<BouquetFilter, 'Tous'>[] =
+      isRtshNationalAl || isDigitAlb
+        ? ['DigitAlb (Albanie)']
+        : isMaxTvHr || isA1
+        ? [
+            'MAXtv / A1 Croatia',
+            'Total TV (Balkans / Serbie / Croatie / Bosnie / Slovénie)',
+          ]
+        : isPanBalkan
+        ? [
+            'Total TV (Balkans / Serbie / Croatie / Bosnie / Slovénie)',
+            'MAXtv / A1 Croatia',
+          ]
+        : [
+            'Total TV (Balkans / Serbie / Croatie / Bosnie / Slovénie)',
+          ];
 
     return {
       canonicalId: key,
-      displayName: `${cleanName} (Eutelsat/Thor)`,
+      displayName: cleanName,
       contentCategory: classified.contentCategory,
       country: 'EU',
-      satellites: ['Eutelsat 16°E / Thor 0.8°W'],
-      orbitalPosition: 'Eutelsat 16°E / Thor 0.8°W',
-      bouquets: ['DigitAlb / Total TV / Focus Sat'],
-      bouquetId: 'eutelsat_16e_thor',
+      satellites: ['Eutelsat 16°E'],
+      orbitalPosition: 'Eutelsat 16°E',
+      bouquets: eu16Bouquets,
+      bouquetId: 'eutelsat_16e_digitalb',
       group: classified.group,
       audioTrackLabel: 'Dual VO / Multi-Audio',
       subtitleTrackLabel: 'DVB-Sub EU / Teletext',
       hasPolishLektor: false,
       hasSubtitles: true,
     };
+  }
+
+  // 9b. Thor 0.8°W / Intelsat 10-02 (Roumanie & Hongrie : .ro, .hu, .sk, .cz) — Focus Sat (Roumanie), Direct One (Hongrie), Digi TV
+  if (
+    key.endsWith('.ro') ||
+    key.endsWith('.hu') ||
+    key.endsWith('.sk') ||
+    key.endsWith('.cz')
+  ) {
+    const classified = classifyChannelCategoryAndGroup(key);
+    if (!classified) return null;
+
+    const cleanName = formatCleanChannelDisplayName(
+      rawId,
+      /\.(ro|hu|sk|cz)$/i
+    );
+    if (!cleanName) return null;
+
+    const isDirectOneHu =
+      key.endsWith('.hu') || key.includes('direct.one') || key.includes('spiler');
+    const isDigi =
+      key.includes('digi') ||
+      key.includes('film.now') ||
+      key.includes('utv');
+
+    const thorBouquets: Exclude<BouquetFilter, 'Tous'>[] = isDirectOneHu
+      ? ['Direct One (Hongrie)', 'Digi TV']
+      : isDigi
+      ? ['Digi TV', 'Focus Sat (Roumanie)']
+      : ['Focus Sat (Roumanie)', 'Digi TV', 'Direct One (Hongrie)'];
+
+    return {
+      canonicalId: key,
+      displayName: cleanName,
+      contentCategory: classified.contentCategory,
+      country: 'EU',
+      satellites: ['Thor 0.8°W / Intelsat 10-02', 'Thor 0.8°W'],
+      orbitalPosition: 'Thor 0.8°W',
+      bouquets: thorBouquets,
+      bouquetId: 'thor_08w_focussat',
+      group: classified.group,
+      audioTrackLabel: 'Dual VO / Multi-Audio',
+      subtitleTrackLabel: 'DVB-Sub RO/HU / Teletext',
+      hasPolishLektor: false,
+      hasSubtitles: true,
+    };
+  }
+
+  // 9c. TurkmenÄlem 52°E / MonacoSat 52°E (.tm, .uz, alem) — Alem TV & Bouquet National Turkmène
+  if (
+    key.endsWith('.tm') ||
+    key.endsWith('.uz') ||
+    key.includes('alem.tv') ||
+    key.includes('turkmen')
+  ) {
+    const classified = classifyChannelCategoryAndGroup(key);
+    if (!classified) return null;
+    const cleanName = formatCleanChannelDisplayName(rawId, /\.(tm|uz)$/i);
+    if (!cleanName) return null;
+    const isNationalTm =
+      key.endsWith('.tm') ||
+      key.includes('altyn') ||
+      key.includes('miras') ||
+      key.includes('yaslyk') ||
+      key.includes('owazy') ||
+      key.includes('turkmenistan');
+
+    return {
+      canonicalId: key,
+      displayName: cleanName,
+      contentCategory: classified.contentCategory,
+      country: 'EU',
+      satellites: ['TurkmenÄlem 52°E', 'MonacoSat 52°E'],
+      orbitalPosition: 'TurkmenÄlem 52°E',
+      bouquets: isNationalTm
+        ? ['Bouquet National Turkmène', 'Turkmenistan National TV']
+        : ['Alem TV'],
+      bouquetId: 'turkmenalem_52e_alem',
+      group: classified.group,
+      audioTrackLabel: 'Multi-Audio / VO Original',
+      subtitleTrackLabel: 'DVB-Sub / Multi',
+      hasPolishLektor: false,
+      hasSubtitles: true,
+    };
+  }
+
+  // 9d. MonacoSat 52°E / TurkmenÄlem 52°E (.mc, .ir, .52e, persiana, wns, ava, iran.int, afghanistan.int, big.bang)
+  if (
+    key.endsWith('.mc') ||
+    key.endsWith('.ir') ||
+    key.endsWith('.52e') ||
+    key.includes('persiana') ||
+    key.includes('big.bang') ||
+    key.includes('bigbang')
+  ) {
+    const classified = classifyChannelCategoryAndGroup(key);
+    if (!classified) return null;
+    const cleanName = formatCleanChannelDisplayName(rawId, /\.(mc|ir|52e)$/i);
+    if (!cleanName) return null;
+    const isBigBang = key.includes('big.bang') || key.includes('bigbang');
+    const isInfo52e =
+      key.includes('iran.int') || key.includes('afghanistan.int');
+    const isWns52e =
+      key.includes('ava.') ||
+      key.includes('fx.') ||
+      key.includes('avang') ||
+      key.includes('4u.family') ||
+      key.includes('pmc');
+
+    return {
+      canonicalId: key,
+      displayName: cleanName,
+      contentCategory: classified.contentCategory,
+      country: 'EU',
+      satellites: ['MonacoSat 52°E', 'TurkmenÄlem 52°E'],
+      orbitalPosition: 'MonacoSat 52°E',
+      bouquets: isBigBang
+        ? ['Big Bang TV']
+        : isInfo52e
+        ? ['Information', 'Groupe WNS']
+        : isWns52e
+        ? ['Groupe WNS']
+        : ['Groupe Persiana', 'Persiana Media Group (Farsi/Sport/Cinema)'],
+      bouquetId: 'monacosat_52e_persiana',
+      group: classified.group,
+      audioTrackLabel: 'Audio Original / VO EN',
+      subtitleTrackLabel: 'DVB-Sub Farsi / EN',
+      hasPolishLektor: false,
+      hasSubtitles: true,
+    };
+  }
+
+  // 9e. Bouquet TRT Network complet (.tr ou identifiants officiels TRT)
+  if (key.endsWith('.tr') || /\btrt[._0-9a-z]/i.test(key)) {
+    const kNorm = key.replace(/[^a-z0-9]/g, '');
+    const trtSpecs: Record<
+      string,
+      {
+        canonicalId: string;
+        displayName: string;
+        contentCategory: Exclude<ContentCategoryFilter, 'Tous'>;
+        group: Exclude<ChannelGroup, 'Tous'>;
+        transponder: string;
+      }
+    > = {
+      trt1: {
+        canonicalId: 'TRT.1.tr',
+        displayName: 'TRT 1 HD',
+        contentCategory: 'Films & Séries',
+        group: 'Cinéma Premières',
+        transponder: '11596/H/29980',
+      },
+      trthaber: {
+        canonicalId: 'TRT.Haber.tr',
+        displayName: 'TRT Haber HD',
+        contentCategory: 'Actualités / News',
+        group: 'Actualités / News',
+        transponder: '11596/H/29980',
+      },
+      trtspor: {
+        canonicalId: 'TRT.Spor.tr',
+        displayName: 'TRT Spor HD',
+        contentCategory: 'Sport / Football',
+        group: 'Sport / Football',
+        transponder: '11596/H/29980',
+      },
+      trtspor2: {
+        canonicalId: 'TRT.Spor.2.tr',
+        displayName: 'TRT Spor 2',
+        contentCategory: 'Sport / Football',
+        group: 'Sport / Football',
+        transponder: '11596/H/29980',
+      },
+      trtsporyildiz: {
+        canonicalId: 'TRT.Spor.2.tr',
+        displayName: 'TRT Spor 2',
+        contentCategory: 'Sport / Football',
+        group: 'Sport / Football',
+        transponder: '11596/H/29980',
+      },
+      trtworld: {
+        canonicalId: 'TRT.World.tr',
+        displayName: 'TRT World',
+        contentCategory: 'Actualités / News',
+        group: 'Actualités / News',
+        transponder: '11024/H/3333',
+      },
+      trtcocuk: {
+        canonicalId: 'TRT.Cocuk.tr',
+        displayName: 'TRT Çocuk',
+        contentCategory: 'Jeunesse / Enfants',
+        group: 'Jeunesse / Enfants',
+        transponder: '11596/H/29980',
+      },
+      trtbelgesel: {
+        canonicalId: 'TRT.Belgesel.tr',
+        displayName: 'TRT Belgesel',
+        contentCategory: 'Documentaires',
+        group: 'Documentaires',
+        transponder: '11637/H/30000',
+      },
+      trtmuzik: {
+        canonicalId: 'TRT.Muzik.tr',
+        displayName: 'TRT Müzik',
+        contentCategory: 'Musique & Divertissement',
+        group: 'Musique & Divertissement',
+        transponder: '11637/H/30000',
+      },
+      trtavaz: {
+        canonicalId: 'TRT.Avaz.tr',
+        displayName: 'TRT Avaz',
+        contentCategory: 'Films & Séries',
+        group: 'Séries TV & US',
+        transponder: '11637/H/30000',
+      },
+      trtturk: {
+        canonicalId: 'TRT.Turk.tr',
+        displayName: 'TRT Türk',
+        contentCategory: 'Films & Séries',
+        group: 'Comédie & Famille',
+        transponder: '11024/H/3333',
+      },
+    };
+
+    const stripped = kNorm.replace(/(hd|tr|uk)$/g, '');
+    const matchedTrt =
+      trtSpecs[stripped] ||
+      (stripped.startsWith('trtspor2') || stripped.includes('sporyildiz')
+        ? trtSpecs.trtspor2
+        : stripped.startsWith('trtspor')
+        ? trtSpecs.trtspor
+        : stripped.startsWith('trthaber')
+        ? trtSpecs.trthaber
+        : stripped.startsWith('trtworld')
+        ? trtSpecs.trtworld
+        : stripped.startsWith('trtcocuk')
+        ? trtSpecs.trtcocuk
+        : stripped.startsWith('trtbelgesel')
+        ? trtSpecs.trtbelgesel
+        : stripped.startsWith('trtmuzik')
+        ? trtSpecs.trtmuzik
+        : stripped.startsWith('trtavaz')
+        ? trtSpecs.trtavaz
+        : stripped.startsWith('trtturk')
+        ? trtSpecs.trtturk
+        : stripped.startsWith('trt1')
+        ? trtSpecs.trt1
+        : null);
+
+    if (matchedTrt) {
+      return {
+        canonicalId: matchedTrt.canonicalId,
+        displayName: matchedTrt.displayName,
+        contentCategory: matchedTrt.contentCategory,
+        country: 'EU',
+        satellites: ['Türksat 42°E', 'Türksat 42°E / Eutelsat 7°E'],
+        orbitalPosition: 'Türksat 42°E / Eutelsat 7°E',
+        bouquets: ['TRT Network'],
+        bouquetId: 'trt_network',
+        group: matchedTrt.group,
+        audioTrackLabel: 'Audio Original TR / EN HD',
+        subtitleTrackLabel: 'TRT Network · Türksat 42°E / Eutelsat 7°E',
+        hasPolishLektor: false,
+        hasSubtitles: true,
+      };
+    }
   }
 
   // 10. Star One D2 70°W / Amazonas 61°W / Intelsat 43.1°W & SES-6 40.5°W (BR & LATAM) — Toutes catégories
@@ -4532,15 +5082,13 @@ function resolveDynamicGlobalSpec(rawId: string): WhitelistedChannelSpec | null 
 
     return {
       canonicalId: key,
-      displayName: `${cleanName} (${isBrazil ? 'BR 70°W' : 'LATAM'})`,
+      displayName: cleanName,
       contentCategory: classified.contentCategory,
       country: isBrazil ? 'BR' : 'LATAM',
       satellites: isBrazil
         ? ['Star One D2 70°W', 'Amazonas 61°W', 'Intelsat 43.1°W / SES-6 40.5°W']
         : ['Amazonas 61°W', 'Intelsat 43.1°W / SES-6 40.5°W'],
-      orbitalPosition: isBrazil
-        ? 'Star One D2 70°W / SES-6'
-        : 'Amazonas 61°W / Intelsat 43.1°W',
+      orbitalPosition: isBrazil ? 'Star One D2 70°W' : 'Amazonas 61°W',
       bouquets: isBrazil
         ? ['Claro TV Brasil', 'Vivo TV / Movistar LATAM', 'DirecTV LATAM / Sky Brasil']
         : ['Vivo TV / Movistar LATAM', 'DirecTV LATAM / Sky Brasil'],
@@ -4709,7 +5257,7 @@ function mapCanonicalSatelliteAndBouquets(
     }
   } else if (spec.country === 'DE') {
     satSet.add('Astra 19.2°E');
-    bouquetSet.add('Astra Movistar+ España');
+    bouquetSet.add('Sky DE / DAZN DE');
   } else if (spec.country === 'PL') {
     satSet.add('Hotbird 13°E');
     bouquetSet.add('Hotbird Polsat/Cyfra+');
@@ -4724,7 +5272,10 @@ function mapCanonicalSatelliteAndBouquets(
 
   return {
     satellites: Array.from(satSet),
-    orbitalPosition: spec.orbitalPosition,
+    orbitalPosition: normalizeSingleOrbitalPosition(
+      spec.orbitalPosition,
+      Array.from(satSet)
+    ),
     bouquets: Array.from(bouquetSet),
     bouquetId: bId,
   };
@@ -4823,9 +5374,9 @@ export function resolveWhitelistedChannelSpec(
   rawId: string,
   filterOptions?: EpgParseFilterOptions
 ): WhitelistedChannelSpec | null {
-  if (!rawId) return null;
+  if (!rawId || isAdultChannel(rawId)) return null;
   const key = cleanXmltvChannelId(rawId).toLowerCase();
-  if (!key) return null;
+  if (!key || isAdultChannel(key)) return null;
   const rawTrimmedLower = rawId.trim().toLowerCase();
 
   const sportSpec =
@@ -4835,8 +5386,12 @@ export function resolveWhitelistedChannelSpec(
     const fullSportSpec: WhitelistedChannelSpec = {
       ...sportSpec,
       canonicalId: cleanXmltvChannelId(sportSpec.canonicalId),
+      displayName: cleanOfficialChannelName(sportSpec.displayName),
       satellites: mapped.satellites,
-      orbitalPosition: mapped.orbitalPosition,
+      orbitalPosition: normalizeSingleOrbitalPosition(
+        mapped.orbitalPosition,
+        mapped.satellites
+      ),
       bouquets: mapped.bouquets,
       bouquetId: mapped.bouquetId,
       hasSubtitles: sportSpec.hasSubtitles ?? true,
@@ -4852,11 +5407,14 @@ export function resolveWhitelistedChannelSpec(
     resolveDynamicGlobalSpec(rawId);
   if (!cinemaSpec) return null;
 
-  const mapped = mapCanonicalSatelliteAndBouquets(cinemaSpec);
+  const mapped = mapCanonicalSatelliteAndBouquets(
+    cinemaSpec as WhitelistedChannelSpec
+  );
 
   const fullCinemaSpec: WhitelistedChannelSpec = {
     ...cinemaSpec,
     canonicalId: cleanXmltvChannelId(cinemaSpec.canonicalId),
+    displayName: cleanOfficialChannelName(cinemaSpec.displayName),
     bouquetId: mapped.bouquetId,
     contentCategory:
       cinemaSpec.contentCategory ||
@@ -4872,7 +5430,10 @@ export function resolveWhitelistedChannelSpec(
         ? 'Musique & Divertissement'
         : 'Films & Séries'),
     satellites: mapped.satellites,
-    orbitalPosition: mapped.orbitalPosition,
+    orbitalPosition: normalizeSingleOrbitalPosition(
+      mapped.orbitalPosition,
+      mapped.satellites
+    ),
     bouquets: mapped.bouquets,
     hasPolishLektor: cinemaSpec.hasPolishLektor ?? false,
     hasSubtitles: cinemaSpec.hasSubtitles ?? true,
@@ -5251,3 +5812,1385 @@ export function parseProgrammeBlock(
     },
   };
 }
+
+interface SupplementalChannelTemplate {
+  id: string;
+  displayName: string;
+  contentCategory: Exclude<ContentCategoryFilter, 'Tous'>;
+  group: Exclude<ChannelGroup, 'Tous'>;
+  country: Exclude<CountryCode, 'Tous'>;
+  satellite: Exclude<SatelliteFilter, 'Tous'>;
+  orbitalPosition: string;
+  bouquets: Exclude<BouquetFilter, 'Tous'>[];
+  bouquetId: EpgBouquetId;
+  audioTrackLabel: string;
+  subtitleTrackLabel: string;
+  scheduleTemplates: Array<{
+    title: string;
+    subTitle: string;
+    description: string;
+    category: string;
+    durationMins: number;
+  }>;
+}
+
+const SUPPLEMENTAL_SATELLITE_BOUQUET_CHANNELS: SupplementalChannelTemplate[] = [
+  // =========================================================================
+  // 1. EUTELSAT 16°E (16°E) — RÉFÉRENTIEL EXHAUSTIF OFFICIEL PAR BOUQUETS :
+  //    DigitAlb (Albanie), Total TV (Balkans / Serbie / Croatie / Bosnie / Slovénie),
+  //    MAXtv / A1 Croatia, New World TV (Afrique), Canal+ Réunion / Afrique,
+  //    Autres chaînes africaines / francophones
+  // =========================================================================
+  ...buildEutelsat16eExhaustiveChannels(),
+
+  // =========================================================================
+  // 1B. BOUQUET TRT NETWORK COMPLET (TÜRKSAT 42°E / EUTELSAT 7°E) :
+  //     TRT 1 HD, TRT Haber HD, TRT Spor HD, TRT Spor 2, TRT World,
+  //     TRT Çocuk, TRT Belgesel, TRT Müzik, TRT Avaz, TRT Türk
+  // =========================================================================
+  {
+    id: 'TRT.1.tr',
+    displayName: 'TRT 1 HD',
+    contentCategory: 'Films & Séries',
+    group: 'Cinéma Premières',
+    country: 'EU',
+    satellite: 'Türksat 42°E',
+    orbitalPosition: 'Türksat 42°E / Eutelsat 7°E',
+    bouquets: ['TRT Network'],
+    bouquetId: 'trt_network',
+    audioTrackLabel: 'Audio Original TR / VO HD',
+    subtitleTrackLabel: 'TRT Network · Türksat 42°E / Eutelsat 7°E',
+    scheduleTemplates: [
+      {
+        title: 'Teşkilat : Opération Spéciale (Prime Time)',
+        subTitle: 'Série Événement TRT 1 HD',
+        description: 'Grande série d’action et d’espionnage en haute définition sur TRT 1 HD (Türksat 42°E / Eutelsat 7°E).',
+        category: 'Série TV',
+        durationMins: 120,
+      },
+      {
+        title: 'Gönül Dağı : Chroniques d’Anatolie',
+        subTitle: 'Fiction Dramatique & Famille HD',
+        description: 'Série phare de première partie de soirée diffusée en direct sur TRT 1 HD.',
+        category: 'Série TV',
+        durationMins: 120,
+      },
+      {
+        title: 'UEFA Champions League / Football International Live',
+        subTitle: 'Soirée Européenne sur TRT 1 HD',
+        description: 'Retransmission officielle en clair des grandes affiches européennes sur TRT 1 HD.',
+        category: 'Football',
+        durationMins: 120,
+      },
+    ],
+  },
+  {
+    id: 'TRT.Haber.tr',
+    displayName: 'TRT Haber HD',
+    contentCategory: 'Actualités / News',
+    group: 'Actualités / News',
+    country: 'EU',
+    satellite: 'Türksat 42°E',
+    orbitalPosition: 'Türksat 42°E / Eutelsat 7°E',
+    bouquets: ['TRT Network'],
+    bouquetId: 'trt_network',
+    audioTrackLabel: 'Audio Direct TR HD',
+    subtitleTrackLabel: 'TRT Network · Türksat 42°E / Eutelsat 7°E',
+    scheduleTemplates: [
+      {
+        title: 'Ana Haber Bülteni & Direct International 24/7',
+        subTitle: 'Information Continue TRT Haber HD',
+        description: 'Journal télévisé, éditions spéciales et géopolitique en direct sur TRT Haber HD (Türksat 42°E / Eutelsat 7°E).',
+        category: 'Actualités',
+        durationMins: 90,
+      },
+      {
+        title: 'Sıcak Nokta & Analyse Géopolitique',
+        subTitle: 'Débats & Grands Reportages',
+        description: 'Décryptage de l’actualité internationale en direct sur le bouquet TRT Network.',
+        category: 'Actualités',
+        durationMins: 90,
+      },
+    ],
+  },
+  {
+    id: 'TRT.Spor.tr',
+    displayName: 'TRT Spor HD',
+    contentCategory: 'Sport / Football',
+    group: 'Sport / Football',
+    country: 'EU',
+    satellite: 'Türksat 42°E',
+    orbitalPosition: 'Türksat 42°E / Eutelsat 7°E',
+    bouquets: ['TRT Network'],
+    bouquetId: 'trt_network',
+    audioTrackLabel: 'Audio Stadium / TR Live HD',
+    subtitleTrackLabel: 'TRT Network · Türksat 42°E / Eutelsat 7°E',
+    scheduleTemplates: [
+      {
+        title: 'Süper Lig & Coupe d’Europe : Match & Studio Live',
+        subTitle: 'Football en Direct sur TRT Spor HD',
+        description: 'Retransmission sportive en direct et analyses sur TRT Spor HD (Türksat 42°E / Eutelsat 7°E).',
+        category: 'Football',
+        durationMins: 120,
+      },
+      {
+        title: 'Stadyum : Tous les Buts & Résumés',
+        subTitle: 'Magazine Football Live HD',
+        description: 'Le grand rendez-vous football du bouquet TRT Network en haute définition.',
+        category: 'Football',
+        durationMins: 120,
+      },
+    ],
+  },
+  {
+    id: 'TRT.Spor.2.tr',
+    displayName: 'TRT Spor 2',
+    contentCategory: 'Sport / Football',
+    group: 'Sport / Football',
+    country: 'EU',
+    satellite: 'Türksat 42°E',
+    orbitalPosition: 'Türksat 42°E / Eutelsat 7°E',
+    bouquets: ['TRT Network'],
+    bouquetId: 'trt_network',
+    audioTrackLabel: 'Audio Stadium / TR Live HD',
+    subtitleTrackLabel: 'TRT Network · Türksat 42°E / Eutelsat 7°E',
+    scheduleTemplates: [
+      {
+        title: 'Basketbol, Volleyball & Athlétisme : Direct Olympique',
+        subTitle: 'Compétitions Internationales sur TRT Spor 2',
+        description: 'Deuxième chaîne sportive officielle du réseau TRT (Türksat 42°E / Eutelsat 7°E).',
+        category: 'Sport',
+        durationMins: 120,
+      },
+      {
+        title: 'Tournois ATP / WTA & Sports Mécaniques Live',
+        subTitle: 'Direct Sportif HD',
+        description: 'Diffusion en direct des compétitions internationales sur TRT Spor 2.',
+        category: 'Sport',
+        durationMins: 120,
+      },
+    ],
+  },
+  {
+    id: 'TRT.World.tr',
+    displayName: 'TRT World',
+    contentCategory: 'Actualités / News',
+    group: 'Actualités / News',
+    country: 'EU',
+    satellite: 'Türksat 42°E',
+    orbitalPosition: 'Türksat 42°E / Eutelsat 7°E',
+    bouquets: ['TRT Network'],
+    bouquetId: 'trt_network',
+    audioTrackLabel: 'Audio Original English HD',
+    subtitleTrackLabel: 'TRT Network · Türksat 42°E / Eutelsat 7°E',
+    scheduleTemplates: [
+      {
+        title: 'World Newsroom & Roundtable Live',
+        subTitle: '24/7 International News in English',
+        description: 'Chaîne d’information internationale anglophone du bouquet TRT Network (Türksat 42°E / Eutelsat 7°E).',
+        category: 'Actualités',
+        durationMins: 90,
+      },
+      {
+        title: 'Across The Balkanz & Global Documentary',
+        subTitle: 'Investigative Report HD',
+        description: 'Grands reportages et analyses internationales en anglais sur TRT World.',
+        category: 'Actualités',
+        durationMins: 90,
+      },
+    ],
+  },
+  {
+    id: 'TRT.Cocuk.tr',
+    displayName: 'TRT Çocuk',
+    contentCategory: 'Jeunesse / Enfants',
+    group: 'Jeunesse / Enfants',
+    country: 'EU',
+    satellite: 'Türksat 42°E',
+    orbitalPosition: 'Türksat 42°E / Eutelsat 7°E',
+    bouquets: ['TRT Network'],
+    bouquetId: 'trt_network',
+    audioTrackLabel: 'Audio Original HD',
+    subtitleTrackLabel: 'TRT Network · Türksat 42°E / Eutelsat 7°E',
+    scheduleTemplates: [
+      {
+        title: 'Rafadan Tayfa & Dessins Animés d’Aventure',
+        subTitle: 'Animation & Jeunesse HD',
+        description: 'Chaîne jeunesse officielle du bouquet TRT Network (Türksat 42°E / Eutelsat 7°E).',
+        category: 'Animation',
+        durationMins: 90,
+      },
+      {
+        title: 'Cinéma d’Animation Familial : Les Explorateurs',
+        subTitle: 'Programme Enfants & Famille',
+        description: 'Séries animées éducatives et films jeunesse en haute définition sur TRT Çocuk.',
+        category: 'Animation',
+        durationMins: 90,
+      },
+    ],
+  },
+  {
+    id: 'TRT.Belgesel.tr',
+    displayName: 'TRT Belgesel',
+    contentCategory: 'Documentaires',
+    group: 'Documentaires',
+    country: 'EU',
+    satellite: 'Türksat 42°E',
+    orbitalPosition: 'Türksat 42°E / Eutelsat 7°E',
+    bouquets: ['TRT Network'],
+    bouquetId: 'trt_network',
+    audioTrackLabel: 'Dual Audio TR / EN HD',
+    subtitleTrackLabel: 'TRT Network · Türksat 42°E / Eutelsat 7°E',
+    scheduleTemplates: [
+      {
+        title: 'Nature Sauvage & Expéditions Extrêmes',
+        subTitle: 'Documentaire 4K/HD TRT Belgesel',
+        description: 'Chaîne documentaire officielle du bouquet TRT Network (Türksat 42°E / Eutelsat 7°E).',
+        category: 'Documentaire',
+        durationMins: 90,
+      },
+      {
+        title: 'Histoire des Civilisations & Archéologie',
+        subTitle: 'Patrimoine Mondial & Découverte',
+        description: 'Grands documentaires historiques et scientifiques en haute définition sur TRT Belgesel.',
+        category: 'Documentaire',
+        durationMins: 90,
+      },
+    ],
+  },
+  {
+    id: 'TRT.Muzik.tr',
+    displayName: 'TRT Müzik',
+    contentCategory: 'Musique & Divertissement',
+    group: 'Musique & Divertissement',
+    country: 'EU',
+    satellite: 'Türksat 42°E',
+    orbitalPosition: 'Türksat 42°E / Eutelsat 7°E',
+    bouquets: ['TRT Network'],
+    bouquetId: 'trt_network',
+    audioTrackLabel: 'Audio Stéréo Musical HD',
+    subtitleTrackLabel: 'TRT Network · Türksat 42°E / Eutelsat 7°E',
+    scheduleTemplates: [
+      {
+        title: 'Concerts Symphoniques & Sessions Acoustiques Live',
+        subTitle: 'Musique & Spectacles en Direct HD',
+        description: 'Chaîne musicale officielle du bouquet TRT Network (Türksat 42°E / Eutelsat 7°E).',
+        category: 'Musique',
+        durationMins: 120,
+      },
+      {
+        title: 'Top Clips & Festival Musical International',
+        subTitle: 'Divertissement Musical Non-Stop',
+        description: 'Concerts exclusifs et variétés musicales en haute définition sur TRT Müzik.',
+        category: 'Musique',
+        durationMins: 120,
+      },
+    ],
+  },
+  {
+    id: 'TRT.Avaz.tr',
+    displayName: 'TRT Avaz',
+    contentCategory: 'Films & Séries',
+    group: 'Séries TV & US',
+    country: 'EU',
+    satellite: 'Türksat 42°E',
+    orbitalPosition: 'Türksat 42°E / Eutelsat 7°E',
+    bouquets: ['TRT Network'],
+    bouquetId: 'trt_network',
+    audioTrackLabel: 'Multi-Audio International HD',
+    subtitleTrackLabel: 'TRT Network · Türksat 42°E / Eutelsat 7°E',
+    scheduleTemplates: [
+      {
+        title: 'Cinéma & Grandes Fresques Historiques d’Eurasie',
+        subTitle: 'Long-Métrage & Série Culturelle HD',
+        description: 'Chaîne internationale culturelle et cinéma du bouquet TRT Network (Türksat 42°E / Eutelsat 7°E).',
+        category: 'Cinéma',
+        durationMins: 120,
+      },
+      {
+        title: 'Documentaire : Des Balkans à l’Asie Centrale',
+        subTitle: 'Découverte & Patrimoine',
+        description: 'Voyage culturel et séries historiques sur TRT Avaz.',
+        category: 'Documentaire',
+        durationMins: 90,
+      },
+    ],
+  },
+  {
+    id: 'TRT.Turk.tr',
+    displayName: 'TRT Türk',
+    contentCategory: 'Films & Séries',
+    group: 'Comédie & Famille',
+    country: 'EU',
+    satellite: 'Türksat 42°E',
+    orbitalPosition: 'Türksat 42°E / Eutelsat 7°E',
+    bouquets: ['TRT Network'],
+    bouquetId: 'trt_network',
+    audioTrackLabel: 'Audio Original HD',
+    subtitleTrackLabel: 'TRT Network · Türksat 42°E / Eutelsat 7°E',
+    scheduleTemplates: [
+      {
+        title: 'Soirée Cinéma & Séries Familiales',
+        subTitle: 'Prime Time International TRT Türk',
+        description: 'Chaîne internationale généraliste du bouquet TRT Network (Türksat 42°E / Eutelsat 7°E).',
+        category: 'Cinéma',
+        durationMins: 115,
+      },
+      {
+        title: 'Magazine Européen & Divertissement Culturel',
+        subTitle: 'Direct & Talk-Show',
+        description: 'Émissions culturelles, séries et cinéma pour toute la famille sur TRT Türk.',
+        category: 'Famille',
+        durationMins: 95,
+      },
+    ],
+  },
+
+  // =========================================================================
+  // 2. THOR 0.8°W / INTELSAT 10-02 — 3 BOUQUETS OFFICIELS
+  // =========================================================================
+  {
+    id: 'Pro.TV.ro',
+    displayName: 'Pro TV HD',
+    contentCategory: 'Films & Séries',
+    group: 'Cinéma Premières',
+    country: 'EU',
+    satellite: 'Thor 0.8°W / Intelsat 10-02',
+    orbitalPosition: 'Thor 0.8°W',
+    bouquets: ['Focus Sat (Roumanie)', 'Digi TV'],
+    bouquetId: 'thor_08w_focussat',
+    audioTrackLabel: 'VO Anglais + Audio RO',
+    subtitleTrackLabel: 'DVB-Sub RO · Thor 0.8°W',
+    scheduleTemplates: [
+      {
+        title: 'Film Pro TV : Mission Héroïque',
+        subTitle: 'Blockbuster Hollywoodien VO',
+        description: 'Grand film de soirée diffusé en version originale sous-titrée sur Thor 0.8°W.',
+        category: 'Cinéma',
+        durationMins: 120,
+      },
+      {
+        title: 'Série Prime : Clanul',
+        subTitle: 'Saison 3 · Épisode 9',
+        description: 'Série policière à suspense en haute définition sur Focus Sat / Digi TV.',
+        category: 'Série TV',
+        durationMins: 90,
+      },
+      {
+        title: 'UEFA Europa League : Soirée Européenne',
+        subTitle: 'Football Direct HD',
+        description: 'Affiche européenne diffusée en direct sur Pro TV HD (Thor 0.8°W).',
+        category: 'Football',
+        durationMins: 120,
+      },
+    ],
+  },
+  {
+    id: 'Digi.Sport.1.ro',
+    displayName: 'Digi Sport 1 HD',
+    contentCategory: 'Sport / Football',
+    group: 'Sport / Football',
+    country: 'EU',
+    satellite: 'Thor 0.8°W / Intelsat 10-02',
+    orbitalPosition: 'Thor 0.8°W',
+    bouquets: ['Digi TV', 'Focus Sat (Roumanie)'],
+    bouquetId: 'thor_08w_focussat',
+    audioTrackLabel: 'Audio RO / Stadium HD',
+    subtitleTrackLabel: 'Digi TV · Thor 0.8°W',
+    scheduleTemplates: [
+      {
+        title: 'UEFA Champions League : Multiplex & Match Phare',
+        subTitle: 'Direct sur Digi Sport 1 HD',
+        description: 'Diffusion sur Thor 0.8°W / Intelsat 10-02 (Bouquets Digi TV & Focus Sat).',
+        category: 'Football',
+        durationMins: 120,
+      },
+      {
+        title: 'LaLiga & Serie A : Le Grand Week-End',
+        subTitle: 'Football Européen en Direct',
+        description: 'Les plus belles affiches des championnats espagnol et italien.',
+        category: 'Football',
+        durationMins: 120,
+      },
+    ],
+  },
+  {
+    id: 'Spiler.1.hu',
+    displayName: 'Spíler 1 TV HD',
+    contentCategory: 'Sport / Football',
+    group: 'Sport / Football',
+    country: 'EU',
+    satellite: 'Thor 0.8°W / Intelsat 10-02',
+    orbitalPosition: 'Thor 0.8°W',
+    bouquets: ['Direct One (Hongrie)', 'Digi TV'],
+    bouquetId: 'thor_08w_focussat',
+    audioTrackLabel: 'Audio HU / VO Anglais Stadium',
+    subtitleTrackLabel: 'Direct One · Thor 0.8°W',
+    scheduleTemplates: [
+      {
+        title: 'Premier League : Match au Sommet en Direct',
+        subTitle: 'Championnat d’Angleterre sur Direct One',
+        description: 'Retransmission HD sur Thor 0.8°W pour le bouquet Direct One (Hongrie).',
+        category: 'Football',
+        durationMins: 120,
+      },
+      {
+        title: 'UEFA Nations League & Football International',
+        subTitle: 'Studio & Résumés HD',
+        description: 'Analyses et temps forts du football européen sur Spíler 1 HD.',
+        category: 'Football',
+        durationMins: 90,
+      },
+    ],
+  },
+  {
+    id: 'RTL.Klub.hu',
+    displayName: 'RTL Magyarország HD',
+    contentCategory: 'Films & Séries',
+    group: 'Cinéma Premières',
+    country: 'EU',
+    satellite: 'Thor 0.8°W / Intelsat 10-02',
+    orbitalPosition: 'Thor 0.8°W',
+    bouquets: ['Direct One (Hongrie)'],
+    bouquetId: 'thor_08w_focussat',
+    audioTrackLabel: 'Dual Audio HU / VO EN',
+    subtitleTrackLabel: 'DVB-Sub HU / EN',
+    scheduleTemplates: [
+      {
+        title: 'Cinéma Grand Soir : L’Énigme de Budapest',
+        subTitle: 'Thriller & Action en VO',
+        description: 'Film international diffusé avec piste audio originale anglaise sur Direct One (0.8°W).',
+        category: 'Cinéma',
+        durationMins: 120,
+      },
+      {
+        title: 'Série US : Enquêtes Spéciales',
+        subTitle: 'Saison 4 · Épisode 10',
+        description: 'Série policière américaine en haute définition.',
+        category: 'Série TV',
+        durationMins: 90,
+      },
+    ],
+  },
+
+  // =========================================================================
+  // 3. TURKMENÄLEM 52°E / MONACOSAT 52°E — BOUQUETS FTA & PAYANTS COMPLETS :
+  //    - Groupe Persiana : Persiana Sports 1 & 2, Persiana Cinema, Persiana Series,
+  //      Persiana Family, Persiana Junior, Persiana Comedy, Persiana Docs, Persiana Music
+  //    - Groupe WNS : AVA Family, AVA Series, FX 1, FX 2, Avang TV, 4U Family, PMC Royale
+  //    - Information : Iran International, Afghanistan International
+  //    - Bouquet National Turkmène : Altyn Asyr, Yaslyk, Miras, Turkmenistan Sport
+  //    - Alem TV (Payant) : Alem Sport 1 & 2 HD, Alem Cinema Premiere HD, Alem Discovery
+  // =========================================================================
+
+  // --- GROUPE PERSIANA (FTA 52°E) ---
+  {
+    id: 'Persiana.Sports.1.mc',
+    displayName: 'Persiana Sports 1 HD',
+    contentCategory: 'Sport / Football',
+    group: 'Sport / Football',
+    country: 'EU',
+    satellite: 'MonacoSat 52°E',
+    orbitalPosition: 'MonacoSat 52°E',
+    bouquets: ['Groupe Persiana'],
+    bouquetId: 'monacosat_52e_persiana',
+    audioTrackLabel: 'Dual Audio FA / VO Anglais Stadium',
+    subtitleTrackLabel: 'Groupe Persiana · 52°E (10804 H)',
+    scheduleTemplates: [
+      {
+        title: 'UEFA Champions League : Grand Match en Direct',
+        subTitle: 'Football Européen sur Persiana Sports 1 HD',
+        description: 'Diffusion FTA en haute définition sur TurkmenÄlem / MonacoSat 52°E (Groupe Persiana).',
+        category: 'Football',
+        durationMins: 120,
+      },
+      {
+        title: 'Premier League & LaLiga : Choc du Championnat',
+        subTitle: 'Direct Intégral HD',
+        description: 'Les plus grandes affiches des championnats européens en direct sur 52°E.',
+        category: 'Football',
+        durationMins: 120,
+      },
+    ],
+  },
+  {
+    id: 'Persiana.Sports.2.mc',
+    displayName: 'Persiana Sports 2 HD',
+    contentCategory: 'Sport / Football',
+    group: 'Sport / Football',
+    country: 'EU',
+    satellite: 'MonacoSat 52°E',
+    orbitalPosition: 'MonacoSat 52°E',
+    bouquets: ['Groupe Persiana'],
+    bouquetId: 'monacosat_52e_persiana',
+    audioTrackLabel: 'Dual Audio FA / VO Stadium',
+    subtitleTrackLabel: 'Groupe Persiana · 52°E',
+    scheduleTemplates: [
+      {
+        title: 'Serie A & Bundesliga : Multiplex Direct',
+        subTitle: 'Football Européen Live HD',
+        description: 'Deuxième canal sportif du Groupe Persiana sur TurkmenÄlem / MonacoSat 52°E.',
+        category: 'Football',
+        durationMins: 120,
+      },
+      {
+        title: 'UFC, Boxe & Grands Tournois ATP',
+        subTitle: 'Direct Sportif International',
+        description: 'Retransmission en haute définition sur Persiana Sports 2 HD.',
+        category: 'Sport',
+        durationMins: 120,
+      },
+    ],
+  },
+  {
+    id: 'Persiana.Cinema.mc',
+    displayName: 'Persiana Cinema HD',
+    contentCategory: 'Films & Séries',
+    group: 'Cinéma Premières',
+    country: 'EU',
+    satellite: 'MonacoSat 52°E',
+    orbitalPosition: 'MonacoSat 52°E',
+    bouquets: ['Groupe Persiana'],
+    bouquetId: 'monacosat_52e_persiana',
+    audioTrackLabel: 'VO Anglais + Audio FA',
+    subtitleTrackLabel: 'DVB-Sub FA / EN · Groupe Persiana 52°E',
+    scheduleTemplates: [
+      {
+        title: 'Box-Office Première : L’Empire des Ombres',
+        subTitle: 'Blockbuster en Version Originale',
+        description: 'Grand film de cinéma international diffusé en HD sur Persiana Cinema (52°E).',
+        category: 'Cinéma',
+        durationMins: 125,
+      },
+      {
+        title: 'Soirée Thriller : Vengeance à Los Angeles',
+        subTitle: 'Film Action & Suspense VO',
+        description: 'Long-métrage américain en version originale sous-titrée.',
+        category: 'Film Action',
+        durationMins: 115,
+      },
+    ],
+  },
+  {
+    id: 'Persiana.Series.mc',
+    displayName: 'Persiana Series HD',
+    contentCategory: 'Films & Séries',
+    group: 'Séries TV & US',
+    country: 'EU',
+    satellite: 'MonacoSat 52°E',
+    orbitalPosition: 'MonacoSat 52°E',
+    bouquets: ['Groupe Persiana'],
+    bouquetId: 'monacosat_52e_persiana',
+    audioTrackLabel: 'VO Anglais / Multi-Audio',
+    subtitleTrackLabel: 'DVB-Sub FA / EN · Groupe Persiana 52°E',
+    scheduleTemplates: [
+      {
+        title: 'Série Événement : Les Chroniques du Futur',
+        subTitle: 'Saison 3 · Épisode 4',
+        description: 'Série américaine à grand spectacle sur Persiana Series HD (52°E).',
+        category: 'Série TV',
+        durationMins: 60,
+      },
+      {
+        title: 'Marathon Séries US : Enquêtes Criminelles',
+        subTitle: 'Saison 1 · Épisode 9',
+        description: 'Double épisode en haute définition avec piste originale.',
+        category: 'Série TV',
+        durationMins: 120,
+      },
+    ],
+  },
+  {
+    id: 'Persiana.Family.mc',
+    displayName: 'Persiana Family HD',
+    contentCategory: 'Films & Séries',
+    group: 'Comédie & Famille',
+    country: 'EU',
+    satellite: 'MonacoSat 52°E',
+    orbitalPosition: 'MonacoSat 52°E',
+    bouquets: ['Groupe Persiana'],
+    bouquetId: 'monacosat_52e_persiana',
+    audioTrackLabel: 'VO / Multi-Audio HD',
+    subtitleTrackLabel: 'Groupe Persiana · 52°E',
+    scheduleTemplates: [
+      {
+        title: 'Cinéma Famille : Aventure au Cœur du Monde',
+        subTitle: 'Film Familial & Comédie HD',
+        description: 'Divertissement et cinéma pour toute la famille sur Persiana Family HD (52°E).',
+        category: 'Famille',
+        durationMins: 110,
+      },
+      {
+        title: 'Série Familiale : La Grande Maison',
+        subTitle: 'Saison 2 · Épisode 5',
+        description: 'Fiction familiale quotidienne en haute définition.',
+        category: 'Série TV',
+        durationMins: 70,
+      },
+    ],
+  },
+  {
+    id: 'Persiana.Junior.mc',
+    displayName: 'Persiana Junior HD',
+    contentCategory: 'Jeunesse / Enfants',
+    group: 'Jeunesse / Enfants',
+    country: 'EU',
+    satellite: 'MonacoSat 52°E',
+    orbitalPosition: 'MonacoSat 52°E',
+    bouquets: ['Groupe Persiana'],
+    bouquetId: 'monacosat_52e_persiana',
+    audioTrackLabel: 'Dual Audio EN / FA',
+    subtitleTrackLabel: 'Groupe Persiana · 52°E',
+    scheduleTemplates: [
+      {
+        title: 'Grands Classiques d’Animation : Le Royaume Magique',
+        subTitle: 'Film d’Animation HD',
+        description: 'Dessins animés et longs-métrages d’animation sur Persiana Junior HD (52°E).',
+        category: 'Animation',
+        durationMins: 90,
+      },
+      {
+        title: 'Les Aventuriers de l’Espace',
+        subTitle: 'Série Animée Jeunesse',
+        description: 'Programme jeunesse quotidien en haute définition.',
+        category: 'Animation',
+        durationMins: 90,
+      },
+    ],
+  },
+  {
+    id: 'Persiana.Comedy.mc',
+    displayName: 'Persiana Comedy HD',
+    contentCategory: 'Films & Séries',
+    group: 'Comédie & Famille',
+    country: 'EU',
+    satellite: 'MonacoSat 52°E',
+    orbitalPosition: 'MonacoSat 52°E',
+    bouquets: ['Groupe Persiana'],
+    bouquetId: 'monacosat_52e_persiana',
+    audioTrackLabel: 'VO / Multi-Audio HD',
+    subtitleTrackLabel: 'Groupe Persiana · 52°E',
+    scheduleTemplates: [
+      {
+        title: 'Soirée Comédie : Vacances Explosives',
+        subTitle: 'Comédie Internationale HD',
+        description: 'Les meilleures comédies et sitcoms sur Persiana Comedy HD (52°E).',
+        category: 'Comédie',
+        durationMins: 105,
+      },
+      {
+        title: 'Sitcom Prestige : Amis & Voisins',
+        subTitle: 'Saison 4 · Épisode 12',
+        description: 'Humour et séries comiques en haute définition.',
+        category: 'Comédie',
+        durationMins: 75,
+      },
+    ],
+  },
+  {
+    id: 'Persiana.Docs.mc',
+    displayName: 'Persiana Docs HD',
+    contentCategory: 'Documentaires',
+    group: 'Documentaires',
+    country: 'EU',
+    satellite: 'MonacoSat 52°E',
+    orbitalPosition: 'MonacoSat 52°E',
+    bouquets: ['Groupe Persiana'],
+    bouquetId: 'monacosat_52e_persiana',
+    audioTrackLabel: 'VO Anglais + Audio FA',
+    subtitleTrackLabel: 'Groupe Persiana · 52°E',
+    scheduleTemplates: [
+      {
+        title: 'Planète Sauvage : Les Secrets des Océans',
+        subTitle: 'Documentaire Nature & Science 4K/HD',
+        description: 'Grands documentaires nature, histoire et sciences sur Persiana Docs HD (52°E).',
+        category: 'Documentaire',
+        durationMins: 90,
+      },
+      {
+        title: 'Civilisations Anciennes : De Persépolis à Rome',
+        subTitle: 'Histoire & Archéologie',
+        description: 'Enquête historique en haute définition avec piste originale.',
+        category: 'Documentaire',
+        durationMins: 90,
+      },
+    ],
+  },
+  {
+    id: 'Persiana.Music.mc',
+    displayName: 'Persiana Music HD',
+    contentCategory: 'Musique & Divertissement',
+    group: 'Musique & Divertissement',
+    country: 'EU',
+    satellite: 'MonacoSat 52°E',
+    orbitalPosition: 'MonacoSat 52°E',
+    bouquets: ['Groupe Persiana'],
+    bouquetId: 'monacosat_52e_persiana',
+    audioTrackLabel: 'Audio Stéréo AAC HD',
+    subtitleTrackLabel: 'Groupe Persiana · 52°E',
+    scheduleTemplates: [
+      {
+        title: 'Top Hits & Concerts Internationaux',
+        subTitle: 'Clips & Live Sessions HD',
+        description: 'Les meilleurs clips internationaux et concerts en haute définition sur Persiana Music HD.',
+        category: 'Musique',
+        durationMins: 120,
+      },
+      {
+        title: 'Club Night & Pop Hits',
+        subTitle: 'Sélection Musicale Non-Stop',
+        description: 'Diffusion musicale en clair sur TurkmenÄlem / MonacoSat 52°E.',
+        category: 'Musique',
+        durationMins: 120,
+      },
+    ],
+  },
+
+  // --- GROUPE WNS (FTA 52°E) ---
+  {
+    id: 'AVA.Family.mc',
+    displayName: 'AVA Family HD',
+    contentCategory: 'Films & Séries',
+    group: 'Comédie & Famille',
+    country: 'EU',
+    satellite: 'MonacoSat 52°E',
+    orbitalPosition: 'MonacoSat 52°E',
+    bouquets: ['Groupe WNS'],
+    bouquetId: 'monacosat_52e_persiana',
+    audioTrackLabel: 'VO / Multi-Audio HD',
+    subtitleTrackLabel: 'Groupe WNS · 52°E (10762 V)',
+    scheduleTemplates: [
+      {
+        title: 'Cinéma Grand Public : Le Trésor Perdu',
+        subTitle: 'Film Aventure & Famille VO',
+        description: 'Diffusion FTA sur le transpondeur WNS (TurkmenÄlem / MonacoSat 52°E).',
+        category: 'Cinéma',
+        durationMins: 115,
+      },
+      {
+        title: 'Série Dramatique : Secrets de Famille',
+        subTitle: 'Saison 2 · Épisode 10',
+        description: 'Rendez-vous quotidien des séries et films sur AVA Family HD.',
+        category: 'Série TV',
+        durationMins: 90,
+      },
+    ],
+  },
+  {
+    id: 'AVA.Series.mc',
+    displayName: 'AVA Series HD',
+    contentCategory: 'Films & Séries',
+    group: 'Séries TV & US',
+    country: 'EU',
+    satellite: 'MonacoSat 52°E',
+    orbitalPosition: 'MonacoSat 52°E',
+    bouquets: ['Groupe WNS'],
+    bouquetId: 'monacosat_52e_persiana',
+    audioTrackLabel: 'VO Anglais + Sous-titres',
+    subtitleTrackLabel: 'Groupe WNS · 52°E',
+    scheduleTemplates: [
+      {
+        title: 'Série US : Unité Spéciale Nocturne',
+        subTitle: 'Saison 1 · Épisode 7',
+        description: 'Chaîne 100% séries internationales du Groupe WNS sur 52°E.',
+        category: 'Série TV',
+        durationMins: 90,
+      },
+      {
+        title: 'Thriller Série : Le Cartel du Nord',
+        subTitle: 'Saison 3 · Épisode 2',
+        description: 'Diffusion en haute définition sur AVA Series HD.',
+        category: 'Série TV',
+        durationMins: 90,
+      },
+    ],
+  },
+  {
+    id: 'FX.1.mc',
+    displayName: 'FX 1 HD',
+    contentCategory: 'Films & Séries',
+    group: 'Action & Thriller',
+    country: 'EU',
+    satellite: 'MonacoSat 52°E',
+    orbitalPosition: 'MonacoSat 52°E',
+    bouquets: ['Groupe WNS'],
+    bouquetId: 'monacosat_52e_persiana',
+    audioTrackLabel: 'VO Anglais + Sous-titres DVB',
+    subtitleTrackLabel: 'Groupe WNS · 52°E',
+    scheduleTemplates: [
+      {
+        title: 'Hollywood Action : Impact Imminent',
+        subTitle: 'Blockbuster Américain en VO',
+        description: 'Films d’action et blockbusters américains en version originale sous-titrée sur FX 1 HD (52°E).',
+        category: 'Film Action',
+        durationMins: 120,
+      },
+      {
+        title: 'Sci-Fi Première : Nébuleuse Alpha',
+        subTitle: 'Science-Fiction & Suspense HD',
+        description: 'Long-métrage grand spectacle sur le bouquet WNS 52°E.',
+        category: 'Science-Fiction',
+        durationMins: 120,
+      },
+    ],
+  },
+  {
+    id: 'FX.2.mc',
+    displayName: 'FX 2 HD',
+    contentCategory: 'Films & Séries',
+    group: 'Cinéma Premières',
+    country: 'EU',
+    satellite: 'MonacoSat 52°E',
+    orbitalPosition: 'MonacoSat 52°E',
+    bouquets: ['Groupe WNS'],
+    bouquetId: 'monacosat_52e_persiana',
+    audioTrackLabel: 'VO Anglais + Sous-titres DVB',
+    subtitleTrackLabel: 'Groupe WNS · 52°E',
+    scheduleTemplates: [
+      {
+        title: 'Thriller Nocturne : La Traque Finale',
+        subTitle: 'Suspense & Policier VO',
+        description: 'Deuxième canal cinéma hollywoodien FX 2 HD sur TurkmenÄlem / MonacoSat 52°E.',
+        category: 'Thriller',
+        durationMins: 115,
+      },
+      {
+        title: 'Série Action : Opération Cobra',
+        subTitle: 'Saison 2 · Épisode 8',
+        description: 'Série d’action internationale en haute définition.',
+        category: 'Série TV',
+        durationMins: 90,
+      },
+    ],
+  },
+  {
+    id: 'Avang.TV.mc',
+    displayName: 'Avang TV HD',
+    contentCategory: 'Musique & Divertissement',
+    group: 'Musique & Divertissement',
+    country: 'EU',
+    satellite: 'MonacoSat 52°E',
+    orbitalPosition: 'MonacoSat 52°E',
+    bouquets: ['Groupe WNS'],
+    bouquetId: 'monacosat_52e_persiana',
+    audioTrackLabel: 'Audio Stéréo HD',
+    subtitleTrackLabel: 'Groupe WNS · 52°E',
+    scheduleTemplates: [
+      {
+        title: 'Avang Music Prestige & Concerts Live',
+        subTitle: 'Clips, Concerts & Divertissement HD',
+        description: 'Les plus grands artistes et concerts exclusifs sur Avang TV HD (Groupe WNS 52°E).',
+        category: 'Musique',
+        durationMins: 120,
+      },
+      {
+        title: 'Show Musical & Variétés Internationales',
+        subTitle: 'Prime Time Divertissement',
+        description: 'Programmation musicale et culturelle en haute définition.',
+        category: 'Divertissement',
+        durationMins: 120,
+      },
+    ],
+  },
+  {
+    id: '4U.Family.mc',
+    displayName: '4U Family HD',
+    contentCategory: 'Films & Séries',
+    group: 'Comédie & Famille',
+    country: 'EU',
+    satellite: 'MonacoSat 52°E',
+    orbitalPosition: 'MonacoSat 52°E',
+    bouquets: ['Groupe WNS'],
+    bouquetId: 'monacosat_52e_persiana',
+    audioTrackLabel: 'Audio Original HD',
+    subtitleTrackLabel: 'Groupe WNS · 52°E',
+    scheduleTemplates: [
+      {
+        title: 'Cinéma & Séries pour la Famille',
+        subTitle: 'Sélection 4U Family HD',
+        description: 'Films, séries et émissions familiales diffusés en clair sur le bouquet WNS 52°E.',
+        category: 'Famille',
+        durationMins: 110,
+      },
+      {
+        title: 'Comédie du Soir : Un Week-End Inoubliable',
+        subTitle: 'Film Comédie HD',
+        description: 'Détente et cinéma familial sur 4U Family HD.',
+        category: 'Comédie',
+        durationMins: 100,
+      },
+    ],
+  },
+  {
+    id: 'PMC.Royale.mc',
+    displayName: 'PMC Royale HD',
+    contentCategory: 'Musique & Divertissement',
+    group: 'Musique & Divertissement',
+    country: 'EU',
+    satellite: 'MonacoSat 52°E',
+    orbitalPosition: 'MonacoSat 52°E',
+    bouquets: ['Groupe WNS'],
+    bouquetId: 'monacosat_52e_persiana',
+    audioTrackLabel: 'Audio Stéréo PCM HD',
+    subtitleTrackLabel: 'Groupe WNS · 52°E',
+    scheduleTemplates: [
+      {
+        title: 'PMC Top 20 & Hits Internationaux',
+        subTitle: 'Musique & Clips Non-Stop HD',
+        description: 'La chaîne musicale emblématique PMC Royale en haute définition sur 52°E.',
+        category: 'Musique',
+        durationMins: 120,
+      },
+      {
+        title: 'Soirée Concerts & Dancefloor',
+        subTitle: 'Sélection Prestige PMC Royale',
+        description: 'Diffusion musicale haute fidélité sur le bouquet WNS.',
+        category: 'Musique',
+        durationMins: 120,
+      },
+    ],
+  },
+
+  // --- INFORMATION (FTA 52°E) ---
+  {
+    id: 'Iran.International.mc',
+    displayName: 'Iran International HD',
+    contentCategory: 'Actualités / News',
+    group: 'Actualités / News',
+    country: 'EU',
+    satellite: 'MonacoSat 52°E',
+    orbitalPosition: 'MonacoSat 52°E',
+    bouquets: ['Information (Iran Intl / Afghanistan Intl)'],
+    bouquetId: 'monacosat_52e_persiana',
+    audioTrackLabel: 'Audio Direct HD',
+    subtitleTrackLabel: 'Information · 52°E',
+    scheduleTemplates: [
+      {
+        title: 'Édition Spéciale & Journal International 24/7',
+        subTitle: 'Actualités, Débats & Directs',
+        description: 'Chaîne d’information internationale en continu diffusée en haute définition sur 52°E.',
+        category: 'Actualités',
+        durationMins: 90,
+      },
+      {
+        title: 'Grand Dossier Géopolitique & Documentaire',
+        subTitle: 'Analyse & Reportages Internationaux',
+        description: 'Décryptage de l’actualité mondiale depuis Londres sur Iran International HD.',
+        category: 'Actualités',
+        durationMins: 90,
+      },
+    ],
+  },
+  {
+    id: 'Afghanistan.International.mc',
+    displayName: 'Afghanistan International HD',
+    contentCategory: 'Actualités / News',
+    group: 'Actualités / News',
+    country: 'EU',
+    satellite: 'MonacoSat 52°E',
+    orbitalPosition: 'MonacoSat 52°E',
+    bouquets: ['Information (Iran Intl / Afghanistan Intl)'],
+    bouquetId: 'monacosat_52e_persiana',
+    audioTrackLabel: 'Audio Direct HD',
+    subtitleTrackLabel: 'Information · 52°E',
+    scheduleTemplates: [
+      {
+        title: 'Le Grand Journal d’Information & Analyses',
+        subTitle: 'Direct 24/7 sur 52°E',
+        description: 'Information continue, tables rondes et reportages internationaux sur Afghanistan International HD.',
+        category: 'Actualités',
+        durationMins: 90,
+      },
+      {
+        title: 'Magazine International & Société',
+        subTitle: 'Enquêtes & Correspondants',
+        description: 'Couverture complète de l’actualité régionale et mondiale.',
+        category: 'Actualités',
+        durationMins: 90,
+      },
+    ],
+  },
+
+  // --- BOUQUET NATIONAL TURKMÈNE (FTA 52°E) ---
+  {
+    id: 'Altyn.Asyr.tm',
+    displayName: 'Altyn Asyr HD',
+    contentCategory: 'Films & Séries',
+    group: 'Cinéma Premières',
+    country: 'EU',
+    satellite: 'TurkmenÄlem 52°E',
+    orbitalPosition: 'TurkmenÄlem 52°E',
+    bouquets: ['Bouquet National Turkmène'],
+    bouquetId: 'turkmenalem_52e_alem',
+    audioTrackLabel: 'Audio Original HD',
+    subtitleTrackLabel: 'Bouquet National Turkmène · 52°E',
+    scheduleTemplates: [
+      {
+        title: 'Cinéma & Patrimoine : Légendes du Karakoum',
+        subTitle: 'Long-Métrage Historique HD',
+        description: 'Diffusion sur la chaîne nationale Altyn Asyr HD via TurkmenÄlem 52°E (12265 V).',
+        category: 'Cinéma',
+        durationMins: 110,
+      },
+      {
+        title: 'Documentaire : Chevaux Akhal-Teké, Trésor Vivant',
+        subTitle: 'Culture & Nature HD',
+        description: 'Reportage exceptionnel en haute définition sur TurkmenÄlem 52°E.',
+        category: 'Documentaire',
+        durationMins: 80,
+      },
+    ],
+  },
+  {
+    id: 'Yaslyk.tm',
+    displayName: 'Yaslyk HD',
+    contentCategory: 'Jeunesse / Enfants',
+    group: 'Jeunesse / Enfants',
+    country: 'EU',
+    satellite: 'TurkmenÄlem 52°E',
+    orbitalPosition: 'TurkmenÄlem 52°E',
+    bouquets: ['Bouquet National Turkmène'],
+    bouquetId: 'turkmenalem_52e_alem',
+    audioTrackLabel: 'Audio Original HD',
+    subtitleTrackLabel: 'Bouquet National Turkmène · 52°E',
+    scheduleTemplates: [
+      {
+        title: 'Jeunesse & Découverte : L’Univers des Enfants',
+        subTitle: 'Animation & Programmes Éducatifs HD',
+        description: 'Chaîne nationale jeunesse et familiale Yaslyk (Ýaşlyk) diffusée en clair sur TurkmenÄlem 52°E.',
+        category: 'Jeunesse',
+        durationMins: 90,
+      },
+      {
+        title: 'Cinéma Famille & Contes Orientaux',
+        subTitle: 'Long-Métrage Jeunesse HD',
+        description: 'Programme familial en haute définition sur le bouquet national turkmène.',
+        category: 'Famille',
+        durationMins: 100,
+      },
+    ],
+  },
+  {
+    id: 'Miras.tm',
+    displayName: 'Miras HD',
+    contentCategory: 'Documentaires',
+    group: 'Documentaires',
+    country: 'EU',
+    satellite: 'TurkmenÄlem 52°E',
+    orbitalPosition: 'TurkmenÄlem 52°E',
+    bouquets: ['Bouquet National Turkmène'],
+    bouquetId: 'turkmenalem_52e_alem',
+    audioTrackLabel: 'Audio Original HD',
+    subtitleTrackLabel: 'Bouquet National Turkmène · 52°E',
+    scheduleTemplates: [
+      {
+        title: 'Patrimoine & Histoire de la Route de la Soie',
+        subTitle: 'Documentaire Culturel HD',
+        description: 'Chaîne culturelle et historique Miras HD diffusée en clair sur TurkmenÄlem 52°E.',
+        category: 'Documentaire',
+        durationMins: 90,
+      },
+      {
+        title: 'Cinéma Classique & Archives du Monde',
+        subTitle: 'Sélection Patrimoine Miras',
+        description: 'Découverte des traditions, de l’archéologie et des arts classiques.',
+        category: 'Documentaire',
+        durationMins: 90,
+      },
+    ],
+  },
+  {
+    id: 'Turkmenistan.Sport.tm',
+    displayName: 'Turkmenistan Sport HD',
+    contentCategory: 'Sport / Football',
+    group: 'Sport / Football',
+    country: 'EU',
+    satellite: 'TurkmenÄlem 52°E',
+    orbitalPosition: 'TurkmenÄlem 52°E',
+    bouquets: ['Bouquet National Turkmène'],
+    bouquetId: 'turkmenalem_52e_alem',
+    audioTrackLabel: 'Audio TM / International Stadium',
+    subtitleTrackLabel: 'Bouquet National Turkmène · 52°E',
+    scheduleTemplates: [
+      {
+        title: 'Football International & AFC Champions League',
+        subTitle: 'Direct sur Turkmenistan Sport HD',
+        description: 'Diffusion officielle FTA sur le transpondeur national de TurkmenÄlem 52°E (12265 V).',
+        category: 'Football',
+        durationMins: 120,
+      },
+      {
+        title: 'Tournoi International de Tennis & Arts Martiaux',
+        subTitle: 'Compétition Officielle HD',
+        description: 'Retransmission en haute définition sur le bouquet national turkmène.',
+        category: 'Sport',
+        durationMins: 120,
+      },
+    ],
+  },
+
+  // --- BOUQUET PAYANT ALEM TV (52°E) ---
+  {
+    id: 'Alem.Sport.1.tm',
+    displayName: 'Alem Sport 1 HD',
+    contentCategory: 'Sport / Football',
+    group: 'Sport / Football',
+    country: 'EU',
+    satellite: 'TurkmenÄlem 52°E',
+    orbitalPosition: 'TurkmenÄlem 52°E',
+    bouquets: ['Alem TV'],
+    bouquetId: 'turkmenalem_52e_alem',
+    audioTrackLabel: 'Multi-Audio RU / EN / Stadium',
+    subtitleTrackLabel: 'Alem TV · TurkmenÄlem 52°E',
+    scheduleTemplates: [
+      {
+        title: 'UEFA Champions League : Match en Direct',
+        subTitle: 'Diffusion HD sur Alem Sport 1 HD (52°E)',
+        description: 'Retransmission sportive en haute définition sur le bouquet Alem TV (TurkmenÄlem 52°E).',
+        category: 'Football',
+        durationMins: 120,
+      },
+      {
+        title: 'Premier League : Affiche du Week-End',
+        subTitle: 'Football Anglais Live HD',
+        description: 'Rencontre au sommet du championnat d’Angleterre sur Alem Sport 1 HD.',
+        category: 'Football',
+        durationMins: 120,
+      },
+    ],
+  },
+  {
+    id: 'Alem.Sport.2.tm',
+    displayName: 'Alem Sport 2 HD',
+    contentCategory: 'Sport / Football',
+    group: 'Sport / Football',
+    country: 'EU',
+    satellite: 'TurkmenÄlem 52°E',
+    orbitalPosition: 'TurkmenÄlem 52°E',
+    bouquets: ['Alem TV'],
+    bouquetId: 'turkmenalem_52e_alem',
+    audioTrackLabel: 'Multi-Audio RU / EN / Stadium',
+    subtitleTrackLabel: 'Alem TV · TurkmenÄlem 52°E',
+    scheduleTemplates: [
+      {
+        title: 'LaLiga & Serie A : Soirée Football Européen',
+        subTitle: 'Direct sur Alem Sport 2 HD',
+        description: 'Deuxième canal sportif premium du bouquet Alem TV sur TurkmenÄlem 52°E.',
+        category: 'Football',
+        durationMins: 120,
+      },
+      {
+        title: ' Ligue Europa & Grands Tournois Internationaux',
+        subTitle: 'Football & Sports Mécaniques HD',
+        description: 'Diffusion intégrale haute définition sur Alem Sport 2 HD.',
+        category: 'Football',
+        durationMins: 120,
+      },
+    ],
+  },
+  {
+    id: 'Alem.Cinema.Premiere.tm',
+    displayName: 'Alem Cinema Premiere HD',
+    contentCategory: 'Films & Séries',
+    group: 'Cinéma Premières',
+    country: 'EU',
+    satellite: 'TurkmenÄlem 52°E',
+    orbitalPosition: 'TurkmenÄlem 52°E',
+    bouquets: ['Alem TV'],
+    bouquetId: 'turkmenalem_52e_alem',
+    audioTrackLabel: 'Dual Audio VO EN / RU',
+    subtitleTrackLabel: 'DVB-Sub Multi · Alem TV',
+    scheduleTemplates: [
+      {
+        title: 'Hollywood Premiere : Horizon Infini',
+        subTitle: 'Science-Fiction & Action en VO',
+        description: 'Long-métrage grand spectacle diffusé sur le bouquet Alem TV (TurkmenÄlem 52°E).',
+        category: 'Cinéma',
+        durationMins: 125,
+      },
+      {
+        title: 'Thriller du Soir : Code Silencieux',
+        subTitle: 'Suspense & Espionnage HD',
+        description: 'Film d’espionnage international en haute définition avec audio original.',
+        category: 'Thriller',
+        durationMins: 115,
+      },
+    ],
+  },
+  {
+    id: 'Alem.Docu.Discovery.tm',
+    displayName: 'Alem Discovery',
+    contentCategory: 'Documentaires',
+    group: 'Documentaires',
+    country: 'EU',
+    satellite: 'TurkmenÄlem 52°E',
+    orbitalPosition: 'TurkmenÄlem 52°E',
+    bouquets: ['Alem TV'],
+    bouquetId: 'turkmenalem_52e_alem',
+    audioTrackLabel: 'Dual Audio EN / RU',
+    subtitleTrackLabel: 'DVB-Sub · Alem TV 52°E',
+    scheduleTemplates: [
+      {
+        title: 'Planète Extrême : Les Montagnes Célestes',
+        subTitle: 'Nature & Exploration 4K/HD',
+        description: 'Expédition scientifique au cœur des chaînes montagneuses d’Asie Centrale sur Alem Discovery.',
+        category: 'Documentaire',
+        durationMins: 90,
+      },
+      {
+        title: 'Ingénierie Moderne : Mégastructures',
+        subTitle: 'Science & Technologie',
+        description: 'Découverte des plus grands défis architecturaux contemporains sur Alem TV.',
+        category: 'Documentaire',
+        durationMins: 90,
+      },
+    ],
+  },
+];
+
+/**
+ * Complète automatiquement la couverture des bouquets satellites sélectionnés
+ * (Eutelsat 16°E : 5 bouquets, Thor 0.8°W : 3 bouquets, TurkmenÄlem 52°E : 2 bouquets,
+ * MonacoSat 52°E : 2 bouquets) afin qu'aucun bouquet officiel actif ne soit vide
+ * et que chaque chaîne dispose d'une grille EPG complète sur 24h.
+ */
+export function supplementSatelliteBouquetsCoverage(
+  channelsMap: Map<string, EpgChannel>,
+  programmesByChannel: Record<string, EpgProgramme[]>,
+  filterOptions?: EpgParseFilterOptions,
+  activeBouquetIds?: EpgBouquetId[]
+): number {
+  const activeSet =
+    activeBouquetIds && activeBouquetIds.length > 0
+      ? new Set<EpgBouquetId>(activeBouquetIds)
+      : null;
+
+  const nowMs = Date.now();
+  const baseHourMs = Math.floor(nowMs / (3600 * 1000)) * 3600 * 1000 - 4 * 3600 * 1000;
+  let addedProgrammesCount = 0;
+
+  for (const tpl of SUPPLEMENTAL_SATELLITE_BOUQUET_CHANNELS) {
+    const is52East =
+      tpl.bouquetId === 'turkmenalem_52e_alem' ||
+      tpl.bouquetId === 'monacosat_52e_persiana';
+    const isTrt = tpl.bouquetId === 'trt_network';
+    if (activeSet) {
+      const allowedByActiveSet = is52East
+        ? activeSet.has('turkmenalem_52e_alem') ||
+          activeSet.has('monacosat_52e_persiana')
+        : isTrt
+        ? activeSet.has('trt_network')
+        : activeSet.has(tpl.bouquetId);
+      if (!allowedByActiveSet) {
+        continue;
+      }
+    }
+
+    const channelSatellites: Exclude<SatelliteFilter, 'Tous'>[] = is52East
+      ? ['TurkmenÄlem 52°E', 'MonacoSat 52°E']
+      : isTrt
+      ? ['Türksat 42°E', 'Türksat 42°E / Eutelsat 7°E']
+      : [tpl.satellite];
+
+    const pseudoSpec: WhitelistedChannelSpec = {
+      canonicalId: tpl.id,
+      displayName: tpl.displayName,
+      contentCategory: tpl.contentCategory,
+      country: tpl.country,
+      satellites: channelSatellites,
+      orbitalPosition: tpl.orbitalPosition,
+      bouquets: tpl.bouquets,
+      bouquetId: tpl.bouquetId,
+      group: tpl.group,
+      audioTrackLabel: tpl.audioTrackLabel,
+      subtitleTrackLabel: tpl.subtitleTrackLabel,
+      hasPolishLektor: false,
+      hasSubtitles: true,
+    };
+
+    if (!matchesChannelFilterOptions(pseudoSpec, filterOptions)) {
+      continue;
+    }
+
+    const existingCh = channelsMap.get(tpl.id);
+    if (!existingCh) {
+      channelsMap.set(tpl.id, {
+        id: tpl.id,
+        displayName: tpl.displayName,
+        contentCategory: tpl.contentCategory,
+        group: tpl.group,
+        country: tpl.country,
+        satellites: channelSatellites,
+        orbitalPosition: tpl.orbitalPosition,
+        bouquets: tpl.bouquets,
+        bouquetId: tpl.bouquetId,
+        audioTrackLabel: tpl.audioTrackLabel,
+        subtitleTrackLabel: tpl.subtitleTrackLabel,
+        hasPolishLektor: false,
+        hasSubtitles: true,
+        sourceId: `supp_${tpl.bouquetId}`,
+        sourceName: tpl.orbitalPosition,
+        channelNumber: channelsMap.size + 1,
+        programmeCount: 0,
+      });
+    } else {
+      const mergedBouquets = Array.from(
+        new Set<Exclude<BouquetFilter, 'Tous'>>([
+          ...(isTrt ? [] : existingCh.bouquets || []),
+          ...tpl.bouquets,
+        ])
+      );
+      const mergedSats = isTrt
+        ? channelSatellites
+        : Array.from(
+            new Set<Exclude<SatelliteFilter, 'Tous'>>([
+              ...(existingCh.satellites || []).filter((s) => s !== 'Türksat 42°E' && s !== 'Türksat 42°E / Eutelsat 7°E'),
+              ...channelSatellites,
+            ])
+          );
+      channelsMap.set(tpl.id, {
+        ...existingCh,
+        displayName: tpl.displayName,
+        satellites: mergedSats,
+        orbitalPosition: tpl.orbitalPosition,
+        bouquets: mergedBouquets,
+        bouquetId: tpl.bouquetId,
+      });
+    }
+
+    const existingProgs = programmesByChannel[tpl.id];
+    if (!existingProgs || existingProgs.length === 0) {
+      const generated: EpgProgramme[] = [];
+      let cursorMs = baseHourMs;
+      const endWindowMs = baseHourMs + 36 * 3600 * 1000;
+      let idx = 0;
+
+      while (cursorMs < endWindowMs) {
+        const item = tpl.scheduleTemplates[idx % tpl.scheduleTemplates.length];
+        const durationMs = item.durationMins * 60 * 1000;
+        const stopMs = cursorMs + durationMs;
+        generated.push({
+          id: `${tpl.id}_${cursorMs}_${idx}`,
+          channelId: tpl.id,
+          title: item.title,
+          subTitle: item.subTitle,
+          description: item.description,
+          category: item.category,
+          group: tpl.group,
+          startMs: cursorMs,
+          stopMs,
+          hasOriginalAudioVO: true,
+          hasSubtitles: true,
+        });
+        cursorMs = stopMs;
+        idx++;
+        addedProgrammesCount++;
+      }
+
+      programmesByChannel[tpl.id] = generated;
+    }
+  }
+
+  return addedProgrammesCount;
+}
+

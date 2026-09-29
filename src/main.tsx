@@ -5,6 +5,15 @@ import './index.css';
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
+    if ('caches' in window) {
+      caches.keys().then((keys) => {
+        for (const key of keys) {
+          if (key !== 'pulse-epg-shell-v5') {
+            void caches.delete(key);
+          }
+        }
+      });
+    }
     navigator.serviceWorker
       .register('/sw.js')
       .then((registration) => {

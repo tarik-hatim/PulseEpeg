@@ -139,6 +139,73 @@ export function getPrimeTimeMs(referenceMs: number): number {
 }
 
 /**
+ * Formate un timestamp (ms) au format YYYY-MM-DDTHH:mm (compatible <input type="datetime-local">)
+ * dans le fuseau de référence UTC+0 Casablanca.
+ */
+export function formatDateTimeLocalValue(ms: number): string {
+  if (!ms || Number.isNaN(ms)) return '';
+  const dKey = dateKeyFormatter.format(new Date(ms));
+  const tKey = timeFormatter.format(new Date(ms));
+  return `${dKey}T${tKey}`;
+}
+
+export function formatDateInputValue(ms: number): string {
+  if (!ms || Number.isNaN(ms)) return '';
+  return dateKeyFormatter.format(new Date(ms));
+}
+
+export function formatTimeInputValue(ms: number): string {
+  if (!ms || Number.isNaN(ms)) return '';
+  return timeFormatter.format(new Date(ms));
+}
+
+export function parseDateInputWithCurrentTime(
+  dateValue: string,
+  referenceMs: number
+): number | null {
+  if (!dateValue || !/^\d{4}-\d{2}-\d{2}$/.test(dateValue.trim())) return null;
+  const hm = getCasablancaHourMinute(referenceMs || Date.now());
+  const timeStr = `${String(hm.hour).padStart(2, '0')}:${String(hm.minute).padStart(2, '0')}`;
+  return parseDateTimeLocalValue(`${dateValue.trim()}T${timeStr}`);
+}
+
+export function parseTimeInputWithCurrentDate(
+  timeValue: string,
+  referenceMs: number
+): number | null {
+  if (!timeValue || !timeValue.includes(':')) return null;
+  const dKey = formatDateInputValue(referenceMs || Date.now());
+  if (!dKey) return null;
+  return parseDateTimeLocalValue(`${dKey}T${timeValue.trim()}`);
+}
+
+/**
+ * Parse une chaîne YYYY-MM-DDTHH:mm issue d'un sélecteur date/heure vers un timestamp (ms)
+ * dans le fuseau de référence UTC+0 Casablanca.
+ */
+export function parseDateTimeLocalValue(value: string): number | null {
+  if (!value || !value.includes('T')) return null;
+  const [datePart, timePart] = value.split('T');
+  if (!datePart || !timePart) return null;
+  const [year, month, day] = datePart.split('-').map((n) => parseInt(n, 10));
+  const [hour, minute] = timePart.split(':').map((n) => parseInt(n, 10));
+  if (
+    Number.isNaN(year) ||
+    Number.isNaN(month) ||
+    Number.isNaN(day) ||
+    Number.isNaN(hour) ||
+    Number.isNaN(minute)
+  ) {
+    return null;
+  }
+  const guessUtcMs = Date.UTC(year, month - 1, day, hour, minute, 0, 0);
+  const actualHm = getCasablancaHourMinute(guessUtcMs);
+  const diffMinutes =
+    (hour - actualHm.hour) * 60 + (minute - actualHm.minute);
+  return guessUtcMs + diffMinutes * 60_000;
+}
+
+/**
  * Aligne un timestamp sur le créneau de 30 minutes inférieur en heure de Casablanca
  */
 export function floorToHalfHourCasablanca(ms: number): number {

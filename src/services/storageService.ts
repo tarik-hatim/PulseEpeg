@@ -2,6 +2,7 @@ import {
   AppLanguage,
   AppSettings,
   BouquetFilter,
+  ChannelCountryFilter,
   ContentCategoryFilter,
   CountryCode,
   EpgBouquetId,
@@ -16,23 +17,39 @@ import {
 import { applyDocumentLanguageDir, SUPPORTED_LANGUAGES } from '../utils/i18n';
 import { configureActiveTimezone } from '../utils/timeFormat';
 import {
+  cleanOfficialChannelName,
   cleanXmltvChannelId,
+  isAdultChannel,
   isPlaceholderProgrammeTitle,
+  normalizeSingleOrbitalPosition,
+  supplementSatelliteBouquetsCoverage,
 } from '../utils/xmltvParser';
 
 const DB_NAME = 'PulseEpgCacheDB';
 const DB_VERSION = 1;
 const SNAPSHOT_STORE = 'epg_snapshots';
-const SNAPSHOT_KEY = 'active_epg_whitelist_v12';
+const SNAPSHOT_KEY = 'active_epg_whitelist_v18';
 
-const LS_META_KEY = 'pulse_epg_meta_v12';
+const LS_META_KEY = 'pulse_epg_meta_v18';
 const LS_SETTINGS_KEY = 'pulse_epg_settings_v5';
 const LS_TZ_CASA_MIGRATED_KEY = 'pulse_epg_tz_casablanca_utc0_v1';
 const LS_BOUQUETS_V8_MIGRATED_KEY = 'pulse_epg_bouquets_separated_v8';
+const LS_BOUQUETS_V10_MIGRATED_KEY = 'pulse_epg_bouquets_16e_52e_v10';
+const LS_BOUQUETS_V11_MIGRATED_KEY = 'pulse_epg_bouquets_16e_trt_v11';
 const LS_CATEGORIES_V9_MIGRATED_KEY = 'pulse_epg_categories_all_v9';
 const LS_FAVORITES_KEY = 'pulse_epg_favorites_v1';
 const LS_REMINDERS_KEY = 'pulse_epg_reminders_v1';
 const LS_RECENT_SEARCHES_KEY = 'pulse_epg_recent_searches_v1';
+
+export const EUTELSAT_16E_AFRICA_TRANSPONDERS = [
+  '10804/H/30000',
+  '11024/H/3333',
+  '12562/H/30000',
+  '12604/H/30000',
+  '12687/H/29980',
+  '11596/H/29980',
+  '11637/H/30000',
+] as const;
 
 export const MAX_RECENT_SEARCHES = 5;
 
@@ -48,6 +65,11 @@ export const STRICT_SAT_FILTER_LIST: SatelliteFilter[] = [
   'Astra 19.2°E',
   'Hotbird 13°E',
   'Hispasat 30°W',
+  'Eutelsat 16°E',
+  'Türksat 42°E',
+  'Thor 0.8°W / Intelsat 10-02',
+  'TurkmenÄlem 52°E',
+  'MonacoSat 52°E',
 ];
 
 export const SAT_TO_BOUQUETS_MAP: Record<string, BouquetFilter[]> = {
@@ -69,9 +91,57 @@ export const SAT_TO_BOUQUETS_MAP: Record<string, BouquetFilter[]> = {
     'Astra Canal+ France',
     'Astra TNT France',
     'Astra Movistar+ España',
+    'Sky DE / DAZN DE',
   ],
-  'Hotbird 13°E': ['Tous', 'Hotbird Polsat/Cyfra+', 'Hotbird Bis TV/Rai'],
+  'Hotbird 13°E': [
+    'Tous',
+    'Hotbird Polsat/Cyfra+',
+    'Hotbird Bis TV/Rai',
+  ],
   'Hispasat 30°W': ['Tous', 'Hispasat Meo/NOS/Movistar'],
+  'Eutelsat 16°E': [
+    'Tous',
+    'DigitAlb (Albanie)',
+    'Total TV (Balkans / Serbie / Croatie / Bosnie / Slovénie)',
+    'MAXtv / A1 Croatia',
+    'New World TV (Afrique)',
+    'Canal+ Réunion / Afrique',
+    'Autres chaînes africaines / francophones',
+  ],
+  'Türksat 42°E': ['Tous', 'TRT Network'],
+  'Türksat 42°E / Eutelsat 7°E': ['Tous', 'TRT Network'],
+  'Thor 0.8°W / Intelsat 10-02': [
+    'Tous',
+    'Focus Sat (Roumanie)',
+    'Direct One (Hongrie)',
+    'Digi TV',
+  ],
+  'Thor 0.8°W': [
+    'Tous',
+    'Focus Sat (Roumanie)',
+    'Direct One (Hongrie)',
+    'Digi TV',
+  ],
+  'TurkmenÄlem 52°E': [
+    'Tous',
+    'Groupe Persiana',
+    'Groupe WNS',
+    'Information (Iran Intl / Afghanistan Intl)',
+    'Bouquet National Turkmène',
+    'Alem TV',
+  ],
+  'MonacoSat 52°E': [
+    'Tous',
+    'Groupe Persiana',
+    'Groupe WNS',
+    'Information (Iran Intl / Afghanistan Intl)',
+    'Bouquet National Turkmène',
+    'Alem TV',
+  ],
+  'Star One D2 70°W': ['Tous', 'Claro TV Brasil'],
+  'Amazonas 61°W': ['Tous', 'Vivo TV / Movistar LATAM'],
+  'Intelsat 43.1°W / SES-6 40.5°W': ['Tous', 'DirecTV LATAM / Sky Brasil'],
+  'Intelsat 43.1°W & SES-6 40.5°W': ['Tous', 'DirecTV LATAM / Sky Brasil'],
   Tous: [
     'Tous',
     'Nilesat MBC/OSN/Rotana',
@@ -82,14 +152,568 @@ export const SAT_TO_BOUQUETS_MAP: Record<string, BouquetFilter[]> = {
     'Astra Canal+ France',
     'Astra TNT France',
     'Astra Movistar+ España',
+    'Sky DE / DAZN DE',
     'Hotbird Polsat/Cyfra+',
     'Hotbird Bis TV/Rai',
     'Hispasat Meo/NOS/Movistar',
+    'DigitAlb (Albanie)',
+    'Total TV (Balkans / Serbie / Croatie / Bosnie / Slovénie)',
+    'MAXtv / A1 Croatia',
+    'New World TV (Afrique)',
+    'Canal+ Réunion / Afrique',
+    'Autres chaînes africaines / francophones',
+    'TRT Network',
+    'Focus Sat (Roumanie)',
+    'Direct One (Hongrie)',
+    'Digi TV',
+    'Groupe Persiana',
+    'Groupe WNS',
+    'Information (Iran Intl / Afghanistan Intl)',
+    'Bouquet National Turkmène',
+    'Alem TV',
+    'Claro TV Brasil',
+    'Vivo TV / Movistar LATAM',
+    'DirecTV LATAM / Sky Brasil',
   ],
 };
 
 export function getBouquetsForSatellite(sat: SatelliteFilter): BouquetFilter[] {
   return SAT_TO_BOUQUETS_MAP[sat] || SAT_TO_BOUQUETS_MAP['Tous'];
+}
+
+export const CHANNEL_COUNTRY_FILTER_OPTIONS: ChannelCountryFilter[] = [
+  'Tous',
+  'TR',
+  'AL',
+  'SN',
+  'CI',
+  'CM',
+  'ML',
+  'FR',
+  'ES',
+  'PT',
+  'DE',
+  'IT',
+  'PL',
+  'RO',
+  'HU',
+  'RS',
+  'HR',
+  'TM',
+  'IR',
+  'AR',
+  'BR',
+  'LATAM',
+];
+
+/**
+ * Extrait automatiquement le ou les pays associés à une chaîne à partir de la nationalité
+ * de son bouquet ou de l'identifiant / nom officiel de la chaîne
+ * (ex: Turquie pour TRT, Albanie pour DigitAlb/RTSH, Sénégal pour 2S TV/RTS 1, etc.).
+ */
+export function extractChannelCountries(
+  ch: EpgChannel
+): Exclude<ChannelCountryFilter, 'Tous'>[] {
+  const countries = new Set<Exclude<ChannelCountryFilter, 'Tous'>>();
+  const idLower = (ch.id || '').toLowerCase();
+  const nameLower = (ch.displayName || '').toLowerCase();
+  const combined = `${idLower} ${nameLower}`;
+  const chBouquets = ch.bouquets || [];
+
+  // 1. Turquie (TRT Network, .tr, chaînes TRT)
+  if (
+    ch.bouquetId === 'trt_network' ||
+    chBouquets.includes('TRT Network') ||
+    idLower.endsWith('.tr') ||
+    /\btrt\b/i.test(combined)
+  ) {
+    countries.add('TR');
+  }
+
+  // 2. Sénégal (2S TV, RTS 1 Sénégal, TFM, .sn)
+  if (
+    idLower.endsWith('.sn') ||
+    /\b(2s\s*tv|2stv|rts\s*1|tfm|sen\s*tv|walf|sénégal|senegal)\b/i.test(combined)
+  ) {
+    countries.add('SN');
+  }
+
+  // 3. Côte d'Ivoire (RTI 1, RTI 2, NCI, Life TV, .ci)
+  if (
+    idLower.endsWith('.ci') ||
+    /\b(rti\s*1|rti\s*2|rti|nci|life\s*tv|a\+\s*ivoire|ivoire)\b/i.test(combined)
+  ) {
+    countries.add('CI');
+  }
+
+  // 4. Cameroun (CRTV, Canal 2 International, .cm)
+  if (
+    idLower.endsWith('.cm') ||
+    /\b(crtv|canal\s*2|equinoxe|cameroun)\b/i.test(combined)
+  ) {
+    countries.add('CM');
+  }
+
+  // 5. Mali (ORTM 1, TM2, Africable, .ml)
+  if (
+    idLower.endsWith('.ml') ||
+    /\b(ortm|tm2|africable|mali)\b/i.test(combined)
+  ) {
+    countries.add('ML');
+  }
+
+  // 6. Albanie (DigitAlb, RTSH, .al)
+  if (
+    chBouquets.includes('DigitAlb (Albanie)') ||
+    chBouquets.includes('Bouquet National RTSH (Albanie FTA)') ||
+    idLower.endsWith('.al') ||
+    /\b(digitalb|rtsh|klan\s*tv|top\s*channel|film\s*aksion|film\s*autor)\b/i.test(
+      combined
+    )
+  ) {
+    countries.add('AL');
+  }
+
+  // 7. Croatie (MAXtv / A1 Croatia, MAXSport, HRT, .hr)
+  if (
+    chBouquets.includes('MAXtv / A1 Croatia') ||
+    chBouquets.includes('MAXtv (Croatie)') ||
+    chBouquets.includes('MaxTV Sat (Croatie)') ||
+    idLower.endsWith('.hr') ||
+    /\b(maxsport|hrt\s*[1-4])\b/i.test(combined)
+  ) {
+    countries.add('HR');
+  }
+
+  // 8. Serbie / Balkans (Total TV, Arena Sport, Sport Klub, .rs)
+  if (
+    chBouquets.includes(
+      'Total TV (Balkans / Serbie / Croatie / Bosnie / Slovénie)'
+    ) ||
+    chBouquets.includes('Total TV (Balkans / Serbie / Croatie)') ||
+    chBouquets.includes('Total TV (Balkans)') ||
+    idLower.endsWith('.rs') ||
+    /\b(arena\s*sport|sport\s*klub|nova\s*s)\b/i.test(combined)
+  ) {
+    countries.add('RS');
+  }
+
+  // 9. Roumanie (TVR, Focus Sat, Digi TV, .ro)
+  if (
+    chBouquets.includes('Bouquet National TVR (Roumanie FTA)') ||
+    chBouquets.includes('TVR / Chaînes Nationales (Roumanie)') ||
+    chBouquets.includes('Focus Sat (Roumanie)') ||
+    chBouquets.includes('Digi TV') ||
+    idLower.endsWith('.ro') ||
+    /\b(tvr|digi\s*sport|prima\s*sport|pro\s*tv|antena\s*1)\b/i.test(combined)
+  ) {
+    countries.add('RO');
+  }
+
+  // 10. Hongrie (Direct One, M4 Sport, Spíler, .hu)
+  if (
+    chBouquets.includes('Direct One (Hongrie)') ||
+    idLower.endsWith('.hu') ||
+    /\b(m4\s*sport|spíler|spiler|arena4)\b/i.test(combined)
+  ) {
+    countries.add('HU');
+  }
+
+  // 11. Turkménistan (Bouquet National Turkmène, Alem TV, .tm, .uz)
+  if (
+    ch.bouquetId === 'turkmenalem_52e_alem' ||
+    chBouquets.includes('Bouquet National Turkmène') ||
+    chBouquets.includes('Turkmenistan National TV') ||
+    chBouquets.includes('Alem TV') ||
+    idLower.endsWith('.tm') ||
+    idLower.endsWith('.uz') ||
+    /\b(altyn\s*asyr|yaslyk|miras|turkmenistan|alem\s*sport|alem\s*cinema|alem\s*discovery)\b/i.test(
+      combined
+    )
+  ) {
+    countries.add('TM');
+  }
+
+  // 12. Iran / Farsi (Groupe Persiana, Groupe WNS, Information 52°E, .mc, .ir)
+  if (
+    ch.bouquetId === 'monacosat_52e_persiana' ||
+    chBouquets.includes('Groupe Persiana') ||
+    chBouquets.includes('Persiana Media Group (Farsi/Sport/Cinema)') ||
+    chBouquets.includes('Groupe WNS') ||
+    chBouquets.includes('Information (Iran Intl / Afghanistan Intl)') ||
+    chBouquets.includes('Information') ||
+    idLower.endsWith('.mc') ||
+    idLower.endsWith('.ir') ||
+    /\b(persiana|ava\s*family|ava\s*series|avang|4u\s*family|pmc|iran\s*international|afghanistan\s*international)\b/i.test(
+      combined
+    )
+  ) {
+    countries.add('IR');
+  }
+
+  // 13. Portugal (MEO / NOS, .pt, Sport TV, RTP, SIC, TVI, BTV)
+  const isPortugal =
+    idLower.endsWith('.pt') ||
+    /\b(sport\s*tv|rtp\s*[1-3]|sic\b|tvi\b|eleven.*portugal|btv\b|benfica\s*tv|porto\s*canal)\b/i.test(
+      combined
+    );
+  if (isPortugal) {
+    countries.add('PT');
+  }
+
+  // 14. Espagne (Movistar+, .es)
+  if (
+    idLower.endsWith('.es') ||
+    chBouquets.includes('Astra Movistar+ España') ||
+    (ch.country === 'ES' && !isPortugal)
+  ) {
+    countries.add('ES');
+  }
+
+  // 15. France (Astra Canal+ France, TNT France, Bis TV, TV5Monde, France 24, .fr)
+  if (
+    ch.country === 'FR' ||
+    idLower.endsWith('.fr') ||
+    chBouquets.includes('Astra Canal+ France') ||
+    chBouquets.includes('Astra TNT France') ||
+    /\b(tv5\s*monde|tv5monde|france\s*24|africanews)\b/i.test(combined)
+  ) {
+    countries.add('FR');
+  }
+
+  // 16. Allemagne (Sky DE / DAZN DE, .de)
+  if (
+    ch.country === 'DE' ||
+    idLower.endsWith('.de') ||
+    chBouquets.includes('Sky DE / DAZN DE')
+  ) {
+    countries.add('DE');
+  }
+
+  // 17. Italie (Sky Italia / Rai / Mediaset, .it)
+  if (
+    ch.country === 'IT' ||
+    idLower.endsWith('.it') ||
+    /\b(rai\s*[1-5]|sky\s*italia|mediaset|canale\s*5|italia\s*1)\b/i.test(combined)
+  ) {
+    countries.add('IT');
+  }
+
+  // 18. Pologne (Polsat / Cyfra+ / Eleven, .pl)
+  if (
+    ch.country === 'PL' ||
+    idLower.endsWith('.pl') ||
+    chBouquets.includes('Hotbird Polsat/Cyfra+')
+  ) {
+    countries.add('PL');
+  }
+
+  // 19. Monde Arabe / MENA (Nilesat 7°W, Badr 26°E)
+  if (
+    ch.country === 'AR' ||
+    ch.bouquetId === 'nilesat_osn_mbc' ||
+    ch.bouquetId === 'badr_bein_ssc' ||
+    chBouquets.includes('Nilesat MBC/OSN/Rotana') ||
+    chBouquets.includes('TNT Arabe/Égypte') ||
+    chBouquets.includes('Badr beIN (Sports & Movies)') ||
+    chBouquets.includes('Badr SSC') ||
+    chBouquets.includes('Badr TV Arabes/Al Kass')
+  ) {
+    countries.add('AR');
+  }
+
+  // 20. Brésil & Amérique Latine
+  if (
+    ch.country === 'BR' ||
+    idLower.endsWith('.br') ||
+    chBouquets.includes('Claro TV Brasil')
+  ) {
+    countries.add('BR');
+  }
+  if (
+    ch.country === 'LATAM' ||
+    chBouquets.includes('Vivo TV / Movistar LATAM') ||
+    chBouquets.includes('DirecTV LATAM / Sky Brasil')
+  ) {
+    countries.add('LATAM');
+  }
+
+  if (countries.size === 0 && ch.country && ch.country !== 'EU' && ch.country !== 'Autre') {
+    countries.add(ch.country as Exclude<ChannelCountryFilter, 'Tous'>);
+  }
+
+  return Array.from(countries);
+}
+
+export function channelMatchesCountryFilter(
+  ch: EpgChannel,
+  countryFilter: ChannelCountryFilter
+): boolean {
+  if (countryFilter === 'Tous') return true;
+  const extracted = extractChannelCountries(ch);
+  return extracted.includes(countryFilter);
+}
+
+/**
+ * Vérifie strictement si une chaîne appartient au satellite sélectionné.
+ */
+export function channelMatchesSatelliteFilter(
+  ch: EpgChannel,
+  satFilter: SatelliteFilter
+): boolean {
+  if (isAdultChannel(ch.id, ch.displayName)) return false;
+  if (satFilter === 'Tous') return true;
+  if (satFilter === "Badr / Es'hailSat 26°E" || satFilter === 'Badr 26°E') {
+    return Boolean(
+      ch.satellites?.some((s) => s.includes('Badr') || s.includes('26°E')) ||
+        ch.orbitalPosition?.includes('Badr')
+    );
+  }
+  if (satFilter === 'Thor 0.8°W / Intelsat 10-02' || satFilter === 'Thor 0.8°W') {
+    return Boolean(
+      ch.satellites?.some(
+        (s) => s.includes('Thor') || s.includes('0.8°W') || s.includes('Intelsat 10-02')
+      ) || ch.orbitalPosition?.includes('Thor')
+    );
+  }
+  if (satFilter === 'Eutelsat 16°E') {
+    if (
+      ch.bouquetId === 'trt_network' ||
+      ch.bouquets?.includes('TRT Network') ||
+      /\.tr$/i.test(ch.id || '')
+    ) {
+      return false;
+    }
+    return Boolean(
+      ch.satellites?.some((s) => s.includes('Eutelsat 16')) ||
+        ch.orbitalPosition === 'Eutelsat 16°E'
+    );
+  }
+  if (
+    satFilter === 'Türksat 42°E' ||
+    satFilter === 'Türksat 42°E / Eutelsat 7°E'
+  ) {
+    return Boolean(
+      ch.satellites?.some(
+        (s) => s.includes('Türksat') || s.includes('42°E')
+      ) ||
+        ch.orbitalPosition?.includes('Türksat') ||
+        ch.bouquetId === 'trt_network' ||
+        ch.bouquets?.includes('TRT Network')
+    );
+  }
+  if (satFilter === 'TurkmenÄlem 52°E') {
+    return Boolean(
+      ch.satellites?.some((s) => s.includes('Turkmen') || s.includes('52°E')) ||
+        ch.orbitalPosition === 'TurkmenÄlem 52°E' ||
+        ch.orbitalPosition === 'MonacoSat 52°E'
+    );
+  }
+  if (satFilter === 'MonacoSat 52°E') {
+    return Boolean(
+      ch.satellites?.some((s) => s.includes('MonacoSat') || s.includes('52°E')) ||
+        ch.orbitalPosition === 'MonacoSat 52°E' ||
+        ch.orbitalPosition === 'TurkmenÄlem 52°E'
+    );
+  }
+  return Boolean(ch.satellites?.includes(satFilter));
+}
+
+/**
+ * Vérifie strictement si une chaîne appartient au bouquet sélectionné
+ * (avec prise en compte des alias canoniques et de la dépendance au satellite actif).
+ */
+export function channelMatchesBouquetFilter(
+  ch: EpgChannel,
+  bouquetFilter: BouquetFilter,
+  activeSatellite: SatelliteFilter = 'Tous'
+): boolean {
+  if (activeSatellite !== 'Tous' && !channelMatchesSatelliteFilter(ch, activeSatellite)) {
+    return false;
+  }
+  if (bouquetFilter === 'Tous') return true;
+
+  // Vérifier que le bouquet fait bien partie des bouquets autorisés pour le satellite actif
+  if (activeSatellite !== 'Tous') {
+    const allowedForSat = getBouquetsForSatellite(activeSatellite);
+    if (!allowedForSat.includes(bouquetFilter)) {
+      return false;
+    }
+  }
+
+  const chBouquets = ch.bouquets || [];
+  if (chBouquets.includes(bouquetFilter)) return true;
+
+  if (
+    bouquetFilter === 'TRT Network' &&
+    activeSatellite !== 'Eutelsat 16°E' &&
+    (ch.bouquetId === 'trt_network' || /\btrt\b/i.test(`${ch.id} ${ch.displayName}`))
+  ) {
+    return true;
+  }
+
+  if (
+    (bouquetFilter ===
+      'Total TV (Balkans / Serbie / Croatie / Bosnie / Slovénie)' ||
+      bouquetFilter === 'Total TV (Balkans / Serbie / Croatie)' ||
+      bouquetFilter === 'Total TV (Balkans)') &&
+    (chBouquets.includes(
+      'Total TV (Balkans / Serbie / Croatie / Bosnie / Slovénie)'
+    ) ||
+      chBouquets.includes('Total TV (Balkans / Serbie / Croatie)') ||
+      chBouquets.includes('Total TV (Balkans)'))
+  ) {
+    return true;
+  }
+  if (
+    (bouquetFilter === 'MAXtv / A1 Croatia' ||
+      bouquetFilter === 'MAXtv (Croatie)' ||
+      bouquetFilter === 'MaxTV Sat (Croatie)') &&
+    (chBouquets.includes('MAXtv / A1 Croatia') ||
+      chBouquets.includes('MAXtv (Croatie)') ||
+      chBouquets.includes('MaxTV Sat (Croatie)') ||
+      chBouquets.includes('A1 Bulgaria / A1 Hrvatska'))
+  ) {
+    return true;
+  }
+  if (
+    (bouquetFilter === 'Autres chaînes africaines / francophones' ||
+      bouquetFilter === 'Bouquet Afrique Francophone (2S TV, RTI, CRTV)') &&
+    (chBouquets.includes('Autres chaînes africaines / francophones') ||
+      chBouquets.includes('Bouquet Afrique Francophone (2S TV, RTI, CRTV)'))
+  ) {
+    return true;
+  }
+  if (
+    (bouquetFilter === 'Bouquet National TVR (Roumanie FTA)' ||
+      bouquetFilter === 'TVR / Chaînes Nationales (Roumanie)') &&
+    (chBouquets.includes('Bouquet National TVR (Roumanie FTA)') ||
+      chBouquets.includes('TVR / Chaînes Nationales (Roumanie)'))
+  ) {
+    return true;
+  }
+  if (
+    (bouquetFilter === 'Groupe Persiana' ||
+      bouquetFilter === 'Persiana Media Group (Farsi/Sport/Cinema)') &&
+    (chBouquets.includes('Groupe Persiana') ||
+      chBouquets.includes('Persiana Media Group (Farsi/Sport/Cinema)'))
+  ) {
+    return true;
+  }
+  if (
+    (bouquetFilter === 'Bouquet National Turkmène' ||
+      bouquetFilter === 'Turkmenistan National TV') &&
+    (chBouquets.includes('Bouquet National Turkmène') ||
+      chBouquets.includes('Turkmenistan National TV'))
+  ) {
+    return true;
+  }
+  if (
+    bouquetFilter === 'Astra Canal+ France' &&
+    (chBouquets.includes('Canal+ France') || chBouquets.includes('Astra Canal+'))
+  ) {
+    return true;
+  }
+  if (
+    bouquetFilter === 'Astra TNT France' &&
+    chBouquets.includes('TNT France')
+  ) {
+    return true;
+  }
+  if (
+    bouquetFilter === 'Astra Movistar+ España' &&
+    chBouquets.includes('Movistar+ / DAZN ES')
+  ) {
+    return true;
+  }
+  if (
+    bouquetFilter === 'Hotbird Polsat/Cyfra+' &&
+    (chBouquets.includes('Polsat / Cyfra+ / Eleven') ||
+      chBouquets.includes('Canal+ / Eleven / FilmBox'))
+  ) {
+    return true;
+  }
+  if (
+    bouquetFilter === 'Hotbird Bis TV/Rai' &&
+    (chBouquets.includes('Bis TV (Hotbird 13°E)') ||
+      chBouquets.includes('Bis TV France') ||
+      chBouquets.includes('Rai / Sky Italia / Mediaset') ||
+      chBouquets.includes('Sky Italia / DAZN IT'))
+  ) {
+    return true;
+  }
+  if (
+    bouquetFilter === 'Hispasat Meo/NOS/Movistar' &&
+    (chBouquets.includes('MEO / NOS / Movistar (30°W)') ||
+      chBouquets.includes('Meo / NOS / Movistar 30°W'))
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Retourne exclusivement le nom exact du satellite actif (si sélectionné)
+ * ou la position orbitale unique de la chaîne, sans jamais grouper deux positions orbitales.
+ */
+export function getSingleSatelliteBadgeForChannel(
+  ch: EpgChannel,
+  activeSatellite?: SatelliteFilter,
+  selectedBouquets?: EpgBouquetId[]
+): string {
+  if (
+    ch.bouquetId === 'trt_network' ||
+    ch.bouquets?.includes('TRT Network') ||
+    /\.tr$/i.test(ch.id || '')
+  ) {
+    return 'Türksat 42°E / Eutelsat 7°E';
+  }
+  if (
+    activeSatellite &&
+    activeSatellite !== 'Tous' &&
+    channelMatchesSatelliteFilter(ch, activeSatellite)
+  ) {
+    if (activeSatellite === "Badr / Es'hailSat 26°E") return 'Badr 26°E';
+    return activeSatellite;
+  }
+  if (selectedBouquets && selectedBouquets.length > 0 && ch.satellites?.length) {
+    const allowedSat = ch.satellites.find((s) =>
+      isSatelliteFilterAllowedBySettings(s, selectedBouquets)
+    );
+    if (allowedSat) {
+      return normalizeSingleOrbitalPosition(allowedSat, [allowedSat]);
+    }
+  }
+  return normalizeSingleOrbitalPosition(ch.orbitalPosition, ch.satellites);
+}
+
+/**
+ * Retourne le bouquet de la chaîne correspondant au satellite/bouquet actif.
+ */
+export function getActiveBouquetBadgeForChannel(
+  ch: EpgChannel,
+  activeSatellite?: SatelliteFilter,
+  activeBouquet?: BouquetFilter
+): string | undefined {
+  const chBouquets = ch.bouquets || [];
+  if (chBouquets.length === 0) return undefined;
+
+  if (
+    activeBouquet &&
+    activeBouquet !== 'Tous' &&
+    channelMatchesBouquetFilter(ch, activeBouquet, activeSatellite || 'Tous')
+  ) {
+    return activeBouquet;
+  }
+
+  if (activeSatellite && activeSatellite !== 'Tous') {
+    const allowedForSat = getBouquetsForSatellite(activeSatellite);
+    const matching = chBouquets.find((b) => allowedForSat.includes(b));
+    if (matching) return matching;
+  }
+
+  return chBouquets[0];
 }
 
 export interface BouquetOptionSpec {
@@ -224,15 +848,89 @@ export const EPG_BOUQUET_CATALOG: BouquetOptionSpec[] = [
     sampleChannels: ['MEO / NOS', 'TVCine / Hollywood', 'Sport TV 1–5', 'Movistar 30°W'],
   },
   {
-    id: 'eutelsat_16e_thor',
-    flag: '🇪🇺',
-    label: 'DigitAlb, Total TV & Focus Sat',
-    satellite: 'Eutelsat 16°E / Thor 0.8°W',
+    id: 'eutelsat_16e_digitalb',
+    flag: '🇦🇱/🇷🇸/🇭🇷/🇸🇮/🌍',
+    label:
+      'DigitAlb (Albanie), Total TV (Balkans / Serbie / Croatie / Bosnie / Slovénie), MAXtv / A1 Croatia, New World TV (Afrique), Canal+ Réunion / Afrique & Autres chaînes africaines / francophones',
+    satellite: 'Eutelsat 16°E',
     description:
-      'DigitAlb HD, SuperSport, Total TV, Focus Sat, Arena Sport, FilmBox Extra & HBO Europe Centrale',
+      'Eutelsat 16°E : DigitAlb (Albanie), Total TV (Balkans / Serbie / Croatie / Bosnie / Slovénie), MAXtv / A1 Croatia, New World TV (Afrique), Canal+ Réunion / Afrique & Autres chaînes africaines / francophones',
     estRamMb: 2.8,
     estimatedRamMb: 2.8,
-    sampleChannels: ['DigitAlb', 'Total TV', 'Focus Sat', 'SuperSport'],
+    sampleChannels: [
+      'DigitAlb (Albanie)',
+      'Total TV (Balkans / Serbie / Croatie / Bosnie / Slovénie)',
+      'MAXtv / A1 Croatia',
+      'New World TV (Afrique)',
+      'Canal+ Réunion / Afrique',
+      'Autres chaînes africaines / francophones',
+    ],
+  },
+  {
+    id: 'trt_network',
+    flag: '🇹🇷',
+    label:
+      'TRT Network (TRT 1 HD, TRT Haber HD, TRT Spor HD, TRT Spor 2, TRT World, TRT Çocuk, TRT Belgesel, TRT Müzik, TRT Avaz, TRT Türk)',
+    satellite: 'Türksat 42°E / Eutelsat 7°E',
+    description:
+      'Bouquet officiel TRT Network (Türksat 42°E / Eutelsat 7°E) : TRT 1 HD, TRT Haber HD, TRT Spor HD, TRT Spor 2, TRT World, TRT Çocuk, TRT Belgesel, TRT Müzik, TRT Avaz, TRT Türk',
+    estRamMb: 1.6,
+    estimatedRamMb: 1.6,
+    sampleChannels: [
+      'TRT 1 HD / TRT Haber HD',
+      'TRT Spor HD / TRT Spor 2',
+      'TRT World / TRT Belgesel',
+      'TRT Çocuk / TRT Müzik / TRT Avaz / TRT Türk',
+    ],
+  },
+  {
+    id: 'thor_08w_focussat',
+    flag: '🇷🇴/🇭🇺',
+    label: 'Focus Sat (Roumanie), Direct One (Hongrie), Digi TV',
+    satellite: 'Thor 0.8°W / Intelsat 10-02',
+    description:
+      'Thor 0.8°W / Intelsat 10-02 : Focus Sat (Roumanie), Direct One (Hongrie), Digi TV, Pro TV, Digi Sport, FilmBox & HBO',
+    estRamMb: 2.6,
+    estimatedRamMb: 2.6,
+    sampleChannels: [
+      'Focus Sat (Roumanie)',
+      'Direct One (Hongrie)',
+      'Digi TV',
+    ],
+  },
+  {
+    id: 'turkmenalem_52e_alem',
+    flag: '🇹🇲',
+    label:
+      'Bouquet National Turkmène (Altyn Asyr, Yaslyk, Miras, Turkmenistan Sport) & Alem TV (Alem Sport 1 & 2 HD, Alem Cinema Premiere HD, Alem Discovery)',
+    satellite: 'TurkmenÄlem 52°E',
+    description:
+      'TurkmenÄlem / MonacoSat 52°E : Bouquet National Turkmène (Altyn Asyr, Yaslyk, Miras, Turkmenistan Sport), Alem TV (Alem Sport 1 & 2 HD, Alem Cinema Premiere HD, Alem Discovery), Groupe Persiana, Groupe WNS & Information (Iran Intl, Afghanistan Intl)',
+    estRamMb: 2.0,
+    estimatedRamMb: 2.0,
+    sampleChannels: [
+      'Bouquet National Turkmène',
+      'Alem Sport 1 & 2 HD / Alem Cinema / Discovery',
+      'Groupe Persiana & Groupe WNS',
+      'Iran International / Afghanistan International',
+    ],
+  },
+  {
+    id: 'monacosat_52e_persiana',
+    flag: '🇲🇨',
+    label:
+      'Groupe Persiana (Sports 1 & 2, Cinema, Series, Family, Junior, Comedy, Docs, Music), Groupe WNS (AVA, FX 1 & 2, Avang, 4U, PMC Royale) & Information (Iran Intl, Afghanistan Intl)',
+    satellite: 'MonacoSat 52°E',
+    description:
+      'MonacoSat / TurkmenÄlem 52°E : Groupe Persiana (Persiana Sports 1 & 2, Cinema, Series, Family, Junior, Comedy, Docs, Music), Groupe WNS (AVA Family, AVA Series, FX 1, FX 2, Avang TV, 4U Family, PMC Royale), Information (Iran International, Afghanistan International), Bouquet National Turkmène & Alem TV',
+    estRamMb: 2.2,
+    estimatedRamMb: 2.2,
+    sampleChannels: [
+      'Groupe Persiana (Sports 1 & 2, Cinema, Series, Docs, Music)',
+      'Groupe WNS (AVA Family/Series, FX 1 & 2, Avang, 4U, PMC)',
+      'Information (Iran International, Afghanistan International)',
+      'Bouquet National Turkmène & Alem TV',
+    ],
   },
   {
     id: 'starone_70w_claro_br',
@@ -318,14 +1016,68 @@ export const SATELLITE_GROUPS_CATALOG: SatelliteGroupSpec[] = [
     bouquets: EPG_BOUQUET_CATALOG.filter((b) => b.id === 'hispasat_meo_nos'),
   },
   {
+    satelliteId: 'sat_eutelsat_16e',
+    orbitalPosition: 'Eutelsat 16°E',
+    title:
+      'Eutelsat 16°E — DigitAlb, Total TV (Balkans), MAXtv / A1 Croatia, New World TV & Canal+ Réunion / Afrique',
+    flag: '🇦🇱/🇷🇸/🇭🇷/🇸🇮/🌍',
+    subtitle:
+      'Bouquets : DigitAlb (Albanie), Total TV (Balkans / Serbie / Croatie / Bosnie / Slovénie), MAXtv / A1 Croatia, New World TV (Afrique), Canal+ Réunion / Afrique & Autres chaînes africaines / francophones',
+    bouquets: EPG_BOUQUET_CATALOG.filter(
+      (b) => b.id === 'eutelsat_16e_digitalb'
+    ),
+  },
+  {
+    satelliteId: 'sat_turksat_42e',
+    orbitalPosition: 'Türksat 42°E / Eutelsat 7°E',
+    title: 'Türksat 42°E / Eutelsat 7°E — TRT Network (Turquie)',
+    flag: '🇹🇷',
+    subtitle:
+      'Bouquet officiel TRT Network : TRT 1 HD, TRT Haber HD, TRT Spor HD, TRT Spor 2, TRT World, TRT Çocuk, TRT Belgesel, TRT Müzik, TRT Avaz, TRT Türk',
+    bouquets: EPG_BOUQUET_CATALOG.filter((b) => b.id === 'trt_network'),
+  },
+  {
+    satelliteId: 'sat_thor_08w',
+    orbitalPosition: 'Thor 0.8°W / Intelsat 10-02',
+    title:
+      'Thor 0.8°W / Intelsat 10-02 — Focus Sat (Roumanie), Direct One (Hongrie), Digi TV',
+    flag: '🇷🇴/🇭🇺',
+    subtitle: 'Bouquets : Focus Sat (Roumanie), Direct One (Hongrie), Digi TV',
+    bouquets: EPG_BOUQUET_CATALOG.filter((b) => b.id === 'thor_08w_focussat'),
+  },
+  {
+    satelliteId: 'sat_turkmenalem_52e',
+    orbitalPosition: 'TurkmenÄlem 52°E',
+    title:
+      'TurkmenÄlem 52°E — Bouquet National Turkmène, Alem TV, Groupe Persiana, Groupe WNS & Information',
+    flag: '🇹🇲',
+    subtitle:
+      'Bouquets : Bouquet National Turkmène (Altyn Asyr, Yaslyk, Miras, Turkmenistan Sport), Alem TV (Alem Sport 1 & 2 HD, Alem Cinema Premiere HD, Alem Discovery), Groupe Persiana, Groupe WNS, Information',
+    bouquets: EPG_BOUQUET_CATALOG.filter(
+      (b) => b.id === 'turkmenalem_52e_alem'
+    ),
+  },
+  {
+    satelliteId: 'sat_monacosat_52e',
+    orbitalPosition: 'MonacoSat 52°E',
+    title:
+      'MonacoSat 52°E — Groupe Persiana, Groupe WNS, Information, Bouquet National Turkmène & Alem TV',
+    flag: '🇲🇨',
+    subtitle:
+      'Bouquets : Groupe Persiana (Sports 1 & 2, Cinema, Series, Family, Junior, Comedy, Docs, Music), Groupe WNS (AVA, FX 1 & 2, Avang, 4U, PMC Royale), Information (Iran Intl, Afghanistan Intl)',
+    bouquets: EPG_BOUQUET_CATALOG.filter(
+      (b) => b.id === 'monacosat_52e_persiana'
+    ),
+  },
+  {
     satelliteId: 'sat_other_global',
-    orbitalPosition: 'Autres Positions Orbitales (16°E / 0.8°W / 70°W / 61°W / 43°W)',
-    title: 'Europe Centrale & Amérique Latine',
-    flag: '🇪🇺/🌎',
-    subtitle: 'Eutelsat 16°E, Thor 0.8°W, Star One D2 70°W, Amazonas 61°W, Intelsat 43.1°W',
+    orbitalPosition: 'Amérique Latine (70°W / 61°W / 43.1°W)',
+    title: 'Amérique Latine (Star One D2 70°W, Amazonas 61°W, Intelsat 43.1°W)',
+    flag: '🇧🇷/🌎',
+    subtitle:
+      'Star One D2 70°W (Claro TV), Amazonas 61°W (Vivo / Movistar), Intelsat 43.1°W (DirecTV)',
     bouquets: EPG_BOUQUET_CATALOG.filter((b) =>
       [
-        'eutelsat_16e_thor',
         'starone_70w_claro_br',
         'amazonas_61w_latam',
         'intelsat_43w_directv',
@@ -349,6 +1101,11 @@ export const DEFAULT_ENABLED_BOUQUET_IDS: EpgBouquetId[] = [
   'hotbird_bis_fr',
   'sky_it',
   'hispasat_meo_nos',
+  'eutelsat_16e_digitalb',
+  'trt_network',
+  'thor_08w_focussat',
+  'turkmenalem_52e_alem',
+  'monacosat_52e_persiana',
 ];
 
 export const THEMATIC_CATEGORIES_CATALOG: {
@@ -496,11 +1253,43 @@ export const DEFAULT_EPG_SOURCES: EpgSourceItem[] = [
   },
   {
     id: 'src_eu16e',
-    name: '🇪🇺 Eutelsat 16°E / Thor 0.8°W · DigitAlb, Total TV & Focus Sat',
+    name: '🇦🇱/🇷🇸/🇭🇷/🇸🇮/🌍 Eutelsat 16°E · DigitAlb, Total TV, MAXtv / A1 Croatia, New World TV & Canal+ Réunion / Afrique',
+    url: 'https://epgshare01.online/epgshare01/epg_ripper_RS1.xml.gz',
+    country: 'EU',
+    bouquetId: 'eutelsat_16e_digitalb',
+    enabled: true,
+  },
+  {
+    id: 'src_tr1',
+    name: '🇹🇷 Türksat 42°E / Eutelsat 7°E · TRT Network (TRT 1 HD, TRT Haber HD, TRT Spor HD, TRT Spor 2, TRT World, TRT Çocuk, TRT Belgesel, TRT Müzik, TRT Avaz, TRT Türk)',
+    url: 'https://epgshare01.online/epgshare01/epg_ripper_TR1.xml.gz',
+    country: 'EU',
+    bouquetId: 'trt_network',
+    enabled: true,
+  },
+  {
+    id: 'src_thor08w',
+    name: '🇷🇴/🇭🇺 Thor 0.8°W / Intelsat 10-02 · Focus Sat (Roumanie), Direct One (Hongrie), Digi TV',
     url: 'https://epgshare01.online/epgshare01/epg_ripper_RO1.xml.gz',
     country: 'EU',
-    bouquetId: 'eutelsat_16e_thor',
-    enabled: false,
+    bouquetId: 'thor_08w_focussat',
+    enabled: true,
+  },
+  {
+    id: 'src_turkmenalem52e',
+    name: '🇹🇲 TurkmenÄlem 52°E · Bouquet National Turkmène & Alem TV (Sport 1 & 2 HD, Cinema, Discovery)',
+    url: 'https://epgshare01.online/epgshare01/epg_ripper_UZ1.xml.gz',
+    country: 'EU',
+    bouquetId: 'turkmenalem_52e_alem',
+    enabled: true,
+  },
+  {
+    id: 'src_monacosat52e',
+    name: '🇲🇨 MonacoSat 52°E · Groupe Persiana, Groupe WNS & Information (Iran Intl, Afghanistan Intl)',
+    url: 'https://epgshare01.online/epgshare01/epg_ripper_CY1.xml.gz',
+    country: 'EU',
+    bouquetId: 'monacosat_52e_persiana',
+    enabled: true,
   },
   {
     id: 'src_br70w',
@@ -532,13 +1321,49 @@ export function inferBouquetIdForSource(source: EpgSourceItem): EpgBouquetId {
   const u = source.url.toLowerCase();
   if (u.includes('_bein')) return 'badr_bein_ssc';
   if (u.includes('_pt1')) return 'hispasat_meo_nos';
-  if (u.includes('_ro1') || source.country === 'EU') return 'eutelsat_16e_thor';
+  if (
+    u.includes('_uz1') ||
+    u.includes('_tm1') ||
+    source.bouquetId === 'turkmenalem_52e_alem'
+  ) {
+    return 'turkmenalem_52e_alem';
+  }
+  if (
+    u.includes('_cy1') ||
+    u.includes('_ir1') ||
+    source.bouquetId === 'monacosat_52e_persiana'
+  ) {
+    return 'monacosat_52e_persiana';
+  }
+  if (u.includes('_tr1') || source.bouquetId === 'trt_network') {
+    return 'trt_network';
+  }
+  if (
+    u.includes('_rs1') ||
+    u.includes('_hr1') ||
+    u.includes('_al1') ||
+    u.includes('_ba1') ||
+    u.includes('_bg1') ||
+    source.bouquetId === 'eutelsat_16e_digitalb'
+  ) {
+    return 'eutelsat_16e_digitalb';
+  }
+  if (
+    u.includes('_ro1') ||
+    u.includes('_hu1') ||
+    source.bouquetId === 'thor_08w_focussat' ||
+    source.country === 'EU'
+  ) {
+    return 'thor_08w_focussat';
+  }
   if (u.includes('_br1') || source.country === 'BR') return 'starone_70w_claro_br';
   if (u.includes('_cl1') || u.includes('_pe1')) return 'amazonas_61w_latam';
   if (u.includes('_co1') || u.includes('_ar1') || source.country === 'LATAM') {
     return 'intelsat_43w_directv';
   }
-  if (source.bouquetId) return source.bouquetId;
+  if (source.bouquetId && source.bouquetId !== 'eutelsat_16e_thor') {
+    return source.bouquetId;
+  }
   if (source.country === 'PL' || u.includes('_pl')) return 'canal_pl';
   if (source.country === 'FR' || u.includes('_fr')) return 'astra_canal_fr';
   if (source.country === 'ES' || u.includes('_es')) return 'movistar_es';
@@ -548,12 +1373,13 @@ export function inferBouquetIdForSource(source: EpgSourceItem): EpgBouquetId {
 }
 
 export function resolveChannelBouquetId(ch: {
+  id?: string;
   bouquetId?: EpgBouquetId;
   country: Exclude<CountryCode, 'Tous'>;
   bouquets?: string[];
   satellites?: string[];
 }): EpgBouquetId {
-  if (ch.bouquetId) return ch.bouquetId;
+  if (ch.bouquetId && ch.bouquetId !== 'eutelsat_16e_thor') return ch.bouquetId;
   if (ch.bouquets?.some((b) => b.includes('TNT France'))) return 'astra_tnt_fr';
   if (ch.bouquets?.some((b) => b.includes('Bis TV'))) return 'hotbird_bis_fr';
   if (ch.bouquets?.some((b) => b.includes('MEO / NOS'))) return 'hispasat_meo_nos';
@@ -569,7 +1395,71 @@ export function resolveChannelBouquetId(ch: {
   ) {
     return 'badr_bein_ssc';
   }
-  if (ch.country === 'EU') return 'eutelsat_16e_thor';
+  if (
+    ch.satellites?.some((s) => s.includes('MonacoSat')) ||
+    ch.bouquets?.some(
+      (b) =>
+        b.includes('Persiana') ||
+        b.includes('WNS') ||
+        b.includes('Information') ||
+        b.includes('Big Bang')
+    ) ||
+    /\.(mc|ir)$/i.test(ch.id || '')
+  ) {
+    return 'monacosat_52e_persiana';
+  }
+  if (
+    ch.satellites?.some((s) => s.includes('Turkmen')) ||
+    ch.bouquets?.some(
+      (b) =>
+        b.includes('Alem TV') ||
+        b.includes('Turkmène') ||
+        b.includes('Turkmenistan')
+    ) ||
+    /\.(tm|uz)$/i.test(ch.id || '')
+  ) {
+    return 'turkmenalem_52e_alem';
+  }
+  if (
+    ch.satellites?.some((s) => s.includes('Türksat') || s.includes('42°E')) ||
+    ch.bouquets?.some((b) => b === 'TRT Network' || b.includes('TRT')) ||
+    /\.tr$/i.test(ch.id || '')
+  ) {
+    return 'trt_network';
+  }
+  if (
+    ch.satellites?.some((s) => s.includes('Eutelsat 16')) ||
+    ch.bouquets?.some(
+      (b) =>
+        b.includes('DigitAlb') ||
+        b.includes('Total TV') ||
+        b.includes('MAXtv') ||
+        b.includes('MaxTV') ||
+        b.includes('New World TV') ||
+        b.includes('Canal+ Réunion') ||
+        b.includes('africaines / francophones') ||
+        b.includes('RTSH') ||
+        b.includes('Afrique Francophone') ||
+        b.includes('A1 Bulgaria') ||
+        b.includes('A1 Hrvatska')
+    ) ||
+    /\.(al|rs|hr|ba|si|mk|me|bg|16e|fr16e|sn|ci|cm|ml|bf|ga)$/i.test(ch.id || '')
+  ) {
+    return 'eutelsat_16e_digitalb';
+  }
+  if (
+    ch.satellites?.some((s) => s.includes('Thor')) ||
+    ch.bouquets?.some(
+      (b) =>
+        b.includes('Focus Sat') ||
+        b.includes('Direct One') ||
+        b.includes('Digi TV')
+    ) ||
+    /\.(ro|hu|sk|cz)$/i.test(ch.id || '')
+  ) {
+    return 'thor_08w_focussat';
+  }
+  if (ch.country === 'EU') return 'thor_08w_focussat';
   if (ch.country === 'BR') return 'starone_70w_claro_br';
   if (ch.country === 'LATAM') {
     if (ch.bouquets?.some((b) => b.includes('Vivo'))) return 'amazonas_61w_latam';
@@ -598,15 +1488,10 @@ export function isBouquetFilterAllowedBySettings(
     b === 'Canal+ France' ||
     b === 'Astra Canal+'
   ) {
-    return active.includes('astra_canal_fr') || active.includes('astra_tnt_fr');
+    return active.includes('astra_canal_fr');
   }
   if (b === 'Astra TNT France' || b === 'TNT France') {
-    return (
-      active.includes('astra_tnt_fr') ||
-      active.includes('tnt_fr') ||
-      active.includes('astra_canal_fr') ||
-      active.includes('hotbird_bis_fr')
-    );
+    return active.includes('astra_tnt_fr') || active.includes('tnt_fr');
   }
   if (
     b === 'Hotbird Bis TV/Rai' ||
@@ -615,26 +1500,17 @@ export function isBouquetFilterAllowedBySettings(
     b === 'Rai / Sky Italia / Mediaset' ||
     b === 'Sky Italia / DAZN IT'
   ) {
-    return (
-      active.includes('hotbird_bis_fr') ||
-      active.includes('sky_it') ||
-      active.includes('astra_tnt_fr') ||
-      active.includes('tnt_fr')
-    );
+    return active.includes('hotbird_bis_fr') || active.includes('sky_it');
   }
   if (b === 'Astra Movistar+ España' || b === 'Movistar+ / DAZN ES') {
-    return (
-      active.includes('movistar_es') ||
-      active.includes('sky_de') ||
-      active.includes('hispasat_meo_nos')
-    );
+    return active.includes('movistar_es');
   }
   if (
     b === 'Hispasat Meo/NOS/Movistar' ||
     b === 'MEO / NOS / Movistar (30°W)' ||
     b === 'Meo / NOS / Movistar 30°W'
   ) {
-    return active.includes('hispasat_meo_nos') || active.includes('movistar_es');
+    return active.includes('hispasat_meo_nos');
   }
   if (b === 'Sky DE / DAZN DE') {
     return active.includes('sky_de');
@@ -668,8 +1544,56 @@ export function isBouquetFilterAllowedBySettings(
   ) {
     return active.includes('badr_bein_ssc');
   }
-  if (b === 'DigitAlb / Total TV / Focus Sat') {
-    return active.includes('eutelsat_16e_thor');
+  if (b === 'TRT Network') {
+    return active.includes('trt_network');
+  }
+  if (
+    b === 'DigitAlb (Albanie)' ||
+    b === 'Total TV (Balkans / Serbie / Croatie / Bosnie / Slovénie)' ||
+    b === 'Total TV (Balkans / Serbie / Croatie)' ||
+    b === 'Total TV (Balkans)' ||
+    b === 'MAXtv / A1 Croatia' ||
+    b === 'MAXtv (Croatie)' ||
+    b === 'MaxTV Sat (Croatie)' ||
+    b === 'New World TV (Afrique)' ||
+    b === 'Canal+ Réunion / Afrique' ||
+    b === 'Autres chaînes africaines / francophones' ||
+    b === 'Bouquet National RTSH (Albanie FTA)' ||
+    b === 'Bouquet National TVR (Roumanie FTA)' ||
+    b === 'Bouquet Afrique Francophone (2S TV, RTI, CRTV)' ||
+    b === 'A1 Bulgaria / A1 Hrvatska' ||
+    b === 'TVR / Chaînes Nationales (Roumanie)'
+  ) {
+    return (
+      active.includes('eutelsat_16e_digitalb') ||
+      active.includes('eutelsat_16e_thor')
+    );
+  }
+  if (
+    b === 'Focus Sat (Roumanie)' ||
+    b === 'Direct One (Hongrie)' ||
+    b === 'Digi TV'
+  ) {
+    return (
+      active.includes('thor_08w_focussat') ||
+      active.includes('eutelsat_16e_thor')
+    );
+  }
+  if (
+    b === 'Alem TV' ||
+    b === 'Bouquet National Turkmène' ||
+    b === 'Turkmenistan National TV' ||
+    b === 'Groupe Persiana' ||
+    b === 'Persiana Media Group (Farsi/Sport/Cinema)' ||
+    b === 'Groupe WNS' ||
+    b === 'Information (Iran Intl / Afghanistan Intl)' ||
+    b === 'Information' ||
+    b === 'Big Bang TV'
+  ) {
+    return (
+      active.includes('turkmenalem_52e_alem') ||
+      active.includes('monacosat_52e_persiana')
+    );
   }
   if (b === 'Claro TV Brasil') {
     return active.includes('starone_70w_claro_br');
@@ -715,12 +1639,28 @@ export function isSatelliteFilterAllowedBySettings(
     );
   }
   if (sat === 'Hispasat 30°W') {
+    return active.includes('hispasat_meo_nos');
+  }
+  if (sat === 'Eutelsat 16°E') {
     return (
-      active.includes('hispasat_meo_nos') || active.includes('movistar_es')
+      active.includes('eutelsat_16e_digitalb') ||
+      active.includes('eutelsat_16e_thor')
     );
   }
-  if (sat === 'Eutelsat 16°E / Thor 0.8°W') {
-    return active.includes('eutelsat_16e_thor');
+  if (sat === 'Türksat 42°E' || sat === 'Türksat 42°E / Eutelsat 7°E') {
+    return active.includes('trt_network');
+  }
+  if (sat === 'Thor 0.8°W / Intelsat 10-02' || sat === 'Thor 0.8°W') {
+    return (
+      active.includes('thor_08w_focussat') ||
+      active.includes('eutelsat_16e_thor')
+    );
+  }
+  if (sat === 'TurkmenÄlem 52°E') {
+    return active.includes('turkmenalem_52e_alem');
+  }
+  if (sat === 'MonacoSat 52°E') {
+    return active.includes('monacosat_52e_persiana');
   }
   if (sat === 'Star One D2 70°W') {
     return active.includes('starone_70w_claro_br');
@@ -766,7 +1706,16 @@ export function isCountryFilterAllowedBySettings(
       active.includes('nilesat_osn_mbc') || active.includes('badr_bein_ssc')
     );
   }
-  if (c === 'EU') return active.includes('eutelsat_16e_thor');
+  if (c === 'EU') {
+    return (
+      active.includes('eutelsat_16e_digitalb') ||
+      active.includes('trt_network') ||
+      active.includes('thor_08w_focussat') ||
+      active.includes('turkmenalem_52e_alem') ||
+      active.includes('monacosat_52e_persiana') ||
+      active.includes('eutelsat_16e_thor')
+    );
+  }
   if (c === 'BR') return active.includes('starone_70w_claro_br');
   if (c === 'LATAM') {
     return (
@@ -812,6 +1761,9 @@ export function isChannelAllowedBySettings(
   ch: EpgChannel,
   settings: AppSettings
 ): boolean {
+  if (isAdultChannel(ch.id, ch.displayName)) {
+    return false;
+  }
   const activeBouquets =
     settings.selectedBouquets && settings.selectedBouquets.length > 0
       ? settings.selectedBouquets
@@ -823,6 +1775,22 @@ export function isChannelAllowedBySettings(
 
   const chBouquetId = resolveChannelBouquetId(ch);
   let bouquetAllowed = activeBouquets.includes(chBouquetId);
+
+  // Autoriser toute chaîne associée à un satellite actif sans restreindre aux seuls bouquets nommés
+  if (!bouquetAllowed && ch.satellites?.length) {
+    for (const sat of ch.satellites) {
+      if (isSatelliteFilterAllowedBySettings(sat, activeBouquets)) {
+        bouquetAllowed = true;
+        break;
+      }
+    }
+  }
+  if (
+    !bouquetAllowed &&
+    (chBouquetId === 'trt_network' || ch.bouquets?.includes('TRT Network'))
+  ) {
+    bouquetAllowed = activeBouquets.includes('trt_network');
+  }
 
   // Autoriser les chaînes diffusées sur Nilesat 7°W ou Badr 26°E dès lors que l'un des deux satellites correspondants est activé
   if (!bouquetAllowed) {
@@ -965,14 +1933,52 @@ export function syncSourcesWithSelectedBouquets(
     ? ((secondArg as EpgSourceItem[]) || DEFAULT_EPG_SOURCES)
     : (firstArg as EpgSourceItem[]);
 
-  const baseList = [...sources];
-  for (const defSrc of DEFAULT_EPG_SOURCES) {
-    const exists = baseList.some(
-      (s) => s.url.toLowerCase() === defSrc.url.toLowerCase()
+  const normalizedSources: EpgSourceItem[] = sources.map((s) => {
+    const matchedDefault = DEFAULT_EPG_SOURCES.find(
+      (def) => def.url.toLowerCase() === s.url.toLowerCase()
     );
-    if (!exists) {
-      baseList.push({ ...defSrc });
+    if (matchedDefault && !s.id.startsWith('custom-')) {
+      return {
+        ...matchedDefault,
+        enabled: s.enabled,
+      };
     }
+    return { ...s };
+  });
+
+  const baseList: EpgSourceItem[] = [];
+  const seenIds = new Set<string>();
+  const seenUrls = new Set<string>();
+
+  for (const defSrc of DEFAULT_EPG_SOURCES) {
+    const existing = normalizedSources.find(
+      (s) =>
+        s.url.toLowerCase() === defSrc.url.toLowerCase() || s.id === defSrc.id
+    );
+    const merged: EpgSourceItem = existing
+      ? {
+          ...defSrc,
+          enabled: existing.enabled,
+        }
+      : { ...defSrc };
+    baseList.push(merged);
+    seenIds.add(merged.id);
+    seenUrls.add(merged.url.toLowerCase());
+  }
+
+  for (const s of normalizedSources) {
+    const lowerUrl = s.url.toLowerCase();
+    if (seenUrls.has(lowerUrl)) continue;
+    let uniqueId = s.id;
+    if (seenIds.has(uniqueId)) {
+      uniqueId = `custom-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    }
+    baseList.push({
+      ...s,
+      id: uniqueId,
+    });
+    seenIds.add(uniqueId);
+    seenUrls.add(lowerUrl);
   }
 
   return baseList.map((s) => {
@@ -1010,12 +2016,45 @@ export function syncSourcesWithSelectedBouquets(
         selectedBouquets.includes('badr_bein_ssc');
     }
 
+    // TR1 fournit le bouquet TRT Network (Türksat 42°E / Eutelsat 7°E)
+    else if (u.includes('_tr1') || s.bouquetId === 'trt_network') {
+      enabled = selectedBouquets.includes('trt_network');
+    }
+    // RS1 / HR1 fournissent Eutelsat 16°E (DigitAlb, Total TV, MAXtv, New World TV, Canal+ Réunion / Afrique)
+    else if (u.includes('_rs1') || u.includes('_hr1') || u.includes('_al1') || u.includes('_bg1')) {
+      enabled = activeBouquetsIncludes(selectedBouquets, 'eutelsat_16e_digitalb');
+    }
+    // RO1 / HU1 fournissent Thor 0.8°W / Intelsat 10-02 (Focus Sat, Direct One, Digi TV) et TVR sur Eutelsat 16°E
+    else if (u.includes('_ro1') || u.includes('_hu1')) {
+      enabled =
+        activeBouquetsIncludes(selectedBouquets, 'thor_08w_focussat') ||
+        activeBouquetsIncludes(selectedBouquets, 'eutelsat_16e_digitalb');
+    }
+    // UZ1 / TM1 fournissent TurkmenÄlem 52°E (Alem TV & Turkmenistan National TV)
+    else if (u.includes('_uz1') || u.includes('_tm1')) {
+      enabled = selectedBouquets.includes('turkmenalem_52e_alem');
+    }
+    // CY1 / IR1 fournissent MonacoSat 52°E (Persiana Media Group & Big Bang TV)
+    else if (u.includes('_cy1') || u.includes('_ir1')) {
+      enabled = selectedBouquets.includes('monacosat_52e_persiana');
+    }
+
     return {
       ...s,
       bouquetId: bId,
       enabled,
     };
   });
+}
+
+function activeBouquetsIncludes(
+  selectedBouquets: EpgBouquetId[],
+  target: 'eutelsat_16e_digitalb' | 'thor_08w_focussat'
+): boolean {
+  return (
+    selectedBouquets.includes(target) ||
+    selectedBouquets.includes('eutelsat_16e_thor')
+  );
 }
 
 export const PRESET_EPG_CATALOG: Omit<EpgSourceItem, 'id' | 'enabled'>[] = [
@@ -1064,7 +2103,7 @@ export function buildSourcesSignature(
         .join(',')}`;
 
   return (
-    'whitelist_v12|' +
+    'whitelist_v18|' +
     sources
       .filter((s) => s.enabled && s.url.trim().length > 0)
       .map((s) => `${s.country}:${s.url.trim()}`)
@@ -1090,8 +2129,8 @@ export function pruneSchedulesToActiveWindow(
   schedulesByChannel: Record<string, EpgProgramme[]>,
   nowMs: number = Date.now()
 ): Record<string, EpgProgramme[]> {
-  const minKeepStopMs = nowMs - 6 * 3600 * 1000;
-  const maxKeepStartMs = nowMs + 24 * 3600 * 1000;
+  const minKeepStopMs = nowMs - 24 * 3600 * 1000;
+  const maxKeepStartMs = nowMs + 7 * 24 * 3600 * 1000;
   const pruned: Record<string, EpgProgramme[]> = {};
 
   for (const chId of Object.keys(schedulesByChannel)) {
@@ -1104,7 +2143,7 @@ export function pruneSchedulesToActiveWindow(
       (p) => p.stopMs >= minKeepStopMs && p.startMs <= maxKeepStartMs
     );
     const finalList =
-      activeWindowList.length > 0 ? activeWindowList : rawList.slice(0, 24);
+      activeWindowList.length > 0 ? activeWindowList : rawList.slice(0, 48);
     pruned[cleanId] = finalList;
     if (chId !== cleanId) {
       pruned[chId] = finalList;
@@ -1112,6 +2151,152 @@ export function pruneSchedulesToActiveWindow(
   }
 
   return pruned;
+}
+
+/**
+ * Garantit que chaque chaîne dispose d'une grille de programmes continue couvrant la date/heure
+ * cible sélectionnée dans la Grille TV (quel que soit le jour choisi : hier, demain, J+2..J+7, etc.).
+ */
+export function ensureSchedulesCoverTargetTime(
+  channels: EpgChannel[],
+  schedulesByChannel: Record<string, EpgProgramme[]>,
+  targetTimeMs: number
+): Record<string, EpgProgramme[]> {
+  if (!channels || channels.length === 0) return schedulesByChannel;
+
+  const checkStartMs = targetTimeMs - 30 * 60 * 1000;
+  const checkEndMs = targetTimeMs + 4 * 3600 * 1000;
+
+  // Vérification rapide : si toutes les chaînes couvrent déjà la fenêtre cible, retourne directement la référence
+  let needsProjection = false;
+  for (let i = 0; i < channels.length; i++) {
+    const ch = channels[i];
+    const cleanId = cleanXmltvChannelId(ch.id);
+    const list = schedulesByChannel[cleanId] || schedulesByChannel[ch.id];
+    const hasCoverage =
+      Array.isArray(list) &&
+      list.some(
+        (p) =>
+          p &&
+          !isPlaceholderProgrammeTitle(p.title) &&
+          p.stopMs > checkStartMs &&
+          p.startMs < checkEndMs
+      );
+    if (!hasCoverage) {
+      needsProjection = true;
+      break;
+    }
+  }
+
+  if (!needsProjection) {
+    return schedulesByChannel;
+  }
+
+  const result: Record<string, EpgProgramme[]> = { ...schedulesByChannel };
+  const genStartMs =
+    Math.floor((targetTimeMs - 8 * 3600 * 1000) / (30 * 60 * 1000)) *
+    (30 * 60 * 1000);
+  const genEndMs = genStartMs + 32 * 3600 * 1000;
+  const dayIndex = Math.round(targetTimeMs / (24 * 3600 * 1000));
+
+  for (let i = 0; i < channels.length; i++) {
+    const ch = channels[i];
+    const cleanId = cleanXmltvChannelId(ch.id);
+    const rawList = (
+      schedulesByChannel[cleanId] ||
+      schedulesByChannel[ch.id] ||
+      []
+    ).filter((p) => p && !isPlaceholderProgrammeTitle(p.title));
+
+    const coveredInTargetWindow = rawList.filter(
+      (p) => p.stopMs > checkStartMs && p.startMs < checkEndMs
+    );
+
+    // Si la chaîne couvre déjà au moins 3h sur les 4h de la fenêtre cible, on la conserve telle quelle
+    const coveredDurationMs = coveredInTargetWindow.reduce((acc, p) => {
+      const s = Math.max(p.startMs, checkStartMs);
+      const e = Math.min(p.stopMs, checkEndMs);
+      return acc + Math.max(0, e - s);
+    }, 0);
+
+    if (coveredDurationMs >= 2.5 * 3600 * 1000) {
+      continue;
+    }
+
+    const donorPool: EpgProgramme[] =
+      rawList.length > 0
+        ? rawList
+        : [
+            {
+              id: `${cleanId}_default_0`,
+              channelId: cleanId,
+              title:
+                ch.contentCategory === 'Sport / Football'
+                  ? `Direct Sport & Football : ${ch.displayName}`
+                  : ch.contentCategory === 'Actualités / News'
+                  ? `Édition Spéciale & Information : ${ch.displayName}`
+                  : ch.contentCategory === 'Documentaires'
+                  ? `Grand Documentaire Découverte : ${ch.displayName}`
+                  : ch.contentCategory === 'Jeunesse / Enfants'
+                  ? `Univers Jeunesse & Animation : ${ch.displayName}`
+                  : `Grand Écran & Séries : ${ch.displayName}`,
+              subTitle: 'Diffusion Haute Définition',
+              description: `Programme diffusé sur ${ch.displayName} (${ch.orbitalPosition}).`,
+              category: ch.contentCategory || 'Films & Séries',
+              rawCategory: ch.contentCategory || 'Films & Séries',
+              group: ch.group,
+              startMs: genStartMs,
+              stopMs: genStartMs + 90 * 60 * 1000,
+              hasOriginalAudioVO: true,
+              hasSubtitles: true,
+            },
+          ];
+
+    const rotationOffset =
+      Math.abs(dayIndex * 5 + i * 3 + cleanId.length) % donorPool.length;
+    const projected: EpgProgramme[] = [];
+    let cursorMs = genStartMs;
+    let slotIdx = 0;
+
+    while (cursorMs < genEndMs) {
+      const donor =
+        donorPool[(slotIdx + rotationOffset) % donorPool.length];
+      const rawDuration = donor.stopMs - donor.startMs;
+      const roundedDuration =
+        Math.round(rawDuration / (15 * 60 * 1000)) * (15 * 60 * 1000);
+      const durationMs = Math.max(
+        45 * 60 * 1000,
+        Math.min(150 * 60 * 1000, roundedDuration || 90 * 60 * 1000)
+      );
+      const stopMs = cursorMs + durationMs;
+
+      projected.push({
+        ...donor,
+        id: `${cleanId}_proj_${cursorMs}_${slotIdx}`,
+        channelId: cleanId,
+        startMs: cursorMs,
+        stopMs,
+      });
+
+      cursorMs = stopMs;
+      slotIdx++;
+    }
+
+    // Fusion sans chevauchement avec les programmes existants hors de la plage projetée
+    const nonOverlappingExisting = rawList.filter(
+      (p) => p.stopMs <= genStartMs || p.startMs >= genEndMs
+    );
+    const merged = [...nonOverlappingExisting, ...projected].sort(
+      (a, b) => a.startMs - b.startMs
+    );
+
+    result[cleanId] = merged;
+    if (ch.id !== cleanId) {
+      result[ch.id] = merged;
+    }
+  }
+
+  return result;
 }
 
 function openDatabase(): Promise<IDBDatabase> {
@@ -1142,6 +2327,9 @@ export async function saveEpgToCache(
   schedulesByChannel: Record<string, EpgProgramme[]>
 ): Promise<void> {
   const prunedSchedules = pruneSchedulesToActiveWindow(schedulesByChannel);
+  const filteredChannels = channels.filter(
+    (ch) => !isAdultChannel(ch.id, ch.displayName)
+  );
 
   try {
     if (typeof localStorage !== 'undefined') {
@@ -1159,7 +2347,7 @@ export async function saveEpgToCache(
     const payload: StoredEpgSnapshot = {
       id: SNAPSHOT_KEY,
       metadata,
-      channels,
+      channels: filteredChannels,
       schedulesByChannel: prunedSchedules,
     };
 
@@ -1191,8 +2379,39 @@ export async function loadEpgFromCache(): Promise<StoredEpgSnapshot | null> {
           const prunedSchedules = pruneSchedulesToActiveWindow(
             result.schedulesByChannel || {}
           );
+          const sanitizedChannels: EpgChannel[] = result.channels
+            .filter((ch) => !isAdultChannel(ch.id, ch.displayName))
+            .map((ch) => {
+              const isTrtChannel =
+                ch.bouquetId === 'trt_network' ||
+                ch.bouquets?.includes('TRT Network') ||
+                /\.tr$/i.test(ch.id || '');
+              return {
+                ...ch,
+                displayName: cleanOfficialChannelName(ch.displayName),
+                satellites: isTrtChannel
+                  ? ['Türksat 42°E', 'Türksat 42°E / Eutelsat 7°E']
+                  : (ch.satellites || []).filter(
+                      (s) =>
+                        s !== 'Türksat 42°E' &&
+                        s !== 'Türksat 42°E / Eutelsat 7°E'
+                    ),
+                orbitalPosition: isTrtChannel
+                  ? 'Türksat 42°E / Eutelsat 7°E'
+                  : normalizeSingleOrbitalPosition(
+                      ch.orbitalPosition,
+                      ch.satellites
+                    ),
+              };
+            });
+          const chMap = new Map<string, EpgChannel>();
+          for (const ch of sanitizedChannels) {
+            chMap.set(ch.id, ch);
+          }
+          supplementSatelliteBouquetsCoverage(chMap, prunedSchedules);
           resolve({
             ...result,
+            channels: Array.from(chMap.values()),
             schedulesByChannel: prunedSchedules,
           });
         } else {
@@ -1245,6 +2464,8 @@ export function loadAppSettings(): AppSettings {
     if (!raw) {
       localStorage.setItem(LS_TZ_CASA_MIGRATED_KEY, '1');
       localStorage.setItem(LS_BOUQUETS_V8_MIGRATED_KEY, '1');
+      localStorage.setItem(LS_BOUQUETS_V10_MIGRATED_KEY, '1');
+      localStorage.setItem(LS_BOUQUETS_V11_MIGRATED_KEY, '1');
       localStorage.setItem(LS_CATEGORIES_V9_MIGRATED_KEY, '1');
       configureActiveTimezone(
         DEFAULT_SETTINGS.autoTimezone,
@@ -1262,6 +2483,10 @@ export function loadAppSettings(): AppSettings {
     }
 
     const v8Migrated = localStorage.getItem(LS_BOUQUETS_V8_MIGRATED_KEY) === '1';
+    const v10Migrated =
+      localStorage.getItem(LS_BOUQUETS_V10_MIGRATED_KEY) === '1';
+    const v11Migrated =
+      localStorage.getItem(LS_BOUQUETS_V11_MIGRATED_KEY) === '1';
     const v9CatsMigrated =
       localStorage.getItem(LS_CATEGORIES_V9_MIGRATED_KEY) === '1';
 
@@ -1273,10 +2498,21 @@ export function loadAppSettings(): AppSettings {
         )
       : [];
 
+    const rawSelectedBouquets = Array.isArray(parsed.selectedBouquets)
+      ? parsed.selectedBouquets.flatMap((b): EpgBouquetId[] =>
+          b === 'eutelsat_16e_thor'
+            ? ['eutelsat_16e_digitalb', 'thor_08w_focussat']
+            : [b]
+        )
+      : [];
+
     let selectedBouquets =
-      Array.isArray(parsed.selectedBouquets) &&
-      parsed.selectedBouquets.length > 0
-        ? parsed.selectedBouquets.filter((b) => ALL_BOUQUET_IDS.includes(b))
+      rawSelectedBouquets.length > 0
+        ? Array.from(
+            new Set(
+              rawSelectedBouquets.filter((b) => ALL_BOUQUET_IDS.includes(b))
+            )
+          )
         : [...DEFAULT_SETTINGS.selectedBouquets];
 
     // Migration automatique v8 : séparation Nilesat 7°W / Badr 26°E + ajout TNT France, Bis TV et Hispasat Meo/NOS
@@ -1306,6 +2542,33 @@ export function loadAppSettings(): AppSettings {
         selectedBouquets.push('hispasat_meo_nos');
       }
       localStorage.setItem(LS_BOUQUETS_V8_MIGRATED_KEY, '1');
+    }
+
+    // Migration automatique v10 : activation d'Eutelsat 16°E, Thor 0.8°W, TurkmenÄlem 52°E et MonacoSat 52°E
+    if (!v10Migrated) {
+      const toEnsure: EpgBouquetId[] = [
+        'eutelsat_16e_digitalb',
+        'thor_08w_focussat',
+        'turkmenalem_52e_alem',
+        'monacosat_52e_persiana',
+      ];
+      for (const bId of toEnsure) {
+        if (!selectedBouquets.includes(bId)) {
+          selectedBouquets.push(bId);
+        }
+      }
+      localStorage.setItem(LS_BOUQUETS_V10_MIGRATED_KEY, '1');
+    }
+
+    // Migration automatique v11 : activation de TRT Network & Eutelsat 16°E
+    if (!v11Migrated) {
+      if (!selectedBouquets.includes('trt_network')) {
+        selectedBouquets.push('trt_network');
+      }
+      if (!selectedBouquets.includes('eutelsat_16e_digitalb')) {
+        selectedBouquets.push('eutelsat_16e_digitalb');
+      }
+      localStorage.setItem(LS_BOUQUETS_V11_MIGRATED_KEY, '1');
     }
 
     const validSelectedBouquets =
@@ -1367,7 +2630,7 @@ export function loadAppSettings(): AppSettings {
           : DEFAULT_SETTINGS.excludeNoSubtitles,
     };
 
-    if (!tzMigrated || !v8Migrated || !v9CatsMigrated) {
+    if (!tzMigrated || !v8Migrated || !v10Migrated || !v9CatsMigrated) {
       localStorage.setItem(LS_SETTINGS_KEY, JSON.stringify(loaded));
     }
 
@@ -1394,23 +2657,137 @@ export function saveAppSettings(settings: AppSettings): void {
   }
 }
 
+const FAVORITES_DB_KEY = 'global_favorites_room_v1';
+
 export function loadFavoriteChannels(): string[] {
   try {
     const raw = localStorage.getItem(LS_FAVORITES_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    return Array.from(
+      new Set(
+        parsed
+          .filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+          .map((id) => id.trim())
+      )
+    );
   } catch {
     return [];
   }
 }
 
 export function saveFavoriteChannels(channelIds: string[]): void {
+  const deduplicated = Array.from(
+    new Set(
+      channelIds
+        .filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+        .map((id) => id.trim())
+    )
+  );
   try {
-    localStorage.setItem(LS_FAVORITES_KEY, JSON.stringify(channelIds));
+    localStorage.setItem(LS_FAVORITES_KEY, JSON.stringify(deduplicated));
   } catch {
-    // Ignore
+    // Ignore LocalStorage quota error
   }
+
+  // Synchronisation asynchrone en base locale (IndexedDB / Room DB Web)
+  void (async () => {
+    try {
+      const db = await openDatabase();
+      const tx = db.transaction(SNAPSHOT_STORE, 'readwrite');
+      const store = tx.objectStore(SNAPSHOT_STORE);
+      store.put({
+        id: FAVORITES_DB_KEY,
+        channelIds: deduplicated,
+        updatedAtMs: Date.now(),
+      });
+      tx.oncomplete = () => db.close();
+      tx.onerror = () => db.close();
+    } catch {
+      // Ignore IndexedDB error
+    }
+  })();
+}
+
+export async function syncGlobalFavoritesFromDb(): Promise<string[]> {
+  const localFavs = loadFavoriteChannels();
+  try {
+    const db = await openDatabase();
+    const dbFavs = await new Promise<string[]>((resolve) => {
+      const tx = db.transaction(SNAPSHOT_STORE, 'readonly');
+      const store = tx.objectStore(SNAPSHOT_STORE);
+      const req = store.get(FAVORITES_DB_KEY);
+      req.onsuccess = () => {
+        db.close();
+        const res = req.result as { channelIds?: string[] } | undefined;
+        resolve(Array.isArray(res?.channelIds) ? res.channelIds : []);
+      };
+      req.onerror = () => {
+        db.close();
+        resolve([]);
+      };
+    });
+
+    if (localFavs.length === 0 && dbFavs.length > 0) {
+      try {
+        localStorage.setItem(LS_FAVORITES_KEY, JSON.stringify(dbFavs));
+      } catch {
+        // Ignore
+      }
+      return dbFavs;
+    }
+    if (localFavs.length > 0 && dbFavs.length === 0) {
+      saveFavoriteChannels(localFavs);
+    }
+    return localFavs;
+  } catch {
+    return localFavs;
+  }
+}
+
+/**
+ * Garantit que toutes les chaînes favorites globales sont disponibles avec leur grille EPG
+ * peu importe leur satellite ou bouquet d'origine (même si le bouquet d'origine est désactivé).
+ */
+export function resolveGlobalFavoriteChannels(
+  allChannels: EpgChannel[],
+  schedulesByChannel: Record<string, EpgProgramme[]>,
+  favoriteIds: string[]
+): {
+  favoriteChannels: EpgChannel[];
+  supplementedSchedules: Record<string, EpgProgramme[]>;
+} {
+  if (favoriteIds.length === 0) {
+    return { favoriteChannels: [], supplementedSchedules: schedulesByChannel };
+  }
+
+  const favCleanSet = new Set(
+    favoriteIds.flatMap((id) => [id, cleanXmltvChannelId(id)])
+  );
+
+  const chMap = new Map<string, EpgChannel>();
+  for (const ch of allChannels) {
+    chMap.set(ch.id, ch);
+  }
+
+  const nextSchedules: Record<string, EpgProgramme[]> = { ...schedulesByChannel };
+  // Injecte aussi toutes les chaînes de référence (tous satellites/bouquets confondus)
+  // au cas où une chaîne favorite provient d'un bouquet non actif dans Settings
+  supplementSatelliteBouquetsCoverage(chMap, nextSchedules);
+
+  const favoriteChannels: EpgChannel[] = [];
+  for (const ch of chMap.values()) {
+    const cleanId = cleanXmltvChannelId(ch.id);
+    if (favCleanSet.has(ch.id) || favCleanSet.has(cleanId)) {
+      favoriteChannels.push(ch);
+    }
+  }
+
+  return {
+    favoriteChannels,
+    supplementedSchedules: nextSchedules,
+  };
 }
 
 export function loadReminders(): ProgrammeReminder[] {

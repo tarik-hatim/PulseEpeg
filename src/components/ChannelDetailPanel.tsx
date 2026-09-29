@@ -16,10 +16,18 @@ import {
 } from 'lucide-react';
 import {
   AppLanguage,
+  BouquetFilter,
+  EpgBouquetId,
   EpgChannel,
   EpgProgramme,
   ProgrammeReminder,
+  SatelliteFilter,
 } from '../types/epg';
+import {
+  ensureSchedulesCoverTargetTime,
+  getActiveBouquetBadgeForChannel,
+  getSingleSatelliteBadgeForChannel,
+} from '../services/storageService';
 import {
   calculateProgress,
   formatDayLabel,
@@ -55,6 +63,9 @@ interface ChannelDetailPanelProps {
   onClose: () => void;
   initialSelectedProgramme?: EpgProgramme | null;
   language?: AppLanguage;
+  activeSatellite?: SatelliteFilter;
+  activeBouquet?: BouquetFilter;
+  selectedBouquets?: EpgBouquetId[];
 }
 
 const DAY_OFFSETS = [-1, 0, 1, 2, 3, 4, 5];
@@ -86,6 +97,9 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
   onClose,
   initialSelectedProgramme = null,
   language,
+  activeSatellite,
+  activeBouquet,
+  selectedBouquets,
 }) => {
   const activeLang = language || getActiveLanguage();
   const tr = getTranslations(activeLang);
@@ -102,14 +116,33 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
     initialSelectedProgramme
   );
 
+  const expandedProgrammes = useMemo(() => {
+    const baseDate = new Date(nowMs);
+    baseDate.setHours(12, 0, 0, 0);
+    let currentMap: Record<string, EpgProgramme[]> = {
+      [channel.id]: programmes,
+    };
+    for (const offset of DAY_OFFSETS) {
+      const targetNoonMs = baseDate.getTime() + offset * 86400000;
+      currentMap = ensureSchedulesCoverTargetTime(
+        [channel],
+        currentMap,
+        targetNoonMs
+      );
+    }
+    return currentMap[channel.id] || programmes;
+  }, [channel, programmes, nowMs]);
+
   const currentProgramme = useMemo(() => {
     return (
-      programmes.find((p) => p.startMs <= nowMs && p.stopMs > nowMs) || null
+      expandedProgrammes.find(
+        (p) => p.startMs <= nowMs && p.stopMs > nowMs
+      ) || null
     );
-  }, [programmes, nowMs]);
+  }, [expandedProgrammes, nowMs]);
 
   const activeProg =
-    selectedProgramme || currentProgramme || programmes[0] || null;
+    selectedProgramme || currentProgramme || expandedProgrammes[0] || null;
 
   useEffect(() => {
     if (!activeProg) {
@@ -152,19 +185,19 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
           ? tr.tomorrow
           : formatDayLabel(startOfDay, activeLang);
 
-      const count = programmes.filter(
+      const count = expandedProgrammes.filter(
         (p) => p.stopMs > startOfDay && p.startMs < endOfDay
       ).length;
 
       return { offset, startOfDay, endOfDay, label, count };
     });
-  }, [nowMs, programmes, tr, activeLang]);
+  }, [nowMs, expandedProgrammes, tr, activeLang]);
 
   const activeDayTab =
     dayTabs.find((d) => d.offset === selectedDayOffset) || dayTabs[1];
 
   const filteredProgrammes = useMemo(() => {
-    const dayProgs = programmes.filter(
+    const dayProgs = expandedProgrammes.filter(
       (p) =>
         p.stopMs > activeDayTab.startOfDay && p.startMs < activeDayTab.endOfDay
     );
@@ -178,7 +211,7 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
       if (periodFilter === 'evening') return hour >= 19 || hour < 5;
       return true;
     });
-  }, [programmes, activeDayTab, periodFilter]);
+  }, [expandedProgrammes, activeDayTab, periodFilter]);
 
   const reminderIds = useMemo(
     () => new Set(reminders.map((r) => r.id)),
@@ -282,18 +315,18 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
   return (
     <div
       dir={langOpt.dir}
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-950/80 backdrop-blur-md p-0 sm:p-4 animate-fadeIn"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[#0B0F17]/85 backdrop-blur-md p-0 sm:p-4 animate-fadeIn"
       onClick={onClose}
     >
       {/* Conteneur principal du modal avec défilement vertical garanti sur mobile */}
       <div
-        className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-slate-900 border border-slate-800 rounded-t-2xl sm:rounded-2xl shadow-2xl"
+        className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-[#131927] border border-[#1E2638] rounded-t-xl sm:rounded-xl shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* En-tête simplifié et collant : Nom de chaîne + Actions */}
-        <div className="sticky top-0 z-20 px-4 py-3 bg-slate-900/95 backdrop-blur-md border-b border-slate-800/90 flex items-center justify-between gap-3">
+        <div className="sticky top-0 z-20 px-4 py-3 bg-[#0B0F17]/95 backdrop-blur-md border-b border-[#1E2638] flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-center p-1.5 shrink-0">
+            <div className="w-10 h-10 rounded-lg bg-[#131927] border border-[#1E2638] flex items-center justify-center p-1.5 shrink-0">
               {channel.icon ? (
                 <img
                   src={channel.icon}
@@ -301,31 +334,58 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                   className="max-w-full max-h-full object-contain"
                 />
               ) : (
-                <Tv className="w-5 h-5 text-amber-400" />
+                <Tv className="w-5 h-5 text-[#94A3B8]" />
               )}
             </div>
             <div className="min-w-0">
               <h2 className="text-base sm:text-lg font-bold text-white truncate">
-                {channel.displayName}
+                {channel.displayName
+                  .replace(/\s*\([^)]*\)\s*/g, ' ')
+                  .replace(/\s{2,}/g, ' ')
+                  .trim()}
               </h2>
+              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border border-[#2A324B] uppercase tracking-wider">
+                  {getSingleSatelliteBadgeForChannel(
+                    channel,
+                    activeSatellite,
+                    selectedBouquets
+                  )}
+                </span>
+                {getActiveBouquetBadgeForChannel(
+                  channel,
+                  activeSatellite,
+                  activeBouquet
+                ) && (
+                  <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border border-[#2A324B]">
+                    {getActiveBouquetBadgeForChannel(
+                      channel,
+                      activeSatellite,
+                      activeBouquet
+                    )}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
             <button
+              type="button"
               onClick={() => onToggleFavorite(channel.id)}
-              className={`p-2 rounded-xl border transition-all cursor-pointer ${
+              className={`p-2 rounded-lg transition-all cursor-pointer ${
                 isFavorite
-                  ? 'bg-rose-500/15 border-rose-500/40 text-rose-400'
-                  : 'bg-slate-800/80 border-slate-700/70 text-slate-400 hover:text-white'
+                  ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white'
+                  : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white'
               }`}
               title={isFavorite ? tr.removeFromFavorites : tr.addToFavorites}
             >
-              <Heart className={`w-4 h-4 ${isFavorite ? 'fill-rose-500' : ''}`} />
+              <Heart className={`w-4 h-4 ${isFavorite ? 'fill-[#3B82F6] text-[#3B82F6]' : ''}`} />
             </button>
             <button
+              type="button"
               onClick={onClose}
-              className="p-2 rounded-xl bg-slate-800/80 border border-slate-700/70 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+              className="p-2 rounded-lg bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white hover:bg-[#1E293B] transition-colors cursor-pointer"
               title={tr.close}
             >
               <X className="w-4 h-4" />
@@ -336,20 +396,20 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
         {/* Corps de la fiche programme */}
         <div className="p-4 sm:p-5 space-y-4">
           {displayProg && displayMetadata && (
-            <div className="rounded-2xl bg-slate-950/95 border border-slate-800/90 p-3.5 sm:p-4 shadow-xl">
+            <div className="rounded-lg bg-[#0B0F17] border border-[#1E2638] p-3.5 sm:p-4">
               {/* En-tête épuré : Horaires/Progression + Badge Fiche FR */}
               <div className="flex items-center justify-between gap-2 flex-wrap mb-3">
                 <div className="flex items-center gap-2 flex-wrap">
                   {isLiveActiveProg ? (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                      <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wider bg-[#10B981]/15 text-[#10B981] border border-[#10B981]/30">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] shadow-[0_0_6px_#10B981] shrink-0" />
                       {tr.liveBadge} · {formatTimeShort(displayProg.startMs)} →{' '}
                       {formatTimeShort(displayProg.stopMs)} (
                       {formatRemainingTime(displayProg.stopMs, nowMs, activeLang)})
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-900 text-slate-200 border border-slate-800">
-                      <Clock className="w-3 h-3 text-amber-400" />
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[11px] font-medium bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border border-[#2A324B]">
+                      <Clock className="w-3 h-3 text-[#94A3B8]" />
                       {formatTimeShort(displayProg.startMs)} →{' '}
                       {formatTimeShort(displayProg.stopMs)} (
                       {formatDurationMinutes(
@@ -360,24 +420,25 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                     </span>
                   )}
 
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                    <Sparkles className="w-3 h-3 text-amber-400" />
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border border-[#2A324B]">
+                    <Sparkles className="w-3 h-3 text-[#3B82F6]" />
                     {tr.officialSheet} {langOpt.shortLabel}
                   </span>
                 </div>
 
                 {displayProg.startMs > nowMs && (
                   <button
+                    type="button"
                     onClick={() => onToggleReminder(displayProg, channel)}
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all cursor-pointer shrink-0 ${
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-all cursor-pointer shrink-0 ${
                       reminderIds.has(displayProg.id)
-                        ? 'bg-amber-500 text-slate-950 border-amber-400 font-semibold'
-                        : 'bg-slate-900 text-slate-300 border-slate-700 hover:border-amber-500/50 hover:text-amber-300'
+                        ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold'
+                        : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white font-medium'
                     }`}
                   >
                     {reminderIds.has(displayProg.id) ? (
                       <>
-                        <BellRing className="w-3.5 h-3.5" />
+                        <BellRing className="w-3.5 h-3.5 text-[#3B82F6]" />
                         {tr.reminderActive}
                       </>
                     ) : (
@@ -393,9 +454,9 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
               {/* Barre de progression compacte si en direct */}
               {isLiveActiveProg && (
                 <div className="mb-3.5">
-                  <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                  <div className="h-1 w-full bg-[#131927] rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-gradient-to-r from-amber-500 to-orange-400 rounded-full transition-all duration-500"
+                      className="h-full bg-[#3B82F6] rounded-full transition-all duration-500"
                       style={{ width: `${activeProgress}%` }}
                     />
                   </div>
@@ -404,20 +465,19 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
 
               {/* Disposition compacte Side-by-Side (Gauche : Affiche 115px | Droite : Métadonnées) */}
               <div className="flex flex-row gap-3.5 sm:gap-4 items-start">
-                {/* Gauche : Affiche (Poster HD) compacte avec coins arrondis, sans badge superposé */}
                 {displayProg.icon ? (
                   <div className="w-[112px] sm:w-[120px] shrink-0">
                     <img
                       src={displayProg.icon}
                       alt={displayMetadata.mainTitle}
-                      className="w-[112px] sm:w-[120px] h-[164px] sm:h-[176px] rounded-xl object-cover bg-slate-900 border border-slate-800 shadow-lg"
+                      className="w-[112px] sm:w-[120px] h-[164px] sm:h-[176px] rounded-lg object-cover bg-[#131927] border border-[#1E2638]"
                       loading="lazy"
                     />
                   </div>
                 ) : (
-                  <div className="w-[112px] sm:w-[120px] h-[164px] sm:h-[176px] rounded-xl bg-slate-900 border border-slate-800 flex flex-col items-center justify-center p-2.5 text-center shrink-0">
-                    <Film className="w-7 h-7 text-amber-400/70 mb-1.5" />
-                    <span className="text-[10px] font-semibold text-slate-400 line-clamp-3">
+                  <div className="w-[112px] sm:w-[120px] h-[164px] sm:h-[176px] rounded-lg bg-[#131927] border border-[#1E2638] flex flex-col items-center justify-center p-2.5 text-center shrink-0">
+                    <Film className="w-7 h-7 text-[#94A3B8] mb-1.5" />
+                    <span className="text-[10px] font-semibold text-[#94A3B8] line-clamp-3">
                       {displayMetadata.mainTitle}
                     </span>
                   </div>
@@ -425,23 +485,21 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
 
                 {/* Droite : Bloc d'informations aligné à côté de l'affiche */}
                 <div className="flex-1 min-w-0">
-                  {/* Ligne 1 : Titre principal du programme */}
                   <h3 className="text-base sm:text-lg font-extrabold text-white leading-snug">
                     {displayMetadata.mainTitle}
                   </h3>
 
-                  {/* Ligne 2 (Conditionnelle) : [SXX EXX • « Titre Épisode »] (Uniquement si Série/Docu) */}
                   {displayMetadata.allowSeasonEpisode &&
                     (displayMetadata.formattedSE ||
                       displayMetadata.cleanEpisodeTitle) && (
                       <div className="mt-1 flex items-center gap-1.5 flex-wrap">
                         {displayMetadata.formattedSE && (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-extrabold bg-indigo-500/25 text-indigo-200 border border-indigo-500/40">
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border border-[#2A324B]">
                             {displayMetadata.formattedSE}
                           </span>
                         )}
                         {displayMetadata.cleanEpisodeTitle && (
-                          <span className="text-xs font-semibold text-amber-300">
+                          <span className="text-xs font-semibold text-[#94A3B8]">
                             {displayMetadata.formattedSE ? '• ' : ''}«{' '}
                             {displayMetadata.cleanEpisodeTitle} »
                           </span>
@@ -449,11 +507,9 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                       </div>
                     )}
 
-                  {/* Lignes 3 à 6 : Métadonnées structurées */}
                   <div className="mt-2 space-y-1 text-xs leading-relaxed">
-                    {/* Titre original : [Titre Original] */}
-                    <div className="text-slate-200">
-                      <span className="font-semibold text-slate-400">
+                    <div className="text-[#94A3B8]">
+                      <span className="font-semibold text-[#94A3B8]">
                         {tr.modalOriginalTitle}{' '}
                       </span>
                       <span className="font-bold text-white">
@@ -461,44 +517,40 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                       </span>
                     </div>
 
-                    {/* Date de sortie : [Année] */}
-                    <div className="text-slate-200">
-                      <span className="font-semibold text-slate-400">
+                    <div className="text-[#94A3B8]">
+                      <span className="font-semibold text-[#94A3B8]">
                         {tr.modalReleaseDate}{' '}
                       </span>
-                      <span className="font-medium text-slate-100">
+                      <span className="font-medium text-white">
                         {displayMetadata.releaseDateLine}
                       </span>
                     </div>
 
-                    {/* Genre : [Genres] */}
-                    <div className="text-slate-200">
-                      <span className="font-semibold text-slate-400">
+                    <div className="text-[#94A3B8]">
+                      <span className="font-semibold text-[#94A3B8]">
                         {tr.modalGenre}{' '}
                       </span>
-                      <span className="font-semibold text-amber-300">
+                      <span className="font-semibold text-white">
                         {displayMetadata.genreLine}
                       </span>
                     </div>
 
-                    {/* Origine : [Pays d'origine TMDB] */}
-                    <div className="text-slate-200">
-                      <span className="font-semibold text-slate-400">
+                    <div className="text-[#94A3B8]">
+                      <span className="font-semibold text-[#94A3B8]">
                         {tr.modalOrigin}{' '}
                       </span>
-                      <span className="font-medium text-emerald-300">
+                      <span className="font-medium text-white">
                         {displayMetadata.originCountryLine}
                       </span>
                     </div>
                   </div>
 
-                  {/* Badge Note TMDB placé en bas du bloc d'informations */}
                   {displayProg.rating && (
                     <div className="mt-2.5">
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-extrabold bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-bold bg-[rgba(255,255,255,0.03)] text-white border border-[#2A324B]">
                         <span>{displayProg.rating}</span>
-                        <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                        <span className="text-[10px] font-bold text-amber-200 uppercase tracking-wider">
+                        <Star className="w-3.5 h-3.5 fill-[#3B82F6] text-[#3B82F6]" />
+                        <span className="text-[10px] font-semibold text-[#94A3B8] uppercase tracking-wider">
                           TMDB
                         </span>
                       </span>
@@ -507,17 +559,17 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                 </div>
               </div>
 
-              {/* Section Résumé / Description : en dessous du bloc Affiche + Métadonnées */}
-              <div className="mt-4 pt-3.5 border-t border-slate-800/80">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-amber-400 mb-1.5">
+              {/* Section Résumé / Description */}
+              <div className="mt-4 pt-3.5 border-t border-[#1E2638]">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-white mb-1.5">
                   {tr.modalSummary}
                 </div>
                 {displayProg.description ? (
-                  <p className="text-xs sm:text-sm text-slate-200 leading-relaxed whitespace-pre-line">
+                  <p className="text-xs sm:text-sm text-[#94A3B8] leading-relaxed whitespace-pre-line">
                     {displayProg.description}
                   </p>
                 ) : (
-                  <p className="text-xs text-slate-500 italic">
+                  <p className="text-xs text-[#94A3B8] italic">
                     {tr.modalNoDescription}
                   </p>
                 )}
@@ -526,24 +578,24 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
               {/* Casting & Réalisation (si disponibles) */}
               {(displayProg.directors?.length ||
                 displayProg.actors?.length) && (
-                <div className="mt-3 pt-2.5 border-t border-slate-800/80 flex flex-wrap gap-x-5 gap-y-1.5 text-[11px] text-slate-400">
+                <div className="mt-3 pt-2.5 border-t border-[#1E2638] flex flex-wrap gap-x-5 gap-y-1.5 text-[11px] text-[#94A3B8]">
                   {displayProg.directors &&
                     displayProg.directors.length > 0 && (
                       <div className="flex items-center gap-1.5">
-                        <Film className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                        <span className="text-slate-500">
+                        <Film className="w-3.5 h-3.5 text-[#94A3B8] shrink-0" />
+                        <span className="text-[#94A3B8]">
                           {tr.modalDirectedBy}
                         </span>
-                        <span className="text-slate-200 font-medium">
+                        <span className="text-white font-medium">
                           {displayProg.directors.join(', ')}
                         </span>
                       </div>
                     )}
                   {displayProg.actors && displayProg.actors.length > 0 && (
                     <div className="flex items-center gap-1.5">
-                      <Users className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                      <span className="text-slate-500">{tr.modalCast}</span>
-                      <span className="text-slate-200 font-medium">
+                      <Users className="w-3.5 h-3.5 text-[#94A3B8] shrink-0" />
+                      <span className="text-[#94A3B8]">{tr.modalCast}</span>
+                      <span className="text-white font-medium">
                         {displayProg.actors.join(', ')}
                       </span>
                     </div>
@@ -553,28 +605,29 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
             </div>
           )}
 
-          {/* Sélecteur de Jour & Tranche Horaire */}
-          <div className="rounded-2xl bg-slate-950/70 border border-slate-800/80 p-3 space-y-2.5">
+          {/* Sélecteur de Jour & Tranche Horaire — Style Ghost / Outline */}
+          <div className="rounded-lg bg-[#0B0F17] border border-[#1E2638] p-3 space-y-2.5">
             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
-              <Calendar className="w-4 h-4 text-slate-500 shrink-0 me-1" />
+              <Calendar className="w-4 h-4 text-[#94A3B8] shrink-0 me-1" />
               {dayTabs.map((tab) => {
                 const isSelected = tab.offset === selectedDayOffset;
                 return (
                   <button
                     key={tab.offset}
+                    type="button"
                     onClick={() => setSelectedDayOffset(tab.offset)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                    className={`px-3 py-1.5 rounded-lg text-xs transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
                       isSelected
-                        ? 'bg-amber-500 text-slate-950 font-bold shadow-sm'
-                        : 'bg-slate-800/70 text-slate-300 hover:bg-slate-800 border border-slate-700/60'
+                        ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold'
+                        : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white font-medium'
                     }`}
                   >
                     <span>{tab.label}</span>
                     <span
-                      className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                      className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${
                         isSelected
-                          ? 'bg-slate-950/20 text-slate-950 font-bold'
-                          : 'bg-slate-700/80 text-slate-400'
+                          ? 'bg-[#0B0F17] text-white border border-[#3B82F6]/40 font-bold'
+                          : 'bg-[#0B0F17]/60 text-[#94A3B8]'
                       }`}
                     >
                       {tab.count}
@@ -592,31 +645,35 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                   { id: 'afternoon', label: tr.afternoon },
                   { id: 'evening', label: tr.eveningPrime },
                 ] as const
-              ).map((period) => (
-                <button
-                  key={period.id}
-                  onClick={() => setPeriodFilter(period.id)}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors cursor-pointer ${
-                    periodFilter === period.id
-                      ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-                  }`}
-                >
-                  {period.label}
-                </button>
-              ))}
+              ).map((period) => {
+                const active = periodFilter === period.id;
+                return (
+                  <button
+                    key={period.id}
+                    type="button"
+                    onClick={() => setPeriodFilter(period.id)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] transition-all cursor-pointer ${
+                      active
+                        ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold'
+                        : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white font-medium'
+                    }`}
+                  >
+                    {period.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
           {/* Liste chronologique des programmes */}
           <div className="space-y-2">
             {filteredProgrammes.length === 0 ? (
-              <div className="text-center py-10 px-4 rounded-2xl border border-dashed border-slate-800 bg-slate-900/40">
-                <Info className="w-7 h-7 text-slate-600 mx-auto mb-2" />
-                <p className="text-sm font-medium text-slate-300">
+              <div className="text-center py-10 px-4 rounded-lg border border-dashed border-[#2A324B] bg-[#0B0F17]/60">
+                <Info className="w-7 h-7 text-[#94A3B8] mx-auto mb-2" />
+                <p className="text-sm font-medium text-white">
                   {tr.noProgramForSlot}
                 </p>
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-xs text-[#94A3B8] mt-1">
                   {tr.selectAnotherDayOrRefresh}
                 </p>
               </div>
@@ -654,15 +711,23 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                 return (
                   <div
                     key={prog.id}
+                    tabIndex={0}
+                    role="button"
                     onClick={() => setSelectedProgramme(prog)}
-                    className={`group rounded-xl p-3 border transition-all cursor-pointer ${
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setSelectedProgramme(prog);
+                      }
+                    }}
+                    className={`tv-card-focusable group rounded-lg p-3 transition-all cursor-pointer ${
                       isSelected
-                        ? 'bg-slate-800/95 border-amber-500/60 shadow-md'
+                        ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6]'
                         : isLive
-                        ? 'bg-amber-500/10 border-amber-500/30 hover:border-amber-500/50'
+                        ? 'bg-[#0B0F17] border border-[#2A324B]'
                         : isPast
-                        ? 'bg-slate-900/40 border-slate-800/60 opacity-65 hover:opacity-100'
-                        : 'bg-slate-900/70 border-slate-800/80 hover:bg-slate-800/60 hover:border-slate-700'
+                        ? 'bg-[#0B0F17]/50 border border-[#1E2638] opacity-65 hover:opacity-100'
+                        : 'bg-[#0B0F17] border border-[#1E2638] hover:border-[#2A324B]'
                     }`}
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -671,11 +736,12 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                           <div className="text-xs font-mono font-bold text-white">
                             {formatTimeShort(prog.startMs)}
                           </div>
-                          <div className="text-[10px] font-mono text-slate-500">
+                          <div className="text-[10px] font-mono text-[#94A3B8]">
                             → {formatTimeShort(prog.stopMs)}
                           </div>
                           {isLive && (
-                            <span className="mt-1 inline-block px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-amber-500 text-slate-950 rounded">
+                            <span className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider bg-[#10B981]/15 text-[#10B981] border border-[#10B981]/30 rounded">
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] shadow-[0_0_6px_#10B981] shrink-0" />
                               {tr.liveBadge}
                             </span>
                           )}
@@ -683,23 +749,23 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
 
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <h4 className="text-sm font-semibold text-white group-hover:text-amber-300 transition-colors">
+                            <h4 className="text-sm font-semibold text-white">
                               {activeLang === 'fr'
                                 ? translateEpgTextToFrenchSync(prog.title)
                                 : prog.title}
                             </h4>
                             {formattedListSE && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-bold">
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border border-[#2A324B] font-medium">
                                 {formattedListSE}
                               </span>
                             )}
                             {prog.date && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 font-semibold">
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border border-[#2A324B] font-medium">
                                 {formatReleaseYearOrDate(prog.date)}
                               </span>
                             )}
                             {prog.category && (
-                              <span className="text-[10px] px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700">
+                              <span className="text-[10px] px-2 py-0.5 rounded bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border border-[#1E2638]">
                                 {translateDynamicGenre(
                                   prog.category,
                                   activeLang
@@ -710,13 +776,13 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
 
                           {prog.originalTitle &&
                             prog.originalTitle !== prog.title && (
-                              <p className="text-[11px] text-slate-400 italic mt-0.5">
+                              <p className="text-[11px] text-[#94A3B8] italic mt-0.5">
                                 {tr.voPrefix} {prog.originalTitle}
                               </p>
                             )}
 
                           {prog.subTitle && allowListSE && (
-                            <p className="text-xs text-amber-300/90 font-medium mt-0.5">
+                            <p className="text-xs text-[#94A3B8] font-medium mt-0.5">
                               {activeLang === 'fr'
                                 ? translateEpgTextToFrenchSync(prog.subTitle)
                                 : prog.subTitle}
@@ -724,15 +790,15 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                           )}
 
                           {prog.description && (
-                            <p className="text-xs text-slate-400 line-clamp-2 mt-1 leading-relaxed">
+                            <p className="text-xs text-[#94A3B8] line-clamp-2 mt-1 leading-relaxed">
                               {prog.description}
                             </p>
                           )}
 
                           {isLive && (
-                            <div className="mt-2 h-1 w-full bg-slate-800 rounded-full overflow-hidden">
+                            <div className="mt-2 h-1 w-full bg-[#131927] rounded-full overflow-hidden">
                               <div
-                                className="h-full bg-amber-400 rounded-full"
+                                className="h-full bg-[#3B82F6] rounded-full"
                                 style={{ width: `${progProgress}%` }}
                               />
                             </div>
@@ -741,26 +807,27 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                       </div>
 
                       <div className="flex items-center gap-1.5 shrink-0">
-                        <span className="text-[11px] font-mono text-slate-500">
+                        <span className="text-[11px] font-mono text-[#94A3B8]">
                           {formatDurationMinutes(prog.startMs, prog.stopMs)}
                         </span>
                         {prog.startMs > nowMs && (
                           <button
+                            type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               onToggleReminder(prog, channel);
                             }}
-                            className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+                            className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
                               hasReminder
-                                ? 'bg-amber-500/20 border-amber-500/40 text-amber-400'
-                                : 'bg-slate-800/70 border-slate-700/60 text-slate-400 hover:text-amber-300'
+                                ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white'
+                                : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white'
                             }`}
                             title={
                               hasReminder ? tr.cancelReminder : tr.remindProgram
                             }
                           >
                             {hasReminder ? (
-                              <BellRing className="w-3.5 h-3.5" />
+                              <BellRing className="w-3.5 h-3.5 text-[#3B82F6]" />
                             ) : (
                               <Bell className="w-3.5 h-3.5" />
                             )}

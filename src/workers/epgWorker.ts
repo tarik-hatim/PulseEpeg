@@ -14,6 +14,7 @@ import {
   isPlaceholderProgrammeTitle,
   parseChannelBlock,
   parseProgrammeBlock,
+  supplementSatelliteBouquetsCoverage,
   XmltvFilterOptions,
 } from '../utils/xmltvParser';
 
@@ -1048,6 +1049,19 @@ async function processMultiSourceEpgSync(
     }
   }
 
+  // Compléter automatiquement la couverture des bouquets officiels Eutelsat 16°E, Thor 0.8°W, TurkmenÄlem 52°E et MonacoSat 52°E
+  supplementSatelliteBouquetsCoverage(
+    channelMap,
+    schedulesByChannel,
+    filterOptions,
+    filterOptions?.selectedBouquets
+  );
+  for (const [id, chObj] of channelMap.entries()) {
+    if (!channels.some((c) => c.id === id)) {
+      channels.push(chObj);
+    }
+  }
+
   postWorkerMessage({
     type: 'EPG_PROGRESS',
     payload: {
@@ -1124,7 +1138,7 @@ async function processMultiSourceEpgSync(
     ? [...filterOptions.enabledCategories].sort().join(',')
     : 'all';
   const sourcesSignature =
-    'whitelist_v11|' +
+    'whitelist_v12|' +
     activeSources.map((s) => `${s.country}:${s.url.trim()}`).join('|') +
     `|b:${bouquetsSig}|lektor:${Boolean(
       filterOptions?.excludePolishLektor !== false
