@@ -197,7 +197,7 @@ cd android && ./gradlew bundleRelease`;
   const cardClass = `rounded-3xl p-6 border ${
     isLight
       ? 'bg-white border-slate-200 text-slate-900'
-      : 'bg-[#1E293B] border-slate-700/80 text-white'
+      : 'bg-[#121824] border-[#1f293d] text-[#ffffff]'
   }`;
 
   const enabledCount = settings.sources.filter((s) => s.enabled).length;
@@ -208,14 +208,14 @@ cd android && ./gradlew bundleRelease`;
       <div className={cardClass}>
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-2.5">
-            <Globe className="w-5 h-5 text-cyan-400" />
+            <Globe className="w-5 h-5 text-[#60a5fa]" />
             <div>
-              <h2 className="text-lg font-bold tracking-tight text-white">
+              <h2 className="text-lg font-bold tracking-tight text-[#ffffff]">
                 Sources EPG · Whitelist Films/Séries (VO + ST) & Sport / Football
               </h2>
               <p
                 className={`text-xs mt-0.5 ${
-                  isLight ? 'text-slate-500' : 'text-[#94A3B8]'
+                  isLight ? 'text-slate-500' : 'text-[#cbd5e1]'
                 }`}
               >
                 Filtrage strict actif : Astra 19.2°E (Sky DE / DAZN DE / Movistar+),
@@ -235,7 +235,7 @@ cd android && ./gradlew bundleRelease`;
               className={`min-h-[40px] px-3 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 transition-colors ${
                 isLight
                   ? 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                  : 'bg-[#0F172A] hover:bg-slate-800 text-[#94A3B8] hover:text-white border border-slate-700/80'
+                  : 'bg-[#090d14] hover:bg-[#192234] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1f293d]'
               }`}
             >
               <RotateCcw className="w-3.5 h-3.5" />
@@ -246,7 +246,7 @@ cd android && ./gradlew bundleRelease`;
               type="button"
               disabled={isSyncing || enabledCount === 0}
               onClick={onForceRefresh}
-              className="min-h-[40px] px-4 py-1.5 rounded-xl bg-[#3B82F6] hover:bg-blue-500 disabled:opacity-50 text-white font-semibold text-xs flex items-center gap-2 transition-colors whitespace-nowrap"
+              className="min-h-[40px] px-4 py-1.5 rounded-xl bg-[#2563eb] hover:bg-[#1d4ed8] border border-[#60a5fa] shadow-[0_0_12px_rgba(37,99,235,0.45)] disabled:opacity-50 text-[#ffffff] font-bold text-xs flex items-center gap-2 transition-colors whitespace-nowrap"
             >
               <RefreshCw
                 className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`}
@@ -272,10 +272,10 @@ cd android && ./gradlew bundleRelease`;
                   src.enabled
                     ? isLight
                       ? 'bg-slate-50/90 border-slate-200'
-                      : 'bg-[#0F172A]/90 border-slate-800'
+                      : 'bg-[#090d14] border-[#1f293d]'
                     : isLight
                     ? 'bg-slate-100/50 border-slate-200/60 opacity-60'
-                    : 'bg-[#0F172A]/40 border-slate-800/40 opacity-55'
+                    : 'bg-[#090d14]/50 border-[#1f293d]/60 opacity-60'
                 }`}
               >
                 <div className="flex items-start sm:items-center gap-3 min-w-0">
@@ -287,10 +287,10 @@ cd android && ./gradlew bundleRelease`;
                     }
                     className={`min-h-[40px] min-w-[40px] rounded-xl font-mono text-xs font-bold flex items-center justify-center shrink-0 transition-colors ${
                       src.enabled
-                        ? 'bg-[#3B82F6] text-white'
+                        ? 'bg-[#2563eb] text-[#ffffff] border border-[#60a5fa]'
                         : isLight
                         ? 'bg-slate-200 text-slate-500'
-                        : 'bg-slate-800 text-[#94A3B8]'
+                        : 'bg-[#121824] text-[#cbd5e1] border border-[#1f293d]'
                     }`}
                   >
                     {src.country}
@@ -298,22 +298,22 @@ cd android && ./gradlew bundleRelease`;
 
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-mono tabular-nums text-[#94A3B8]">
+                      <span className="text-xs font-mono tabular-nums text-[#cbd5e1]">
                         #{index + 1}
                       </span>
-                      <p className="text-sm font-semibold truncate text-white">
+                      <p className="text-sm font-semibold truncate text-[#ffffff]">
                         {src.name}
                       </p>
                     </div>
                     <p
                       className={`text-xs font-mono truncate mt-0.5 ${
-                        isLight ? 'text-slate-500' : 'text-[#94A3B8]'
+                        isLight ? 'text-slate-500' : 'text-[#cbd5e1]'
                       }`}
                     >
                       {src.url}
                     </p>
                     {syncStat && (
-                      <p className="text-[11px] font-mono tabular-nums text-cyan-400 mt-1">
+                      <p className="text-[11px] font-mono tabular-nums text-[#60a5fa] mt-1">
                         {syncStat.status === 'done'
                           ? `Whitelist VO+Sub : +${syncStat.channelsAdded} chaînes retenues (${
                               syncStat.channelsFilteredOut || 0
@@ -332,12 +332,12 @@ cd android && ./gradlew bundleRelease`;
                   <button
                     type="button"
                     onClick={() => handleToggleSource(src.id)}
-                    className={`min-h-[38px] px-3 py-1 rounded-xl text-xs font-medium transition-colors ${
+                    className={`min-h-[38px] px-3 py-1 rounded-xl text-xs font-bold transition-colors ${
                       src.enabled
-                        ? 'bg-blue-950/80 text-blue-300 border border-blue-800/60'
+                        ? 'bg-[#2563eb] text-[#ffffff] border border-[#60a5fa]'
                         : isLight
                         ? 'bg-slate-200 text-slate-600'
-                        : 'bg-slate-800 text-[#94A3B8]'
+                        : 'bg-[#121824] text-[#cbd5e1] border border-[#1f293d]'
                     }`}
                   >
                     {src.enabled ? 'Actif' : 'Inactif'}
@@ -350,7 +350,7 @@ cd android && ./gradlew bundleRelease`;
                     className={`min-h-[38px] min-w-[38px] rounded-xl flex items-center justify-center transition-colors ${
                       isLight
                         ? 'text-slate-400 hover:bg-red-50 hover:text-red-600'
-                        : 'text-[#94A3B8] hover:bg-red-950/50 hover:text-red-400'
+                        : 'text-[#cbd5e1] hover:bg-red-950/50 hover:text-red-400'
                     }`}
                   >
                     <Trash2 className="w-4 h-4" />
@@ -367,11 +367,11 @@ cd android && ./gradlew bundleRelease`;
           className={`rounded-2xl p-4 border ${
             isLight
               ? 'bg-slate-50 border-slate-200'
-              : 'bg-[#0F172A]/80 border-slate-800'
+              : 'bg-[#090d14] border-[#1f293d]'
           }`}
         >
-          <p className="text-xs font-semibold mb-3 flex items-center gap-1.5 text-white">
-            <Plus className="w-4 h-4 text-cyan-400" />
+          <p className="text-xs font-semibold mb-3 flex items-center gap-1.5 text-[#ffffff]">
+            <Plus className="w-4 h-4 text-[#60a5fa]" />
             <span>Ajouter une nouvelle URL EPG (.xml.gz ou .xml) à la liste</span>
           </p>
 
@@ -385,10 +385,10 @@ cd android && ./gradlew bundleRelease`;
                   )
                 }
                 aria-label="Pays de la source EPG"
-                className={`w-full min-h-[44px] px-3 py-2 rounded-xl text-xs font-semibold border focus:outline-none focus:border-[#3B82F6] ${
+                className={`w-full min-h-[44px] px-3 py-2 rounded-xl text-xs font-semibold border focus:outline-none focus:border-[#3b82f6] ${
                   isLight
                     ? 'bg-white border-slate-300 text-slate-900'
-                    : 'bg-[#1E293B] border-slate-700 text-white'
+                    : 'bg-[#121824] border-[#1f293d] text-[#ffffff]'
                 }`}
               >
                 {COUNTRY_OPTIONS.map((c) => (
@@ -405,10 +405,10 @@ cd android && ./gradlew bundleRelease`;
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 placeholder="Nom (ex: Bouquet Sky IT)"
-                className={`w-full min-h-[44px] px-3.5 py-2 rounded-xl text-xs border focus:outline-none focus:border-[#3B82F6] ${
+                className={`w-full min-h-[44px] px-3.5 py-2 rounded-xl text-xs border focus:outline-none focus:border-[#3b82f6] ${
                   isLight
                     ? 'bg-white border-slate-300 text-slate-900'
-                    : 'bg-[#1E293B] border-slate-700 text-white'
+                    : 'bg-[#121824] border-[#1f293d] text-[#ffffff] placeholder-[#cbd5e1]/60'
                 }`}
               />
             </div>
@@ -420,10 +420,10 @@ cd android && ./gradlew bundleRelease`;
                 value={newUrl}
                 onChange={(e) => setNewUrl(e.target.value)}
                 placeholder="https://epgshare01.online/epgshare01/epg_ripper_..."
-                className={`w-full min-h-[44px] px-3.5 py-2 rounded-xl text-xs font-mono border focus:outline-none focus:border-[#3B82F6] ${
+                className={`w-full min-h-[44px] px-3.5 py-2 rounded-xl text-xs font-mono border focus:outline-none focus:border-[#3b82f6] ${
                   isLight
                     ? 'bg-white border-slate-300 text-slate-900'
-                    : 'bg-[#1E293B] border-slate-700 text-white'
+                    : 'bg-[#121824] border-[#1f293d] text-[#ffffff] placeholder-[#cbd5e1]/60'
                 }`}
               />
             </div>
@@ -431,7 +431,7 @@ cd android && ./gradlew bundleRelease`;
             <div className="md:col-span-2">
               <button
                 type="submit"
-                className="w-full min-h-[44px] px-4 py-2 rounded-xl bg-[#3B82F6] hover:bg-blue-500 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap"
+                className="w-full min-h-[44px] px-4 py-2 rounded-xl bg-[#2563eb] hover:bg-[#1d4ed8] border border-[#60a5fa] text-[#ffffff] font-bold text-xs flex items-center justify-center gap-1.5 shadow-[0_0_12px_rgba(37,99,235,0.45)] transition-colors whitespace-nowrap"
               >
                 <Plus className="w-4 h-4" />
                 <span>Ajouter</span>
@@ -440,10 +440,10 @@ cd android && ./gradlew bundleRelease`;
           </div>
 
           {/* Catalogue rapide 1-clic */}
-          <div className="mt-4 pt-3 border-t border-slate-800/60">
+          <div className="mt-4 pt-3 border-t border-[#1f293d]">
             <p
               className={`text-[11px] mb-2 ${
-                isLight ? 'text-slate-500' : 'text-[#94A3B8]'
+                isLight ? 'text-slate-500' : 'text-[#cbd5e1]'
               }`}
             >
               Ajout rapide depuis le catalogue epgshare01 :
@@ -460,14 +460,14 @@ cd android && ./gradlew bundleRelease`;
                     onClick={() => handleAddCatalogPreset(preset)}
                     className={`min-h-[34px] px-2.5 py-1 rounded-lg text-[11px] font-medium flex items-center gap-1.5 transition-colors ${
                       alreadyAdded
-                        ? 'bg-blue-950/80 text-blue-300 border border-blue-800/60'
+                        ? 'bg-[#2563eb] text-[#ffffff] border border-[#60a5fa] font-bold'
                         : isLight
                         ? 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
-                        : 'bg-[#1E293B] border border-slate-700/80 text-[#94A3B8] hover:text-white hover:bg-slate-800'
+                        : 'bg-[#121824] border border-[#1f293d] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#3b82f6]/50'
                     }`}
                   >
                     {alreadyAdded ? (
-                      <CheckCircle2 className="w-3 h-3 text-cyan-400" />
+                      <CheckCircle2 className="w-3 h-3 text-[#ffffff]" />
                     ) : (
                       <Plus className="w-3 h-3" />
                     )}
@@ -491,12 +491,12 @@ cd android && ./gradlew bundleRelease`;
         <div className={cardClass}>
           <div className="flex items-center justify-between gap-3 mb-4">
             <div className="flex items-center gap-2.5">
-              <Database className="w-5 h-5 text-cyan-400" />
-              <h2 className="text-lg font-bold tracking-tight text-white">
+              <Database className="w-5 h-5 text-[#60a5fa]" />
+              <h2 className="text-lg font-bold tracking-tight text-[#ffffff]">
                 Stockage Local & Cache Fusionné
               </h2>
             </div>
-            <span className="text-xs font-mono tabular-nums text-cyan-400">
+            <span className="text-xs font-mono tabular-nums text-[#60a5fa]">
               IndexedDB + LocalStorage
             </span>
           </div>
@@ -504,76 +504,76 @@ cd android && ./gradlew bundleRelease`;
           {metadata ? (
             <div
               className={`rounded-2xl p-4 space-y-2.5 text-xs mb-5 ${
-                isLight ? 'bg-slate-50' : 'bg-[#0F172A]/80 border border-slate-800'
+                isLight ? 'bg-slate-50' : 'bg-[#090d14] border border-[#1f293d]'
               }`}
             >
               <div className="flex items-center justify-between">
-                <span className={isLight ? 'text-slate-500' : 'text-[#94A3B8]'}>
+                <span className={isLight ? 'text-slate-500' : 'text-[#cbd5e1]'}>
                   Dernière fusion multi-sources
                 </span>
-                <span className="font-mono tabular-nums font-medium text-white">
+                <span className="font-mono tabular-nums font-medium text-[#ffffff]">
                   {formatFullDateTime(metadata.lastUpdatedMs)}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className={isLight ? 'text-slate-500' : 'text-[#94A3B8]'}>
+                <span className={isLight ? 'text-slate-500' : 'text-[#cbd5e1]'}>
                   Validité du cache jusqu’à
                 </span>
-                <span className="font-mono tabular-nums font-medium text-white">
+                <span className="font-mono tabular-nums font-medium text-[#ffffff]">
                   {formatFullDateTime(metadata.expiresAtMs)}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className={isLight ? 'text-slate-500' : 'text-[#94A3B8]'}>
+                <span className={isLight ? 'text-slate-500' : 'text-[#cbd5e1]'}>
                   Chaînes Cinéma/Séries (VO + Sub) retenues
                 </span>
-                <span className="font-mono tabular-nums font-semibold text-blue-300">
+                <span className="font-mono tabular-nums font-semibold text-[#60a5fa]">
                   {metadata.channelCount.toLocaleString('fr-FR')} chaînes
                 </span>
               </div>
               {metadata.channelsExcludedCount !== undefined && (
                 <div className="flex items-center justify-between">
                   <span
-                    className={isLight ? 'text-slate-500' : 'text-[#94A3B8]'}
+                    className={isLight ? 'text-slate-500' : 'text-[#cbd5e1]'}
                   >
                     Chaînes FTA / Sport / Lektor PL éliminées
                   </span>
-                  <span className="font-mono tabular-nums font-semibold text-cyan-400">
+                  <span className="font-mono tabular-nums font-semibold text-[#60a5fa]">
                     {metadata.channelsExcludedCount.toLocaleString('fr-FR')}{' '}
                     écartées
                   </span>
                 </div>
               )}
               <div className="flex items-center justify-between">
-                <span className={isLight ? 'text-slate-500' : 'text-[#94A3B8]'}>
+                <span className={isLight ? 'text-slate-500' : 'text-[#cbd5e1]'}>
                   Total programmes en cache
                 </span>
-                <span className="font-mono tabular-nums font-semibold text-blue-300">
+                <span className="font-mono tabular-nums font-semibold text-[#60a5fa]">
                   {metadata.programmeCount.toLocaleString('fr-FR')} émissions
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className={isLight ? 'text-slate-500' : 'text-[#94A3B8]'}>
+                <span className={isLight ? 'text-slate-500' : 'text-[#cbd5e1]'}>
                   Volume total GZ → XML décompressé
                 </span>
-                <span className="font-mono tabular-nums text-white">
+                <span className="font-mono tabular-nums text-[#ffffff]">
                   {formatBytes(metadata.compressedBytes)} →{' '}
                   {formatBytes(metadata.uncompressedBytes)}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className={isLight ? 'text-slate-500' : 'text-[#94A3B8]'}>
+                <span className={isLight ? 'text-slate-500' : 'text-[#cbd5e1]'}>
                   Durée totale Web Worker
                 </span>
-                <span className="font-mono tabular-nums text-white">
+                <span className="font-mono tabular-nums text-[#ffffff]">
                   {(metadata.parseDurationMs / 1000).toFixed(2)} s
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className={isLight ? 'text-slate-500' : 'text-[#94A3B8]'}>
+                <span className={isLight ? 'text-slate-500' : 'text-[#cbd5e1]'}>
                   Fuseau horaire local appliqué
                 </span>
-                <span className="font-mono tabular-nums text-white">
+                <span className="font-mono tabular-nums text-[#ffffff]">
                   {getLocalTimezoneLabel()}
                 </span>
               </div>
@@ -583,7 +583,7 @@ cd android && ./gradlew bundleRelease`;
               className={`rounded-2xl p-4 text-xs mb-5 ${
                 isLight
                   ? 'bg-slate-50 text-slate-500'
-                  : 'bg-[#0F172A]/80 text-[#94A3B8]'
+                  : 'bg-[#090d14] border border-[#1f293d] text-[#cbd5e1]'
               }`}
             >
               Aucune donnée actuellement stockée dans le cache IndexedDB.
@@ -593,7 +593,7 @@ cd android && ./gradlew bundleRelease`;
           {/* Retention & Cache TTL Selectors */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
             <div>
-              <span className="block text-xs font-medium mb-1.5 text-white">
+              <span className="block text-xs font-medium mb-1.5 text-[#ffffff]">
                 Validité du cache IndexedDB
               </span>
               <div className="flex items-center gap-1.5">
@@ -609,10 +609,10 @@ cd android && ./gradlew bundleRelease`;
                     }
                     className={`min-h-[40px] flex-1 rounded-xl text-xs font-mono tabular-nums font-medium transition-colors ${
                       settings.cacheTtlHours === h
-                        ? 'bg-[#3B82F6] text-white font-semibold'
+                        ? 'bg-[#2563eb] border border-[#60a5fa] text-[#ffffff] font-bold shadow-[0_0_10px_rgba(37,99,235,0.35)]'
                         : isLight
                         ? 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                        : 'bg-[#0F172A] text-[#94A3B8] hover:text-white border border-slate-800'
+                        : 'bg-[#090d14] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1f293d]'
                     }`}
                   >
                     {h}h
@@ -622,7 +622,7 @@ cd android && ./gradlew bundleRelease`;
             </div>
 
             <div>
-              <span className="block text-xs font-medium mb-1.5 text-white">
+              <span className="block text-xs font-medium mb-1.5 text-[#ffffff]">
                 Fenêtre horaire conservée
               </span>
               <div className="flex items-center gap-1.5">
@@ -635,10 +635,10 @@ cd android && ./gradlew bundleRelease`;
                     }
                     className={`min-h-[40px] flex-1 rounded-xl text-xs font-mono tabular-nums font-medium transition-colors ${
                       settings.windowHours === w
-                        ? 'bg-[#3B82F6] text-white font-semibold'
+                        ? 'bg-[#2563eb] border border-[#60a5fa] text-[#ffffff] font-bold shadow-[0_0_10px_rgba(37,99,235,0.35)]'
                         : isLight
                         ? 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                        : 'bg-[#0F172A] text-[#94A3B8] hover:text-white border border-slate-800'
+                        : 'bg-[#090d14] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1f293d]'
                     }`}
                   >
                     {w}h
@@ -669,19 +669,19 @@ cd android && ./gradlew bundleRelease`;
         <div className={cardClass}>
           <div className="flex items-center justify-between gap-3 mb-4">
             <div className="flex items-center gap-2.5">
-              <Smartphone className="w-5 h-5 text-cyan-400" />
-              <h2 className="text-lg font-bold tracking-tight text-white">
+              <Smartphone className="w-5 h-5 text-[#60a5fa]" />
+              <h2 className="text-lg font-bold tracking-tight text-[#ffffff]">
                 Export Configuration Capacitor (.AAB Ready)
               </h2>
             </div>
-            <span className="text-xs font-mono tabular-nums text-blue-300">
+            <span className="text-xs font-mono tabular-nums text-[#60a5fa]">
               com.pulseepg.tvguide
             </span>
           </div>
 
           <p
             className={`text-xs leading-relaxed mb-3 ${
-              isLight ? 'text-slate-600' : 'text-[#94A3B8]'
+              isLight ? 'text-slate-600' : 'text-[#cbd5e1]'
             }`}
           >
             Configuration officielle Google Play Store (<code className="font-mono">.aab</code> &{' '}
@@ -693,7 +693,7 @@ cd android && ./gradlew bundleRelease`;
             className={`rounded-2xl p-3.5 text-xs font-mono overflow-x-auto leading-relaxed mb-4 ${
               isLight
                 ? 'bg-slate-900 text-cyan-300'
-                : 'bg-[#0F172A] text-cyan-300 border border-slate-800/80'
+                : 'bg-[#090d14] text-[#60a5fa] border border-[#1f293d]'
             }`}
           >
             {`appId: "com.pulseepg.tvguide",\nappName: "PulseEPG",\nwebDir: "dist"`}
@@ -701,7 +701,7 @@ cd android && ./gradlew bundleRelease`;
 
           <div>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-white">
+              <span className="text-xs font-semibold text-[#ffffff]">
                 Commandes de génération Play Store (.AAB / .APK)
               </span>
               <button
@@ -710,12 +710,12 @@ cd android && ./gradlew bundleRelease`;
                 className={`min-h-[36px] px-3 py-1 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors ${
                   isLight
                     ? 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                    : 'bg-[#0F172A] hover:bg-slate-800 text-[#94A3B8] hover:text-white border border-slate-700/80'
+                    : 'bg-[#090d14] hover:bg-[#192234] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1f293d]'
                 }`}
               >
                 {copiedCmd ? (
                   <>
-                    <Check className="w-3.5 h-3.5 text-cyan-400" />
+                    <Check className="w-3.5 h-3.5 text-[#60a5fa]" />
                     <span>Copié</span>
                   </>
                 ) : (
@@ -731,7 +731,7 @@ cd android && ./gradlew bundleRelease`;
               className={`rounded-2xl p-4 text-xs font-mono overflow-x-auto leading-relaxed ${
                 isLight
                   ? 'bg-slate-900 text-slate-100'
-                  : 'bg-[#0F172A] text-blue-300 border border-slate-800/80'
+                  : 'bg-[#090d14] text-[#93c5fd] border border-[#1f293d]'
               }`}
             >
               {buildCommands}
@@ -744,14 +744,14 @@ cd android && ./gradlew bundleRelease`;
       <div className={cardClass}>
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-2.5">
-            <Scale className="w-5 h-5 text-cyan-400" />
+            <Scale className="w-5 h-5 text-[#60a5fa]" />
             <div>
-              <h2 className="text-lg font-bold tracking-tight text-white">
+              <h2 className="text-lg font-bold tracking-tight text-[#ffffff]">
                 Conformité & Légal · À propos de PulseEPG
               </h2>
               <p
                 className={`text-xs mt-0.5 ${
-                  isLight ? 'text-slate-500' : 'text-[#94A3B8]'
+                  isLight ? 'text-slate-500' : 'text-[#cbd5e1]'
                 }`}
               >
                 Conformité Google Play Store, clause de non-responsabilité,
@@ -760,7 +760,7 @@ cd android && ./gradlew bundleRelease`;
             </div>
           </div>
 
-          <span className="px-3 py-1 rounded-xl bg-blue-950/80 border border-blue-800/60 text-blue-300 font-mono text-xs font-semibold">
+          <span className="px-3 py-1 rounded-xl bg-[#2563eb] border border-[#60a5fa] text-[#ffffff] font-mono text-xs font-bold">
             Play Store Compliant
           </span>
         </div>
@@ -771,14 +771,14 @@ cd android && ./gradlew bundleRelease`;
             className={`rounded-2xl p-4 border space-y-2 ${
               isLight
                 ? 'bg-blue-50/70 border-blue-200 text-slate-900'
-                : 'bg-[#0F172A]/80 border-blue-800/50 text-white'
+                : 'bg-[#090d14] border-[#1f293d] text-[#ffffff]'
             }`}
           >
-            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-blue-300">
-              <ShieldCheck className="w-4 h-4 shrink-0 text-cyan-400" />
+            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#ffffff]">
+              <ShieldCheck className="w-4 h-4 shrink-0 text-[#60a5fa]" />
               <span>Mentions Légales</span>
             </div>
-            <p className="text-xs leading-relaxed font-medium text-[#94A3B8]">
+            <p className="text-xs leading-relaxed font-medium text-[#cbd5e1]">
               Clause de non-responsabilité : PulseEPG est un guide de programmes
               TV purement informatif. Il ne contient, ne diffuse et ne fournit
               accès à aucun flux vidéo ou contenu soumis à des droits
@@ -791,7 +791,7 @@ cd android && ./gradlew bundleRelease`;
             className={`rounded-2xl p-4 border flex flex-col justify-between gap-3 ${
               isLight
                 ? 'bg-slate-50 border-slate-200'
-                : 'bg-[#0F172A]/80 border-slate-800'
+                : 'bg-[#090d14] border-[#1f293d]'
             }`}
           >
             <div className="space-y-2">
@@ -803,13 +803,13 @@ cd android && ./gradlew bundleRelease`;
                   href="https://www.themoviedb.org"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-xs font-semibold text-cyan-400 hover:underline"
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-[#60a5fa] hover:underline"
                 >
                   <span>themoviedb.org</span>
                   <ExternalLink className="w-3.5 h-3.5" />
                 </a>
               </div>
-              <p className="text-xs leading-relaxed text-[#94A3B8]">
+              <p className="text-xs leading-relaxed text-[#cbd5e1]">
                 Ce produit utilise l&apos;API TMDB mais n&apos;est ni certifié ni
                 affilié à TMDB.
               </p>
@@ -821,17 +821,17 @@ cd android && ./gradlew bundleRelease`;
             className={`rounded-2xl p-4 border flex flex-col justify-between gap-3 ${
               isLight
                 ? 'bg-slate-50 border-slate-200'
-                : 'bg-[#0F172A]/80 border-slate-800'
+                : 'bg-[#090d14] border-[#1f293d]'
             }`}
           >
             <div className="space-y-1.5">
-              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-blue-300">
-                <Lock className="w-4 h-4 shrink-0 text-cyan-400" />
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#ffffff]">
+                <Lock className="w-4 h-4 shrink-0 text-[#60a5fa]" />
                 <span>Politique de confidentialité</span>
               </div>
               <p
                 className={`text-xs leading-relaxed ${
-                  isLight ? 'text-slate-600' : 'text-[#94A3B8]'
+                  isLight ? 'text-slate-600' : 'text-[#cbd5e1]'
                 }`}
               >
                 La géolocalisation pour le fuseau horaire et les préférences
@@ -842,7 +842,7 @@ cd android && ./gradlew bundleRelease`;
             <button
               type="button"
               onClick={() => setShowPrivacyModal((v) => !v)}
-              className="min-h-[40px] px-3.5 py-2 rounded-xl bg-[#3B82F6] hover:bg-blue-500 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              className="min-h-[40px] px-3.5 py-2 rounded-xl bg-[#2563eb] hover:bg-[#1d4ed8] border border-[#60a5fa] text-[#ffffff] font-bold text-xs flex items-center justify-center gap-1.5 shadow-[0_0_12px_rgba(37,99,235,0.45)] transition-colors cursor-pointer"
             >
               <FileText className="w-3.5 h-3.5" />
               <span>
@@ -859,25 +859,25 @@ cd android && ./gradlew bundleRelease`;
             className={`mt-4 rounded-2xl p-4 border text-xs space-y-2 leading-relaxed ${
               isLight
                 ? 'bg-slate-50 border-slate-200 text-slate-700'
-                : 'bg-[#0F172A] border-slate-800 text-[#94A3B8]'
+                : 'bg-[#090d14] border-[#1f293d] text-[#cbd5e1]'
             }`}
           >
-            <p className="font-bold text-white">
+            <p className="font-bold text-[#ffffff]">
               Engagement de Confidentialité & Données Locales (Google Play Store)
             </p>
             <p>
-              • <strong className="text-white">Fuseau horaire & Géolocalisation :</strong> La détection du
+              • <strong className="text-[#ffffff]">Fuseau horaire & Géolocalisation :</strong> La détection du
               fuseau horaire s&apos;effectue exclusivement en local sur l&apos;appareil
               via les paramètres horaires du système. Aucune donnée de
               géolocalisation GPS ou IP n&apos;est transmise ni stockée sur des
               serveurs distants.
             </p>
             <p>
-              • <strong className="text-white">Préférences & Stockage local :</strong> Vos paramètres
+              • <strong className="text-[#ffffff]">Préférences & Stockage local :</strong> Vos paramètres
               (bouquets satellites sélectionnés, filtres VO/Sous-titres, favoris et
               rappels) demeurent stockés à 100% sur votre appareil via{' '}
-              <code className="font-mono text-white">LocalStorage</code> et{' '}
-              <code className="font-mono text-white">IndexedDB</code>.
+              <code className="font-mono text-[#ffffff]">LocalStorage</code> et{' '}
+              <code className="font-mono text-[#ffffff]">IndexedDB</code>.
             </p>
           </div>
         )}

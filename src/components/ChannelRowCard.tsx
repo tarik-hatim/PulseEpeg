@@ -66,56 +66,56 @@ const COUNTRY_ACCENTS: Record<
   { badge: string; border: string; glow: string; flag: string }
 > = {
   DE: {
-    badge: 'bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border-[#2A324B]',
-    border: 'hover:border-[#3B82F6]/50',
+    badge: 'bg-[#090d14] text-[#cbd5e1] border-[#1f293d]',
+    border: 'hover:border-[#3b82f6]/60',
     glow: 'from-transparent',
     flag: '🇩🇪',
   },
   ES: {
-    badge: 'bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border-[#2A324B]',
-    border: 'hover:border-[#3B82F6]/50',
+    badge: 'bg-[#090d14] text-[#cbd5e1] border-[#1f293d]',
+    border: 'hover:border-[#3b82f6]/60',
     glow: 'from-transparent',
     flag: '🇪🇸',
   },
   FR: {
-    badge: 'bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border-[#2A324B]',
-    border: 'hover:border-[#3B82F6]/50',
+    badge: 'bg-[#090d14] text-[#cbd5e1] border-[#1f293d]',
+    border: 'hover:border-[#3b82f6]/60',
     glow: 'from-transparent',
     flag: '🇫🇷',
   },
   IT: {
-    badge: 'bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border-[#2A324B]',
-    border: 'hover:border-[#3B82F6]/50',
+    badge: 'bg-[#090d14] text-[#cbd5e1] border-[#1f293d]',
+    border: 'hover:border-[#3b82f6]/60',
     glow: 'from-transparent',
     flag: '🇮🇹',
   },
   PL: {
-    badge: 'bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border-[#2A324B]',
-    border: 'hover:border-[#3B82F6]/50',
+    badge: 'bg-[#090d14] text-[#cbd5e1] border-[#1f293d]',
+    border: 'hover:border-[#3b82f6]/60',
     glow: 'from-transparent',
     flag: '🇵🇱',
   },
   AR: {
-    badge: 'bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border-[#2A324B]',
-    border: 'hover:border-[#3B82F6]/50',
+    badge: 'bg-[#090d14] text-[#cbd5e1] border-[#1f293d]',
+    border: 'hover:border-[#3b82f6]/60',
     glow: 'from-transparent',
     flag: '🇲🇦/🇦🇪',
   },
   EU: {
-    badge: 'bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border-[#2A324B]',
-    border: 'hover:border-[#3B82F6]/50',
+    badge: 'bg-[#090d14] text-[#cbd5e1] border-[#1f293d]',
+    border: 'hover:border-[#3b82f6]/60',
     glow: 'from-transparent',
     flag: '🇪🇺',
   },
   BR: {
-    badge: 'bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border-[#2A324B]',
-    border: 'hover:border-[#3B82F6]/50',
+    badge: 'bg-[#090d14] text-[#cbd5e1] border-[#1f293d]',
+    border: 'hover:border-[#3b82f6]/60',
     glow: 'from-transparent',
     flag: '🇧🇷',
   },
   LATAM: {
-    badge: 'bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border-[#2A324B]',
-    border: 'hover:border-[#3B82F6]/50',
+    badge: 'bg-[#090d14] text-[#cbd5e1] border-[#1f293d]',
+    border: 'hover:border-[#3b82f6]/60',
     glow: 'from-transparent',
     flag: '🌎',
   },
@@ -218,15 +218,15 @@ export const ChannelRowCard: React.FC<ChannelRowCardProps> = ({
       }}
       className={`tv-card-focusable group relative rounded-lg border cursor-pointer overflow-hidden transition-all ${
         isSelected
-          ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6]'
-          : `bg-[#131927] border-[#1E2638] ${accent.border} hover:bg-[#171F30]`
+          ? 'bg-[#121824] border-[1.5px] border-[#3b82f6] shadow-[0_0_16px_rgba(59,130,246,0.35)]'
+          : `bg-[#121824] border-[#1f293d] ${accent.border} hover:bg-[#172033]`
       }`}
     >
       <div className="p-3.5 sm:p-4 2xl:p-5 flex flex-col lg:flex-row lg:items-center gap-3.5 sm:gap-4 2xl:gap-6">
         {/* Identité Chaîne Satellite */}
         <div className="flex items-center justify-between lg:w-72 2xl:w-80 shrink-0 gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="relative w-12 h-12 2xl:w-14 2xl:h-14 rounded-lg bg-[#0B0F17] border border-[#1E2638] flex items-center justify-center p-1.5 shrink-0">
+            <div className="relative w-12 h-12 2xl:w-14 2xl:h-14 rounded-lg bg-[#090d14] border border-[#1f293d] flex items-center justify-center p-1.5 shrink-0">
               {secureChannelLogoUrl ? (
                 <img
                   src={secureChannelLogoUrl}
@@ -248,7 +248,7 @@ export const ChannelRowCard: React.FC<ChannelRowCardProps> = ({
                   }}
                 />
               ) : (
-                <Tv className="w-5 h-5 text-[#94A3B8]" />
+                <Tv className="w-5 h-5 text-[#cbd5e1]" />
               )}
               <span className="absolute -bottom-1 -right-1 text-[11px] leading-none">
                 {accent.flag}
@@ -256,7 +256,7 @@ export const ChannelRowCard: React.FC<ChannelRowCardProps> = ({
             </div>
 
             <div className="min-w-0">
-              <h3 className="font-bold text-white text-sm sm:text-base 2xl:text-lg truncate">
+              <h3 className="font-bold text-[#ffffff] text-sm sm:text-base 2xl:text-lg truncate">
                 {cleanOfficialChannelName(channel.displayName)}
               </h3>
 
@@ -267,8 +267,8 @@ export const ChannelRowCard: React.FC<ChannelRowCardProps> = ({
                   {singleSatBadge}
                 </span>
                 {activeBouquetBadge && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border border-[#2A324B]">
-                    <Satellite className="w-2.5 h-2.5 text-[#94A3B8]" />
+                  <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#090d14] text-[#cbd5e1] border border-[#1f293d]">
+                    <Satellite className="w-2.5 h-2.5 text-[#38bdf8]" />
                     {activeBouquetBadge}
                   </span>
                 )}
@@ -278,22 +278,22 @@ export const ChannelRowCard: React.FC<ChannelRowCardProps> = ({
               <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                 {channel.contentCategory === 'Sport / Football' ? (
                   <>
-                    <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border border-[#1E2638]">
-                      <Volume2 className="w-2.5 h-2.5 text-[#94A3B8]" />
+                    <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#090d14] text-[#cbd5e1] border border-[#1f293d]">
+                      <Volume2 className="w-2.5 h-2.5 text-[#cbd5e1]" />
                       {channel.audioTrackLabel || tr.badgeAudioStadium}
                     </span>
-                    <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border border-[#1E2638]">
+                    <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#090d14] text-[#cbd5e1] border border-[#1f293d]">
                       ⚽ {channel.subtitleTrackLabel || tr.badgeFootballLive}
                     </span>
                   </>
                 ) : (
                   <>
-                    <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border border-[#1E2638]">
-                      <Volume2 className="w-2.5 h-2.5 text-[#94A3B8]" />
+                    <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#090d14] text-[#cbd5e1] border border-[#1f293d]">
+                      <Volume2 className="w-2.5 h-2.5 text-[#cbd5e1]" />
                       {channel.audioTrackLabel || tr.badgeVoEnglish}
                     </span>
-                    <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border border-[#1E2638]">
-                      <Subtitles className="w-2.5 h-2.5 text-[#94A3B8]" />
+                    <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#090d14] text-[#cbd5e1] border border-[#1f293d]">
+                      <Subtitles className="w-2.5 h-2.5 text-[#cbd5e1]" />
                       {channel.subtitleTrackLabel || tr.badgeSubDvb}
                     </span>
                   </>
@@ -310,52 +310,52 @@ export const ChannelRowCard: React.FC<ChannelRowCardProps> = ({
             }}
             className={`p-2 rounded-lg transition-all lg:hidden cursor-pointer ${
               isFavorite
-                ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white'
-                : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white'
+                ? 'bg-[#2563eb] border-[1.5px] border-[#60a5fa] text-[#ffffff] shadow-[0_0_12px_rgba(37,99,235,0.45)]'
+                : 'bg-[#090d14] border border-[#1f293d] text-[#cbd5e1] hover:text-[#ffffff]'
             }`}
             aria-label={tr.favLabel}
           >
-            <Heart className={`w-4 h-4 ${isFavorite ? 'fill-[#3B82F6] text-[#3B82F6]' : ''}`} />
+            <Heart className={`w-4 h-4 ${isFavorite ? 'fill-[#ffffff] text-[#ffffff]' : ''}`} />
           </button>
         </div>
 
         {/* Programme En Direct */}
-        <div className="flex-1 min-w-0 lg:ps-4 lg:border-s lg:border-[#1E2638]">
+        <div className="flex-1 min-w-0 lg:ps-4 lg:border-s lg:border-[#1f293d]">
           {currentProgramme ? (
             <div>
               <div className="flex items-center justify-between gap-2 text-xs">
                 <div className="flex items-center gap-2 min-w-0 flex-wrap">
                   {isActualLive ? (
-                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider bg-[#10B981]/15 text-[#10B981] border border-[#10B981]/30">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] shadow-[0_0_6px_#10B981] shrink-0" />
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-[#2563eb] text-[#ffffff] border border-[#60a5fa] shadow-[0_0_12px_rgba(59,130,246,0.5)]">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#38bdf8] shadow-[0_0_8px_#38bdf8] shrink-0 animate-pulse" />
                       {tr.liveBadge}
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border border-[#2A324B]">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-[#090d14] text-[#cbd5e1] border border-[#1f293d]">
                       <Clock className="w-2.5 h-2.5" />
                       {tr.slotBadge}
                     </span>
                   )}
 
-                  <span className="text-[#94A3B8] font-mono text-[11px] font-medium">
+                  <span className="text-[#cbd5e1] font-mono text-[11px] font-medium">
                     {formatTimeShort(currentProgramme.startMs)} –{' '}
                     {formatTimeShort(currentProgramme.stopMs)}
                   </span>
 
                   {formattedCurrentSE && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border border-[#2A324B] font-medium">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#090d14] text-[#cbd5e1] border border-[#1f293d] font-medium">
                       {formattedCurrentSE}
                     </span>
                   )}
 
                   {currentProgramme.date && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border border-[#2A324B] font-medium">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#090d14] text-[#cbd5e1] border border-[#1f293d] font-medium">
                       {currentProgramme.date}
                     </span>
                   )}
 
                   {currentProgramme.category && (
-                    <span className="hidden sm:inline-block text-[10px] px-2 py-0.5 rounded bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border border-[#1E2638] truncate max-w-[140px]">
+                    <span className="hidden sm:inline-block text-[10px] px-2 py-0.5 rounded bg-[#090d14] text-[#cbd5e1] border border-[#1f293d] truncate max-w-[140px]">
                       {translateDynamicGenre(
                         currentProgramme.category,
                         activeLang
@@ -365,7 +365,7 @@ export const ChannelRowCard: React.FC<ChannelRowCardProps> = ({
                 </div>
 
                 {isActualLive && (
-                  <span className="text-[11px] font-medium text-[#94A3B8] shrink-0">
+                  <span className="text-[11px] font-medium text-[#cbd5e1] shrink-0">
                     {formatRemainingTime(
                       currentProgramme.stopMs,
                       nowMs,
@@ -376,13 +376,13 @@ export const ChannelRowCard: React.FC<ChannelRowCardProps> = ({
               </div>
 
               <div className="mt-1 flex items-baseline gap-2">
-                <h4 className="font-bold text-white text-sm sm:text-base 2xl:text-lg truncate">
+                <h4 className="font-bold text-[#ffffff] text-sm sm:text-base 2xl:text-lg truncate">
                   {activeLang === 'fr'
                     ? translateEpgTextToFrenchSync(currentProgramme.title)
                     : currentProgramme.title}
                 </h4>
                 {currentProgramme.subTitle && allowCurrentSE && (
-                  <span className="text-xs text-[#94A3B8] truncate hidden md:inline">
+                  <span className="text-xs text-[#cbd5e1] truncate hidden md:inline">
                     —{' '}
                     {activeLang === 'fr'
                       ? translateEpgTextToFrenchSync(currentProgramme.subTitle)
@@ -392,48 +392,48 @@ export const ChannelRowCard: React.FC<ChannelRowCardProps> = ({
               </div>
 
               {currentProgramme.description && (
-                <p className="text-xs 2xl:text-sm text-[#94A3B8] line-clamp-1 mt-0.5">
+                <p className="text-xs 2xl:text-sm text-[#cbd5e1] line-clamp-1 mt-0.5">
                   {currentProgramme.description}
                 </p>
               )}
 
-              {/* Barre de progression fine et sobre */}
-              <div className="mt-2.5 h-1 w-full bg-[#0B0F17] rounded-full overflow-hidden">
+              {/* Barre de progression fine et lumineuse */}
+              <div className="mt-2.5 h-1 w-full bg-[#090d14] rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-[#3B82F6] rounded-full"
+                  className="h-full bg-[#3b82f6] shadow-[0_0_8px_#3b82f6] rounded-full"
                   style={{ width: `${isActualLive ? progress : 100}%` }}
                 />
               </div>
             </div>
           ) : (
-            <div className="py-2 text-xs text-[#94A3B8] italic flex items-center gap-2">
-              <Clock className="w-3.5 h-3.5 text-[#94A3B8]" />
+            <div className="py-2 text-xs text-[#cbd5e1] italic flex items-center gap-2">
+              <Clock className="w-3.5 h-3.5 text-[#cbd5e1]" />
               {tr.noProgramCommunicated}
             </div>
           )}
         </div>
 
         {/* Programme Suivant */}
-        <div className="lg:w-64 2xl:w-72 shrink-0 lg:border-s lg:border-[#1E2638] lg:ps-4 flex items-center justify-between gap-3 pt-2 lg:pt-0 border-t border-[#1E2638] lg:border-t-0">
+        <div className="lg:w-64 2xl:w-72 shrink-0 lg:border-s lg:border-[#1f293d] lg:ps-4 flex items-center justify-between gap-3 pt-2 lg:pt-0 border-t border-[#1f293d] lg:border-t-0">
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5 text-[11px] text-[#94A3B8] font-medium">
-              <span className="uppercase tracking-wider text-[10px] text-[#94A3B8] font-semibold">
+            <div className="flex items-center gap-1.5 text-[11px] text-[#cbd5e1] font-medium">
+              <span className="uppercase tracking-wider text-[10px] text-[#cbd5e1] font-semibold">
                 {tr.upNext}
               </span>
               {nextProgramme && (
-                <span className="font-mono text-[#94A3B8]">
+                <span className="font-mono text-[#cbd5e1]">
                   {formatTimeShort(nextProgramme.startMs)}
                 </span>
               )}
             </div>
             {nextProgramme ? (
-              <p className="text-xs sm:text-sm font-medium text-white truncate mt-0.5">
+              <p className="text-xs sm:text-sm font-medium text-[#ffffff] truncate mt-0.5">
                 {activeLang === 'fr'
                   ? translateEpgTextToFrenchSync(nextProgramme.title)
                   : nextProgramme.title}
               </p>
             ) : (
-              <p className="text-xs text-[#94A3B8] italic mt-0.5">
+              <p className="text-xs text-[#cbd5e1] italic mt-0.5">
                 {tr.unspecified}
               </p>
             )}
@@ -448,15 +448,15 @@ export const ChannelRowCard: React.FC<ChannelRowCardProps> = ({
               }}
               className={`hidden lg:flex p-2 rounded-lg transition-all cursor-pointer ${
                 isFavorite
-                  ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white'
-                  : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white'
+                  ? 'bg-[#2563eb] border-[1.5px] border-[#60a5fa] text-[#ffffff] shadow-[0_0_12px_rgba(37,99,235,0.45)]'
+                  : 'bg-[#090d14] border border-[#1f293d] text-[#cbd5e1] hover:text-[#ffffff]'
               }`}
               title={isFavorite ? tr.removeFromFavorites : tr.addToFavorites}
             >
-              <Heart className={`w-4 h-4 ${isFavorite ? 'fill-[#3B82F6] text-[#3B82F6]' : ''}`} />
+              <Heart className={`w-4 h-4 ${isFavorite ? 'fill-[#ffffff] text-[#ffffff]' : ''}`} />
             </button>
 
-            <div className="p-2 rounded-lg bg-[rgba(255,255,255,0.03)] border border-[#1E2638] text-[#94A3B8] group-hover:text-white group-hover:border-[#3B82F6]/40 transition-colors">
+            <div className="p-2 rounded-lg bg-[#090d14] border border-[#1f293d] text-[#cbd5e1] group-hover:text-[#ffffff] group-hover:border-[#3b82f6]/50 transition-colors">
               <ChevronRight className="w-4 h-4 rtl:rotate-180" />
             </div>
           </div>

@@ -8,8 +8,8 @@
   }
 
   html {
-    background-color: #0B0F17;
-    color: #FFFFFF;
+    background-color: #090d14;
+    color: #ffffff;
     scroll-behavior: smooth;
   }
 
@@ -28,8 +28,8 @@
 
   body {
     font-family: var(--font-sans);
-    background-color: #0B0F17;
-    color: #FFFFFF;
+    background-color: #090d14;
+    color: #ffffff;
     -webkit-tap-highlight-color: transparent;
     overscroll-behavior-y: none;
   }

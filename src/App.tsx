@@ -1888,17 +1888,17 @@ export function App() {
   return (
     <div
       dir={langOpt.dir}
-      className="min-h-screen bg-[#0B0F17] text-white flex flex-col selection:bg-[#1E293B] selection:text-white"
+      className="min-h-screen bg-[#090d14] text-[#ffffff] flex flex-col selection:bg-[#2563eb] selection:text-[#ffffff]"
     >
       {/* Top Navigation Bar */}
-      <header className="sticky top-0 z-30 bg-[#0B0F17]/95 backdrop-blur-xl border-b border-[#1E2638]">
+      <header className="sticky top-0 z-30 bg-[#090d14]/95 backdrop-blur-xl border-b border-[#1f293d]">
         <div className="max-w-[1600px] mx-auto px-3 sm:px-6 2xl:px-10 py-3 flex flex-wrap items-center justify-between gap-3">
           {/* Brand Logo Minimaliste & Épuré (Sans rond bleu/cyan dégradé) */}
           <div className="flex items-center gap-3">
             <svg
               viewBox="0 0 28 28"
               fill="none"
-              className="w-7 h-7 shrink-0 text-white"
+              className="w-7 h-7 shrink-0 text-[#ffffff]"
               aria-hidden="true"
             >
               <path
@@ -1910,13 +1910,13 @@ export function App() {
               />
               <path
                 d="M17.5 6.5C19.4 6.5 21.5 8.6 21.5 10.5"
-                stroke="#3B82F6"
+                stroke="#3b82f6"
                 strokeWidth="1.75"
                 strokeLinecap="round"
               />
               <path
                 d="M18.5 3.5C21.8 3.5 24.5 6.2 24.5 9.5"
-                stroke="#3B82F6"
+                stroke="#3b82f6"
                 strokeWidth="1.5"
                 strokeLinecap="round"
                 strokeOpacity="0.65"
@@ -1930,21 +1930,21 @@ export function App() {
             </svg>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-base sm:text-lg 2xl:text-xl font-bold tracking-tight text-white">
+                <h1 className="text-base sm:text-lg 2xl:text-xl font-bold tracking-tight text-[#ffffff]">
                   PulseEPG
                 </h1>
-                <span className="hidden md:inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border border-[#2A324B]">
-                  <Volume2 className="w-3 h-3 text-[#94A3B8]" />
+                <span className="hidden md:inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider bg-[#121824] text-[#cbd5e1] border border-[#1f293d]">
+                  <Volume2 className="w-3 h-3 text-[#cbd5e1]" />
                   VO + SUB
                 </span>
               </div>
-              <p className="text-[11px] font-normal text-[#64748B] tracking-wide leading-tight mt-0.5">
+              <p className="text-[11px] font-normal text-[#cbd5e1] tracking-wide leading-tight mt-0.5">
                 Your Ultimate TV Guide
               </p>
             </div>
           </div>
 
-          {/* Mode Switcher (En Direct / Grille TV / Favoris) — Style Ghost / Outline */}
+          {/* Mode Switcher (En Direct / Grille TV / Favoris) — Bleu d'accent vif et lumineux pour les boutons actifs */}
           <div className="flex items-center gap-1.5">
             <button
               type="button"
@@ -1956,11 +1956,17 @@ export function App() {
               }}
               className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer ${
                 viewMode === 'live'
-                  ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold'
-                  : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white font-medium'
+                  ? 'bg-[#2563eb] border border-[#60a5fa] text-[#ffffff] font-bold shadow-[0_0_14px_rgba(37,99,235,0.5)]'
+                  : 'bg-[#121824] border border-[#1f293d] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#3b82f6]/50 font-medium'
               }`}
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] shrink-0" />
+              <span
+                className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                  viewMode === 'live'
+                    ? 'bg-[#38bdf8] shadow-[0_0_8px_#38bdf8] animate-pulse'
+                    : 'bg-[#3b82f6]'
+                }`}
+              />
               <span>{tr.liveTab}</span>
             </button>
 
@@ -1969,8 +1975,8 @@ export function App() {
               onClick={() => setViewMode('grid')}
               className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer ${
                 viewMode === 'grid'
-                  ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold'
-                  : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white font-medium'
+                  ? 'bg-[#2563eb] border border-[#60a5fa] text-[#ffffff] font-bold shadow-[0_0_14px_rgba(37,99,235,0.5)]'
+                  : 'bg-[#121824] border border-[#1f293d] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#3b82f6]/50 font-medium'
               }`}
             >
               <LayoutGrid className="w-3.5 h-3.5" />
@@ -1990,16 +1996,16 @@ export function App() {
               }}
               className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer ${
                 viewMode === 'favorites'
-                  ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold'
-                  : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white font-medium'
+                  ? 'bg-[#2563eb] border border-[#60a5fa] text-[#ffffff] font-bold shadow-[0_0_14px_rgba(37,99,235,0.5)]'
+                  : 'bg-[#121824] border border-[#1f293d] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#3b82f6]/50 font-medium'
               }`}
             >
               <Heart
                 className={`w-3.5 h-3.5 ${
                   viewMode === 'favorites'
-                    ? 'text-[#EF4444] fill-[#EF4444]'
+                    ? 'text-[#ffffff] fill-[#ffffff]'
                     : favorites.length > 0
-                      ? 'text-[#EF4444]'
+                      ? 'text-[#3b82f6]'
                       : ''
                 }`}
               />
@@ -2008,8 +2014,8 @@ export function App() {
                 <span
                   className={`px-1.5 py-0.2 rounded text-[10px] font-mono ${
                     viewMode === 'favorites'
-                      ? 'bg-[#0B0F17] text-white border border-[#3B82F6]/40 font-bold'
-                      : 'bg-[#0B0F17]/60 text-[#94A3B8]'
+                      ? 'bg-[#090d14] text-[#ffffff] border border-[#60a5fa]/60 font-bold'
+                      : 'bg-[#090d14] text-[#cbd5e1] border border-[#1f293d]'
                   }`}
                 >
                   {favorites.length}
@@ -2022,20 +2028,20 @@ export function App() {
           <div className="flex items-center gap-2">
             {/* Sélecteur de Langue Fluide dans le Header */}
             <div className="relative flex items-center">
-              <Languages className="w-3.5 h-3.5 text-[#94A3B8] absolute start-2.5 pointer-events-none" />
+              <Languages className="w-3.5 h-3.5 text-[#cbd5e1] absolute start-2.5 pointer-events-none" />
               <select
                 value={activeLang}
                 onChange={(e) =>
                   handleChangeLanguage(e.target.value as AppLanguage)
                 }
                 aria-label={tr.languageSectionTitle}
-                className="ps-7 pe-6 py-1.5 rounded-lg bg-[rgba(255,255,255,0.03)] hover:bg-[#1E293B] text-xs font-medium text-white border border-[#2A324B] focus:outline-none focus:border-[#3B82F6] transition-colors cursor-pointer"
+                className="ps-7 pe-6 py-1.5 rounded-lg bg-[#121824] hover:bg-[#172033] text-xs font-medium text-[#ffffff] border border-[#1f293d] focus:outline-none focus:border-[#3b82f6] transition-colors cursor-pointer"
               >
                 {LANGUAGE_OPTIONS.map((opt) => (
                   <option
                     key={opt.code}
                     value={opt.code}
-                    className="bg-[#131927] text-white"
+                    className="bg-[#121824] text-[#ffffff]"
                   >
                     {opt.flag} {opt.label}
                   </option>
@@ -2049,12 +2055,12 @@ export function App() {
               type="button"
               onClick={() => triggerEpgSync(settings)}
               disabled={isSyncing}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[rgba(255,255,255,0.03)] hover:bg-[#1E293B] text-xs font-medium text-[#94A3B8] hover:text-white border border-[#2A324B] transition-colors cursor-pointer disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#121824] hover:bg-[#172033] text-xs font-medium text-[#cbd5e1] hover:text-[#ffffff] border border-[#1f293d] transition-colors cursor-pointer disabled:opacity-50"
               title={tr.refreshBtn}
             >
               <RefreshCw
-                className={`w-3.5 h-3.5 text-[#94A3B8] ${
-                  isSyncing ? 'animate-spin text-[#3B82F6]' : ''
+                className={`w-3.5 h-3.5 text-[#cbd5e1] ${
+                  isSyncing ? 'animate-spin text-[#3b82f6]' : ''
                 }`}
               />
               <span className="hidden lg:inline">
@@ -2068,7 +2074,7 @@ export function App() {
                 setSettingsInitialTab('filters');
                 setIsSettingsOpen(true);
               }}
-              className="p-2 rounded-lg bg-[rgba(255,255,255,0.03)] hover:bg-[#1E293B] text-[#94A3B8] hover:text-white border border-[#2A324B] transition-colors cursor-pointer"
+              className="p-2 rounded-lg bg-[#121824] hover:bg-[#172033] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1f293d] transition-colors cursor-pointer"
               title={tr.settingsTitle}
             >
               <Settings className="w-4 h-4" />
@@ -2090,11 +2096,11 @@ export function App() {
         />
 
         {/* Barre de Recherche & Contrôle Temporel Rapide */}
-        <div className="mb-4 rounded-lg bg-[#131927] border border-[#1E2638] p-3 sm:p-4 space-y-3">
+        <div className="mb-4 rounded-lg bg-[#121824] border border-[#1f293d] p-3 sm:p-4 space-y-3">
           <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
             {/* Search Input & Recent Searches Dropdown */}
             <div ref={searchContainerRef} className="relative flex-1">
-              <Search className="w-4 h-4 text-[#94A3B8] absolute start-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Search className="w-4 h-4 text-[#cbd5e1] absolute start-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
                 value={searchQuery}
@@ -2130,7 +2136,7 @@ export function App() {
                   }
                 }}
                 placeholder={tr.searchPlaceholder}
-                className="w-full ps-10 pe-9 py-2 rounded-lg bg-[#0B0F17] border border-[#2A324B] text-xs sm:text-sm text-white placeholder-[#94A3B8] focus:outline-none focus:border-[#3B82F6] transition-colors"
+                className="w-full ps-10 pe-9 py-2 rounded-lg bg-[#090d14] border border-[#1f293d] text-xs sm:text-sm text-[#ffffff] placeholder-[#cbd5e1]/70 focus:outline-none focus:border-[#3b82f6] transition-colors"
               />
               {searchQuery && (
                 <button
@@ -2147,7 +2153,7 @@ export function App() {
                     setSearchQuery('');
                     setIsSearchDropdownOpen(true);
                   }}
-                  className="absolute end-2.5 top-1/2 -translate-y-1/2 p-1 rounded-lg text-[#94A3B8] hover:text-white cursor-pointer"
+                  className="absolute end-2.5 top-1/2 -translate-y-1/2 p-1 rounded-lg text-[#cbd5e1] hover:text-[#ffffff] cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -2158,11 +2164,11 @@ export function App() {
                 <div
                   role="listbox"
                   aria-label="Recent Searches"
-                  className="absolute start-0 end-0 top-full mt-1.5 z-50 rounded-lg bg-[#131927] border border-[#2A324B] shadow-2xl overflow-hidden"
+                  className="absolute start-0 end-0 top-full mt-1.5 z-50 rounded-lg bg-[#121824] border border-[#1f293d] shadow-2xl overflow-hidden"
                 >
-                  <div className="flex items-center justify-between px-3.5 py-2 bg-[#0B0F17] border-b border-[#1E2638]">
-                    <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-white">
-                      <Clock className="w-3.5 h-3.5 text-[#94A3B8]" />
+                  <div className="flex items-center justify-between px-3.5 py-2 bg-[#090d14] border-b border-[#1f293d]">
+                    <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[#ffffff]">
+                      <Clock className="w-3.5 h-3.5 text-[#cbd5e1]" />
                       <span>Recent Searches</span>
                     </div>
                     {recentSearches.length > 0 && (
@@ -2173,7 +2179,7 @@ export function App() {
                           clearRecentSearches();
                           setRecentSearches([]);
                         }}
-                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#94A3B8] hover:text-white transition-colors cursor-pointer"
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#cbd5e1] hover:text-[#ffffff] transition-colors cursor-pointer"
                       >
                         <Trash2 className="w-3 h-3" />
                         <span>{activeLang === 'fr' ? 'Effacer' : 'Clear'}</span>
@@ -2182,17 +2188,17 @@ export function App() {
                   </div>
 
                   {recentSearches.length === 0 ? (
-                    <div className="px-3.5 py-3 text-xs text-[#94A3B8]">
+                    <div className="px-3.5 py-3 text-xs text-[#cbd5e1]">
                       {activeLang === 'fr'
                         ? 'Aucune recherche récente (vos 5 dernières recherches seront enregistrées ici).'
                         : 'No recent searches yet (your last 5 searches will be saved here).'}
                     </div>
                   ) : (
-                    <ul className="divide-y divide-[#1E2638] max-h-60 overflow-y-auto">
+                    <ul className="divide-y divide-[#1f293d] max-h-60 overflow-y-auto">
                       {recentSearches.slice(0, 5).map((item) => (
                         <li
                           key={item}
-                          className="flex items-center justify-between hover:bg-[#1E293B]/60 transition-colors"
+                          className="flex items-center justify-between hover:bg-[#172033] transition-colors"
                         >
                           <button
                             type="button"
@@ -2205,9 +2211,9 @@ export function App() {
                               );
                               setIsSearchDropdownOpen(false);
                             }}
-                            className="flex-1 flex items-center gap-2.5 px-3.5 py-2.5 text-start text-xs sm:text-sm text-white transition-colors cursor-pointer truncate"
+                            className="flex-1 flex items-center gap-2.5 px-3.5 py-2.5 text-start text-xs sm:text-sm text-[#ffffff] transition-colors cursor-pointer truncate"
                           >
-                            <Clock className="w-3.5 h-3.5 text-[#94A3B8] shrink-0" />
+                            <Clock className="w-3.5 h-3.5 text-[#cbd5e1] shrink-0" />
                             <span className="truncate font-medium">{item}</span>
                           </button>
                           <button
@@ -2224,7 +2230,7 @@ export function App() {
                                 ? 'Supprimer cette recherche'
                                 : 'Remove search'
                             }
-                            className="p-2 me-1.5 rounded-lg text-[#94A3B8] hover:text-white hover:bg-[#1E293B] transition-colors cursor-pointer shrink-0"
+                            className="p-2 me-1.5 rounded-lg text-[#cbd5e1] hover:text-[#ffffff] hover:bg-[#1f293d] transition-colors cursor-pointer shrink-0"
                           >
                             <X className="w-3.5 h-3.5" />
                           </button>
@@ -2239,13 +2245,13 @@ export function App() {
             {/* Horodateur Temps Réel (Live Now) vs Barre de Contrôle Temporel (EXCLUSIVEMENT en vue TV Grid) */}
             {viewMode === 'grid' ? (
               <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0">
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-xs font-mono text-[#94A3B8] shrink-0">
-                  <Clock className="w-3.5 h-3.5 text-[#94A3B8]" />
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#090d14] border border-[#1f293d] text-xs font-mono text-[#cbd5e1] shrink-0">
+                  <Clock className="w-3.5 h-3.5 text-[#cbd5e1]" />
                   <span>{formatDayLabel(effectiveTimeMs, activeLang)}</span>
-                  <span className="font-bold text-white">
+                  <span className="font-bold text-[#ffffff]">
                     {formatTimeShort(effectiveTimeMs)}
                   </span>
-                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#0B0F17] text-[#94A3B8] border border-[#1E2638] font-sans font-medium">
+                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#121824] text-[#cbd5e1] border border-[#1f293d] font-sans font-medium">
                     {APP_TIMEZONE_LABEL}
                   </span>
                 </div>
@@ -2265,7 +2271,7 @@ export function App() {
                   aria-label={
                     activeLang === 'fr' ? 'Sélecteur de date' : 'Date selector'
                   }
-                  className="px-2.5 py-1.5 rounded-lg bg-[#0B0F17] border border-[#2A324B] text-xs font-mono text-white focus:outline-none focus:border-[#3B82F6] transition-colors cursor-pointer shrink-0"
+                  className="px-2.5 py-1.5 rounded-lg bg-[#090d14] border border-[#1f293d] text-xs font-mono text-[#ffffff] focus:outline-none focus:border-[#3b82f6] transition-colors cursor-pointer shrink-0"
                 />
 
                 <input
@@ -2283,7 +2289,7 @@ export function App() {
                   aria-label={
                     activeLang === 'fr' ? "Sélecteur d'heure" : 'Time selector'
                   }
-                  className="px-2.5 py-1.5 rounded-lg bg-[#0B0F17] border border-[#2A324B] text-xs font-mono text-white focus:outline-none focus:border-[#3B82F6] transition-colors cursor-pointer shrink-0"
+                  className="px-2.5 py-1.5 rounded-lg bg-[#090d14] border border-[#1f293d] text-xs font-mono text-[#ffffff] focus:outline-none focus:border-[#3b82f6] transition-colors cursor-pointer shrink-0"
                 />
 
                 <button
@@ -2291,8 +2297,8 @@ export function App() {
                   onClick={() => shiftTimeOffsetMinutes(-120)}
                   className={`px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer shrink-0 ${
                     activeTimePreset === 'minus'
-                      ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold'
-                      : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white font-medium'
+                      ? 'bg-[#2563eb] border border-[#60a5fa] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(37,99,235,0.45)]'
+                      : 'bg-[#090d14] border border-[#1f293d] text-[#cbd5e1] hover:text-[#ffffff] font-medium'
                   }`}
                 >
                   -2h
@@ -2303,11 +2309,11 @@ export function App() {
                   onClick={handleSyncToLive}
                   className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer shrink-0 ${
                     activeTimePreset === 'now'
-                      ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold'
-                      : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white font-medium'
+                      ? 'bg-[#2563eb] border border-[#60a5fa] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(37,99,235,0.45)]'
+                      : 'bg-[#090d14] border border-[#1f293d] text-[#cbd5e1] hover:text-[#ffffff] font-medium'
                   }`}
                 >
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] shrink-0" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#38bdf8] shadow-[0_0_8px_#38bdf8] shrink-0" />
                   <span>{tr.presetNow}</span>
                 </button>
 
@@ -2316,8 +2322,8 @@ export function App() {
                   onClick={jumpToPrimeTimeTonight}
                   className={`px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer shrink-0 ${
                     activeTimePreset === 'prime'
-                      ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold'
-                      : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white font-medium'
+                      ? 'bg-[#2563eb] border border-[#60a5fa] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(37,99,235,0.45)]'
+                      : 'bg-[#090d14] border border-[#1f293d] text-[#cbd5e1] hover:text-[#ffffff] font-medium'
                   }`}
                 >
                   {tr.presetPrime}
@@ -2328,35 +2334,35 @@ export function App() {
                   onClick={() => shiftTimeOffsetMinutes(120)}
                   className={`px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer shrink-0 ${
                     activeTimePreset === 'plus'
-                      ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold'
-                      : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white font-medium'
+                      ? 'bg-[#2563eb] border border-[#60a5fa] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(37,99,235,0.45)]'
+                      : 'bg-[#090d14] border border-[#1f293d] text-[#cbd5e1] hover:text-[#ffffff] font-medium'
                   }`}
                 >
                   +2h
                 </button>
               </div>
             ) : (
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-xs font-mono text-[#94A3B8] shrink-0 select-none">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] shrink-0" />
-                <Clock className="w-3.5 h-3.5 text-[#94A3B8]" />
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#090d14] border border-[#1f293d] text-xs font-mono text-[#cbd5e1] shrink-0 select-none">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#38bdf8] shadow-[0_0_8px_#38bdf8] shrink-0 animate-pulse" />
+                <Clock className="w-3.5 h-3.5 text-[#cbd5e1]" />
                 <span>{formatDayLabel(nowMs, activeLang)}</span>
-                <span className="font-bold text-white">
+                <span className="font-bold text-[#ffffff]">
                   {formatTimeShort(nowMs)}
                 </span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#0B0F17] text-[#94A3B8] border border-[#1E2638] font-sans font-medium">
+                <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#121824] text-[#cbd5e1] border border-[#1f293d] font-sans font-medium">
                   {APP_TIMEZONE_LABEL}
                 </span>
               </div>
             )}
           </div>
 
-          {/* Barres de filtres rapides [CATÉGORIE] -> [SATELLITE / BOUQUET] -> [GENRE] (Style Ghost / Outline) */}
+          {/* Barres de filtres rapides [CATÉGORIE] -> [SATELLITE / BOUQUET] -> [GENRE] (Bleu d'accent vif pour les boutons actifs) */}
           {viewMode !== 'grid' && (
-            <div className="pt-2.5 border-t border-[#1E2638] space-y-2">
+            <div className="pt-2.5 border-t border-[#1f293d] space-y-2">
               {/* Ligne 1 : [CATÉGORIE] */}
               <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
-                <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] me-1 shrink-0">
-                  <Film className="w-3.5 h-3.5 text-[#94A3B8]" />
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0">
+                  <Film className="w-3.5 h-3.5 text-[#cbd5e1]" />
                   {tr.filterCatLabel}
                 </span>
                 {visibleCategoryOptions.map((cat) => {
@@ -2370,50 +2376,50 @@ export function App() {
                       onClick={() => setSelectedCategory(cat.code)}
                       className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all shrink-0 cursor-pointer ${
                         active
-                          ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold'
-                          : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white hover:border-[#3B82F6]/40 font-medium'
+                          ? 'bg-[#2563eb] border border-[#60a5fa] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(37,99,235,0.45)]'
+                          : 'bg-[#090d14] border border-[#1f293d] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#3b82f6]/50 font-medium'
                       }`}
                     >
                       {cat.icon === 'sport' ? (
                         <Trophy
                           className={`w-3.5 h-3.5 ${
-                            active ? 'text-[#3B82F6]' : 'text-[#94A3B8]'
+                            active ? 'text-[#ffffff]' : 'text-[#cbd5e1]'
                           }`}
                         />
                       ) : cat.icon === 'cinema' ? (
                         <Film
                           className={`w-3.5 h-3.5 ${
-                            active ? 'text-[#3B82F6]' : 'text-[#94A3B8]'
+                            active ? 'text-[#ffffff]' : 'text-[#cbd5e1]'
                           }`}
                         />
                       ) : cat.icon === 'doc' ? (
                         <Compass
                           className={`w-3.5 h-3.5 ${
-                            active ? 'text-[#3B82F6]' : 'text-[#94A3B8]'
+                            active ? 'text-[#ffffff]' : 'text-[#cbd5e1]'
                           }`}
                         />
                       ) : cat.icon === 'news' ? (
                         <Newspaper
                           className={`w-3.5 h-3.5 ${
-                            active ? 'text-[#3B82F6]' : 'text-[#94A3B8]'
+                            active ? 'text-[#ffffff]' : 'text-[#cbd5e1]'
                           }`}
                         />
                       ) : cat.icon === 'kids' ? (
                         <Baby
                           className={`w-3.5 h-3.5 ${
-                            active ? 'text-[#3B82F6]' : 'text-[#94A3B8]'
+                            active ? 'text-[#ffffff]' : 'text-[#cbd5e1]'
                           }`}
                         />
                       ) : cat.icon === 'music' ? (
                         <Music
                           className={`w-3.5 h-3.5 ${
-                            active ? 'text-[#3B82F6]' : 'text-[#94A3B8]'
+                            active ? 'text-[#ffffff]' : 'text-[#cbd5e1]'
                           }`}
                         />
                       ) : (
                         <Tv
                           className={`w-3.5 h-3.5 ${
-                            active ? 'text-[#3B82F6]' : 'text-[#94A3B8]'
+                            active ? 'text-[#ffffff]' : 'text-[#cbd5e1]'
                           }`}
                         />
                       )}
@@ -2421,8 +2427,8 @@ export function App() {
                       <span
                         className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${
                           active
-                            ? 'bg-[#0B0F17] text-white border border-[#3B82F6]/40 font-bold'
-                            : 'bg-[#0B0F17]/60 text-[#94A3B8]'
+                            ? 'bg-[#090d14] text-[#ffffff] border border-[#60a5fa]/60 font-bold'
+                            : 'bg-[#121824] text-[#cbd5e1]'
                         }`}
                       >
                         {count}
@@ -2433,11 +2439,11 @@ export function App() {
               </div>
 
               {/* Ligne 2 : [SATELLITE / BOUQUET] */}
-              <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-[#1E2638]">
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-[#1f293d]">
                 {visibleSatelliteOptions.length > 1 && (
                   <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] me-1 shrink-0">
-                      <Satellite className="w-3.5 h-3.5 text-[#94A3B8]" />
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0">
+                      <Satellite className="w-3.5 h-3.5 text-[#cbd5e1]" />
                       {tr.filterSatLabel}
                     </span>
                     {visibleSatelliteOptions.map((sat) => {
@@ -2451,16 +2457,16 @@ export function App() {
                           onClick={() => handleSelectSatellite(sat)}
                           className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-all shrink-0 cursor-pointer ${
                             active
-                              ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold'
-                              : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white hover:border-[#3B82F6]/40 font-medium'
+                              ? 'bg-[#2563eb] border border-[#60a5fa] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(37,99,235,0.45)]'
+                              : 'bg-[#090d14] border border-[#1f293d] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#3b82f6]/50 font-medium'
                           }`}
                         >
                           <span>{label}</span>
                           <span
                             className={`text-[10px] px-1.5 rounded font-mono ${
                               active
-                                ? 'bg-[#0B0F17] text-white border border-[#3B82F6]/40 font-bold'
-                                : 'bg-[#0B0F17]/60 text-[#94A3B8]'
+                                ? 'bg-[#090d14] text-[#ffffff] border border-[#60a5fa]/60 font-bold'
+                                : 'bg-[#121824] text-[#cbd5e1]'
                             }`}
                           >
                             {count}
@@ -2473,7 +2479,7 @@ export function App() {
 
                 {visibleBouquetOptions.length > 1 && (
                   <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-0.5">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] me-1 shrink-0">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0">
                       {tr.filterBouquetLabel}
                     </span>
                     {visibleBouquetOptions.map((bq) => {
@@ -2492,16 +2498,16 @@ export function App() {
                           onClick={() => handleSelectBouquet(bq)}
                           className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] transition-all shrink-0 cursor-pointer ${
                             active
-                              ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold'
-                              : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white hover:border-[#3B82F6]/40 font-medium'
+                              ? 'bg-[#2563eb] border border-[#60a5fa] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(37,99,235,0.45)]'
+                              : 'bg-[#090d14] border border-[#1f293d] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#3b82f6]/50 font-medium'
                           }`}
                         >
                           <span>{label}</span>
                           <span
                             className={`text-[10px] px-1 rounded font-mono ${
                               active
-                                ? 'bg-[#0B0F17] text-white border border-[#3B82F6]/40 font-bold'
-                                : 'bg-[#0B0F17]/60 text-[#94A3B8]'
+                                ? 'bg-[#090d14] text-[#ffffff] border border-[#60a5fa]/60 font-bold'
+                                : 'bg-[#121824] text-[#cbd5e1]'
                             }`}
                           >
                             {count}
@@ -2514,19 +2520,19 @@ export function App() {
               </div>
 
               {ramWarningMessage && (
-                <div className="px-3 py-2 rounded-lg bg-[#1E293B] border border-[#3B82F6]/50 text-white text-xs font-medium flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-[#3B82F6] shrink-0" />
+                <div className="px-3 py-2 rounded-lg bg-[#090d14] border border-[#3b82f6]/60 text-[#ffffff] text-xs font-medium flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-[#3b82f6] shrink-0" />
                   <span>{ramWarningMessage}</span>
                 </div>
               )}
 
               {/* Ligne 2.5 : [COUNTRY] (Menu déroulant compact sur Mobile / Puces sélectionnables au Pad/Télécommande sur Tablette & TV) */}
               {visibleCountryOptions.length > 1 && (
-                <div className="pt-1 border-t border-[#1E2638]">
+                <div className="pt-1 border-t border-[#1f293d]">
                   {/* Mobile : Menu déroulant compact */}
                   <div className="flex md:hidden items-center justify-between gap-2">
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] shrink-0">
-                      <Globe className="w-3.5 h-3.5 text-[#94A3B8]" />
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] shrink-0">
+                      <Globe className="w-3.5 h-3.5 text-[#cbd5e1]" />
                       {tr.filterCountryLabel || tr.filterZoneLabel}
                     </span>
                     <div className="flex items-center gap-1.5 flex-1 max-w-[260px]">
@@ -2538,7 +2544,7 @@ export function App() {
                           )
                         }
                         aria-label={tr.filterCountryLabel || tr.filterZoneLabel}
-                        className="w-full px-2.5 py-1.5 rounded-lg bg-[#0B0F17] border border-[#2A324B] text-xs font-medium text-white focus:outline-none focus:border-[#3B82F6] transition-colors cursor-pointer"
+                        className="w-full px-2.5 py-1.5 rounded-lg bg-[#090d14] border border-[#1f293d] text-xs font-medium text-[#ffffff] focus:outline-none focus:border-[#3b82f6] transition-colors cursor-pointer"
                       >
                         {visibleCountryOptions.map((cCode) => {
                           const count = countryCounts[cCode] ?? 0;
@@ -2551,7 +2557,7 @@ export function App() {
                             <option
                               key={cCode}
                               value={cCode}
-                              className="bg-[#131927] text-white"
+                              className="bg-[#121824] text-[#ffffff]"
                             >
                               {flag} {label} ({count})
                             </option>
@@ -2562,7 +2568,7 @@ export function App() {
                         <button
                           type="button"
                           onClick={() => setSelectedCountry('Tous')}
-                          className="p-1.5 rounded-lg bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white shrink-0 cursor-pointer"
+                          className="p-1.5 rounded-lg bg-[#090d14] border border-[#1f293d] text-[#cbd5e1] hover:text-[#ffffff] shrink-0 cursor-pointer"
                           title={tr.resetFiltersBtn}
                         >
                           <X className="w-3.5 h-3.5" />
@@ -2573,8 +2579,8 @@ export function App() {
 
                   {/* Tablette & TV : Puces (chips) sélectionnables au pad/télécommande */}
                   <div className="hidden md:flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] me-1 shrink-0">
-                      <Globe className="w-3.5 h-3.5 text-[#94A3B8]" />
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0">
+                      <Globe className="w-3.5 h-3.5 text-[#cbd5e1]" />
                       {tr.filterCountryLabel || tr.filterZoneLabel}
                     </span>
                     {visibleCountryOptions.map((cCode) => {
@@ -2590,10 +2596,10 @@ export function App() {
                           key={cCode}
                           type="button"
                           onClick={() => setSelectedCountry(cCode)}
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] transition-all shrink-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#3B82F6] ${
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] transition-all shrink-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#3b82f6] ${
                             active
-                              ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold'
-                              : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white hover:border-[#3B82F6]/40 font-medium'
+                              ? 'bg-[#2563eb] border border-[#60a5fa] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(37,99,235,0.45)]'
+                              : 'bg-[#090d14] border border-[#1f293d] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#3b82f6]/50 font-medium'
                           }`}
                         >
                           <span>{flag}</span>
@@ -2601,8 +2607,8 @@ export function App() {
                           <span
                             className={`text-[10px] px-1 rounded font-mono ${
                               active
-                                ? 'bg-[#0B0F17] text-white border border-[#3B82F6]/40 font-bold'
-                                : 'bg-[#0B0F17]/60 text-[#94A3B8]'
+                                ? 'bg-[#090d14] text-[#ffffff] border border-[#60a5fa]/60 font-bold'
+                                : 'bg-[#121824] text-[#cbd5e1]'
                             }`}
                           >
                             {count}
@@ -2616,9 +2622,9 @@ export function App() {
 
               {/* Ligne 3 : [GENRE] */}
               {visibleGroupOptions.length > 1 && (
-                <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pt-1 border-t border-[#1E2638] pb-0.5">
-                  <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] me-1 shrink-0">
-                    <Sparkles className="w-3 h-3 text-[#94A3B8]" />
+                <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pt-1 border-t border-[#1f293d] pb-0.5">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0">
+                    <Sparkles className="w-3 h-3 text-[#cbd5e1]" />
                     {tr.filterGenreLabel}
                   </span>
                   {visibleGroupOptions.map((grp) => {
@@ -2636,16 +2642,16 @@ export function App() {
                         onClick={() => setSelectedGroup(grp)}
                         className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] transition-all shrink-0 cursor-pointer ${
                           active
-                            ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold'
-                            : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white hover:border-[#3B82F6]/40 font-medium'
+                            ? 'bg-[#2563eb] border border-[#60a5fa] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(37,99,235,0.45)]'
+                            : 'bg-[#090d14] border border-[#1f293d] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#3b82f6]/50 font-medium'
                         }`}
                       >
                         <span>{label}</span>
                         <span
                           className={`text-[10px] px-1 rounded font-mono ${
                             active
-                              ? 'bg-[#0B0F17] text-white border border-[#3B82F6]/40 font-bold'
-                              : 'bg-[#0B0F17]/60 text-[#94A3B8]'
+                              ? 'bg-[#090d14] text-[#ffffff] border border-[#60a5fa]/60 font-bold'
+                              : 'bg-[#121824] text-[#cbd5e1]'
                           }`}
                         >
                           {count}
@@ -2659,9 +2665,9 @@ export function App() {
           )}
 
           {/* Résumé Statut & Bouton Reset Filtres */}
-          <div className="pt-2 border-t border-[#1E2638] flex flex-wrap items-center justify-between gap-2 text-xs text-[#94A3B8]">
+          <div className="pt-2 border-t border-[#1f293d] flex flex-wrap items-center justify-between gap-2 text-xs text-[#cbd5e1]">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-semibold text-white">
+              <span className="font-semibold text-[#ffffff]">
                 {filteredChannels.length}
               </span>
               <span>
@@ -2669,14 +2675,14 @@ export function App() {
               </span>
               {cacheMeta && (
                 <>
-                  <span className="text-[#64748B]">•</span>
+                  <span className="text-[#cbd5e1]/60">•</span>
                   <span>
                     {cacheMeta.programmeCount.toLocaleString()}{' '}
                     {tr.activeProgrammes}
                   </span>
                 </>
               )}
-              <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-[#94A3B8] font-medium ms-1">
+              <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-[#cbd5e1] font-medium ms-1">
                 <Subtitles className="w-3.5 h-3.5" />
                 VO + SUB
               </span>
@@ -2692,7 +2698,7 @@ export function App() {
               <button
                 type="button"
                 onClick={resetAllFilters}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-xs font-medium text-[#94A3B8] hover:text-white hover:border-[#3B82F6] cursor-pointer"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#090d14] border border-[#1f293d] text-xs font-medium text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#3b82f6] cursor-pointer"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 {tr.resetFiltersBtn}
@@ -2703,20 +2709,20 @@ export function App() {
 
         {/* Rappels actifs dans l'onglet Favoris */}
         {viewMode === 'favorites' && reminders.length > 0 && (
-          <div className="mb-4 rounded-lg p-4 bg-[#131927] border border-[#1E2638] space-y-2.5">
-            <h3 className="text-xs font-bold flex items-center gap-1.5 text-white uppercase tracking-wider">
-              <Bell className="w-3.5 h-3.5 text-[#3B82F6]" />
+          <div className="mb-4 rounded-lg p-4 bg-[#121824] border border-[#1f293d] space-y-2.5">
+            <h3 className="text-xs font-bold flex items-center gap-1.5 text-[#ffffff] uppercase tracking-wider">
+              <Bell className="w-3.5 h-3.5 text-[#3b82f6]" />
               {tr.savedRemindersTitle} ({reminders.length})
             </h3>
-            <div className="divide-y divide-[#1E2638]">
+            <div className="divide-y divide-[#1f293d]">
               {reminders.map((rem) => (
                 <div
                   key={rem.id}
                   className="py-2 flex items-center justify-between gap-3 text-xs"
                 >
                   <div className="min-w-0">
-                    <p className="font-bold text-white truncate">{rem.title}</p>
-                    <p className="text-[11px] font-mono text-[#94A3B8]">
+                    <p className="font-bold text-[#ffffff] truncate">{rem.title}</p>
+                    <p className="text-[11px] font-mono text-[#cbd5e1]">
                       {rem.channelName} ·{' '}
                       {formatDayLabel(rem.startMs, activeLang)}{' '}
                       {formatTimeShort(rem.startMs)} –{' '}
@@ -2730,7 +2736,7 @@ export function App() {
                       setReminders(next);
                       saveReminders(next);
                     }}
-                    className="p-1.5 rounded-lg text-[#94A3B8] hover:text-white cursor-pointer"
+                    className="p-1.5 rounded-lg text-[#cbd5e1] hover:text-[#ffffff] cursor-pointer"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -2785,23 +2791,23 @@ export function App() {
             language={activeLang}
           />
         ) : filteredChannels.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-[#2A324B] bg-[#131927] p-10 text-center max-w-lg mx-auto my-8">
+          <div className="rounded-lg border border-dashed border-[#1f293d] bg-[#121824] p-10 text-center max-w-lg mx-auto my-8">
             {epgError ? (
               <>
                 <AlertTriangle className="w-10 h-10 text-red-400 mx-auto mb-3" />
-                <h3 className="text-base font-bold text-white">
+                <h3 className="text-base font-bold text-[#ffffff]">
                   {activeLang === 'fr'
                     ? 'Échec du chargement du flux EPG HTTPS'
                     : 'Failed to load HTTPS EPG feed'}
                 </h3>
-                <p className="text-xs text-[#94A3B8] mt-1 leading-relaxed">
+                <p className="text-xs text-[#cbd5e1] mt-1 leading-relaxed">
                   {epgError}
                 </p>
                 <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
                   <button
                     type="button"
                     onClick={() => triggerEpgSync(settings)}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold text-xs cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#2563eb] border border-[#60a5fa] text-[#ffffff] font-bold text-xs shadow-[0_0_12px_rgba(37,99,235,0.45)] cursor-pointer"
                   >
                     <RefreshCw className="w-3.5 h-3.5" />
                     {tr.refreshBtn}
@@ -2812,7 +2818,7 @@ export function App() {
                       handleLoadOfflineFallback(settings);
                       resetAllFilters();
                     }}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white font-semibold text-xs cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#090d14] border border-[#1f293d] text-[#cbd5e1] hover:text-[#ffffff] font-semibold text-xs cursor-pointer"
                   >
                     <Satellite className="w-3.5 h-3.5" />
                     {activeLang === 'fr'
@@ -2823,17 +2829,17 @@ export function App() {
               </>
             ) : (
               <>
-                <Satellite className="w-10 h-10 text-[#94A3B8] mx-auto mb-3" />
-                <h3 className="text-base font-bold text-white">
+                <Satellite className="w-10 h-10 text-[#cbd5e1] mx-auto mb-3" />
+                <h3 className="text-base font-bold text-[#ffffff]">
                   {tr.noChannelsFoundTitle}
                 </h3>
-                <p className="text-xs text-[#94A3B8] mt-1 leading-relaxed">
+                <p className="text-xs text-[#cbd5e1] mt-1 leading-relaxed">
                   {tr.noChannelsFoundDesc}
                 </p>
                 <button
                   type="button"
                   onClick={resetAllFilters}
-                  className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold text-xs cursor-pointer"
+                  className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#2563eb] border border-[#60a5fa] text-[#ffffff] font-bold text-xs shadow-[0_0_12px_rgba(37,99,235,0.45)] cursor-pointer"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
                   {tr.showAllSatellitesBtn}
@@ -2875,7 +2881,7 @@ export function App() {
                 <button
                   type="button"
                   onClick={() => setVisibleLimit((prev) => prev + 60)}
-                  className="px-5 py-2.5 rounded-lg bg-[rgba(255,255,255,0.03)] hover:bg-[#1E293B] text-white border border-[#2A324B] hover:border-[#3B82F6] text-xs font-bold transition-colors cursor-pointer"
+                  className="px-5 py-2.5 rounded-lg bg-[#121824] hover:bg-[#172033] text-[#ffffff] border border-[#1f293d] hover:border-[#3b82f6] text-xs font-bold transition-colors cursor-pointer"
                 >
                   {tr.loadMoreChannels} (
                   {filteredChannels.length - visibleLimit} {tr.remainingLabel})
@@ -2894,12 +2900,12 @@ export function App() {
             onClick={handleSyncToLive}
             aria-label="Sync to Live"
             title="Sync to Live"
-            className="inline-flex items-center gap-2.5 px-4 py-2.5 rounded-lg bg-[#1E293B] hover:bg-[#253248] text-white font-bold text-xs sm:text-sm shadow-2xl border-[1.5px] border-[#3B82F6] transition-colors cursor-pointer"
+            className="inline-flex items-center gap-2.5 px-4 py-2.5 rounded-lg bg-[#2563eb] hover:bg-[#1d4ed8] text-[#ffffff] font-bold text-xs sm:text-sm shadow-[0_0_20px_rgba(37,99,235,0.55)] border border-[#60a5fa] transition-colors cursor-pointer"
           >
-            <span className="w-2 h-2 rounded-full bg-[#10B981] shrink-0" />
-            <Radio className="w-4 h-4 text-white shrink-0" />
+            <span className="w-2 h-2 rounded-full bg-[#38bdf8] shadow-[0_0_8px_#38bdf8] shrink-0 animate-pulse" />
+            <Radio className="w-4 h-4 text-[#ffffff] shrink-0" />
             <span>Sync to Live</span>
-            <span className="px-2 py-0.5 rounded bg-[#0B0F17] text-[#94A3B8] border border-[#1E2638] font-mono text-[11px] font-bold">
+            <span className="px-2 py-0.5 rounded bg-[#090d14] text-[#cbd5e1] border border-[#1f293d] font-mono text-[11px] font-bold">
               {formattedOffsetBadge}
             </span>
           </button>
@@ -2907,10 +2913,10 @@ export function App() {
       )}
 
       {/* Footer Légal & Attribution TMDB (Conformité Google Play Store) */}
-      <footer className="mt-auto border-t border-[#1E2638] bg-[#0B0F17] py-4 px-4 sm:px-6 text-[11px] text-[#94A3B8]">
+      <footer className="mt-auto border-t border-[#1f293d] bg-[#090d14] py-4 px-4 sm:px-6 text-[11px] text-[#cbd5e1]">
         <div className="max-w-[1600px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-start">
-            <span className="font-bold text-white">
+            <span className="font-bold text-[#ffffff]">
               PulseEPG - Your Ultimate TV Guide
             </span>
             <span>•</span>
@@ -2925,7 +2931,7 @@ export function App() {
               setSettingsInitialTab('legal');
               setIsSettingsOpen(true);
             }}
-            className="inline-flex items-center gap-1.5 text-[#94A3B8] hover:text-white font-semibold cursor-pointer"
+            className="inline-flex items-center gap-1.5 text-[#cbd5e1] hover:text-[#ffffff] font-semibold cursor-pointer"
           >
             <Scale className="w-3.5 h-3.5" />
             <span>{tr.tabLegalPlayStore}</span>

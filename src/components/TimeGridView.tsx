@@ -483,13 +483,13 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
   };
 
   return (
-    <div className="rounded-lg border border-[#1E2638] bg-[#0B0F17] overflow-hidden shadow-2xl">
+    <div className="rounded-lg border border-[#1f293d] bg-[#090d14] overflow-hidden shadow-2xl">
       {/* Barre de Filtres [CATÉGORIE] -> [SATELLITE / BOUQUET] -> [GENRE] dédiée à la Grille TV */}
-      <div className="p-3 sm:p-4 bg-[#131927] border-b border-[#1E2638] space-y-2.5">
+      <div className="p-3 sm:p-4 bg-[#121824] border-b border-[#1f293d] space-y-2.5">
         {/* Ligne 1 : [CATÉGORIE] */}
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 border-b border-[#1E2638]">
-          <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] me-1 shrink-0">
-            <Film className="w-3.5 h-3.5 text-[#94A3B8]" />
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 border-b border-[#1f293d]">
+          <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0">
+            <Film className="w-3.5 h-3.5 text-[#cbd5e1]" />
             {tr.filterCatLabel}
           </span>
           {visibleCategoryOptions.map((cat) => {
@@ -503,50 +503,50 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
                 onClick={() => onSelectCategory(cat.code)}
                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all shrink-0 cursor-pointer ${
                   active
-                    ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold'
-                    : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white hover:border-[#3B82F6]/40 font-medium'
+                    ? 'bg-[#2563eb] border-[1.5px] border-[#60a5fa] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(37,99,235,0.45)]'
+                    : 'bg-[#090d14] border border-[#1f293d] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#3b82f6]/50 font-medium'
                 }`}
               >
                 {cat.icon === 'sport' ? (
                   <Trophy
                     className={`w-3.5 h-3.5 ${
-                      active ? 'text-[#3B82F6]' : 'text-[#94A3B8]'
+                      active ? 'text-[#ffffff]' : 'text-[#cbd5e1]'
                     }`}
                   />
                 ) : cat.icon === 'cinema' ? (
                   <Film
                     className={`w-3.5 h-3.5 ${
-                      active ? 'text-[#3B82F6]' : 'text-[#94A3B8]'
+                      active ? 'text-[#ffffff]' : 'text-[#cbd5e1]'
                     }`}
                   />
                 ) : cat.icon === 'doc' ? (
                   <Compass
                     className={`w-3.5 h-3.5 ${
-                      active ? 'text-[#3B82F6]' : 'text-[#94A3B8]'
+                      active ? 'text-[#ffffff]' : 'text-[#cbd5e1]'
                     }`}
                   />
                 ) : cat.icon === 'news' ? (
                   <Newspaper
                     className={`w-3.5 h-3.5 ${
-                      active ? 'text-[#3B82F6]' : 'text-[#94A3B8]'
+                      active ? 'text-[#ffffff]' : 'text-[#cbd5e1]'
                     }`}
                   />
                 ) : cat.icon === 'kids' ? (
                   <Baby
                     className={`w-3.5 h-3.5 ${
-                      active ? 'text-[#3B82F6]' : 'text-[#94A3B8]'
+                      active ? 'text-[#ffffff]' : 'text-[#cbd5e1]'
                     }`}
                   />
                 ) : cat.icon === 'music' ? (
                   <Music
                     className={`w-3.5 h-3.5 ${
-                      active ? 'text-[#3B82F6]' : 'text-[#94A3B8]'
+                      active ? 'text-[#ffffff]' : 'text-[#cbd5e1]'
                     }`}
                   />
                 ) : (
                   <Tv
                     className={`w-3.5 h-3.5 ${
-                      active ? 'text-[#3B82F6]' : 'text-[#94A3B8]'
+                      active ? 'text-[#ffffff]' : 'text-[#cbd5e1]'
                     }`}
                   />
                 )}
@@ -554,8 +554,8 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
                 <span
                   className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${
                     active
-                      ? 'bg-[#0B0F17] text-white border border-[#3B82F6]/40 font-bold'
-                      : 'bg-[#0B0F17]/60 text-[#94A3B8]'
+                      ? 'bg-[#090d14]/80 text-[#ffffff] border border-[#93c5fd]/50 font-bold'
+                      : 'bg-[#121824] text-[#cbd5e1]'
                   }`}
                 >
                   {count}
@@ -569,8 +569,8 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
         <div className="flex flex-wrap items-center justify-between gap-2">
           {visibleSatelliteOptions.length > 1 && (
             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
-              <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] me-1 shrink-0">
-                <Satellite className="w-3.5 h-3.5 text-[#94A3B8]" />
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0">
+                <Satellite className="w-3.5 h-3.5 text-[#cbd5e1]" />
                 {tr.filterSatLabel}
               </span>
               {visibleSatelliteOptions.map((sat) => {
@@ -584,16 +584,16 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
                     onClick={() => onSelectSatellite(sat)}
                     className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-all shrink-0 cursor-pointer ${
                       active
-                        ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold'
-                        : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white hover:border-[#3B82F6]/40 font-medium'
+                        ? 'bg-[#2563eb] border-[1.5px] border-[#60a5fa] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(37,99,235,0.45)]'
+                        : 'bg-[#090d14] border border-[#1f293d] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#3b82f6]/50 font-medium'
                     }`}
                   >
                     <span>{label}</span>
                     <span
                       className={`text-[10px] px-1.5 rounded font-mono ${
                         active
-                          ? 'bg-[#0B0F17] text-white border border-[#3B82F6]/40 font-bold'
-                          : 'bg-[#0B0F17]/60 text-[#94A3B8]'
+                          ? 'bg-[#090d14]/80 text-[#ffffff] border border-[#93c5fd]/50 font-bold'
+                          : 'bg-[#121824] text-[#cbd5e1]'
                       }`}
                     >
                       {count}
@@ -606,7 +606,7 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
 
           {visibleBouquetOptions.length > 1 && (
             <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-0.5">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] me-1 shrink-0">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0">
                 {tr.filterBouquetLabel}
               </span>
               {visibleBouquetOptions.map((bq) => {
@@ -625,16 +625,16 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
                     onClick={() => onSelectBouquet(bq)}
                     className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] transition-all shrink-0 cursor-pointer ${
                       active
-                        ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold'
-                        : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white hover:border-[#3B82F6]/40 font-medium'
+                        ? 'bg-[#2563eb] border-[1.5px] border-[#60a5fa] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(37,99,235,0.45)]'
+                        : 'bg-[#090d14] border border-[#1f293d] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#3b82f6]/50 font-medium'
                     }`}
                   >
                     <span>{label}</span>
                     <span
                       className={`text-[10px] px-1 rounded font-mono ${
                         active
-                          ? 'bg-[#0B0F17] text-white border border-[#3B82F6]/40 font-bold'
-                          : 'bg-[#0B0F17]/60 text-[#94A3B8]'
+                          ? 'bg-[#090d14]/80 text-[#ffffff] border border-[#93c5fd]/50 font-bold'
+                          : 'bg-[#121824] text-[#cbd5e1]'
                       }`}
                     >
                       {count}
@@ -647,19 +647,19 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
         </div>
 
         {ramWarningMessage && (
-          <div className="px-3 py-2 rounded-lg bg-[#1E293B] border border-[#3B82F6]/50 text-white text-xs font-medium flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-[#3B82F6] shrink-0" />
+          <div className="px-3 py-2 rounded-lg bg-[#090d14] border border-[#3b82f6]/50 text-[#ffffff] text-xs font-medium flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-[#3b82f6] shrink-0" />
             <span>{ramWarningMessage}</span>
           </div>
         )}
 
         {/* Ligne 2.5 : [COUNTRY] (Menu déroulant compact sur Mobile / Puces sélectionnables au Pad/Télécommande sur Tablette & TV) */}
         {onSelectCountry && visibleCountryOptions.length > 1 && (
-          <div className="pt-1 border-t border-[#1E2638]">
+          <div className="pt-1 border-t border-[#1f293d]">
             {/* Mobile : Menu déroulant compact */}
             <div className="flex md:hidden items-center justify-between gap-2">
-              <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] shrink-0">
-                <Globe className="w-3.5 h-3.5 text-[#94A3B8]" />
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] shrink-0">
+                <Globe className="w-3.5 h-3.5 text-[#cbd5e1]" />
                 {tr.filterCountryLabel || tr.filterZoneLabel}
               </span>
               <div className="flex items-center gap-1.5 flex-1 max-w-[260px]">
@@ -669,7 +669,7 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
                     onSelectCountry(e.target.value as ChannelCountryFilter)
                   }
                   aria-label={tr.filterCountryLabel || tr.filterZoneLabel}
-                  className="w-full px-2.5 py-1.5 rounded-lg bg-[#0B0F17] border border-[#2A324B] text-xs font-medium text-white focus:outline-none focus:border-[#3B82F6] transition-colors cursor-pointer"
+                  className="w-full px-2.5 py-1.5 rounded-lg bg-[#090d14] border border-[#1f293d] text-xs font-medium text-[#ffffff] focus:outline-none focus:border-[#3b82f6] transition-colors cursor-pointer"
                 >
                   {visibleCountryOptions.map((cCode) => {
                     const count = countryCounts[cCode] ?? 0;
@@ -682,7 +682,7 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
                       <option
                         key={cCode}
                         value={cCode}
-                        className="bg-[#131927] text-white"
+                        className="bg-[#121824] text-[#ffffff]"
                       >
                         {flag} {label} ({count})
                       </option>
@@ -693,7 +693,7 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
                   <button
                     type="button"
                     onClick={() => onSelectCountry('Tous')}
-                    className="p-1.5 rounded-lg bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white shrink-0 cursor-pointer"
+                    className="p-1.5 rounded-lg bg-[#090d14] border border-[#1f293d] text-[#cbd5e1] hover:text-[#ffffff] shrink-0 cursor-pointer"
                     title={tr.resetFiltersBtn}
                   >
                     <X className="w-3.5 h-3.5" />
@@ -704,8 +704,8 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
 
             {/* Tablette & TV : Puces (chips) sélectionnables au pad/télécommande */}
             <div className="hidden md:flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
-              <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] me-1 shrink-0">
-                <Globe className="w-3.5 h-3.5 text-[#94A3B8]" />
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0">
+                <Globe className="w-3.5 h-3.5 text-[#cbd5e1]" />
                 {tr.filterCountryLabel || tr.filterZoneLabel}
               </span>
               {visibleCountryOptions.map((cCode) => {
@@ -718,10 +718,10 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
                     key={cCode}
                     type="button"
                     onClick={() => onSelectCountry(cCode)}
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] transition-all shrink-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#3B82F6] ${
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] transition-all shrink-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#3b82f6] ${
                       active
-                        ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold'
-                        : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white hover:border-[#3B82F6]/40 font-medium'
+                        ? 'bg-[#2563eb] border-[1.5px] border-[#60a5fa] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(37,99,235,0.45)]'
+                        : 'bg-[#090d14] border border-[#1f293d] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#3b82f6]/50 font-medium'
                     }`}
                   >
                     <span>{flag}</span>
@@ -729,8 +729,8 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
                     <span
                       className={`text-[10px] px-1 rounded font-mono ${
                         active
-                          ? 'bg-[#0B0F17] text-white border border-[#3B82F6]/40 font-bold'
-                          : 'bg-[#0B0F17]/60 text-[#94A3B8]'
+                          ? 'bg-[#090d14]/80 text-[#ffffff] border border-[#93c5fd]/50 font-bold'
+                          : 'bg-[#121824] text-[#cbd5e1]'
                       }`}
                     >
                       {count}
@@ -744,9 +744,9 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
 
         {/* Ligne 3 : [GENRE] */}
         {visibleGroupOptions.length > 1 && (
-          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pt-1 border-t border-[#1E2638] pb-0.5">
-            <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] me-1 shrink-0">
-              <Sparkles className="w-3 h-3 text-[#94A3B8]" />
+          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pt-1 border-t border-[#1f293d] pb-0.5">
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0">
+              <Sparkles className="w-3 h-3 text-[#cbd5e1]" />
               {tr.filterGenreLabel}
             </span>
             {visibleGroupOptions.map((grp) => {
@@ -764,16 +764,16 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
                   onClick={() => onSelectGroup(grp)}
                   className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] transition-all shrink-0 cursor-pointer ${
                     active
-                      ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold'
-                      : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white hover:border-[#3B82F6]/40 font-medium'
+                      ? 'bg-[#2563eb] border-[1.5px] border-[#60a5fa] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(37,99,235,0.45)]'
+                      : 'bg-[#090d14] border border-[#1f293d] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#3b82f6]/50 font-medium'
                   }`}
                 >
                   <span>{label}</span>
                   <span
                     className={`text-[10px] px-1 rounded font-mono ${
                       active
-                        ? 'bg-[#0B0F17] text-white border border-[#3B82F6]/40 font-bold'
-                        : 'bg-[#0B0F17]/60 text-[#94A3B8]'
+                        ? 'bg-[#090d14]/80 text-[#ffffff] border border-[#93c5fd]/50 font-bold'
+                        : 'bg-[#121824] text-[#cbd5e1]'
                     }`}
                   >
                     {count}
@@ -786,22 +786,22 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
       </div>
 
       {/* Contrôles Temporels de la Grille */}
-      <div className="p-3 sm:p-4 bg-[#131927] border-b border-[#1E2638] flex flex-wrap items-center justify-between gap-3">
+      <div className="p-3 sm:p-4 bg-[#121824] border-b border-[#1f293d] flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-xs font-semibold text-white">
-            <Clock className="w-3.5 h-3.5 text-[#94A3B8]" />
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#090d14] border border-[#1f293d] text-xs font-semibold text-[#ffffff]">
+            <Clock className="w-3.5 h-3.5 text-[#cbd5e1]" />
             <span>{formatDayLabel(windowStartMs, activeLang)}</span>
-            <span className="text-[#94A3B8]">·</span>
-            <span className="font-mono text-[#94A3B8]">
+            <span className="text-[#cbd5e1]">·</span>
+            <span className="font-mono text-[#cbd5e1]">
               {formatTimeShort(windowStartMs)} – {formatTimeShort(windowEndMs)}
             </span>
-            <span className="hidden md:inline-block ms-1 px-1.5 py-0.2 rounded bg-[#0B0F17] text-[#94A3B8] border border-[#1E2638] text-[10px] font-mono">
+            <span className="hidden md:inline-block ms-1 px-1.5 py-0.2 rounded bg-[#121824] text-[#cbd5e1] border border-[#1f293d] text-[10px] font-mono">
               {APP_TIMEZONE_LABEL}
             </span>
           </div>
 
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[11px] font-medium text-[#94A3B8]">
-            <Volume2 className="w-3 h-3 text-[#94A3B8]" />
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#090d14] border border-[#1f293d] text-[11px] font-medium text-[#cbd5e1]">
+            <Volume2 className="w-3 h-3 text-[#cbd5e1]" />
             {gridVisibleChannels.length} {tr.activeChannelsOnGrid}
           </span>
         </div>
@@ -814,7 +814,7 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
             aria-label={
               activeLang === 'fr' ? 'Sélecteur de date' : 'Date selector'
             }
-            className="px-2.5 py-1.5 rounded-lg bg-[#0B0F17] border border-[#2A324B] text-xs font-mono text-white focus:outline-none focus:border-[#3B82F6] transition-colors cursor-pointer shrink-0"
+            className="px-2.5 py-1.5 rounded-lg bg-[#090d14] border border-[#1f293d] text-xs font-mono text-[#ffffff] focus:outline-none focus:border-[#3b82f6] transition-colors cursor-pointer shrink-0"
           />
 
           <input
@@ -824,7 +824,7 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
             aria-label={
               activeLang === 'fr' ? "Sélecteur d'heure" : 'Time selector'
             }
-            className="px-2.5 py-1.5 rounded-lg bg-[#0B0F17] border border-[#2A324B] text-xs font-mono text-white focus:outline-none focus:border-[#3B82F6] transition-colors cursor-pointer shrink-0"
+            className="px-2.5 py-1.5 rounded-lg bg-[#090d14] border border-[#1f293d] text-xs font-mono text-[#ffffff] focus:outline-none focus:border-[#3b82f6] transition-colors cursor-pointer shrink-0"
           />
 
           <button
@@ -832,8 +832,8 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
             onClick={() => shiftWindow(-2)}
             className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer ${
               activeTimeBtn === 'minus'
-                ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold'
-                : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white font-medium'
+                ? 'bg-[#2563eb] border-[1.5px] border-[#60a5fa] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(37,99,235,0.45)]'
+                : 'bg-[#090d14] border border-[#1f293d] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#3b82f6]/50 font-medium'
             }`}
           >
             <ChevronLeft className="w-3.5 h-3.5 rtl:rotate-180" />
@@ -845,11 +845,17 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
             onClick={resetToNow}
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer ${
               activeTimeBtn === 'now'
-                ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold'
-                : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white font-medium'
+                ? 'bg-[#2563eb] border-[1.5px] border-[#60a5fa] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(37,99,235,0.45)]'
+                : 'bg-[#090d14] border border-[#1f293d] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#3b82f6]/50 font-medium'
             }`}
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] shadow-[0_0_6px_#10B981] shrink-0" />
+            <span
+              className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                activeTimeBtn === 'now'
+                  ? 'bg-[#ffffff] animate-pulse shadow-[0_0_6px_#ffffff]'
+                  : 'bg-[#3b82f6] shadow-[0_0_6px_#3b82f6]'
+              }`}
+            />
             {tr.presetNow}
           </button>
 
@@ -858,8 +864,8 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
             onClick={jumpToPrimeTime}
             className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer ${
               activeTimeBtn === 'prime'
-                ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold'
-                : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white font-medium'
+                ? 'bg-[#2563eb] border-[1.5px] border-[#60a5fa] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(37,99,235,0.45)]'
+                : 'bg-[#090d14] border border-[#1f293d] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#3b82f6]/50 font-medium'
             }`}
           >
             <Radio className="w-3.5 h-3.5" />
@@ -871,8 +877,8 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
             onClick={() => shiftWindow(2)}
             className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer ${
               activeTimeBtn === 'plus'
-                ? 'bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold'
-                : 'bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white font-medium'
+                ? 'bg-[#2563eb] border-[1.5px] border-[#60a5fa] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(37,99,235,0.45)]'
+                : 'bg-[#090d14] border border-[#1f293d] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#3b82f6]/50 font-medium'
             }`}
           >
             +2h
@@ -895,23 +901,23 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
           className="relative"
         >
           {/* En-tête collant : Colonne Chaînes + Axe temporel gradué toutes les 30 minutes */}
-          <div className="sticky top-0 z-30 flex h-10 border-b border-[#1E2638] bg-[#0B0F17]">
-            <div className="sticky left-0 z-40 w-52 sm:w-64 shrink-0 border-r border-[#1E2638] px-3 flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] bg-[#0B0F17] select-none">
+          <div className="sticky top-0 z-30 flex h-10 border-b border-[#1f293d] bg-[#090d14]">
+            <div className="sticky left-0 z-40 w-52 sm:w-64 shrink-0 border-r border-[#1f293d] px-3 flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] bg-[#090d14] select-none">
               <span>{tr.gridChannelHeader}</span>
-              <span className="text-[#94A3B8] text-[10px]">
+              <span className="text-[#cbd5e1] text-[10px]">
                 {tr.gridVoSubHeader}
               </span>
             </div>
 
             <div
               style={{ width: `${TOTAL_TIMELINE_WIDTH}px` }}
-              className="relative flex shrink-0 bg-[#0B0F17]/95"
+              className="relative flex shrink-0 bg-[#090d14]/95"
             >
               {timeSlots.map((slotMs) => (
                 <div
                   key={slotMs}
                   style={{ width: `${30 * PIXELS_PER_MINUTE}px` }}
-                  className="border-r border-[#1E2638] px-2.5 flex items-center text-xs font-mono font-semibold text-[#94A3B8] shrink-0"
+                  className="border-r border-[#1f293d] px-2.5 flex items-center text-xs font-mono font-semibold text-[#cbd5e1] shrink-0"
                 >
                   {formatTimeShort(slotMs)}
                 </div>
@@ -920,7 +926,7 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
           </div>
 
           {/* Lignes dynamiques des chaînes filtrées et de leurs programmes */}
-          <div className="divide-y divide-[#1E2638]">
+          <div className="divide-y divide-[#1f293d]">
             {gridVisibleChannels.map((ch) => {
               const isFav = favoriteSet.has(ch.id);
               const flag = COUNTRY_FLAGS[ch.country] || '🛰️';
@@ -951,10 +957,10 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
                         onSelectChannel(ch);
                       }
                     }}
-                    className="tv-focusable sticky left-0 z-20 w-52 sm:w-64 shrink-0 border-r border-[#1E2638] bg-[#0B0F17] px-2.5 flex items-center justify-between gap-2 hover:bg-[#131927] transition-colors cursor-pointer group select-none"
+                    className="tv-focusable sticky left-0 z-20 w-52 sm:w-64 shrink-0 border-r border-[#1f293d] bg-[#090d14] px-2.5 flex items-center justify-between gap-2 hover:bg-[#121824] transition-colors cursor-pointer group select-none"
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-9 h-9 rounded-lg bg-[#131927] border border-[#1E2638] flex items-center justify-center p-1 shrink-0">
+                      <div className="w-9 h-9 rounded-lg bg-[#121824] border border-[#1f293d] flex items-center justify-center p-1 shrink-0">
                         <img
                           src={
                             ensureHttpsUrl(
@@ -995,18 +1001,18 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
                       <div className="min-w-0">
                         <div className="flex items-center gap-1">
                           <span className="text-[10px]">{flag}</span>
-                          <p className="text-xs font-bold text-white truncate">
+                          <p className="text-xs font-bold text-[#ffffff] truncate">
                             {cleanOfficialChannelName(ch.displayName)}
                           </p>
                         </div>
                         <div className="flex items-center gap-1 mt-0.5">
-                          <span className="text-[9px] font-medium px-1 py-0.2 rounded bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border border-[#1E2638] truncate">
+                          <span className="text-[9px] font-medium px-1 py-0.2 rounded bg-[#121824] text-[#cbd5e1] border border-[#1f293d] truncate">
                             {getSingleSatelliteBadgeForChannel(
                               ch,
                               selectedSatellite
                             )}
                           </span>
-                          <span className="inline-flex items-center gap-0.5 text-[9px] text-[#94A3B8] font-medium">
+                          <span className="inline-flex items-center gap-0.5 text-[9px] text-[#cbd5e1] font-medium">
                             <Subtitles className="w-2.5 h-2.5" />
                             SUB
                           </span>
@@ -1022,12 +1028,12 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
                       }}
                       className={`p-1.5 rounded-lg transition-colors cursor-pointer shrink-0 ${
                         isFav
-                          ? 'text-[#3B82F6]'
-                          : 'text-[#94A3B8] hover:text-white'
+                          ? 'text-[#3b82f6]'
+                          : 'text-[#cbd5e1] hover:text-[#ffffff]'
                       }`}
                     >
                       <Heart
-                        className={`w-3.5 h-3.5 ${isFav ? 'fill-[#3B82F6]' : ''}`}
+                        className={`w-3.5 h-3.5 ${isFav ? 'fill-[#3b82f6]' : ''}`}
                       />
                     </button>
                   </div>
@@ -1035,13 +1041,13 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
                   {/* Cellule Timeline Programmes */}
                   <div
                     style={{ width: `${TOTAL_TIMELINE_WIDTH}px` }}
-                    className="h-20 2xl:h-24 relative shrink-0 bg-[#0B0F17]"
+                    className="h-20 2xl:h-24 relative shrink-0 bg-[#090d14]"
                   >
                     {/* Marqueur vertical Temps Réel */}
                     {nowOffsetPx !== null && (
                       <div
                         style={{ left: `${nowOffsetPx}px` }}
-                        className="absolute top-0 bottom-0 w-px bg-[#3B82F6]/70 z-15 pointer-events-none"
+                        className="absolute top-0 bottom-0 w-px bg-[#3b82f6] shadow-[0_0_8px_#3b82f6] z-15 pointer-events-none"
                       />
                     )}
 
@@ -1103,8 +1109,8 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
                           }}
                           className={`tv-focusable absolute top-1 bottom-1 rounded-lg px-2.5 py-1.5 border overflow-hidden cursor-pointer flex flex-col justify-between transition-all ${
                             isLive
-                              ? 'bg-[#161E31] border-[#2A324B] z-10'
-                              : 'bg-[#131927] hover:bg-[#171F30] border-[#1E2638] hover:border-[#3B82F6]/50'
+                              ? 'bg-[#121824] border-[#3b82f6] shadow-[0_0_10px_rgba(59,130,246,0.25)] z-10'
+                              : 'bg-[#121824] hover:bg-[#192234] border-[#1f293d] hover:border-[#3b82f6]/60'
                           }`}
                           title={`${
                             activeLang === 'fr'
@@ -1117,16 +1123,16 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
                           <div className="min-w-0">
                             <div className="flex items-center gap-1.5">
                               {isLive && (
-                                <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] shadow-[0_0_6px_#10B981] shrink-0" />
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#3b82f6] animate-pulse shadow-[0_0_6px_#3b82f6] shrink-0" />
                               )}
-                              <p className="text-xs font-bold text-white truncate">
+                              <p className="text-xs font-bold text-[#ffffff] truncate">
                                 {activeLang === 'fr'
                                   ? translateEpgTextToFrenchSync(prog.title)
                                   : prog.title}
                               </p>
                             </div>
                             {prog.subTitle && allowGridSE && widthPx > 130 && (
-                              <p className="text-[10px] text-[#94A3B8] truncate">
+                              <p className="text-[10px] text-[#cbd5e1] truncate">
                                 {activeLang === 'fr'
                                   ? translateEpgTextToFrenchSync(prog.subTitle)
                                   : prog.subTitle}
@@ -1134,19 +1140,19 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
                             )}
                           </div>
 
-                          <div className="flex items-center justify-between gap-1 text-[10px] text-[#94A3B8] font-mono">
+                          <div className="flex items-center justify-between gap-1 text-[10px] text-[#cbd5e1] font-mono">
                             <span className="truncate">
                               {formatTimeShort(prog.startMs)} -{' '}
                               {formatTimeShort(prog.stopMs)}
                             </span>
                             {formattedGridSE && widthPx > 140 ? (
-                              <span className="px-1 py-0.2 rounded bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border border-[#1E2638] text-[9px] font-sans font-medium truncate max-w-[65px]">
+                              <span className="px-1 py-0.2 rounded bg-[#090d14] text-[#cbd5e1] border border-[#1f293d] text-[9px] font-sans font-medium truncate max-w-[65px]">
                                 {formattedGridSE}
                               </span>
                             ) : (
                               prog.category &&
                               widthPx > 140 && (
-                                <span className="px-1.5 py-0.2 rounded bg-[rgba(255,255,255,0.03)] text-[#94A3B8] border border-[#1E2638] text-[9px] font-sans truncate max-w-[90px]">
+                                <span className="px-1.5 py-0.2 rounded bg-[#090d14] text-[#cbd5e1] border border-[#1f293d] text-[9px] font-sans truncate max-w-[90px]">
                                   {translateDynamicGenre(
                                     prog.category,
                                     activeLang

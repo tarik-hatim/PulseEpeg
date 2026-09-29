@@ -61,7 +61,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
 
   if (isInstalled) {
     return (
-      <div className="hidden xl:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] text-xs font-medium">
+      <div className="hidden xl:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#121824] border border-[#1f293d] text-[#cbd5e1] text-xs font-medium">
         <Check className="w-3.5 h-3.5 text-emerald-400" />
         <span>{tr.pwaActive}</span>
       </div>
@@ -85,58 +85,58 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
       <button
         onClick={handleInstallClick}
         data-tv-focusable="true"
-        className="tv-focusable inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[rgba(255,255,255,0.03)] hover:bg-[#1E293B]/60 text-[#94A3B8] hover:text-white border border-[#2A324B] text-xs font-semibold transition-all cursor-pointer shrink-0"
+        className="tv-focusable inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#121824] hover:bg-[#172033] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1f293d] text-xs font-semibold transition-all cursor-pointer shrink-0"
         title={tr.installApp}
       >
-        <Download className="w-3.5 h-3.5 text-[#94A3B8]" />
+        <Download className="w-3.5 h-3.5 text-[#cbd5e1]" />
         <span className="hidden sm:inline">{tr.installApp}</span>
       </button>
 
       {showHelperModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0B0F17]/85 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#090d14]/85 backdrop-blur-sm"
           onClick={() => setShowHelperModal(false)}
         >
           <div
-            className="w-full max-w-md rounded-lg bg-[#131927] border border-[#1E2638] p-5 shadow-2xl"
+            className="w-full max-w-md rounded-lg bg-[#121824] border border-[#1f293d] p-5 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-lg bg-[#0B0F17] border border-[#2A324B] text-white">
+                <div className="p-2 rounded-lg bg-[#090d14] border border-[#1f293d] text-[#ffffff]">
                   <Smartphone className="w-5 h-5" />
                 </div>
-                <h3 className="font-bold text-white text-base">
+                <h3 className="font-bold text-[#ffffff] text-base">
                   {tr.pwaModalTitle}
                 </h3>
               </div>
               <button
                 onClick={() => setShowHelperModal(false)}
                 data-tv-focusable="true"
-                className="tv-focusable p-1.5 rounded-lg text-[#94A3B8] hover:text-white hover:bg-[#1E293B] cursor-pointer"
+                className="tv-focusable p-1.5 rounded-lg text-[#cbd5e1] hover:text-[#ffffff] hover:bg-[#172033] cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <p className="text-xs text-[#94A3B8] leading-relaxed mb-4">
+            <p className="text-xs text-[#cbd5e1] leading-relaxed mb-4">
               {tr.pwaModalDesc}
             </p>
 
-            <div className="space-y-2.5 text-xs text-[#94A3B8] bg-[#0B0F17] p-3.5 rounded-lg border border-[#1E2638]">
+            <div className="space-y-2.5 text-xs text-[#cbd5e1] bg-[#090d14] p-3.5 rounded-lg border border-[#1f293d]">
               <div className="flex items-start gap-2">
-                <span className="font-bold text-white">• Android / Chrome :</span>
+                <span className="font-bold text-[#ffffff]">• Android / Chrome :</span>
                 <span>{tr.pwaAndroidStep}</span>
               </div>
               <div className="flex items-start gap-2">
-                <span className="font-bold text-white">• iOS / Safari :</span>
+                <span className="font-bold text-[#ffffff]">• iOS / Safari :</span>
                 <span className="inline-flex items-center gap-1 flex-wrap">
-                  <Share className="w-3.5 h-3.5 text-[#3B82F6] inline" />{' '}
+                  <Share className="w-3.5 h-3.5 text-[#3b82f6] inline" />{' '}
                   {tr.pwaIosStep}
                 </span>
               </div>
               <div className="flex items-start gap-2">
-                <span className="font-bold text-white">• PC / Mac / TV :</span>
+                <span className="font-bold text-[#ffffff]">• PC / Mac / TV :</span>
                 <span>{tr.pwaPcStep}</span>
               </div>
             </div>
@@ -144,7 +144,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
             <button
               onClick={() => setShowHelperModal(false)}
               data-tv-focusable="true"
-              className="tv-focusable mt-4 w-full py-2 rounded-lg bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold text-xs transition-colors cursor-pointer"
+              className="tv-focusable mt-4 w-full py-2 rounded-lg bg-[#2563eb] hover:bg-[#1d4ed8] border border-[#60a5fa] text-[#ffffff] font-bold text-xs shadow-[0_0_12px_rgba(37,99,235,0.45)] transition-colors cursor-pointer"
             >
               {tr.understood}
             </button>
