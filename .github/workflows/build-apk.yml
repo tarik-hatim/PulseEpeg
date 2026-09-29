@@ -26,21 +26,23 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    # 1. Installation des dépendances JavaScript
+    # 1. Installation des dépendances JavaScript & outils Capacitor
     - name: Install Dependencies
-      run: bun install
+      run: |
+        bun install
+        bun add @capacitor/core @capacitor/cli @capacitor/android
 
     # 2. Build de l'application Web (Vite)
     - name: Build Web App
       run: bun run build
 
-    # 3. Synchronisation/Génération du projet Android via Capacitor
+    # 3. Génération et synchronisation du projet Android via Bun
     - name: Add and Sync Android Platform
       run: |
-        npx cap add android || true
-        npx cap sync android
+        bunx cap add android || true
+        bunx cap sync android
 
-    # 4. Octroi des permissions pour Gradle
+    # 4. Octroi des permissions d'exécution à Gradle
     - name: Grant execute permission for gradlew
       run: chmod +x android/gradlew
 
@@ -52,7 +54,7 @@ jobs:
         cd android
         ./gradlew assembleDebug --stacktrace
 
-    # 6. Upload de l'APK généré dans les Artifacts GitHub
+    # 6. Génération de l'Artifact (Téléchargement de l'APK)
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
