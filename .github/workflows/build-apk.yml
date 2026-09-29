@@ -1,1 +1,63 @@
+name: Build Android APK (Capacitor)
 
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v1
+      with:
+        bun-version: latest
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+
+    # 1. Installation des dépendances JavaScript
+    - name: Install Dependencies
+      run: bun install
+
+    # 2. Build de l'application Web (Vite)
+    - name: Build Web App
+      run: bun run build
+
+    # 3. Synchronisation/Génération du projet Android via Capacitor
+    - name: Add and Sync Android Platform
+      run: |
+        npx cap add android || true
+        npx cap sync android
+
+    # 4. Octroi des permissions pour Gradle
+    - name: Grant execute permission for gradlew
+      run: chmod +x android/gradlew
+
+    # 5. Compilation de l'APK Debug
+    - name: Build Debug APK
+      run: |
+        cd android
+        ./gradlew assembleDebug --stacktrace
+
+    # 6. Upload de l'APK généré dans les Artifacts GitHub
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: PulseEPG-Debug-APK
+        path: android/app/build/outputs/apk/debug/app-debug.apk
+        retention-days: 7
+        
