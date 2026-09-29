@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AlertTriangle,
   Baby,
   Bell,
   Clock,
@@ -44,6 +45,7 @@ import {
 } from './types/epg';
 import {
   addRecentSearch,
+  buildOfflineFallbackEpgSnapshot,
   buildSourcesSignature,
   CHANNEL_COUNTRY_FILTER_OPTIONS,
   channelMatchesCountryFilter,
@@ -165,6 +167,7 @@ export function App() {
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [workerProgress, setWorkerProgress] =
     useState<WorkerProgressMessage | null>(null);
+  const [epgError, setEpgError] = useState<string | null>(null);
 
   const [viewMode, setViewMode] = useState<ViewMode>('live');
   const [selectedCategory, setSelectedCategory] =
@@ -305,6 +308,18 @@ export function App() {
     [viewMode, nowMs, timeOffsetMinutes]
   );
 
+  const handleLoadOfflineFallback = useCallback(
+    (targetSettings: AppSettings = settings) => {
+      const fallback = buildOfflineFallbackEpgSnapshot(targetSettings);
+      if (fallback.channels.length > 0) {
+        setChannels(fallback.channels);
+        setSchedulesByChannel(fallback.schedulesByChannel);
+        setCacheMeta(fallback.metadata);
+      }
+    },
+    [settings]
+  );
+
   const triggerEpgSync = useCallback((currentSettings: AppSettings) => {
     if (workerRef.current) {
       workerRef.current.terminate();
@@ -317,6 +332,7 @@ export function App() {
     workerRef.current = worker;
 
     setIsSyncing(true);
+    setEpgError(null);
 
     worker.onmessage = async (event: MessageEvent<WorkerResponseMessage>) => {
       const msg = event.data;
@@ -333,6 +349,7 @@ export function App() {
         setCacheMeta(metadata);
         setIsSyncing(false);
         setWorkerProgress(null);
+        setEpgError(null);
 
         try {
           await saveEpgToCache(metadata, parsedChannels, parsedSchedules);
@@ -342,11 +359,44 @@ export function App() {
         worker.terminate();
         workerRef.current = null;
       } else if (msg.type === 'EPG_ERROR') {
+        const errText =
+          msg.payload?.error ||
+          'Échec du chargement ou du parsing XMLTV HTTPS. Vérifiez votre connexion réseau ou réessayez.';
+        setEpgError(errText);
         setIsSyncing(false);
         setWorkerProgress(null);
+        setChannels((prev) => {
+          if (prev.length === 0) {
+            const fallback = buildOfflineFallbackEpgSnapshot(currentSettings);
+            setSchedulesByChannel(fallback.schedulesByChannel);
+            setCacheMeta(fallback.metadata);
+            return fallback.channels;
+          }
+          return prev;
+        });
         worker.terminate();
         workerRef.current = null;
       }
+    };
+
+    worker.onerror = (errEvent) => {
+      setEpgError(
+        errEvent.message ||
+          'Erreur inattendue lors du traitement du flux XMLTV HTTPS.'
+      );
+      setIsSyncing(false);
+      setWorkerProgress(null);
+      setChannels((prev) => {
+        if (prev.length === 0) {
+          const fallback = buildOfflineFallbackEpgSnapshot(currentSettings);
+          setSchedulesByChannel(fallback.schedulesByChannel);
+          setCacheMeta(fallback.metadata);
+          return fallback.channels;
+        }
+        return prev;
+      });
+      worker.terminate();
+      workerRef.current = null;
     };
 
     const req: WorkerRequestMessage = {
@@ -1848,7 +1898,6 @@ export function App() {
             <svg
               viewBox="0 0 28 28"
               fill="none"
-              xmlns="http://www.w3.org/2000/svg"
               className="w-7 h-7 shrink-0 text-white"
               aria-hidden="true"
             >
@@ -2030,10 +2079,13 @@ export function App() {
 
       {/* Main Content (10-Foot UI compatible) */}
       <main className="flex-1 max-w-[1600px] w-full mx-auto px-3 sm:px-6 2xl:px-10 py-4 sm:py-5">
-        {/* Bannière de progression Web Worker */}
+        {/* Bannière de progression Web Worker & État d'erreur visuel */}
         <LoadingStatusBanner
           progress={workerProgress}
           isSyncing={isSyncing}
+          errorMessage={epgError}
+          onRetry={() => triggerEpgSync(settings)}
+          onLoadOfflineFallback={() => handleLoadOfflineFallback(settings)}
           language={activeLang}
         />
 
@@ -2734,21 +2786,60 @@ export function App() {
           />
         ) : filteredChannels.length === 0 ? (
           <div className="rounded-lg border border-dashed border-[#2A324B] bg-[#131927] p-10 text-center max-w-lg mx-auto my-8">
-            <Satellite className="w-10 h-10 text-[#94A3B8] mx-auto mb-3" />
-            <h3 className="text-base font-bold text-white">
-              {tr.noChannelsFoundTitle}
-            </h3>
-            <p className="text-xs text-[#94A3B8] mt-1 leading-relaxed">
-              {tr.noChannelsFoundDesc}
-            </p>
-            <button
-              type="button"
-              onClick={resetAllFilters}
-              className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold text-xs cursor-pointer"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              {tr.showAllSatellitesBtn}
-            </button>
+            {epgError ? (
+              <>
+                <AlertTriangle className="w-10 h-10 text-red-400 mx-auto mb-3" />
+                <h3 className="text-base font-bold text-white">
+                  {activeLang === 'fr'
+                    ? 'Échec du chargement du flux EPG HTTPS'
+                    : 'Failed to load HTTPS EPG feed'}
+                </h3>
+                <p className="text-xs text-[#94A3B8] mt-1 leading-relaxed">
+                  {epgError}
+                </p>
+                <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => triggerEpgSync(settings)}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold text-xs cursor-pointer"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    {tr.refreshBtn}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleLoadOfflineFallback(settings);
+                      resetAllFilters();
+                    }}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[rgba(255,255,255,0.03)] border border-[#2A324B] text-[#94A3B8] hover:text-white font-semibold text-xs cursor-pointer"
+                  >
+                    <Satellite className="w-3.5 h-3.5" />
+                    {activeLang === 'fr'
+                      ? 'Grille locale de secours'
+                      : 'Local fallback schedule'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <Satellite className="w-10 h-10 text-[#94A3B8] mx-auto mb-3" />
+                <h3 className="text-base font-bold text-white">
+                  {tr.noChannelsFoundTitle}
+                </h3>
+                <p className="text-xs text-[#94A3B8] mt-1 leading-relaxed">
+                  {tr.noChannelsFoundDesc}
+                </p>
+                <button
+                  type="button"
+                  onClick={resetAllFilters}
+                  className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#1E293B] border-[1.5px] border-[#3B82F6] text-white font-bold text-xs cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  {tr.showAllSatellitesBtn}
+                </button>
+              </>
+            )}
           </div>
         ) : (
           <div className="space-y-2">

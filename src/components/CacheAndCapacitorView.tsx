@@ -32,6 +32,7 @@ import {
   formatFullDateTime,
   getLocalTimezoneLabel,
 } from '../utils/timeFormat';
+import { ensureHttpsUrl } from '../utils/xmltvParser';
 
 interface CacheAndCapacitorViewProps {
   metadata: EpgCacheMetadata | null;
@@ -82,7 +83,7 @@ export const CacheAndCapacitorView: React.FC<CacheAndCapacitorViewProps> = ({
 
   const handleAddSource = (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmedUrl = newUrl.trim();
+    const trimmedUrl = ensureHttpsUrl(newUrl) || newUrl.trim();
     if (!trimmedUrl) return;
 
     const label =
@@ -162,10 +163,11 @@ export const CacheAndCapacitorView: React.FC<CacheAndCapacitorViewProps> = ({
       return;
     }
 
+    const securePresetUrl = ensureHttpsUrl(preset.url) || preset.url;
     const newItem: EpgSourceItem = {
       id: `src_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       name: preset.name,
-      url: preset.url,
+      url: securePresetUrl,
       country: preset.country,
       enabled: true,
     };

@@ -28,24 +28,20 @@ export interface CapacitorConfig {
 }
 
 const config: CapacitorConfig = {
-  appId: "com.pulseepg.tvguide",
-  appName: "PulseEPG",
-  webDir: "dist",
+  appId: 'com.pulseepg.tvguide',
+  appName: 'PulseEPG',
+  webDir: 'dist',
   server: {
-    cleartext: true,          // Autorise les requêtes HTTP (non-HTTPS) pour le XMLTV/EPG
-    allowNavigation: ['*']    // Autorise le chargement des ressources distantes
-  },
-  server: {
-    androidScheme: "https",
-    cleartext: true,
+    androidScheme: 'https',
+    cleartext: false,
   },
   android: {
     buildOptions: {
-      releaseType: "AAB",
+      releaseType: 'AAB',
     },
   },
   plugins: {
-    // Active les requêtes HTTP natives sur Android pour contourner le CORS sur les fichiers .xml.gz distants
+    // Active les requêtes HTTPS natives sur Android pour contourner le CORS sur les fichiers .xml.gz distants
     CapacitorHttp: {
       enabled: true,
     },

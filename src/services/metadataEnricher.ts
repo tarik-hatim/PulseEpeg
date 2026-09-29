@@ -7,6 +7,7 @@ import {
   parseSeasonAndEpisode,
   resolveOfficialFrenchMetadata,
 } from '../utils/metadataResolverCore';
+import { ensureHttpsUrl } from '../utils/xmltvParser';
 
 const memoryCache = new Map<string, EpgProgramme>();
 const rawResultCache = new Map<string, EnrichedProgrammeResult>();
@@ -143,8 +144,8 @@ export async function enrichProgrammeMetadata(
           result.genres && result.genres.length > 0
             ? result.genres.join(', ')
             : programme.category,
-        icon: result.posterUrl || programme.icon,
-        backdrop: result.backdropUrl || programme.backdrop,
+        icon: ensureHttpsUrl(result.posterUrl || programme.icon),
+        backdrop: ensureHttpsUrl(result.backdropUrl || programme.backdrop),
         rating:
           typeof result.rating === 'number' && result.rating > 0
             ? `${result.rating.toFixed(1)}/10`

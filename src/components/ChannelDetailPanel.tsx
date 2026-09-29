@@ -44,6 +44,7 @@ import {
   parseSeasonAndEpisode,
   translateEpgTextToFrenchSync,
 } from '../utils/metadataResolverCore';
+import { ensureHttpsUrl } from '../utils/xmltvParser';
 import {
   getActiveLanguage,
   getLanguageOption,
@@ -327,9 +328,9 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
         <div className="sticky top-0 z-20 px-4 py-3 bg-[#0B0F17]/95 backdrop-blur-md border-b border-[#1E2638] flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 rounded-lg bg-[#131927] border border-[#1E2638] flex items-center justify-center p-1.5 shrink-0">
-              {channel.icon ? (
+              {ensureHttpsUrl(channel.icon) ? (
                 <img
-                  src={channel.icon}
+                  src={ensureHttpsUrl(channel.icon)}
                   alt={channel.displayName}
                   className="max-w-full max-h-full object-contain"
                 />
@@ -465,10 +466,10 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
 
               {/* Disposition compacte Side-by-Side (Gauche : Affiche 115px | Droite : Métadonnées) */}
               <div className="flex flex-row gap-3.5 sm:gap-4 items-start">
-                {displayProg.icon ? (
+                {ensureHttpsUrl(displayProg.icon) ? (
                   <div className="w-[112px] sm:w-[120px] shrink-0">
                     <img
-                      src={displayProg.icon}
+                      src={ensureHttpsUrl(displayProg.icon)}
                       alt={displayMetadata.mainTitle}
                       className="w-[112px] sm:w-[120px] h-[164px] sm:h-[176px] rounded-lg object-cover bg-[#131927] border border-[#1E2638]"
                       loading="lazy"

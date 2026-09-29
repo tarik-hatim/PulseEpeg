@@ -53,6 +53,7 @@ import {
   getTranslations,
   LANGUAGE_OPTIONS,
 } from '../utils/i18n';
+import { ensureHttpsUrl } from '../utils/xmltvParser';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -251,10 +252,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const handleAddSource = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName.trim() || !newUrl.trim()) return;
+    const secureUrl = ensureHttpsUrl(newUrl) || newUrl.trim();
     const item: EpgSourceItem = {
       id: `custom-${Date.now()}`,
       name: newName.trim(),
-      url: newUrl.trim(),
+      url: secureUrl,
       country: newCountry,
       enabled: true,
     };

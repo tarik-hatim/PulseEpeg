@@ -19,6 +19,7 @@ import { configureActiveTimezone } from '../utils/timeFormat';
 import {
   cleanOfficialChannelName,
   cleanXmltvChannelId,
+  ensureHttpsUrl,
   isAdultChannel,
   isPlaceholderProgrammeTitle,
   normalizeSingleOrbitalPosition,
@@ -1934,16 +1935,21 @@ export function syncSourcesWithSelectedBouquets(
     : (firstArg as EpgSourceItem[]);
 
   const normalizedSources: EpgSourceItem[] = sources.map((s) => {
+    const httpsUrl = ensureHttpsUrl(s.url) || s.url.trim();
     const matchedDefault = DEFAULT_EPG_SOURCES.find(
-      (def) => def.url.toLowerCase() === s.url.toLowerCase()
+      (def) => def.url.toLowerCase() === httpsUrl.toLowerCase()
     );
     if (matchedDefault && !s.id.startsWith('custom-')) {
       return {
         ...matchedDefault,
+        url: ensureHttpsUrl(matchedDefault.url) || matchedDefault.url,
         enabled: s.enabled,
       };
     }
-    return { ...s };
+    return {
+      ...s,
+      url: httpsUrl,
+    };
   });
 
   const baseList: EpgSourceItem[] = [];
@@ -2327,13 +2333,21 @@ export async function saveEpgToCache(
   schedulesByChannel: Record<string, EpgProgramme[]>
 ): Promise<void> {
   const prunedSchedules = pruneSchedulesToActiveWindow(schedulesByChannel);
-  const filteredChannels = channels.filter(
-    (ch) => !isAdultChannel(ch.id, ch.displayName)
-  );
+  const filteredChannels = channels
+    .filter((ch) => !isAdultChannel(ch.id, ch.displayName))
+    .map((ch) => ({
+      ...ch,
+      icon: ensureHttpsUrl(ch.icon),
+      url: ensureHttpsUrl(ch.url),
+    }));
+  const sanitizedMetadata: EpgCacheMetadata = {
+    ...metadata,
+    sourceUrl: ensureHttpsUrl(metadata.sourceUrl) || metadata.sourceUrl,
+  };
 
   try {
     if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(LS_META_KEY, JSON.stringify(metadata));
+      localStorage.setItem(LS_META_KEY, JSON.stringify(sanitizedMetadata));
     }
   } catch {
     // Ignore quota errors on localStorage
@@ -2346,7 +2360,7 @@ export async function saveEpgToCache(
 
     const payload: StoredEpgSnapshot = {
       id: SNAPSHOT_KEY,
-      metadata,
+      metadata: sanitizedMetadata,
       channels: filteredChannels,
       schedulesByChannel: prunedSchedules,
     };
@@ -2388,6 +2402,8 @@ export async function loadEpgFromCache(): Promise<StoredEpgSnapshot | null> {
                 /\.tr$/i.test(ch.id || '');
               return {
                 ...ch,
+                icon: ensureHttpsUrl(ch.icon),
+                url: ensureHttpsUrl(ch.url),
                 displayName: cleanOfficialChannelName(ch.displayName),
                 satellites: isTrtChannel
                   ? ['Türksat 42°E', 'Türksat 42°E / Eutelsat 7°E']
@@ -2411,6 +2427,12 @@ export async function loadEpgFromCache(): Promise<StoredEpgSnapshot | null> {
           supplementSatelliteBouquetsCoverage(chMap, prunedSchedules);
           resolve({
             ...result,
+            metadata: {
+              ...result.metadata,
+              sourceUrl:
+                ensureHttpsUrl(result.metadata.sourceUrl) ||
+                result.metadata.sourceUrl,
+            },
             channels: Array.from(chMap.values()),
             schedulesByChannel: prunedSchedules,
           });
@@ -2427,6 +2449,55 @@ export async function loadEpgFromCache(): Promise<StoredEpgSnapshot | null> {
   } catch {
     return null;
   }
+}
+
+export function buildOfflineFallbackEpgSnapshot(
+  settings: AppSettings
+): StoredEpgSnapshot {
+  const chMap = new Map<string, EpgChannel>();
+  const schedulesByChannel: Record<string, EpgProgramme[]> = {};
+  supplementSatelliteBouquetsCoverage(
+    chMap,
+    schedulesByChannel,
+    {
+      selectedBouquets: settings.selectedBouquets,
+      excludePolishLektor: settings.excludePolishLektor,
+      excludeNoSubtitles: settings.excludeNoSubtitles,
+      enabledCategories: settings.enabledCategories,
+    },
+    settings.selectedBouquets
+  );
+  const channels = Array.from(chMap.values()).map((ch, idx) => ({
+    ...ch,
+    icon: ensureHttpsUrl(ch.icon),
+    url: ensureHttpsUrl(ch.url),
+    channelNumber: idx + 1,
+    programmeCount: (schedulesByChannel[ch.id] || []).length,
+  }));
+  const programmeCount = Object.values(schedulesByChannel).reduce(
+    (sum, list) => sum + list.length,
+    0
+  );
+  const now = Date.now();
+  return {
+    id: SNAPSHOT_KEY,
+    metadata: {
+      sourceUrl: DEFAULT_EPG_SOURCE_URL,
+      sourcesSignature: buildSourcesSignature(settings),
+      lastUpdatedMs: now,
+      expiresAtMs: now + settings.cacheTtlHours * 3600 * 1000,
+      channelCount: channels.length,
+      channelsExcludedCount: 0,
+      programmeCount,
+      compressedBytes: 0,
+      uncompressedBytes: 0,
+      minTimestampMs: now - 4 * 3600 * 1000,
+      maxTimestampMs: now + 32 * 3600 * 1000,
+      parseDurationMs: 15,
+    },
+    channels,
+    schedulesByChannel,
+  };
 }
 
 export async function clearEpgCache(): Promise<void> {
@@ -2608,6 +2679,8 @@ export function loadAppSettings(): AppSettings {
     const loaded: AppSettings = {
       ...DEFAULT_SETTINGS,
       ...parsed,
+      sourceUrl:
+        ensureHttpsUrl(parsed.sourceUrl) || DEFAULT_SETTINGS.sourceUrl,
       language: validLang,
       sources,
       selectedBouquets: validSelectedBouquets,
@@ -2649,9 +2722,18 @@ export function loadAppSettings(): AppSettings {
 
 export function saveAppSettings(settings: AppSettings): void {
   try {
-    configureActiveTimezone(settings.autoTimezone, settings.manualTimezone);
-    applyDocumentLanguageDir(settings.language || 'fr');
-    localStorage.setItem(LS_SETTINGS_KEY, JSON.stringify(settings));
+    const sanitized: AppSettings = {
+      ...settings,
+      sourceUrl:
+        ensureHttpsUrl(settings.sourceUrl) || DEFAULT_SETTINGS.sourceUrl,
+      sources: settings.sources.map((s) => ({
+        ...s,
+        url: ensureHttpsUrl(s.url) || s.url.trim(),
+      })),
+    };
+    configureActiveTimezone(sanitized.autoTimezone, sanitized.manualTimezone);
+    applyDocumentLanguageDir(sanitized.language || 'fr');
+    localStorage.setItem(LS_SETTINGS_KEY, JSON.stringify(sanitized));
   } catch {
     // Ignore
   }

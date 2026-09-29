@@ -1725,6 +1725,19 @@ export async function translateTextToFrench(
   }
 }
 
+function ensureHttpsAssetUrl(url?: string): string | undefined {
+  if (!url) return undefined;
+  const trimmed = url.trim();
+  if (!trimmed) return undefined;
+  if (/^http:\/\//i.test(trimmed)) {
+    return trimmed.replace(/^http:\/\//i, 'https://');
+  }
+  if (trimmed.startsWith('//')) {
+    return `https:${trimmed}`;
+  }
+  return trimmed;
+}
+
 /**
  * Pipeline complet de résolution des métadonnées officielles en français (TMDB + iTunes FR + TVMaze + Catalogue FR + Traduction FR systématique)
  */
@@ -1978,21 +1991,23 @@ export async function resolveOfficialFrenchMetadata(
     await Promise.all(translationTasks);
   }
 
-  const posterUrl =
+  const posterUrl = ensureHttpsAssetUrl(
     tmdbResult?.posterUrl ||
-    itunesResult?.posterUrl ||
-    tvMazeResult?.posterUrl ||
-    wikiResult?.posterUrl ||
-    input.icon ||
-    undefined;
+      itunesResult?.posterUrl ||
+      tvMazeResult?.posterUrl ||
+      wikiResult?.posterUrl ||
+      input.icon ||
+      undefined
+  );
 
-  const backdropUrl =
+  const backdropUrl = ensureHttpsAssetUrl(
     tmdbResult?.backdropUrl ||
-    tvMazeResult?.backdropUrl ||
-    itunesResult?.backdropUrl ||
-    input.icon ||
-    posterUrl ||
-    undefined;
+      tvMazeResult?.backdropUrl ||
+      itunesResult?.backdropUrl ||
+      input.icon ||
+      posterUrl ||
+      undefined
+  );
 
   const directors =
     tmdbResult?.directors ||
@@ -2094,7 +2109,7 @@ export async function resolveOfficialFrenchMetadata(
     cast,
     youtubeTrailerKey,
     youtubeTrailerName: tmdbResult?.youtubeTrailerName,
-    previewVideoUrl: itunesResult?.previewVideoUrl,
+    previewVideoUrl: ensureHttpsAssetUrl(itunesResult?.previewVideoUrl),
     sourceProvider,
     resolvedAtMs: Date.now(),
   };

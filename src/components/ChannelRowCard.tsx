@@ -32,7 +32,10 @@ import {
   parseSeasonAndEpisode,
   translateEpgTextToFrenchSync,
 } from '../utils/metadataResolverCore';
-import { cleanOfficialChannelName } from '../utils/xmltvParser';
+import {
+  cleanOfficialChannelName,
+  ensureHttpsUrl,
+} from '../utils/xmltvParser';
 import {
   getActiveLanguage,
   getTranslations,
@@ -197,9 +200,9 @@ export const ChannelRowCard: React.FC<ChannelRowCardProps> = ({
         <div className="flex items-center justify-between lg:w-72 2xl:w-80 shrink-0 gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div className="relative w-12 h-12 2xl:w-14 2xl:h-14 rounded-lg bg-[#0B0F17] border border-[#1E2638] flex items-center justify-center p-1.5 shrink-0">
-              {channel.icon ? (
+              {ensureHttpsUrl(channel.icon) ? (
                 <img
-                  src={channel.icon}
+                  src={ensureHttpsUrl(channel.icon)}
                   alt={channel.displayName}
                   className="max-w-full max-h-full object-contain"
                   loading="lazy"

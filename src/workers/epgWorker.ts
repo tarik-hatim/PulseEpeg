@@ -11,6 +11,7 @@ import {
 } from '../types/epg';
 import {
   cleanXmltvChannelId,
+  ensureHttpsUrl,
   isPlaceholderProgrammeTitle,
   parseChannelBlock,
   parseProgrammeBlock,
@@ -25,21 +26,24 @@ function postWorkerMessage(msg: WorkerResponseMessage) {
 }
 
 /**
- * Télécharge le flux .xml.gz en essayant la requête directe (Capacitor APK)
- * ou le proxy de streaming (Web), avec suivi précis des octets téléchargés.
+ * Télécharge le flux .xml.gz en essayant la requête directe HTTPS (Capacitor APK)
+ * ou le proxy de streaming (Web), avec suivi précis des octets téléchargés et timeout réseau.
  */
 async function fetchEpgResponse(
   sourceUrl: string,
   isNativeCapacitor: boolean
 ): Promise<Response> {
-  const proxyUrl = `/api/epg-proxy?url=${encodeURIComponent(sourceUrl)}`;
+  const secureSourceUrl = ensureHttpsUrl(sourceUrl) || sourceUrl.trim();
+  const proxyUrl = `/api/epg-proxy?url=${encodeURIComponent(secureSourceUrl)}`;
   const urlsToTry = isNativeCapacitor
-    ? [sourceUrl, proxyUrl]
-    : [proxyUrl, sourceUrl];
+    ? [secureSourceUrl, proxyUrl]
+    : [proxyUrl, secureSourceUrl];
 
   let lastError: Error | null = null;
 
   for (const url of urlsToTry) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
     try {
       const response = await fetch(url, {
         method: 'GET',
@@ -47,19 +51,31 @@ async function fetchEpgResponse(
           Accept:
             'application/octet-stream, application/x-gzip, text/xml, */*',
         },
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
       if (response.ok && response.body) {
         return response;
       }
       lastError = new Error(
-        `Statut HTTP ${response.status} (${response.statusText})`
+        `Statut HTTP ${response.status} (${response.statusText || 'Erreur serveur'})`
       );
     } catch (err) {
-      lastError = err instanceof Error ? err : new Error(String(err));
+      clearTimeout(timeoutId);
+      if (err instanceof Error && err.name === 'AbortError') {
+        lastError = new Error(
+          `Délai d'attente réseau dépassé pour ${secureSourceUrl}`
+        );
+      } else {
+        lastError = err instanceof Error ? err : new Error(String(err));
+      }
     }
   }
 
-  throw lastError || new Error(`Impossible de télécharger ${sourceUrl}`);
+  throw (
+    lastError ||
+    new Error(`Impossible de télécharger le flux HTTPS ${secureSourceUrl}`)
+  );
 }
 
 const FALLBACK_CINEMA_TITLES: Array<{
@@ -402,7 +418,7 @@ async function processMultiSourceEpgSync(
   const sourceStatuses: EpgSourceSyncStatus[] = activeSources.map((s) => ({
     id: s.id,
     name: s.name,
-    url: s.url,
+    url: ensureHttpsUrl(s.url) || s.url,
     country: s.country,
     status: 'pending',
     channelsAdded: 0,
@@ -623,7 +639,8 @@ async function processMultiSourceEpgSync(
         }
       };
 
-      const isGzipUrl = source.url.toLowerCase().endsWith('.gz');
+      const secureUrl = ensureHttpsUrl(source.url) || source.url;
+      const isGzipUrl = secureUrl.toLowerCase().endsWith('.gz');
 
       if (
         isGzipUrl &&
@@ -655,16 +672,24 @@ async function processMultiSourceEpgSync(
 
         const reader = decompressedStream.getReader();
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          if (value) {
-            cumulativeUncompressedBytes += value.length;
-            xmlBuffer += value;
-            parseAvailableXmlBlocks(false);
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (value) {
+              cumulativeUncompressedBytes += value.length;
+              xmlBuffer += value;
+              parseAvailableXmlBlocks(false);
+            }
           }
+          parseAvailableXmlBlocks(true);
+        } catch (streamErr: unknown) {
+          throw new Error(
+            `Erreur de lecture/décompression du flux XMLTV (${
+              streamErr instanceof Error ? streamErr.message : String(streamErr)
+            })`
+          );
         }
-        parseAvailableXmlBlocks(true);
       } else {
         const reader = response.body!.getReader();
         const chunks: Uint8Array[] = [];
@@ -691,10 +716,21 @@ async function processMultiSourceEpgSync(
           fullCompressed[0] === 0x1f &&
           fullCompressed[1] === 0x8b;
 
-        const decompressedBytes = isGzipData
-          ? ungzip(fullCompressed)
-          : fullCompressed;
-        const xmlString = new TextDecoder('utf-8').decode(decompressedBytes);
+        let xmlString = '';
+        try {
+          const decompressedBytes = isGzipData
+            ? ungzip(fullCompressed)
+            : fullCompressed;
+          xmlString = new TextDecoder('utf-8').decode(decompressedBytes);
+        } catch (decompressErr: unknown) {
+          throw new Error(
+            `Échec du décodage XMLTV/GZIP (${
+              decompressErr instanceof Error
+                ? decompressErr.message
+                : String(decompressErr)
+            })`
+          );
+        }
 
         cumulativeUncompressedBytes += xmlString.length;
 
@@ -712,7 +748,9 @@ async function processMultiSourceEpgSync(
     } catch (err: unknown) {
       statusEntry.status = 'error';
       statusEntry.error =
-        err instanceof Error ? err.message : 'Erreur de téléchargement';
+        err instanceof Error
+          ? err.message
+          : 'Erreur réseau ou parsing XMLTV';
     }
   }
 
@@ -1147,7 +1185,8 @@ async function processMultiSourceEpgSync(
     )}|cat:${catsSig}`;
 
   const metadata: EpgCacheMetadata = {
-    sourceUrl: activeSources[0].url,
+    sourceUrl:
+      ensureHttpsUrl(activeSources[0].url) || activeSources[0].url,
     sourcesSignature,
     sourceResults: sourceStatuses,
     lastUpdatedMs: now,

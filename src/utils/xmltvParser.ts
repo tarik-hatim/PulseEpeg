@@ -5540,6 +5540,22 @@ export function extractAllXmlTagContents(
 }
 
 /**
+ * Convertit systématiquement toute URL non sécurisée (HTTP) en https://
+ */
+export function ensureHttpsUrl(url?: string | null): string | undefined {
+  if (!url) return undefined;
+  const trimmed = url.trim();
+  if (!trimmed) return undefined;
+  if (/^http:\/\//i.test(trimmed)) {
+    return trimmed.replace(/^http:\/\//i, 'https://');
+  }
+  if (trimmed.startsWith('//')) {
+    return `https:${trimmed}`;
+  }
+  return trimmed;
+}
+
+/**
  * Parse un bloc <channel ...>...</channel> en appliquant le filtrage strict :
  * - Satellites Astra 19.2°E, Hotbird 13°E, Hispasat 30°W, Nilesat 7°W
  * - Uniquement Cinéma, Films & Séries Pay-TV
@@ -5556,60 +5572,65 @@ export function parseChannelBlock(
   },
   filterOptions?: EpgParseFilterOptions
 ): EpgChannel | null {
-  const headerEnd = block.indexOf('>');
-  if (headerEnd === -1) return null;
+  try {
+    const headerEnd = block.indexOf('>');
+    if (headerEnd === -1) return null;
 
-  const header = block.slice(0, headerEnd);
-  const rawId = decodeXmlEntities(extractXmlAttr(header, 'id'));
-  if (!rawId) return null;
+    const header = block.slice(0, headerEnd);
+    const rawId = decodeXmlEntities(extractXmlAttr(header, 'id'));
+    if (!rawId) return null;
 
-  // Vérification dans la Whitelist stricte Cinéma/Séries + VO + Sous-titres + Filtres Utilisateur
-  const spec = resolveWhitelistedChannelSpec(rawId, filterOptions);
-  if (!spec) {
+    // Vérification dans la Whitelist stricte Cinéma/Séries + VO + Sous-titres + Filtres Utilisateur
+    const spec = resolveWhitelistedChannelSpec(rawId, filterOptions);
+    if (!spec) {
+      return null;
+    }
+
+    const url = ensureHttpsUrl(extractXmlTagContent(block, 'url'));
+
+    let icon: string | undefined = ensureHttpsUrl(spec.defaultIcon);
+    const iconIdx = block.indexOf('<icon');
+    if (iconIdx !== -1) {
+      const iconEnd = block.indexOf('>', iconIdx);
+      if (iconEnd !== -1) {
+        icon =
+          ensureHttpsUrl(
+            extractXmlAttr(block.slice(iconIdx, iconEnd + 1), 'src')
+          ) || ensureHttpsUrl(spec.defaultIcon);
+      }
+    }
+
+    return {
+      id: spec.canonicalId,
+      displayName: spec.displayName,
+      url,
+      icon,
+      contentCategory:
+        spec.contentCategory ||
+        (spec.group === 'Sport / Football'
+          ? 'Sport / Football'
+          : spec.group === 'Documentaires'
+          ? 'Documentaires'
+          : 'Films & Séries'),
+      group: spec.group,
+      country: spec.country,
+      satellites: spec.satellites,
+      orbitalPosition: spec.orbitalPosition,
+      bouquets: spec.bouquets,
+      bouquetId: spec.bouquetId,
+      audioTrackLabel: spec.audioTrackLabel,
+      subtitleTrackLabel: spec.subtitleTrackLabel,
+      lektorStatus: spec.lektorStatus,
+      hasPolishLektor: spec.hasPolishLektor,
+      hasSubtitles: spec.hasSubtitles,
+      sourceId: sourceMeta?.id || 'default',
+      sourceName: sourceMeta?.name || spec.orbitalPosition,
+      channelNumber: index + 1,
+      programmeCount: 0,
+    };
+  } catch {
     return null;
   }
-
-  const url = extractXmlTagContent(block, 'url') || undefined;
-
-  let icon: string | undefined = spec.defaultIcon;
-  const iconIdx = block.indexOf('<icon');
-  if (iconIdx !== -1) {
-    const iconEnd = block.indexOf('>', iconIdx);
-    if (iconEnd !== -1) {
-      icon =
-        extractXmlAttr(block.slice(iconIdx, iconEnd + 1), 'src') ||
-        spec.defaultIcon;
-    }
-  }
-
-  return {
-    id: spec.canonicalId,
-    displayName: spec.displayName,
-    url,
-    icon,
-    contentCategory:
-      spec.contentCategory ||
-      (spec.group === 'Sport / Football'
-        ? 'Sport / Football'
-        : spec.group === 'Documentaires'
-        ? 'Documentaires'
-        : 'Films & Séries'),
-    group: spec.group,
-    country: spec.country,
-    satellites: spec.satellites,
-    orbitalPosition: spec.orbitalPosition,
-    bouquets: spec.bouquets,
-    bouquetId: spec.bouquetId,
-    audioTrackLabel: spec.audioTrackLabel,
-    subtitleTrackLabel: spec.subtitleTrackLabel,
-    lektorStatus: spec.lektorStatus,
-    hasPolishLektor: spec.hasPolishLektor,
-    hasSubtitles: spec.hasSubtitles,
-    sourceId: sourceMeta?.id || 'default',
-    sourceName: sourceMeta?.name || spec.orbitalPosition,
-    channelNumber: index + 1,
-    programmeCount: 0,
-  };
 }
 
 /**
@@ -5674,143 +5695,149 @@ export function parseProgrammeBlock(
   stopMs: number;
   channelId: string;
 } {
-  const headerEnd = block.indexOf('>');
-  if (headerEnd === -1) {
-    return { programme: null, startMs: 0, stopMs: 0, channelId: '' };
-  }
-
-  const header = block.slice(0, headerEnd);
-  const rawChannelId = decodeXmlEntities(extractXmlAttr(header, 'channel'));
-  if (!rawChannelId) {
-    return { programme: null, startMs: 0, stopMs: 0, channelId: '' };
-  }
-
-  // Filtrage O(1) : ignorer immédiatement tout programme d'une chaîne hors Whitelist ou hors Bouquets cochés
-  const spec = resolveWhitelistedChannelSpec(rawChannelId, filterOptions);
-  if (!spec) {
-    return { programme: null, startMs: 0, stopMs: 0, channelId: '' };
-  }
-  const canonicalChannelId = cleanXmltvChannelId(spec.canonicalId);
-
-  const startRaw = extractXmlAttr(header, 'start');
-  const stopRaw = extractXmlAttr(header, 'stop');
-
-  const startMs = parseXmltvDate(startRaw);
-  const stopMs = parseXmltvDate(stopRaw);
-
-  if (!startMs || !stopMs) {
-    return { programme: null, startMs: 0, stopMs: 0, channelId: '' };
-  }
-
-  if (minKeepStopMs !== undefined && stopMs < minKeepStopMs) {
-    return { programme: null, startMs, stopMs, channelId: canonicalChannelId };
-  }
-  if (maxKeepStartMs !== undefined && startMs > maxKeepStartMs) {
-    return { programme: null, startMs, stopMs, channelId: canonicalChannelId };
-  }
-
-  const titles = extractAllXmlTagContents(block, 'title', 2);
-  const rawPrimaryTitle = (titles[0] || '').trim();
-  if (isPlaceholderProgrammeTitle(rawPrimaryTitle)) {
-    return { programme: null, startMs, stopMs, channelId: canonicalChannelId };
-  }
-  const title = translateEpgTextToFrenchSync(rawPrimaryTitle) || rawPrimaryTitle;
-  const originalTitle =
-    titles.length > 1 && titles[1] !== title
-      ? titles[1]
-      : rawPrimaryTitle !== title
-      ? rawPrimaryTitle
-      : undefined;
-
-  const rawCategory = extractXmlTagContent(block, 'category') || '';
-
-  if (
-    isExcludedProgrammeContent(
-      rawPrimaryTitle,
-      rawCategory,
-      block,
-      filterOptions
-    )
-  ) {
-    return { programme: null, startMs, stopMs, channelId: canonicalChannelId };
-  }
-
-  const rawSubTitle = extractXmlTagContent(block, 'sub-title') || undefined;
-  const subTitle = rawSubTitle
-    ? translateEpgTextToFrenchSync(rawSubTitle)
-    : undefined;
-  const description = extractXmlTagContent(block, 'desc') || undefined;
-  const category = normalizeCategoryLabel(
-    rawCategory,
-    rawPrimaryTitle,
-    spec.contentCategory
-  );
-  const date = extractXmlTagContent(block, 'date') || undefined;
-  const country = extractXmlTagContent(block, 'country') || undefined;
-  const rawEpisodeNum = extractXmlTagContent(block, 'episode-num') || undefined;
-
-  // Conditionnement strict Saison / Épisode : uniquement pour Séries TV & Documentaires avec saison/épisode valides
-  let episodeNum: string | undefined = undefined;
-  if (
-    isProgrammeSeriesOrDocumentary({
-      category,
-      rawCategory,
-      title: rawPrimaryTitle,
-      subTitle: rawSubTitle,
-    })
-  ) {
-    const { season, episode } = parseSeasonAndEpisode(
-      rawEpisodeNum,
-      originalTitle || rawPrimaryTitle,
-      rawSubTitle
-    );
-    episodeNum = formatSeasonEpisodeCode(season, episode);
-  }
-
-  let icon: string | undefined;
-  const iconIdx = block.indexOf('<icon');
-  if (iconIdx !== -1) {
-    const iconEnd = block.indexOf('>', iconIdx);
-    if (iconEnd !== -1) {
-      icon = extractXmlAttr(block.slice(iconIdx, iconEnd + 1), 'src') || undefined;
+  try {
+    const headerEnd = block.indexOf('>');
+    if (headerEnd === -1) {
+      return { programme: null, startMs: 0, stopMs: 0, channelId: '' };
     }
-  }
 
-  let directors: string[] | undefined;
-  let actors: string[] | undefined;
-  if (block.includes('<credits>')) {
-    const d = extractAllXmlTagContents(block, 'director', 2);
-    const a = extractAllXmlTagContents(block, 'actor', 4);
-    if (d.length > 0) directors = d;
-    if (a.length > 0) actors = a;
-  }
+    const header = block.slice(0, headerEnd);
+    const rawChannelId = decodeXmlEntities(extractXmlAttr(header, 'channel'));
+    if (!rawChannelId) {
+      return { programme: null, startMs: 0, stopMs: 0, channelId: '' };
+    }
 
-  return {
-    channelId: canonicalChannelId,
-    startMs,
-    stopMs,
-    programme: {
-      id: `${canonicalChannelId}_${startMs}_${index}`,
+    // Filtrage O(1) : ignorer immédiatement tout programme d'une chaîne hors Whitelist ou hors Bouquets cochés
+    const spec = resolveWhitelistedChannelSpec(rawChannelId, filterOptions);
+    if (!spec) {
+      return { programme: null, startMs: 0, stopMs: 0, channelId: '' };
+    }
+    const canonicalChannelId = cleanXmltvChannelId(spec.canonicalId);
+
+    const startRaw = extractXmlAttr(header, 'start');
+    const stopRaw = extractXmlAttr(header, 'stop');
+
+    const startMs = parseXmltvDate(startRaw);
+    const stopMs = parseXmltvDate(stopRaw);
+
+    if (!startMs || !stopMs) {
+      return { programme: null, startMs: 0, stopMs: 0, channelId: '' };
+    }
+
+    if (minKeepStopMs !== undefined && stopMs < minKeepStopMs) {
+      return { programme: null, startMs, stopMs, channelId: canonicalChannelId };
+    }
+    if (maxKeepStartMs !== undefined && startMs > maxKeepStartMs) {
+      return { programme: null, startMs, stopMs, channelId: canonicalChannelId };
+    }
+
+    const titles = extractAllXmlTagContents(block, 'title', 2);
+    const rawPrimaryTitle = (titles[0] || '').trim();
+    if (isPlaceholderProgrammeTitle(rawPrimaryTitle)) {
+      return { programme: null, startMs, stopMs, channelId: canonicalChannelId };
+    }
+    const title = translateEpgTextToFrenchSync(rawPrimaryTitle) || rawPrimaryTitle;
+    const originalTitle =
+      titles.length > 1 && titles[1] !== title
+        ? titles[1]
+        : rawPrimaryTitle !== title
+        ? rawPrimaryTitle
+        : undefined;
+
+    const rawCategory = extractXmlTagContent(block, 'category') || '';
+
+    if (
+      isExcludedProgrammeContent(
+        rawPrimaryTitle,
+        rawCategory,
+        block,
+        filterOptions
+      )
+    ) {
+      return { programme: null, startMs, stopMs, channelId: canonicalChannelId };
+    }
+
+    const rawSubTitle = extractXmlTagContent(block, 'sub-title') || undefined;
+    const subTitle = rawSubTitle
+      ? translateEpgTextToFrenchSync(rawSubTitle)
+      : undefined;
+    const description = extractXmlTagContent(block, 'desc') || undefined;
+    const category = normalizeCategoryLabel(
+      rawCategory,
+      rawPrimaryTitle,
+      spec.contentCategory
+    );
+    const date = extractXmlTagContent(block, 'date') || undefined;
+    const country = extractXmlTagContent(block, 'country') || undefined;
+    const rawEpisodeNum = extractXmlTagContent(block, 'episode-num') || undefined;
+
+    // Conditionnement strict Saison / Épisode : uniquement pour Séries TV & Documentaires avec saison/épisode valides
+    let episodeNum: string | undefined = undefined;
+    if (
+      isProgrammeSeriesOrDocumentary({
+        category,
+        rawCategory,
+        title: rawPrimaryTitle,
+        subTitle: rawSubTitle,
+      })
+    ) {
+      const { season, episode } = parseSeasonAndEpisode(
+        rawEpisodeNum,
+        originalTitle || rawPrimaryTitle,
+        rawSubTitle
+      );
+      episodeNum = formatSeasonEpisodeCode(season, episode);
+    }
+
+    let icon: string | undefined;
+    const iconIdx = block.indexOf('<icon');
+    if (iconIdx !== -1) {
+      const iconEnd = block.indexOf('>', iconIdx);
+      if (iconEnd !== -1) {
+        icon = ensureHttpsUrl(
+          extractXmlAttr(block.slice(iconIdx, iconEnd + 1), 'src')
+        );
+      }
+    }
+
+    let directors: string[] | undefined;
+    let actors: string[] | undefined;
+    if (block.includes('<credits>')) {
+      const d = extractAllXmlTagContents(block, 'director', 2);
+      const a = extractAllXmlTagContents(block, 'actor', 4);
+      if (d.length > 0) directors = d;
+      if (a.length > 0) actors = a;
+    }
+
+    return {
       channelId: canonicalChannelId,
-      title,
-      originalTitle,
-      subTitle,
-      description,
-      category,
-      rawCategory: rawCategory || undefined,
-      group: spec.group,
-      icon,
       startMs,
       stopMs,
-      date,
-      country,
-      episodeNum,
-      directors,
-      actors,
-      hasOriginalAudioVO: true,
-      hasSubtitles: true,
-    },
-  };
+      programme: {
+        id: `${canonicalChannelId}_${startMs}_${index}`,
+        channelId: canonicalChannelId,
+        title,
+        originalTitle,
+        subTitle,
+        description,
+        category,
+        rawCategory: rawCategory || undefined,
+        group: spec.group,
+        icon,
+        startMs,
+        stopMs,
+        date,
+        country,
+        episodeNum,
+        directors,
+        actors,
+        hasOriginalAudioVO: true,
+        hasSubtitles: true,
+      },
+    };
+  } catch {
+    return { programme: null, startMs: 0, stopMs: 0, channelId: '' };
+  }
 }
 
 interface SupplementalChannelTemplate {

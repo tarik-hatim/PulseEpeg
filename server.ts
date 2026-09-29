@@ -29,7 +29,10 @@ async function startServer() {
     const originalTitle = String(req.query.originalTitle || '').trim() || undefined;
     const subTitle = String(req.query.subTitle || '').trim() || undefined;
     const description = String(req.query.description || '').trim() || undefined;
-    const icon = String(req.query.icon || '').trim() || undefined;
+    const rawIcon = String(req.query.icon || '').trim() || undefined;
+    const icon = rawIcon
+      ? rawIcon.replace(/^http:\/\//i, 'https://')
+      : undefined;
     const episodeNum = String(req.query.episodeNum || '').trim() || undefined;
     const year = String(req.query.year || '').trim() || undefined;
     const category = String(req.query.category || '').trim() || undefined;
@@ -125,15 +128,17 @@ async function startServer() {
 
   // Proxy streaming endpoint for Web environment (bypasses browser CORS while keeping raw .xml.gz stream for client Web Worker decompression)
   app.get('/api/epg-proxy', async (req, res) => {
-    const rawUrl = (req.query.url as string) || DEFAULT_EPG_URL;
+    const rawUrl = ((req.query.url as string) || DEFAULT_EPG_URL)
+      .trim()
+      .replace(/^http:\/\//i, 'https://');
 
     let parsedUrl: URL;
     try {
       parsedUrl = new URL(rawUrl);
-      if (parsedUrl.protocol !== 'https:' && parsedUrl.protocol !== 'http:') {
+      if (parsedUrl.protocol !== 'https:') {
         res
           .status(400)
-          .json({ error: 'Protocole URL invalide. Utilisez HTTP ou HTTPS.' });
+          .json({ error: 'Protocole URL invalide. Utilisez exclusivement HTTPS.' });
         return;
       }
     } catch {
@@ -221,7 +226,7 @@ async function startServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`PulseEPG Server running on http://0.0.0.0:${PORT}`);
+    console.log(`PulseEPG Server running on port ${PORT} (HTTPS enforced)`);
   });
 }
 
