@@ -26,11 +26,11 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    # 1. Acceptation automatique des licences Android SDK
+    # 1. Acceptation non-interactive des licences Android SDK
     - name: Accept Android SDK Licenses
       run: |
-        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-        yes | $ANDROID_HOME/tools/bin/sdkmanager --licenses || true
+        mkdir -p $ANDROID_HOME/licenses
+        printf "243337023502608728d1238450e34161d6b7c08f\n84831b9409646a918e30573bab4c9c91346d8abd\n504667f4c05b40f59d77d92e145b240a4696ec77\n7855a9a97d89980d2822077142b6006b00f5a03a\n" > $ANDROID_HOME/licenses/android-sdk-license
 
     # 2. Installation des dépendances JavaScript & Capacitor
     - name: Install Dependencies
@@ -58,7 +58,7 @@ jobs:
         ANDROID_HOME: /usr/local/lib/android/sdk
       run: |
         cd android
-        ./gradlew assembleDebug --no-daemon --stacktrace
+        ./gradlew assembleDebug --no-daemon
 
     # 7. Génération de l'Artifact (Téléchargement de l'APK)
     - name: Upload APK
@@ -67,3 +67,4 @@ jobs:
         name: PulseEPG-Debug-APK
         path: android/app/build/outputs/apk/debug/app-debug.apk
         retention-days: 7
+        
