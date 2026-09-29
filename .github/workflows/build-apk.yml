@@ -25,36 +25,43 @@ jobs:
       with:
         java-version: '17'
         distribution: 'temurin'
+        cache: gradle
 
-    # 1. Installation des dépendances JavaScript & outils Capacitor
+    # 1. Acceptation automatique des licences Android SDK
+    - name: Accept Android SDK Licenses
+      run: |
+        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+        yes | $ANDROID_HOME/tools/bin/sdkmanager --licenses || true
+
+    # 2. Installation des dépendances JavaScript & Capacitor
     - name: Install Dependencies
       run: |
         bun install
         bun add @capacitor/core @capacitor/cli @capacitor/android
 
-    # 2. Build de l'application Web (Vite)
+    # 3. Build de l'application Web (Vite)
     - name: Build Web App
       run: bun run build
 
-    # 3. Génération et synchronisation du projet Android via Bun
+    # 4. Génération et synchronisation du projet Android via Bun
     - name: Add and Sync Android Platform
       run: |
         bunx cap add android || true
         bunx cap sync android
 
-    # 4. Octroi des permissions d'exécution à Gradle
+    # 5. Octroi des permissions d'exécution à Gradle
     - name: Grant execute permission for gradlew
       run: chmod +x android/gradlew
 
-    # 5. Compilation de l'APK Debug
+    # 6. Compilation de l'APK Debug
     - name: Build Debug APK
       env:
         ANDROID_HOME: /usr/local/lib/android/sdk
       run: |
         cd android
-        ./gradlew assembleDebug --stacktrace
+        ./gradlew assembleDebug --no-daemon --stacktrace
 
-    # 6. Génération de l'Artifact (Téléchargement de l'APK)
+    # 7. Génération de l'Artifact (Téléchargement de l'APK)
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
