@@ -336,6 +336,95 @@ export function App() {
 
     worker.onmessage = async (event: MessageEvent<WorkerResponseMessage>) => {
       const msg = event.data;
+      if (msg.type === 'WORKER_FETCH_REQUEST') {
+        const { requestId, url } = msg.payload;
+        try {
+          const cap = (
+            window as unknown as {
+              Capacitor?: {
+                Plugins?: {
+                  CapacitorHttp?: {
+                    get?: (opts: {
+                      url: string;
+                      responseType?: string;
+                      headers?: Record<string, string>;
+                    }) => Promise<{ status: number; data: unknown }>;
+                  };
+                };
+              };
+            }
+          ).Capacitor;
+
+          let resultBuffer: ArrayBuffer | null = null;
+
+          if (cap?.Plugins?.CapacitorHttp?.get) {
+            try {
+              const capRes = await cap.Plugins.CapacitorHttp.get({
+                url,
+                responseType: 'arraybuffer',
+                headers: {
+                  Accept: 'application/octet-stream, application/x-gzip, */*',
+                },
+              });
+              if (capRes && capRes.status >= 200 && capRes.status < 300 && capRes.data) {
+                if (typeof capRes.data === 'string') {
+                  const binStr = atob(capRes.data);
+                  const bytes = new Uint8Array(binStr.length);
+                  for (let i = 0; i < binStr.length; i++) {
+                    bytes[i] = binStr.charCodeAt(i);
+                  }
+                  resultBuffer = bytes.buffer;
+                } else if (capRes.data instanceof ArrayBuffer) {
+                  resultBuffer = capRes.data;
+                }
+              }
+            } catch {
+              // Fallback to window.fetch below
+            }
+          }
+
+          if (!resultBuffer) {
+            const res = await window.fetch(url, {
+              method: 'GET',
+              headers: {
+                Accept: 'application/octet-stream, application/x-gzip, */*',
+              },
+            });
+            if (!res.ok) {
+              throw new Error(`HTTP ${res.status}`);
+            }
+            const ct = (res.headers.get('content-type') || '').toLowerCase();
+            if (ct.includes('text/html')) {
+              throw new Error('Réponse HTML non valide');
+            }
+            resultBuffer = await res.arrayBuffer();
+          }
+
+          worker.postMessage(
+            {
+              type: 'WORKER_FETCH_RESPONSE',
+              payload: {
+                requestId,
+                ok: true,
+                buffer: resultBuffer,
+              },
+            },
+            [resultBuffer]
+          );
+        } catch (fetchErr: unknown) {
+          worker.postMessage({
+            type: 'WORKER_FETCH_RESPONSE',
+            payload: {
+              requestId,
+              ok: false,
+              error:
+                fetchErr instanceof Error ? fetchErr.message : String(fetchErr),
+            },
+          });
+        }
+        return;
+      }
+
       if (msg.type === 'EPG_PROGRESS') {
         setWorkerProgress(msg);
       } else if (msg.type === 'EPG_COMPLETE') {
@@ -362,42 +451,50 @@ export function App() {
         const errText =
           msg.payload?.error ||
           'Échec du chargement ou du parsing XMLTV HTTPS. Vérifiez votre connexion réseau ou réessayez.';
-        setEpgError(errText);
+        const fallback = buildOfflineFallbackEpgSnapshot(currentSettings);
         setIsSyncing(false);
         setWorkerProgress(null);
-        setChannels((prev) => {
-          if (prev.length === 0) {
-            const fallback = buildOfflineFallbackEpgSnapshot(currentSettings);
-            setSchedulesByChannel(fallback.schedulesByChannel);
-            setCacheMeta(fallback.metadata);
-            return fallback.channels;
-          }
-          return prev;
-        });
+        setEpgError(fallback.channels.length > 0 ? null : errText);
+        setChannels((prev) => (prev.length > 0 ? prev : fallback.channels));
+        setSchedulesByChannel((prev) =>
+          Object.keys(prev).length > 0 ? prev : fallback.schedulesByChannel
+        );
+        setCacheMeta((prev) => prev || fallback.metadata);
         worker.terminate();
         workerRef.current = null;
       }
     };
 
     worker.onerror = (errEvent) => {
-      setEpgError(
-        errEvent.message ||
-          'Erreur inattendue lors du traitement du flux XMLTV HTTPS.'
-      );
+      const fallback = buildOfflineFallbackEpgSnapshot(currentSettings);
       setIsSyncing(false);
       setWorkerProgress(null);
-      setChannels((prev) => {
-        if (prev.length === 0) {
-          const fallback = buildOfflineFallbackEpgSnapshot(currentSettings);
-          setSchedulesByChannel(fallback.schedulesByChannel);
-          setCacheMeta(fallback.metadata);
-          return fallback.channels;
-        }
-        return prev;
-      });
+      setEpgError(
+        fallback.channels.length > 0
+          ? null
+          : errEvent.message ||
+              'Erreur inattendue lors du traitement du flux XMLTV HTTPS.'
+      );
+      setChannels((prev) => (prev.length > 0 ? prev : fallback.channels));
+      setSchedulesByChannel((prev) =>
+        Object.keys(prev).length > 0 ? prev : fallback.schedulesByChannel
+      );
+      setCacheMeta((prev) => prev || fallback.metadata);
       worker.terminate();
       workerRef.current = null;
     };
+
+    const isNativeCapacitor =
+      typeof window !== 'undefined' &&
+      Boolean(
+        (
+          window as unknown as {
+            Capacitor?: { isNativePlatform?: () => boolean };
+          }
+        ).Capacitor?.isNativePlatform?.() ||
+          window.location.protocol === 'capacitor:' ||
+          (window.location.hostname === 'localhost' && !window.location.port)
+      );
 
     const req: WorkerRequestMessage = {
       type: 'START_EPG_SYNC',
@@ -408,7 +505,7 @@ export function App() {
         ),
         windowHours: currentSettings.windowHours,
         cacheTtlHours: currentSettings.cacheTtlHours,
-        isNativeCapacitor: false,
+        isNativeCapacitor,
         selectedBouquets: currentSettings.selectedBouquets,
         excludePolishLektor: currentSettings.excludePolishLektor,
         excludeNoSubtitles: currentSettings.excludeNoSubtitles,
@@ -418,7 +515,7 @@ export function App() {
     worker.postMessage(req);
   }, []);
 
-  // Chargement initial : lecture instantanée du cache IndexedDB (TTL 12h) ou lancement du Worker
+  // Chargement initial : lecture instantanée du cache IndexedDB (TTL 12h) ou affichage immédiat + lancement du Worker
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -449,6 +546,12 @@ export function App() {
         }
       } else {
         if (!mounted) return;
+        const initialSnapshot = buildOfflineFallbackEpgSnapshot(settings);
+        if (initialSnapshot.channels.length > 0) {
+          setChannels(initialSnapshot.channels);
+          setSchedulesByChannel(initialSnapshot.schedulesByChannel);
+          setCacheMeta(initialSnapshot.metadata);
+        }
         triggerEpgSync(settings);
       }
     })();
@@ -1891,7 +1994,7 @@ export function App() {
       className="min-h-screen bg-[#0a0e17] text-[#ffffff] flex flex-col selection:bg-[#e11d48] selection:text-[#ffffff]"
     >
       {/* Top Navigation Bar */}
-      <header className="sticky top-0 z-30 bg-[#0a0e17]/95 backdrop-blur-xl border-b border-[#1a202c]">
+      <header className="sticky top-0 z-30 bg-[#0a0e17]/95 backdrop-blur-xl border-b border-[#1a202c] pt-safe">
         <div className="max-w-[1600px] mx-auto px-3 sm:px-6 2xl:px-10 py-3 flex flex-wrap items-center justify-between gap-3">
           {/* Brand Logo Minimaliste & Épuré (Style Sky Sport : Blanc, Bleu Royal #0055ff & Crimson #e11d48) */}
           <div className="flex items-center gap-3">

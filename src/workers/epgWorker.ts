@@ -25,27 +25,151 @@ function postWorkerMessage(msg: WorkerResponseMessage) {
   self.postMessage(msg);
 }
 
+const pendingMainThreadFetches = new Map<
+  string,
+  {
+    resolve: (buf: Uint8Array) => void;
+    reject: (err: Error) => void;
+  }
+>();
+
+function requestMainThreadFetchBuffer(
+  url: string,
+  timeoutMs = 25000
+): Promise<Uint8Array> {
+  return new Promise<Uint8Array>((resolve, reject) => {
+    const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const timer = setTimeout(() => {
+      pendingMainThreadFetches.delete(requestId);
+      reject(new Error(`Timeout MainThread fetch pour ${url}`));
+    }, timeoutMs);
+
+    pendingMainThreadFetches.set(requestId, {
+      resolve: (buf) => {
+        clearTimeout(timer);
+        resolve(buf);
+      },
+      reject: (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    });
+
+    postWorkerMessage({
+      type: 'WORKER_FETCH_REQUEST',
+      payload: { requestId, url },
+    });
+  });
+}
+
 /**
- * Télécharge le flux .xml.gz en essayant la requête directe HTTPS (Capacitor APK)
- * ou le proxy de streaming (Web), avec suivi précis des octets téléchargés et timeout réseau.
+ * Décode de manière sécurisée un buffer brut (.xml.gz ou .xml déjà décompressé)
+ * en vérifiant systématiquement les magic bytes GZIP (0x1f 0x8b) et en rejetant
+ * toute page HTML de fallback (ex: index.html renvoyé par le serveur local Capacitor).
  */
-async function fetchEpgResponse(
+function decodeRawEpgBytesToXmlString(rawBytes: Uint8Array): string {
+  if (!rawBytes || rawBytes.byteLength < 20) {
+    throw new Error('Flux EPG vide ou tronqué');
+  }
+
+  const isGzipMagic =
+    rawBytes.byteLength > 2 &&
+    rawBytes[0] === 0x1f &&
+    rawBytes[1] === 0x8b;
+
+  let xmlString = '';
+  if (isGzipMagic) {
+    try {
+      const decompressed = ungzip(rawBytes);
+      xmlString = new TextDecoder('utf-8').decode(decompressed);
+    } catch (gzipErr: unknown) {
+      throw new Error(
+        `Échec de décompression GZIP (${
+          gzipErr instanceof Error ? gzipErr.message : String(gzipErr)
+        })`
+      );
+    }
+  } else {
+    xmlString = new TextDecoder('utf-8').decode(rawBytes);
+  }
+
+  const headSample = xmlString.slice(0, 600).trim().toLowerCase();
+  if (
+    headSample.startsWith('<!doctype html') ||
+    headSample.startsWith('<html') ||
+    (!xmlString.includes('<channel') &&
+      !xmlString.includes('<programme') &&
+      !headSample.includes('<tv'))
+  ) {
+    throw new Error(
+      'Réponse non-XMLTV (page HTML ou fallback SPA détecté)'
+    );
+  }
+
+  return xmlString;
+}
+
+const CLOUD_EPG_PROXY_BASE =
+  'https://ais-pre-u6zbq7je56hplxmz2bcs2l-673007819907.europe-west1.run.app/api/epg-proxy';
+
+/**
+ * Télécharge et décompresse le flux .xml.gz en essayant successivement :
+ * - En APK Capacitor : Intercepteur natif Android -> Pont CapacitorHttp Main-Thread -> Proxy Cloud HTTPS -> Proxy CORS -> Direct HTTPS
+ * - En Web : Proxy local /api/epg-proxy -> Proxy Cloud HTTPS -> Proxy CORS -> Direct HTTPS
+ */
+async function downloadAndDecodeXmltvSource(
   sourceUrl: string,
-  isNativeCapacitor: boolean
-): Promise<Response> {
+  isNativeCapacitor: boolean,
+  onBytesProgress: (bytesLoaded: number, totalEstimated?: number) => void
+): Promise<{ xmlString: string; compressedBytes: number }> {
   const secureSourceUrl = ensureHttpsUrl(sourceUrl) || sourceUrl.trim();
-  const proxyUrl = `/api/epg-proxy?url=${encodeURIComponent(secureSourceUrl)}`;
-  const urlsToTry = isNativeCapacitor
-    ? [secureSourceUrl, proxyUrl]
-    : [proxyUrl, secureSourceUrl];
+  const localProxyUrl = `/api/epg-proxy?url=${encodeURIComponent(secureSourceUrl)}`;
+  const cloudProxyUrl = `${CLOUD_EPG_PROXY_BASE}?url=${encodeURIComponent(secureSourceUrl)}`;
+  const corsProxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(secureSourceUrl)}`;
+
+  const isLocalhostApk =
+    isNativeCapacitor ||
+    self.location?.protocol === 'capacitor:' ||
+    (self.location?.hostname === 'localhost' && !self.location?.port);
+
+  const strategies: Array<
+    | { kind: 'worker_fetch'; url: string }
+    | { kind: 'main_thread_bridge'; url: string }
+  > = isLocalhostApk
+    ? [
+        { kind: 'worker_fetch', url: localProxyUrl },
+        { kind: 'main_thread_bridge', url: secureSourceUrl },
+        { kind: 'worker_fetch', url: cloudProxyUrl },
+        { kind: 'worker_fetch', url: corsProxyUrl },
+        { kind: 'worker_fetch', url: secureSourceUrl },
+      ]
+    : [
+        { kind: 'worker_fetch', url: localProxyUrl },
+        { kind: 'worker_fetch', url: cloudProxyUrl },
+        { kind: 'worker_fetch', url: corsProxyUrl },
+        { kind: 'worker_fetch', url: secureSourceUrl },
+      ];
 
   let lastError: Error | null = null;
 
-  for (const url of urlsToTry) {
+  for (const strategy of strategies) {
+    if (strategy.kind === 'main_thread_bridge') {
+      try {
+        const rawBytes = await requestMainThreadFetchBuffer(strategy.url, 28000);
+        onBytesProgress(rawBytes.byteLength, rawBytes.byteLength);
+        const xmlString = decodeRawEpgBytesToXmlString(rawBytes);
+        return { xmlString, compressedBytes: rawBytes.byteLength };
+      } catch (bridgeErr: unknown) {
+        lastError =
+          bridgeErr instanceof Error ? bridgeErr : new Error(String(bridgeErr));
+        continue;
+      }
+    }
+
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    const timeoutId = setTimeout(() => controller.abort(), 28000);
     try {
-      const response = await fetch(url, {
+      const response = await fetch(strategy.url, {
         method: 'GET',
         headers: {
           Accept:
@@ -53,14 +177,92 @@ async function fetchEpgResponse(
         },
         signal: controller.signal,
       });
-      clearTimeout(timeoutId);
-      if (response.ok && response.body) {
-        return response;
+
+      if (!response.ok || !response.body) {
+        clearTimeout(timeoutId);
+        lastError = new Error(
+          `Statut HTTP ${response.status} (${response.statusText || 'Erreur serveur'})`
+        );
+        continue;
       }
-      lastError = new Error(
-        `Statut HTTP ${response.status} (${response.statusText || 'Erreur serveur'})`
-      );
-    } catch (err) {
+
+      const contentType = (
+        response.headers.get('content-type') || ''
+      ).toLowerCase();
+      if (contentType.includes('text/html') || contentType.includes('application/json')) {
+        clearTimeout(timeoutId);
+        try {
+          await response.body.cancel();
+        } catch {
+          // Ignore
+        }
+        lastError = new Error(
+          `Réponse ${contentType} ignorée (fallback HTML/JSON)`
+        );
+        continue;
+      }
+
+      const totalHeader =
+        response.headers.get('x-epg-total-bytes') ||
+        response.headers.get('content-length');
+      const estimatedTotal = totalHeader
+        ? parseInt(totalHeader, 10) || undefined
+        : undefined;
+
+      const reader = response.body.getReader();
+      const chunks: Uint8Array[] = [];
+      let loadedBytes = 0;
+      let abortedAsHtml = false;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value && value.byteLength > 0) {
+          if (chunks.length === 0 && value.byteLength >= 14) {
+            const isGzipFirstChunk = value[0] === 0x1f && value[1] === 0x8b;
+            if (!isGzipFirstChunk) {
+              const firstText = new TextDecoder('utf-8')
+                .decode(value.subarray(0, Math.min(value.byteLength, 256)))
+                .trim()
+                .toLowerCase();
+              if (
+                firstText.startsWith('<!doctype html') ||
+                firstText.startsWith('<html') ||
+                firstText.startsWith('{"error"')
+              ) {
+                abortedAsHtml = true;
+                try {
+                  await reader.cancel();
+                } catch {
+                  // Ignore
+                }
+                break;
+              }
+            }
+          }
+          chunks.push(value);
+          loadedBytes += value.byteLength;
+          onBytesProgress(loadedBytes, estimatedTotal);
+        }
+      }
+
+      clearTimeout(timeoutId);
+
+      if (abortedAsHtml || loadedBytes < 20) {
+        lastError = new Error('Flux HTML/SPA ignoré');
+        continue;
+      }
+
+      const fullBytes = new Uint8Array(loadedBytes);
+      let offset = 0;
+      for (const c of chunks) {
+        fullBytes.set(c, offset);
+        offset += c.byteLength;
+      }
+
+      const xmlString = decodeRawEpgBytesToXmlString(fullBytes);
+      return { xmlString, compressedBytes: loadedBytes };
+    } catch (err: unknown) {
       clearTimeout(timeoutId);
       if (err instanceof Error && err.name === 'AbortError') {
         lastError = new Error(
@@ -476,22 +678,52 @@ async function processMultiSourceEpgSync(
     });
 
     try {
-      const response = await fetchEpgResponse(source.url, isNativeCapacitor);
-
-      const totalHeader =
-        response.headers.get('x-epg-total-bytes') ||
-        response.headers.get('content-length');
-      const sourceTotalBytes = totalHeader
-        ? parseInt(totalHeader, 10) || 2500000
-        : 2500000;
-
-      cumulativeBytesTotal =
-        cumulativeBytesLoaded +
-        sourceTotalBytes +
-        (activeSources.length - 1 - sIdx) * 2000000;
-
       let sourceBytesLoaded = 0;
       let xmlBuffer = '';
+
+      const { xmlString, compressedBytes } =
+        await downloadAndDecodeXmltvSource(
+          source.url,
+          isNativeCapacitor,
+          (loaded, estimatedTotal) => {
+            sourceBytesLoaded = loaded;
+            statusEntry.bytesLoaded = loaded;
+            const effectiveSourceTotal = estimatedTotal || 2500000;
+            cumulativeBytesTotal =
+              cumulativeBytesLoaded +
+              effectiveSourceTotal +
+              (activeSources.length - 1 - sIdx) * 2000000;
+            const nowPerf = performance.now();
+            if (nowPerf - lastProgressPost > 160) {
+              lastProgressPost = nowPerf;
+              postWorkerMessage({
+                type: 'EPG_PROGRESS',
+                payload: {
+                  active: true,
+                  phase: 'downloading',
+                  bytesLoaded: cumulativeBytesLoaded + sourceBytesLoaded,
+                  bytesTotal: Math.max(
+                    cumulativeBytesTotal,
+                    cumulativeBytesLoaded + sourceBytesLoaded + 250000
+                  ),
+                  channelsParsed: channels.length,
+                  channelsFilteredOut: totalChannelsExcluded,
+                  programmesParsed: totalProgrammesRetained,
+                  currentSourceIndex: sIdx + 1,
+                  totalSources: activeSources.length,
+                  currentSourceName: `[${source.country}] ${source.name}`,
+                  sourceStatuses: [...sourceStatuses],
+                  message: `Téléchargement HTTPS ${source.name} (${Math.round(
+                    sourceBytesLoaded / 1024
+                  )} Ko)...`,
+                },
+              });
+            }
+          }
+        );
+
+      sourceBytesLoaded = compressedBytes;
+      statusEntry.bytesLoaded = compressedBytes;
 
       const parseAvailableXmlBlocks = (forceProgress = false) => {
         statusEntry.status = 'parsing';
@@ -639,108 +871,14 @@ async function processMultiSourceEpgSync(
         }
       };
 
-      const secureUrl = ensureHttpsUrl(source.url) || source.url;
-      const isGzipUrl = secureUrl.toLowerCase().endsWith('.gz');
+      cumulativeUncompressedBytes += xmlString.length;
 
-      if (
-        isGzipUrl &&
-        typeof DecompressionStream !== 'undefined' &&
-        response.body
-      ) {
-        const progressTransform = new TransformStream<Uint8Array, Uint8Array>({
-          transform(chunk, controller) {
-            sourceBytesLoaded += chunk.byteLength;
-            statusEntry.bytesLoaded = sourceBytesLoaded;
-            controller.enqueue(chunk);
-          },
-        });
-
-        const decompressedStream = response.body
-          .pipeThrough(progressTransform)
-          .pipeThrough(
-            new DecompressionStream('gzip') as unknown as ReadableWritablePair<
-              Uint8Array,
-              Uint8Array
-            >
-          )
-          .pipeThrough(
-            new TextDecoderStream('utf-8') as unknown as ReadableWritablePair<
-              string,
-              Uint8Array
-            >
-          );
-
-        const reader = decompressedStream.getReader();
-
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            if (value) {
-              cumulativeUncompressedBytes += value.length;
-              xmlBuffer += value;
-              parseAvailableXmlBlocks(false);
-            }
-          }
-          parseAvailableXmlBlocks(true);
-        } catch (streamErr: unknown) {
-          throw new Error(
-            `Erreur de lecture/décompression du flux XMLTV (${
-              streamErr instanceof Error ? streamErr.message : String(streamErr)
-            })`
-          );
-        }
-      } else {
-        const reader = response.body!.getReader();
-        const chunks: Uint8Array[] = [];
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          if (value) {
-            sourceBytesLoaded += value.byteLength;
-            statusEntry.bytesLoaded = sourceBytesLoaded;
-            chunks.push(value);
-          }
-        }
-
-        const fullCompressed = new Uint8Array(sourceBytesLoaded);
-        let offset = 0;
-        for (const c of chunks) {
-          fullCompressed.set(c, offset);
-          offset += c.byteLength;
-        }
-
-        const isGzipData =
-          fullCompressed.length > 2 &&
-          fullCompressed[0] === 0x1f &&
-          fullCompressed[1] === 0x8b;
-
-        let xmlString = '';
-        try {
-          const decompressedBytes = isGzipData
-            ? ungzip(fullCompressed)
-            : fullCompressed;
-          xmlString = new TextDecoder('utf-8').decode(decompressedBytes);
-        } catch (decompressErr: unknown) {
-          throw new Error(
-            `Échec du décodage XMLTV/GZIP (${
-              decompressErr instanceof Error
-                ? decompressErr.message
-                : String(decompressErr)
-            })`
-          );
-        }
-
-        cumulativeUncompressedBytes += xmlString.length;
-
-        const step = 256 * 1024;
-        for (let i = 0; i < xmlString.length; i += step) {
-          xmlBuffer += xmlString.slice(i, i + step);
-          parseAvailableXmlBlocks(false);
-        }
-        parseAvailableXmlBlocks(true);
+      const step = 256 * 1024;
+      for (let i = 0; i < xmlString.length; i += step) {
+        xmlBuffer += xmlString.slice(i, i + step);
+        parseAvailableXmlBlocks(false);
       }
+      parseAvailableXmlBlocks(true);
 
       cumulativeBytesLoaded += sourceBytesLoaded;
       statusEntry.bytesLoaded = sourceBytesLoaded;
@@ -752,13 +890,6 @@ async function processMultiSourceEpgSync(
           ? err.message
           : 'Erreur réseau ou parsing XMLTV';
     }
-  }
-
-  if (channels.length === 0) {
-    const firstErr =
-      sourceStatuses.find((s) => s.error)?.error ||
-      'Aucune chaîne Cinéma/Séries de la Whitelist n’a pu être extraite.';
-    throw new Error(firstErr);
   }
 
   // Compléter les grilles horaires US/Hollywood pour OSN (Nilesat 7°W) et beIN Movies/Series/Entertainment (Badr 26°E)
@@ -1087,7 +1218,7 @@ async function processMultiSourceEpgSync(
     }
   }
 
-  // Compléter automatiquement la couverture des bouquets officiels Eutelsat 16°E, Thor 0.8°W, TurkmenÄlem 52°E et MonacoSat 52°E
+  // Compléter automatiquement la couverture de tous les bouquets satellites officiels actifs
   supplementSatelliteBouquetsCoverage(
     channelMap,
     schedulesByChannel,
@@ -1098,6 +1229,13 @@ async function processMultiSourceEpgSync(
     if (!channels.some((c) => c.id === id)) {
       channels.push(chObj);
     }
+  }
+
+  if (channels.length === 0) {
+    const firstErr =
+      sourceStatuses.find((s) => s.error)?.error ||
+      'Aucune chaîne Cinéma/Séries de la Whitelist n’a pu être extraite.';
+    throw new Error(firstErr);
   }
 
   postWorkerMessage({
@@ -1213,8 +1351,24 @@ async function processMultiSourceEpgSync(
 }
 
 self.onmessage = async (event: MessageEvent<WorkerRequestMessage>) => {
-  const { type, payload } = event.data;
-  if (type === 'START_EPG_SYNC') {
+  const msg = event.data;
+  if (msg.type === 'WORKER_FETCH_RESPONSE') {
+    const pending = pendingMainThreadFetches.get(msg.payload.requestId);
+    if (pending) {
+      pendingMainThreadFetches.delete(msg.payload.requestId);
+      if (msg.payload.ok && msg.payload.buffer) {
+        pending.resolve(new Uint8Array(msg.payload.buffer));
+      } else {
+        pending.reject(
+          new Error(msg.payload.error || 'Échec du téléchargement natif')
+        );
+      }
+    }
+    return;
+  }
+
+  if (msg.type === 'START_EPG_SYNC') {
+    const { payload } = msg;
     try {
       await processMultiSourceEpgSync(
         payload.sources,

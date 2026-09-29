@@ -327,7 +327,7 @@ export interface AppSettings {
   enabledCategories: ThematicCategoryId[];
 }
 
-export interface WorkerRequestMessage {
+export interface WorkerStartSyncMessage {
   type: 'START_EPG_SYNC';
   payload: {
     sources: EpgSourceItem[];
@@ -340,6 +340,20 @@ export interface WorkerRequestMessage {
     enabledCategories?: ThematicCategoryId[];
   };
 }
+
+export interface WorkerFetchResponseMessage {
+  type: 'WORKER_FETCH_RESPONSE';
+  payload: {
+    requestId: string;
+    ok: boolean;
+    buffer?: ArrayBuffer;
+    error?: string;
+  };
+}
+
+export type WorkerRequestMessage =
+  | WorkerStartSyncMessage
+  | WorkerFetchResponseMessage;
 
 export interface WorkerProgressMessage {
   type: 'EPG_PROGRESS';
@@ -362,7 +376,16 @@ export interface WorkerErrorMessage {
   };
 }
 
+export interface WorkerFetchRequestMessage {
+  type: 'WORKER_FETCH_REQUEST';
+  payload: {
+    requestId: string;
+    url: string;
+  };
+}
+
 export type WorkerResponseMessage =
   | WorkerProgressMessage
   | WorkerSuccessMessage
-  | WorkerErrorMessage;
+  | WorkerErrorMessage
+  | WorkerFetchRequestMessage;
