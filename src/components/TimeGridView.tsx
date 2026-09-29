@@ -62,6 +62,13 @@ interface TimeGridViewProps {
   channels: EpgChannel[];
   programmesByChannel: Record<string, EpgProgramme[]>;
   nowMs: number;
+  realNowMs?: number;
+  timeOffsetMinutes?: number;
+  activeTimePreset?: 'minus' | 'now' | 'prime' | 'plus';
+  liveSyncCount?: number;
+  onShiftTimeOffset?: (deltaMinutes: number) => void;
+  onResetToLive?: () => void;
+  onJumpToPrimeTime?: () => void;
   favorites: string[];
   onToggleFavorite: (channelId: string) => void;
   onSelectChannel: (channel: EpgChannel, programme?: EpgProgramme) => void;
@@ -134,6 +141,13 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
   channels,
   programmesByChannel,
   nowMs,
+  realNowMs,
+  timeOffsetMinutes = 0,
+  activeTimePreset = 'now',
+  liveSyncCount = 0,
+  onShiftTimeOffset,
+  onResetToLive,
+  onJumpToPrimeTime,
   favorites,
   onToggleFavorite,
   onSelectChannel,
@@ -159,14 +173,28 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
 }) => {
   const activeLang = language || getActiveLanguage();
   const tr = getTranslations(activeLang);
+  const baseRealNowMs = realNowMs ?? nowMs;
 
   const [windowStartMs, setWindowStartMs] = useState<number>(() =>
-    floorToHalfHourCasablanca(nowMs - 30 * 60000)
+    activeTimePreset === 'prime'
+      ? getCasablancaTimestampForHour(baseRealNowMs, 20, 30)
+      : floorToHalfHourCasablanca(nowMs - 30 * 60000)
   );
   const [activeTimeBtn, setActiveTimeBtn] = useState<
     'minus' | 'now' | 'prime' | 'plus'
-  >('now');
+  >(activeTimePreset);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Keep TimeGridView synchronized when parent time offset / preset or Sync to Live triggers
+  useEffect(() => {
+    if (activeTimePreset === 'prime') {
+      setWindowStartMs(getCasablancaTimestampForHour(baseRealNowMs, 20, 30));
+      setActiveTimeBtn('prime');
+    } else {
+      setWindowStartMs(floorToHalfHourCasablanca(nowMs - 30 * 60000));
+      setActiveTimeBtn(activeTimePreset);
+    }
+  }, [timeOffsetMinutes, activeTimePreset, liveSyncCount]);
 
   const windowEndMs = windowStartMs + WINDOW_MINUTES * 60000;
 
@@ -180,23 +208,35 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
   }, [windowStartMs]);
 
   const nowOffsetPx = useMemo(() => {
-    if (nowMs < windowStartMs || nowMs > windowEndMs) return null;
-    return ((nowMs - windowStartMs) / 60000) * PIXELS_PER_MINUTE;
-  }, [nowMs, windowStartMs, windowEndMs]);
+    if (baseRealNowMs < windowStartMs || baseRealNowMs > windowEndMs) return null;
+    return ((baseRealNowMs - windowStartMs) / 60000) * PIXELS_PER_MINUTE;
+  }, [baseRealNowMs, windowStartMs, windowEndMs]);
 
   const shiftWindow = (hours: number) => {
-    setWindowStartMs((prev) => prev + hours * 3600000);
-    setActiveTimeBtn(hours < 0 ? 'minus' : 'plus');
+    if (onShiftTimeOffset) {
+      onShiftTimeOffset(hours * 60);
+    } else {
+      setWindowStartMs((prev) => prev + hours * 3600000);
+      setActiveTimeBtn(hours < 0 ? 'minus' : 'plus');
+    }
   };
 
   const resetToNow = () => {
-    setWindowStartMs(floorToHalfHourCasablanca(nowMs - 30 * 60000));
-    setActiveTimeBtn('now');
+    if (onResetToLive) {
+      onResetToLive();
+    } else {
+      setWindowStartMs(floorToHalfHourCasablanca(baseRealNowMs - 30 * 60000));
+      setActiveTimeBtn('now');
+    }
   };
 
   const jumpToPrimeTime = () => {
-    setWindowStartMs(getCasablancaTimestampForHour(nowMs, 20, 30));
-    setActiveTimeBtn('prime');
+    if (onJumpToPrimeTime) {
+      onJumpToPrimeTime();
+    } else {
+      setWindowStartMs(getCasablancaTimestampForHour(baseRealNowMs, 20, 30));
+      setActiveTimeBtn('prime');
+    }
   };
 
   const favoriteSet = useMemo(() => new Set(favorites), [favorites]);
@@ -268,7 +308,7 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
       const targetScroll = Math.max(0, nowOffsetPx - 160);
       scrollContainerRef.current.scrollLeft = targetScroll;
     }
-  }, []);
+  }, [liveSyncCount]);
 
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900/95 overflow-hidden shadow-2xl">

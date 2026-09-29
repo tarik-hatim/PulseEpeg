@@ -41,8 +41,10 @@ import {
   WorkerResponseMessage,
 } from './types/epg';
 import {
+  addRecentSearch,
   buildSourcesSignature,
   clearEpgCache,
+  clearRecentSearches,
   DEFAULT_EPG_SOURCES,
   DEFAULT_SETTINGS,
   getBouquetsForSatellite,
@@ -53,10 +55,12 @@ import {
   loadAppSettings,
   loadEpgFromCache,
   loadFavoriteChannels,
+  loadRecentSearches,
   loadReminders,
   MAX_ACTIVE_BOUQUETS,
   pruneSchedulesToActiveWindow,
   RAM_LIMIT_WARNING_MESSAGE,
+  removeRecentSearch,
   SAT_TO_BOUQUETS_MAP,
   saveAppSettings,
   saveEpgToCache,
@@ -160,11 +164,19 @@ export function App() {
   );
   const [selectedGroup, setSelectedGroup] = useState<ChannelGroup>('Tous');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [recentSearches, setRecentSearches] = useState<string[]>(() =>
+    loadRecentSearches()
+  );
+  const [isSearchDropdownOpen, setIsSearchDropdownOpen] =
+    useState<boolean>(false);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+  const isTypingSessionRef = useRef<boolean>(false);
 
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
   const [timeOffsetMinutes, setTimeOffsetMinutes] = useState<number>(0);
   const [activeTimePreset, setActiveTimePreset] =
     useState<ActiveTimePreset>('now');
+  const [liveSyncCount, setLiveSyncCount] = useState<number>(0);
 
   const [favorites, setFavorites] = useState<string[]>(() =>
     loadFavoriteChannels()
@@ -216,6 +228,49 @@ export function App() {
     }, 30000);
     return () => clearInterval(timer);
   }, []);
+
+  // Sauvegarde automatique (debounce) des 5 dernières recherches dans LocalStorage
+  const commitSearchToRecent = useCallback(
+    (queryToSave: string, replacePrefix = false) => {
+      const trimmed = queryToSave.trim();
+      if (!trimmed) return;
+      setRecentSearches((prev) =>
+        addRecentSearch(trimmed, prev, replacePrefix)
+      );
+    },
+    []
+  );
+
+  useEffect(() => {
+    const trimmed = searchQuery.trim();
+    if (!trimmed) return;
+    const timer = setTimeout(() => {
+      setRecentSearches((prev) =>
+        addRecentSearch(trimmed, prev, isTypingSessionRef.current)
+      );
+      isTypingSessionRef.current = true;
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Fermeture du menu déroulant Recent Searches au clic à l'extérieur
+  useEffect(() => {
+    if (!isSearchDropdownOpen) return;
+    const handlePointerDownOutside = (event: MouseEvent | TouchEvent) => {
+      if (
+        searchContainerRef.current &&
+        !searchContainerRef.current.contains(event.target as Node)
+      ) {
+        setIsSearchDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handlePointerDownOutside);
+    document.addEventListener('touchstart', handlePointerDownOutside);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDownOutside);
+      document.removeEventListener('touchstart', handlePointerDownOutside);
+    };
+  }, [isSearchDropdownOpen]);
 
   const effectiveTimeMs = useMemo(
     () => nowMs + timeOffsetMinutes * 60000,
@@ -1140,12 +1195,40 @@ export function App() {
     triggerEpgSync(settings);
   }, [settings, triggerEpgSync]);
 
-  const jumpToPrimeTimeTonight = () => {
-    const target = getCasablancaTimestampForHour(nowMs, 20, 45);
-    const diffMins = Math.round((target - nowMs) / 60000);
+  const shiftTimeOffsetMinutes = useCallback((deltaMinutes: number) => {
+    setTimeOffsetMinutes((prev) => {
+      const next = prev + deltaMinutes;
+      setActiveTimePreset(next === 0 ? 'now' : next < 0 ? 'minus' : 'plus');
+      return next;
+    });
+  }, []);
+
+  const handleSyncToLive = useCallback(() => {
+    setNowMs(Date.now());
+    setTimeOffsetMinutes(0);
+    setActiveTimePreset('now');
+    setLiveSyncCount((prev) => prev + 1);
+  }, []);
+
+  const jumpToPrimeTimeTonight = useCallback(() => {
+    const currentRealNow = Date.now();
+    setNowMs(currentRealNow);
+    const target = getCasablancaTimestampForHour(currentRealNow, 20, 45);
+    const diffMins = Math.round((target - currentRealNow) / 60000);
     setTimeOffsetMinutes(diffMins);
     setActiveTimePreset('prime');
-  };
+  }, []);
+
+  const isTimeViewOffset =
+    timeOffsetMinutes !== 0 || activeTimePreset !== 'now';
+
+  const formattedOffsetBadge = useMemo(() => {
+    if (activeTimePreset === 'prime') {
+      return 'Prime 20:45';
+    }
+    const hours = Math.round((timeOffsetMinutes / 60) * 10) / 10;
+    return `${hours > 0 ? '+' : ''}${hours}h`;
+  }, [activeTimePreset, timeOffsetMinutes]);
 
   const resetAllFilters = () => {
     setSelectedCategory('Tous');
@@ -1155,8 +1238,7 @@ export function App() {
     setRamWarningMessage(null);
     setSelectedGroup('Tous');
     setSearchQuery('');
-    setTimeOffsetMinutes(0);
-    setActiveTimePreset('now');
+    handleSyncToLive();
   };
 
   const visibleChannels = useMemo(
@@ -1357,23 +1439,147 @@ export function App() {
         {/* Barre de Recherche & Contrôle Temporel Rapide */}
         <div className="mb-4 rounded-2xl bg-slate-900/90 border border-slate-800/90 p-3 sm:p-4 shadow-lg space-y-3">
           <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-            {/* Search Input */}
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 text-slate-500 absolute start-3.5 top-1/2 -translate-y-1/2" />
+            {/* Search Input & Recent Searches Dropdown */}
+            <div ref={searchContainerRef} className="relative flex-1">
+              <Search className="w-4 h-4 text-slate-500 absolute start-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onClick={() => setIsSearchDropdownOpen(true)}
+                onFocus={() => setIsSearchDropdownOpen(true)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (!val.trim()) {
+                    isTypingSessionRef.current = false;
+                  }
+                  setSearchQuery(val);
+                  setIsSearchDropdownOpen(true);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && searchQuery.trim()) {
+                    commitSearchToRecent(
+                      searchQuery,
+                      isTypingSessionRef.current
+                    );
+                    isTypingSessionRef.current = false;
+                    setIsSearchDropdownOpen(false);
+                  } else if (e.key === 'Escape') {
+                    setIsSearchDropdownOpen(false);
+                  }
+                }}
+                onBlur={() => {
+                  if (searchQuery.trim()) {
+                    commitSearchToRecent(
+                      searchQuery,
+                      isTypingSessionRef.current
+                    );
+                    isTypingSessionRef.current = false;
+                  }
+                }}
                 placeholder={tr.searchPlaceholder}
                 className="w-full ps-10 pe-9 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/70 transition-colors"
               />
               {searchQuery && (
                 <button
-                  onClick={() => setSearchQuery('')}
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    if (searchQuery.trim()) {
+                      commitSearchToRecent(
+                        searchQuery,
+                        isTypingSessionRef.current
+                      );
+                    }
+                    isTypingSessionRef.current = false;
+                    setSearchQuery('');
+                    setIsSearchDropdownOpen(true);
+                  }}
                   className="absolute end-2.5 top-1/2 -translate-y-1/2 p-1 rounded-lg text-slate-400 hover:text-white cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
+              )}
+
+              {/* Recent Searches Dropdown */}
+              {isSearchDropdownOpen && (
+                <div
+                  role="listbox"
+                  aria-label="Recent Searches"
+                  className="absolute start-0 end-0 top-full mt-1.5 z-50 rounded-xl bg-slate-900 border border-slate-700/90 shadow-2xl overflow-hidden"
+                >
+                  <div className="flex items-center justify-between px-3.5 py-2 bg-slate-950/80 border-b border-slate-800/80">
+                    <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-amber-400">
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>Recent Searches</span>
+                    </div>
+                    {recentSearches.length > 0 && (
+                      <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          clearRecentSearches();
+                          setRecentSearches([]);
+                        }}
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-rose-400 transition-colors cursor-pointer"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        <span>{activeLang === 'fr' ? 'Effacer' : 'Clear'}</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {recentSearches.length === 0 ? (
+                    <div className="px-3.5 py-3 text-xs text-slate-400">
+                      {activeLang === 'fr'
+                        ? 'Aucune recherche récente (vos 5 dernières recherches seront enregistrées ici).'
+                        : 'No recent searches yet (your last 5 searches will be saved here).'}
+                    </div>
+                  ) : (
+                    <ul className="divide-y divide-slate-800/60 max-h-60 overflow-y-auto">
+                      {recentSearches.slice(0, 5).map((item) => (
+                        <li
+                          key={item}
+                          className="flex items-center justify-between hover:bg-slate-800/70 transition-colors"
+                        >
+                          <button
+                            type="button"
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => {
+                              isTypingSessionRef.current = false;
+                              setSearchQuery(item);
+                              setRecentSearches((prev) =>
+                                addRecentSearch(item, prev, false)
+                              );
+                              setIsSearchDropdownOpen(false);
+                            }}
+                            className="flex-1 flex items-center gap-2.5 px-3.5 py-2.5 text-start text-xs sm:text-sm text-slate-200 hover:text-amber-300 transition-colors cursor-pointer truncate"
+                          >
+                            <Clock className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                            <span className="truncate font-medium">{item}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setRecentSearches((prev) =>
+                                removeRecentSearch(item, prev)
+                              );
+                            }}
+                            title={
+                              activeLang === 'fr'
+                                ? 'Supprimer cette recherche'
+                                : 'Remove search'
+                            }
+                            className="p-2 me-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               )}
             </div>
 
@@ -1392,10 +1598,7 @@ export function App() {
 
               <button
                 type="button"
-                onClick={() => {
-                  setTimeOffsetMinutes((prev) => prev - 120);
-                  setActiveTimePreset('minus');
-                }}
+                onClick={() => shiftTimeOffsetMinutes(-120)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer shrink-0 ${
                   activeTimePreset === 'minus'
                     ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/25'
@@ -1407,10 +1610,7 @@ export function App() {
 
               <button
                 type="button"
-                onClick={() => {
-                  setTimeOffsetMinutes(0);
-                  setActiveTimePreset('now');
-                }}
+                onClick={handleSyncToLive}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer shrink-0 ${
                   activeTimePreset === 'now'
                     ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/25'
@@ -1434,10 +1634,7 @@ export function App() {
 
               <button
                 type="button"
-                onClick={() => {
-                  setTimeOffsetMinutes((prev) => prev + 120);
-                  setActiveTimePreset('plus');
-                }}
+                onClick={() => shiftTimeOffsetMinutes(120)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer shrink-0 ${
                   activeTimePreset === 'plus'
                     ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/25'
@@ -1696,7 +1893,7 @@ export function App() {
               selectedBouquet !== 'Tous' ||
               (selectedGroup !== 'Tous' && selectedGroup !== 'Toutes') ||
               searchQuery ||
-              timeOffsetMinutes !== 0) && (
+              isTimeViewOffset) && (
               <button
                 type="button"
                 onClick={resetAllFilters}
@@ -1753,6 +1950,13 @@ export function App() {
             channels={filteredChannels}
             programmesByChannel={schedulesByChannel}
             nowMs={effectiveTimeMs}
+            realNowMs={nowMs}
+            timeOffsetMinutes={timeOffsetMinutes}
+            activeTimePreset={activeTimePreset}
+            liveSyncCount={liveSyncCount}
+            onShiftTimeOffset={shiftTimeOffsetMinutes}
+            onResetToLive={handleSyncToLive}
+            onJumpToPrimeTime={jumpToPrimeTimeTonight}
             favorites={favorites}
             onToggleFavorite={handleToggleFavorite}
             onSelectChannel={(ch, prog) => {
@@ -1836,6 +2040,26 @@ export function App() {
           </div>
         )}
       </main>
+
+      {/* Floating Action Button: Sync to Live (visible only when time view is offset) */}
+      {isTimeViewOffset && (
+        <div className="fixed bottom-6 end-6 z-40 flex items-center">
+          <button
+            type="button"
+            onClick={handleSyncToLive}
+            aria-label="Sync to Live"
+            title="Sync to Live"
+            className="inline-flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 font-extrabold text-xs sm:text-sm shadow-2xl shadow-amber-500/30 border-2 border-amber-300 transition-colors cursor-pointer"
+          >
+            <span className="w-2.5 h-2.5 rounded-full bg-rose-600 shrink-0" />
+            <Radio className="w-4 h-4 text-slate-950 shrink-0" />
+            <span>Sync to Live</span>
+            <span className="px-2 py-0.5 rounded-lg bg-slate-950/20 text-slate-950 font-mono text-[11px] font-bold">
+              {formattedOffsetBadge}
+            </span>
+          </button>
+        </div>
+      )}
 
       {/* Footer Légal & Attribution TMDB (Conformité Google Play Store) */}
       <footer className="mt-auto border-t border-slate-900 bg-slate-950/90 py-4 px-4 sm:px-6 text-[11px] text-slate-500">

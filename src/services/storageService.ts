@@ -32,6 +32,9 @@ const LS_BOUQUETS_V8_MIGRATED_KEY = 'pulse_epg_bouquets_separated_v8';
 const LS_CATEGORIES_V9_MIGRATED_KEY = 'pulse_epg_categories_all_v9';
 const LS_FAVORITES_KEY = 'pulse_epg_favorites_v1';
 const LS_REMINDERS_KEY = 'pulse_epg_reminders_v1';
+const LS_RECENT_SEARCHES_KEY = 'pulse_epg_recent_searches_v1';
+
+export const MAX_RECENT_SEARCHES = 5;
 
 export const MAX_ACTIVE_BOUQUETS = 3;
 export const MAX_ACTIVE_SATELLITES = 2;
@@ -1424,6 +1427,83 @@ export function loadReminders(): ProgrammeReminder[] {
 export function saveReminders(reminders: ProgrammeReminder[]): void {
   try {
     localStorage.setItem(LS_REMINDERS_KEY, JSON.stringify(reminders));
+  } catch {
+    // Ignore
+  }
+}
+
+export function loadRecentSearches(): string[] {
+  try {
+    const raw = localStorage.getItem(LS_RECENT_SEARCHES_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+      .map((item) => item.trim())
+      .slice(0, MAX_RECENT_SEARCHES);
+  } catch {
+    return [];
+  }
+}
+
+export function saveRecentSearches(searches: string[]): void {
+  try {
+    const sanitized = searches
+      .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+      .map((item) => item.trim())
+      .slice(0, MAX_RECENT_SEARCHES);
+    localStorage.setItem(LS_RECENT_SEARCHES_KEY, JSON.stringify(sanitized));
+  } catch {
+    // Ignore
+  }
+}
+
+export function addRecentSearch(
+  query: string,
+  existing?: string[],
+  replaceFirstIfPrefix = false
+): string[] {
+  const trimmed = query.trim();
+  if (!trimmed) return existing ?? loadRecentSearches();
+
+  const current = existing ? [...existing] : loadRecentSearches();
+  const lower = trimmed.toLowerCase();
+
+  if (
+    replaceFirstIfPrefix &&
+    current.length > 0 &&
+    (lower.startsWith(current[0].toLowerCase()) ||
+      current[0].toLowerCase().startsWith(lower))
+  ) {
+    const withoutRest = current
+      .slice(1)
+      .filter((item) => item.toLowerCase() !== lower);
+    const updated = [trimmed, ...withoutRest].slice(0, MAX_RECENT_SEARCHES);
+    saveRecentSearches(updated);
+    return updated;
+  }
+
+  const filtered = current.filter((item) => item.toLowerCase() !== lower);
+  const updated = [trimmed, ...filtered].slice(0, MAX_RECENT_SEARCHES);
+  saveRecentSearches(updated);
+  return updated;
+}
+
+export function removeRecentSearch(
+  queryToRemove: string,
+  existing?: string[]
+): string[] {
+  const current = existing ? [...existing] : loadRecentSearches();
+  const lower = queryToRemove.trim().toLowerCase();
+  const updated = current.filter((item) => item.toLowerCase() !== lower);
+  saveRecentSearches(updated);
+  return updated;
+}
+
+export function clearRecentSearches(): void {
+  try {
+    localStorage.removeItem(LS_RECENT_SEARCHES_KEY);
   } catch {
     // Ignore
   }
