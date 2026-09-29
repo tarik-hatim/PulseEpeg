@@ -34,7 +34,7 @@ const config: CapacitorConfig = {
   server: {
     cleartext: true,          // Autorise les requêtes HTTP (non-HTTPS) pour le XMLTV/EPG
     allowNavigation: ['*']    // Autorise le chargement des ressources distantes
-  }
+  },
   server: {
     androidScheme: "https",
     cleartext: true,
