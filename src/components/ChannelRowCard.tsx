@@ -37,6 +37,10 @@ import {
   ensureHttpsUrl,
 } from '../utils/xmltvParser';
 import {
+  buildCleanFallbackLogoDataUri,
+  getChannelLogoCandidates,
+} from '../utils/channelLogoResolver';
+import {
   getActiveLanguage,
   getTranslations,
   translateDynamicGenre,
@@ -178,6 +182,29 @@ export const ChannelRowCard: React.FC<ChannelRowCardProps> = ({
     ? formatSeasonEpisodeCode(parsedCurrentSE.season, parsedCurrentSE.episode)
     : undefined;
 
+  const logoCandidates = React.useMemo(
+    () =>
+      getChannelLogoCandidates(
+        channel.id,
+        channel.displayName,
+        channel.icon ? channel.icon.replace(/^http:\/\//i, 'https://') : undefined
+      ),
+    [channel.id, channel.displayName, channel.icon]
+  );
+
+  const [logoCandidateIdx, setLogoCandidateIdx] = React.useState(0);
+
+  React.useEffect(() => {
+    setLogoCandidateIdx(0);
+  }, [channel.id, channel.icon]);
+
+  const rawLogoUrl =
+    logoCandidates[Math.min(logoCandidateIdx, logoCandidates.length - 1)] ||
+    buildCleanFallbackLogoDataUri(channel.displayName, channel.id);
+  const secureChannelLogoUrl =
+    ensureHttpsUrl(rawLogoUrl.replace(/^http:\/\//i, 'https://')) ||
+    buildCleanFallbackLogoDataUri(channel.displayName, channel.id);
+
   return (
     <div
       tabIndex={0}
@@ -200,14 +227,24 @@ export const ChannelRowCard: React.FC<ChannelRowCardProps> = ({
         <div className="flex items-center justify-between lg:w-72 2xl:w-80 shrink-0 gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div className="relative w-12 h-12 2xl:w-14 2xl:h-14 rounded-lg bg-[#0B0F17] border border-[#1E2638] flex items-center justify-center p-1.5 shrink-0">
-              {ensureHttpsUrl(channel.icon) ? (
+              {secureChannelLogoUrl ? (
                 <img
-                  src={ensureHttpsUrl(channel.icon)}
+                  src={secureChannelLogoUrl}
                   alt={channel.displayName}
                   className="max-w-full max-h-full object-contain"
                   loading="lazy"
                   onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = 'none';
+                    if (logoCandidateIdx < logoCandidates.length - 1) {
+                      setLogoCandidateIdx((prev) => prev + 1);
+                    } else {
+                      const fallbackUri = buildCleanFallbackLogoDataUri(
+                        channel.displayName,
+                        channel.id
+                      );
+                      if (e.currentTarget.src !== fallbackUri) {
+                        e.currentTarget.src = fallbackUri;
+                      }
+                    }
                   }}
                 />
               ) : (

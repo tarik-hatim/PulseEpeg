@@ -46,6 +46,11 @@ import {
 } from '../utils/metadataResolverCore';
 import { ensureHttpsUrl } from '../utils/xmltvParser';
 import {
+  buildCleanFallbackLogoDataUri,
+  getChannelLogoCandidates,
+  resolveOfficialChannelLogoUrl,
+} from '../utils/channelLogoResolver';
+import {
   getActiveLanguage,
   getLanguageOption,
   getTranslations,
@@ -328,15 +333,41 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
         <div className="sticky top-0 z-20 px-4 py-3 bg-[#0B0F17]/95 backdrop-blur-md border-b border-[#1E2638] flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 rounded-lg bg-[#131927] border border-[#1E2638] flex items-center justify-center p-1.5 shrink-0">
-              {ensureHttpsUrl(channel.icon) ? (
-                <img
-                  src={ensureHttpsUrl(channel.icon)}
-                  alt={channel.displayName}
-                  className="max-w-full max-h-full object-contain"
-                />
-              ) : (
-                <Tv className="w-5 h-5 text-[#94A3B8]" />
-              )}
+              <img
+                src={
+                  ensureHttpsUrl(
+                    (
+                      channel.icon ||
+                      resolveOfficialChannelLogoUrl(
+                        channel.id,
+                        channel.displayName
+                      )
+                    ).replace(/^http:\/\//i, 'https://')
+                  ) ||
+                  buildCleanFallbackLogoDataUri(channel.displayName, channel.id)
+                }
+                alt={channel.displayName}
+                className="max-w-full max-h-full object-contain"
+                onError={(e) => {
+                  const candidates = getChannelLogoCandidates(
+                    channel.id,
+                    channel.displayName,
+                    channel.icon
+                  );
+                  const currentSrc = e.currentTarget.src;
+                  const idx = candidates.indexOf(currentSrc);
+                  const nextSrc =
+                    idx !== -1 && idx + 1 < candidates.length
+                      ? candidates[idx + 1]
+                      : buildCleanFallbackLogoDataUri(
+                          channel.displayName,
+                          channel.id
+                        );
+                  if (currentSrc !== nextSrc) {
+                    e.currentTarget.src = nextSrc;
+                  }
+                }}
+              />
             </div>
             <div className="min-w-0">
               <h2 className="text-base sm:text-lg font-bold text-white truncate">

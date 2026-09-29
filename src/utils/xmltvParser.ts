@@ -20,6 +20,7 @@ import {
   parseSeasonAndEpisode,
 } from './metadataResolverCore';
 import { buildEutelsat16eExhaustiveChannels } from './eutelsat16eCatalog';
+import { resolveOfficialChannelLogoUrl } from './channelLogoResolver';
 
 export type { WhitelistedChannelSpec };
 
@@ -4937,6 +4938,7 @@ function resolveDynamicGlobalSpec(rawId: string): WhitelistedChannelSpec | null 
         contentCategory: Exclude<ContentCategoryFilter, 'Tous'>;
         group: Exclude<ChannelGroup, 'Tous'>;
         transponder: string;
+        defaultIcon: string;
       }
     > = {
       trt1: {
@@ -4945,6 +4947,8 @@ function resolveDynamicGlobalSpec(rawId: string): WhitelistedChannelSpec | null 
         contentCategory: 'Films & Séries',
         group: 'Cinéma Premières',
         transponder: '11596/H/29980',
+        defaultIcon:
+          'https://upload.wikimedia.org/wikipedia/commons/thumb/8/85/TRT_1_logo_%282021-%29.svg/512px-TRT_1_logo_%282021-%29.svg.png',
       },
       trthaber: {
         canonicalId: 'TRT.Haber.tr',
@@ -4952,6 +4956,8 @@ function resolveDynamicGlobalSpec(rawId: string): WhitelistedChannelSpec | null 
         contentCategory: 'Actualités / News',
         group: 'Actualités / News',
         transponder: '11596/H/29980',
+        defaultIcon:
+          'https://upload.wikimedia.org/wikipedia/commons/thumb/7/77/TRT_Haber_logo_%282020-%29.svg/512px-TRT_Haber_logo_%282020-%29.svg.png',
       },
       trtspor: {
         canonicalId: 'TRT.Spor.tr',
@@ -4959,6 +4965,8 @@ function resolveDynamicGlobalSpec(rawId: string): WhitelistedChannelSpec | null 
         contentCategory: 'Sport / Football',
         group: 'Sport / Football',
         transponder: '11596/H/29980',
+        defaultIcon:
+          'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9f/TRT_Spor_logo_%282022%29.svg/512px-TRT_Spor_logo_%282022%29.svg.png',
       },
       trtspor2: {
         canonicalId: 'TRT.Spor.2.tr',
@@ -4966,6 +4974,8 @@ function resolveDynamicGlobalSpec(rawId: string): WhitelistedChannelSpec | null 
         contentCategory: 'Sport / Football',
         group: 'Sport / Football',
         transponder: '11596/H/29980',
+        defaultIcon:
+          'https://upload.wikimedia.org/wikipedia/commons/thumb/9/92/TRT_Spor_Y%C4%B1ld%C4%B1z_logo.svg/512px-TRT_Spor_Y%C4%B1ld%C4%B1z_logo.svg.png',
       },
       trtsporyildiz: {
         canonicalId: 'TRT.Spor.2.tr',
@@ -4973,6 +4983,8 @@ function resolveDynamicGlobalSpec(rawId: string): WhitelistedChannelSpec | null 
         contentCategory: 'Sport / Football',
         group: 'Sport / Football',
         transponder: '11596/H/29980',
+        defaultIcon:
+          'https://upload.wikimedia.org/wikipedia/commons/thumb/9/92/TRT_Spor_Y%C4%B1ld%C4%B1z_logo.svg/512px-TRT_Spor_Y%C4%B1ld%C4%B1z_logo.svg.png',
       },
       trtworld: {
         canonicalId: 'TRT.World.tr',
@@ -4980,6 +4992,8 @@ function resolveDynamicGlobalSpec(rawId: string): WhitelistedChannelSpec | null 
         contentCategory: 'Actualités / News',
         group: 'Actualités / News',
         transponder: '11024/H/3333',
+        defaultIcon:
+          'https://upload.wikimedia.org/wikipedia/commons/thumb/5/52/TRT_World_logo.svg/512px-TRT_World_logo.svg.png',
       },
       trtcocuk: {
         canonicalId: 'TRT.Cocuk.tr',
@@ -4987,6 +5001,8 @@ function resolveDynamicGlobalSpec(rawId: string): WhitelistedChannelSpec | null 
         contentCategory: 'Jeunesse / Enfants',
         group: 'Jeunesse / Enfants',
         transponder: '11596/H/29980',
+        defaultIcon:
+          'https://upload.wikimedia.org/wikipedia/commons/thumb/1/18/TRT_%C3%87ocuk_logo_%282021%29.svg/512px-TRT_%C3%87ocuk_logo_%282021%29.svg.png',
       },
       trtbelgesel: {
         canonicalId: 'TRT.Belgesel.tr',
@@ -4994,6 +5010,8 @@ function resolveDynamicGlobalSpec(rawId: string): WhitelistedChannelSpec | null 
         contentCategory: 'Documentaires',
         group: 'Documentaires',
         transponder: '11637/H/30000',
+        defaultIcon:
+          'https://upload.wikimedia.org/wikipedia/commons/thumb/3/36/TRT_Belgesel_logo_%282019%29.svg/512px-TRT_Belgesel_logo_%282019%29.svg.png',
       },
       trtmuzik: {
         canonicalId: 'TRT.Muzik.tr',
@@ -5001,6 +5019,8 @@ function resolveDynamicGlobalSpec(rawId: string): WhitelistedChannelSpec | null 
         contentCategory: 'Musique & Divertissement',
         group: 'Musique & Divertissement',
         transponder: '11637/H/30000',
+        defaultIcon:
+          'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/TRT_M%C3%BCzik_logo_%282021%29.svg/512px-TRT_M%C3%BCzik_logo_%282021%29.svg.png',
       },
       trtavaz: {
         canonicalId: 'TRT.Avaz.tr',
@@ -5008,6 +5028,8 @@ function resolveDynamicGlobalSpec(rawId: string): WhitelistedChannelSpec | null 
         contentCategory: 'Films & Séries',
         group: 'Séries TV & US',
         transponder: '11637/H/30000',
+        defaultIcon:
+          'https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/TRT_Avaz_logo_%282019%29.svg/512px-TRT_Avaz_logo_%282019%29.svg.png',
       },
       trtturk: {
         canonicalId: 'TRT.Turk.tr',
@@ -5015,6 +5037,8 @@ function resolveDynamicGlobalSpec(rawId: string): WhitelistedChannelSpec | null 
         contentCategory: 'Films & Séries',
         group: 'Comédie & Famille',
         transponder: '11024/H/3333',
+        defaultIcon:
+          'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/TRT_T%C3%BCrk_logo_%282020%29.svg/512px-TRT_T%C3%BCrk_logo_%282020%29.svg.png',
       },
     };
 
@@ -5058,6 +5082,7 @@ function resolveDynamicGlobalSpec(rawId: string): WhitelistedChannelSpec | null 
         subtitleTrackLabel: 'TRT Network · Türksat 42°E / Eutelsat 7°E',
         hasPolishLektor: false,
         hasSubtitles: true,
+        defaultIcon: matchedTrt.defaultIcon,
       };
     }
   }
@@ -5588,17 +5613,21 @@ export function parseChannelBlock(
 
     const url = ensureHttpsUrl(extractXmlTagContent(block, 'url'));
 
-    let icon: string | undefined = ensureHttpsUrl(spec.defaultIcon);
+    let rawXmlIcon: string | undefined;
     const iconIdx = block.indexOf('<icon');
     if (iconIdx !== -1) {
       const iconEnd = block.indexOf('>', iconIdx);
       if (iconEnd !== -1) {
-        icon =
-          ensureHttpsUrl(
-            extractXmlAttr(block.slice(iconIdx, iconEnd + 1), 'src')
-          ) || ensureHttpsUrl(spec.defaultIcon);
+        rawXmlIcon = ensureHttpsUrl(
+          extractXmlAttr(block.slice(iconIdx, iconEnd + 1), 'src')
+        );
       }
     }
+    const icon = resolveOfficialChannelLogoUrl(
+      spec.canonicalId,
+      spec.displayName,
+      rawXmlIcon || ensureHttpsUrl(spec.defaultIcon)
+    );
 
     return {
       id: spec.canonicalId,
@@ -5843,6 +5872,7 @@ export function parseProgrammeBlock(
 interface SupplementalChannelTemplate {
   id: string;
   displayName: string;
+  icon?: string;
   contentCategory: Exclude<ContentCategoryFilter, 'Tous'>;
   group: Exclude<ChannelGroup, 'Tous'>;
   country: Exclude<CountryCode, 'Tous'>;
@@ -5878,6 +5908,7 @@ const SUPPLEMENTAL_SATELLITE_BOUQUET_CHANNELS: SupplementalChannelTemplate[] = [
   {
     id: 'TRT.1.tr',
     displayName: 'TRT 1 HD',
+    icon: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/85/TRT_1_logo_%282021-%29.svg/512px-TRT_1_logo_%282021-%29.svg.png',
     contentCategory: 'Films & Séries',
     group: 'Cinéma Premières',
     country: 'EU',
@@ -5914,6 +5945,7 @@ const SUPPLEMENTAL_SATELLITE_BOUQUET_CHANNELS: SupplementalChannelTemplate[] = [
   {
     id: 'TRT.Haber.tr',
     displayName: 'TRT Haber HD',
+    icon: 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/77/TRT_Haber_logo_%282020-%29.svg/512px-TRT_Haber_logo_%282020-%29.svg.png',
     contentCategory: 'Actualités / News',
     group: 'Actualités / News',
     country: 'EU',
@@ -5943,6 +5975,7 @@ const SUPPLEMENTAL_SATELLITE_BOUQUET_CHANNELS: SupplementalChannelTemplate[] = [
   {
     id: 'TRT.Spor.tr',
     displayName: 'TRT Spor HD',
+    icon: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9f/TRT_Spor_logo_%282022%29.svg/512px-TRT_Spor_logo_%282022%29.svg.png',
     contentCategory: 'Sport / Football',
     group: 'Sport / Football',
     country: 'EU',
@@ -5972,6 +6005,7 @@ const SUPPLEMENTAL_SATELLITE_BOUQUET_CHANNELS: SupplementalChannelTemplate[] = [
   {
     id: 'TRT.Spor.2.tr',
     displayName: 'TRT Spor 2',
+    icon: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/92/TRT_Spor_Y%C4%B1ld%C4%B1z_logo.svg/512px-TRT_Spor_Y%C4%B1ld%C4%B1z_logo.svg.png',
     contentCategory: 'Sport / Football',
     group: 'Sport / Football',
     country: 'EU',
@@ -6001,6 +6035,7 @@ const SUPPLEMENTAL_SATELLITE_BOUQUET_CHANNELS: SupplementalChannelTemplate[] = [
   {
     id: 'TRT.World.tr',
     displayName: 'TRT World',
+    icon: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/52/TRT_World_logo.svg/512px-TRT_World_logo.svg.png',
     contentCategory: 'Actualités / News',
     group: 'Actualités / News',
     country: 'EU',
@@ -6030,6 +6065,7 @@ const SUPPLEMENTAL_SATELLITE_BOUQUET_CHANNELS: SupplementalChannelTemplate[] = [
   {
     id: 'TRT.Cocuk.tr',
     displayName: 'TRT Çocuk',
+    icon: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/18/TRT_%C3%87ocuk_logo_%282021%29.svg/512px-TRT_%C3%87ocuk_logo_%282021%29.svg.png',
     contentCategory: 'Jeunesse / Enfants',
     group: 'Jeunesse / Enfants',
     country: 'EU',
@@ -6059,6 +6095,7 @@ const SUPPLEMENTAL_SATELLITE_BOUQUET_CHANNELS: SupplementalChannelTemplate[] = [
   {
     id: 'TRT.Belgesel.tr',
     displayName: 'TRT Belgesel',
+    icon: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/36/TRT_Belgesel_logo_%282019%29.svg/512px-TRT_Belgesel_logo_%282019%29.svg.png',
     contentCategory: 'Documentaires',
     group: 'Documentaires',
     country: 'EU',
@@ -6088,6 +6125,7 @@ const SUPPLEMENTAL_SATELLITE_BOUQUET_CHANNELS: SupplementalChannelTemplate[] = [
   {
     id: 'TRT.Muzik.tr',
     displayName: 'TRT Müzik',
+    icon: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/TRT_M%C3%BCzik_logo_%282021%29.svg/512px-TRT_M%C3%BCzik_logo_%282021%29.svg.png',
     contentCategory: 'Musique & Divertissement',
     group: 'Musique & Divertissement',
     country: 'EU',
@@ -6117,6 +6155,7 @@ const SUPPLEMENTAL_SATELLITE_BOUQUET_CHANNELS: SupplementalChannelTemplate[] = [
   {
     id: 'TRT.Avaz.tr',
     displayName: 'TRT Avaz',
+    icon: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/TRT_Avaz_logo_%282019%29.svg/512px-TRT_Avaz_logo_%282019%29.svg.png',
     contentCategory: 'Films & Séries',
     group: 'Séries TV & US',
     country: 'EU',
@@ -6146,6 +6185,7 @@ const SUPPLEMENTAL_SATELLITE_BOUQUET_CHANNELS: SupplementalChannelTemplate[] = [
   {
     id: 'TRT.Turk.tr',
     displayName: 'TRT Türk',
+    icon: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/TRT_T%C3%BCrk_logo_%282020%29.svg/512px-TRT_T%C3%BCrk_logo_%282020%29.svg.png',
     contentCategory: 'Films & Séries',
     group: 'Comédie & Famille',
     country: 'EU',
@@ -7140,10 +7180,16 @@ export function supplementSatelliteBouquetsCoverage(
     }
 
     const existingCh = channelsMap.get(tpl.id);
+    const resolvedIcon = resolveOfficialChannelLogoUrl(
+      tpl.id,
+      tpl.displayName,
+      tpl.icon || existingCh?.icon
+    );
     if (!existingCh) {
       channelsMap.set(tpl.id, {
         id: tpl.id,
         displayName: tpl.displayName,
+        icon: resolvedIcon,
         contentCategory: tpl.contentCategory,
         group: tpl.group,
         country: tpl.country,
@@ -7178,6 +7224,7 @@ export function supplementSatelliteBouquetsCoverage(
       channelsMap.set(tpl.id, {
         ...existingCh,
         displayName: tpl.displayName,
+        icon: resolvedIcon,
         satellites: mergedSats,
         orbitalPosition: tpl.orbitalPosition,
         bouquets: mergedBouquets,

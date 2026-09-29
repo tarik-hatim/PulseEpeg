@@ -61,9 +61,15 @@ import {
 import {
   cleanOfficialChannelName,
   cleanXmltvChannelId,
+  ensureHttpsUrl,
   isPlaceholderProgrammeTitle,
   normalizeSingleOrbitalPosition,
 } from '../utils/xmltvParser';
+import {
+  buildCleanFallbackLogoDataUri,
+  getChannelLogoCandidates,
+  resolveOfficialChannelLogoUrl,
+} from '../utils/channelLogoResolver';
 import {
   CHANNEL_COUNTRY_FILTER_OPTIONS,
   ensureSchedulesCoverTargetTime,
@@ -949,16 +955,42 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className="w-9 h-9 rounded-lg bg-[#131927] border border-[#1E2638] flex items-center justify-center p-1 shrink-0">
-                        {ch.icon ? (
-                          <img
-                            src={ch.icon}
-                            alt={ch.displayName}
-                            className="max-w-full max-h-full object-contain"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <Tv className="w-4 h-4 text-[#94A3B8]" />
-                        )}
+                        <img
+                          src={
+                            ensureHttpsUrl(
+                              (
+                                ch.icon ||
+                                resolveOfficialChannelLogoUrl(
+                                  ch.id,
+                                  ch.displayName
+                                )
+                              ).replace(/^http:\/\//i, 'https://')
+                            ) ||
+                            buildCleanFallbackLogoDataUri(ch.displayName, ch.id)
+                          }
+                          alt={ch.displayName}
+                          className="max-w-full max-h-full object-contain"
+                          loading="lazy"
+                          onError={(e) => {
+                            const candidates = getChannelLogoCandidates(
+                              ch.id,
+                              ch.displayName,
+                              ch.icon
+                            );
+                            const currentSrc = e.currentTarget.src;
+                            const idx = candidates.indexOf(currentSrc);
+                            const nextSrc =
+                              idx !== -1 && idx + 1 < candidates.length
+                                ? candidates[idx + 1]
+                                : buildCleanFallbackLogoDataUri(
+                                    ch.displayName,
+                                    ch.id
+                                  );
+                            if (currentSrc !== nextSrc) {
+                              e.currentTarget.src = nextSrc;
+                            }
+                          }}
+                        />
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-1">

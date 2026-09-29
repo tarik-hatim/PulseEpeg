@@ -25,6 +25,7 @@ import {
   normalizeSingleOrbitalPosition,
   supplementSatelliteBouquetsCoverage,
 } from '../utils/xmltvParser';
+import { resolveOfficialChannelLogoUrl } from '../utils/channelLogoResolver';
 
 const DB_NAME = 'PulseEpgCacheDB';
 const DB_VERSION = 1;
@@ -2337,7 +2338,11 @@ export async function saveEpgToCache(
     .filter((ch) => !isAdultChannel(ch.id, ch.displayName))
     .map((ch) => ({
       ...ch,
-      icon: ensureHttpsUrl(ch.icon),
+      icon: resolveOfficialChannelLogoUrl(
+        ch.id,
+        ch.displayName,
+        ensureHttpsUrl(ch.icon)
+      ),
       url: ensureHttpsUrl(ch.url),
     }));
   const sanitizedMetadata: EpgCacheMetadata = {
@@ -2402,7 +2407,11 @@ export async function loadEpgFromCache(): Promise<StoredEpgSnapshot | null> {
                 /\.tr$/i.test(ch.id || '');
               return {
                 ...ch,
-                icon: ensureHttpsUrl(ch.icon),
+                icon: resolveOfficialChannelLogoUrl(
+                  ch.id,
+                  ch.displayName,
+                  ensureHttpsUrl(ch.icon)
+                ),
                 url: ensureHttpsUrl(ch.url),
                 displayName: cleanOfficialChannelName(ch.displayName),
                 satellites: isTrtChannel
