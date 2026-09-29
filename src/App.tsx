@@ -1,13 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Baby,
   Bell,
   Clock,
   Compass,
   Film,
-  Globe,
   Heart,
   Languages,
   LayoutGrid,
+  Music,
+  Newspaper,
   Radio,
   RefreshCw,
   RotateCcw,
@@ -29,7 +31,6 @@ import {
   BouquetFilter,
   ChannelGroup,
   ContentCategoryFilter,
-  CountryCode,
   EpgCacheMetadata,
   EpgChannel,
   EpgProgramme,
@@ -44,19 +45,24 @@ import {
   clearEpgCache,
   DEFAULT_EPG_SOURCES,
   DEFAULT_SETTINGS,
+  getBouquetsForSatellite,
   isBouquetFilterAllowedBySettings,
   isCategoryFilterAllowedBySettings,
   isChannelAllowedBySettings,
-  isCountryFilterAllowedBySettings,
   isSatelliteFilterAllowedBySettings,
   loadAppSettings,
   loadEpgFromCache,
   loadFavoriteChannels,
   loadReminders,
+  MAX_ACTIVE_BOUQUETS,
+  pruneSchedulesToActiveWindow,
+  RAM_LIMIT_WARNING_MESSAGE,
+  SAT_TO_BOUQUETS_MAP,
   saveAppSettings,
   saveEpgToCache,
   saveFavoriteChannels,
   saveReminders,
+  STRICT_SAT_FILTER_LIST,
   syncSourcesWithSelectedBouquets,
 } from './services/storageService';
 import {
@@ -82,77 +88,49 @@ import {
   setActiveLanguage,
   translateBouquetFilter,
   translateCategoryFilter,
-  translateCountryFilter,
   translateSatelliteFilter,
   translateSubGenreGroup,
 } from './utils/i18n';
+import {
+  cleanXmltvChannelId,
+  isExclusivelySportChannel,
+  isPlaceholderProgrammeTitle,
+  matchesProgrammeCategory,
+  matchesProgrammeGenreGroup,
+} from './utils/xmltvParser';
 
 type ViewMode = 'live' | 'grid' | 'favorites';
+type ActiveTimePreset = 'minus' | 'now' | 'prime' | 'plus';
 
 const CATEGORY_OPTIONS: {
   code: ContentCategoryFilter;
-  icon: 'all' | 'cinema' | 'sport' | 'doc';
+  icon: 'all' | 'cinema' | 'doc' | 'news' | 'kids' | 'music' | 'sport';
 }[] = [
   { code: 'Tous', icon: 'all' },
   { code: 'Films & Séries', icon: 'cinema' },
-  { code: 'Sport / Football', icon: 'sport' },
   { code: 'Documentaires', icon: 'doc' },
+  { code: 'Actualités / News', icon: 'news' },
+  { code: 'Jeunesse / Enfants', icon: 'kids' },
+  { code: 'Musique & Divertissement', icon: 'music' },
+  { code: 'Sport / Football', icon: 'sport' },
 ];
 
-const SATELLITE_OPTIONS: SatelliteFilter[] = [
-  'Tous',
-  'Nilesat 7°W',
-  'Astra 19.2°E',
-  'Hotbird 13°E',
-  'Hispasat 30°W',
-  'Eutelsat 16°E / Thor 0.8°W',
-  'Star One D2 70°W',
-  'Amazonas 61°W',
-  'Intelsat 43.1°W / SES-6 40.5°W',
-];
+const SATELLITE_OPTIONS: SatelliteFilter[] = STRICT_SAT_FILTER_LIST;
 
-const BOUQUET_OPTIONS: BouquetFilter[] = [
-  'Tous',
-  'Nilesat OSN/MBC',
-  'beIN / SSC / AD Sports',
-  'Astra Canal+',
-  'Movistar+ / DAZN ES',
-  'Sky DE / DAZN DE',
-  'Sky Italia / DAZN IT',
-  'Canal+ / Eleven / FilmBox',
-  'HBO / Cinemax',
-  'AXN / Warner / Sci-Fi',
-  'DigitAlb / Total TV / Focus Sat',
-  'Claro TV Brasil',
-  'Vivo TV / Movistar LATAM',
-  'DirecTV LATAM / Sky Brasil',
-];
-
-const COUNTRY_OPTIONS: {
-  code: CountryCode;
-  flag: string;
-}[] = [
-  { code: 'Tous', flag: '🛰️' },
-  { code: 'AR', flag: '🇲🇦/🇦🇪' },
-  { code: 'FR', flag: '🇫🇷' },
-  { code: 'ES', flag: '🇪🇸' },
-  { code: 'DE', flag: '🇩🇪' },
-  { code: 'IT', flag: '🇮🇹' },
-  { code: 'PL', flag: '🇵🇱' },
-  { code: 'EU', flag: '🇪🇺' },
-  { code: 'BR', flag: '🇧🇷' },
-  { code: 'LATAM', flag: '🌎' },
-];
+const BOUQUET_OPTIONS: BouquetFilter[] = SAT_TO_BOUQUETS_MAP['Tous'];
 
 const GROUP_OPTIONS: ChannelGroup[] = [
-  'Toutes',
-  'Sport / Football',
-  'Documentaires',
+  'Tous',
   'Cinéma Premières',
-  'Séries TV & US',
   'Action & Thriller',
+  'Séries TV & US',
   'Comédie & Famille',
   'Classiques & Culte',
+  'Documentaires',
+  'Actualités / News',
+  'Jeunesse / Enfants',
+  'Musique & Divertissement',
+  'Sport / Football',
 ];
 
 export function App() {
@@ -174,12 +152,19 @@ export function App() {
     useState<SatelliteFilter>('Tous');
   const [selectedBouquet, setSelectedBouquet] =
     useState<BouquetFilter>('Tous');
-  const [selectedCountry, setSelectedCountry] = useState<CountryCode>('Tous');
-  const [selectedGroup, setSelectedGroup] = useState<ChannelGroup>('Toutes');
+  const [selectedBouquetsList, setSelectedBouquetsList] = useState<
+    BouquetFilter[]
+  >([]);
+  const [ramWarningMessage, setRamWarningMessage] = useState<string | null>(
+    null
+  );
+  const [selectedGroup, setSelectedGroup] = useState<ChannelGroup>('Tous');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
   const [timeOffsetMinutes, setTimeOffsetMinutes] = useState<number>(0);
+  const [activeTimePreset, setActiveTimePreset] =
+    useState<ActiveTimePreset>('now');
 
   const [favorites, setFavorites] = useState<string[]>(() =>
     loadFavoriteChannels()
@@ -300,28 +285,33 @@ export function App() {
     worker.postMessage(req);
   }, []);
 
-  // Chargement initial : lecture instantanée du cache IndexedDB ou lancement du Worker
+  // Chargement initial : lecture instantanée du cache IndexedDB (TTL 12h) ou lancement du Worker
   useEffect(() => {
     let mounted = true;
     (async () => {
       const cached = await loadEpgFromCache();
-      const expectedSig = buildSourcesSignature(settings);
 
-      if (
-        cached &&
-        cached.channels.length > 0 &&
-        cached.metadata.sourcesSignature === expectedSig
-      ) {
+      if (cached && cached.channels.length > 0) {
         if (!mounted) return;
         const allowedCachedChannels = cached.channels.filter((ch) =>
           isChannelAllowedBySettings(ch, settings)
         );
-        setChannels(allowedCachedChannels);
-        setSchedulesByChannel(cached.schedulesByChannel);
+        const prunedSchedules = pruneSchedulesToActiveWindow(
+          cached.schedulesByChannel,
+          Date.now()
+        );
+        setChannels(
+          allowedCachedChannels.length > 0
+            ? allowedCachedChannels
+            : cached.channels
+        );
+        setSchedulesByChannel(prunedSchedules);
         setCacheMeta(cached.metadata);
 
-        const isExpired = Date.now() > cached.metadata.expiresAtMs;
-        if (isExpired && settings.autoRefreshHours > 0) {
+        const cacheAgeMs =
+          Date.now() - (cached.metadata.lastUpdatedMs || 0);
+        const isOlderThan12Hours = cacheAgeMs > 12 * 3600 * 1000;
+        if (isOlderThan12Hours && settings.autoRefreshHours > 0) {
           triggerEpgSync(settings);
         }
       } else {
@@ -352,15 +342,23 @@ export function App() {
     > = {};
 
     for (const ch of settingsAllowedChannels) {
-      const list = schedulesByChannel[ch.id] || [];
+      const cleanId = cleanXmltvChannelId(ch.id);
+      const list =
+        schedulesByChannel[cleanId] || schedulesByChannel[ch.id] || [];
       let current: EpgProgramme | null = null;
       let next: EpgProgramme | null = null;
 
       for (let i = 0; i < list.length; i++) {
         const p = list[i];
+        if (!p || isPlaceholderProgrammeTitle(p.title)) continue;
         if (p.startMs <= effectiveTimeMs && p.stopMs > effectiveTimeMs) {
           current = p;
-          next = list[i + 1] || null;
+          for (let j = i + 1; j < list.length; j++) {
+            if (list[j] && !isPlaceholderProgrammeTitle(list[j].title)) {
+              next = list[j];
+              break;
+            }
+          }
           break;
         }
         if (p.startMs > effectiveTimeMs) {
@@ -370,6 +368,9 @@ export function App() {
       }
 
       map[ch.id] = { current, next };
+      if (cleanId !== ch.id) {
+        map[cleanId] = { current, next };
+      }
     }
     return map;
   }, [settingsAllowedChannels, schedulesByChannel, effectiveTimeMs]);
@@ -409,75 +410,334 @@ export function App() {
   const baseViewChannels = useMemo(() => {
     const q = searchQuery.trim();
     return settingsAllowedChannels.filter((ch) => {
+      const pair = currentAndNextByChannel[ch.id];
+      if (!pair?.current && !pair?.next) return false;
       if (viewMode === 'favorites' && !favoriteSet.has(ch.id)) return false;
       if (q && !matchesSearch(ch, q)) return false;
       return true;
     });
   }, [
     settingsAllowedChannels,
+    currentAndNextByChannel,
     viewMode,
     favoriteSet,
     searchQuery,
     matchesSearch,
   ]);
 
-  const matchesCategory = (
-    ch: EpgChannel,
-    cat: ContentCategoryFilter
-  ): boolean => cat === 'Tous' || ch.contentCategory === cat;
+  const matchesCategory = useCallback(
+    (ch: EpgChannel, cat: ContentCategoryFilter): boolean => {
+      const pair = currentAndNextByChannel[ch.id];
+      if (!pair?.current && !pair?.next) return false;
+      if (cat === 'Tous') return true;
 
-  const matchesSatellite = (ch: EpgChannel, sat: SatelliteFilter): boolean =>
-    sat === 'Tous' || ch.satellites.includes(sat);
+      // Règle stricte : masquer impérativement toute chaîne exclusivement sportive (ex: beIN Sports 1 HD)
+      // lorsque le filtre "Films & Séries" ou toute catégorie non-sportive est active
+      if (cat !== 'Sport / Football' && isExclusivelySportChannel(ch)) {
+        return false;
+      }
+      if (cat === 'Sport / Football' && !isExclusivelySportChannel(ch)) {
+        return false;
+      }
 
-  const matchesBouquet = (ch: EpgChannel, bq: BouquetFilter): boolean => {
-    if (bq === 'Tous') return true;
-    if (bq === 'Nilesat OSN/MBC') {
+      if (ch.contentCategory && ch.contentCategory !== cat) {
+        return false;
+      }
+
       return (
-        ch.bouquets.includes('Nilesat OSN/MBC') ||
-        ch.bouquets.includes('OSN / MBC (Nilesat)')
+        matchesProgrammeCategory(pair?.current, cat, ch.contentCategory) ||
+        matchesProgrammeCategory(pair?.next, cat, ch.contentCategory)
+      );
+    },
+    [currentAndNextByChannel]
+  );
+
+  const matchesSatellite = (ch: EpgChannel, sat: SatelliteFilter): boolean => {
+    if (sat === 'Tous') return true;
+    if (sat === "Badr / Es'hailSat 26°E" || sat === 'Badr 26°E') {
+      return (
+        ch.satellites.includes("Badr / Es'hailSat 26°E") ||
+        ch.satellites.includes('Badr 26°E')
       );
     }
-    if (bq === 'beIN / SSC / AD Sports' || bq === 'beIN / SSC (MENA)') {
+    return ch.satellites.includes(sat);
+  };
+
+  const matchesSingleBouquet = (ch: EpgChannel, bq: BouquetFilter): boolean => {
+    if (bq === 'Tous') return true;
+    const combined = `${ch.id} ${ch.displayName}`.toLowerCase();
+
+    if (bq === 'Nilesat MBC/OSN/Rotana') {
       return (
-        ch.bouquets.includes('beIN / SSC / AD Sports') ||
-        ch.bouquets.includes('beIN / SSC (MENA)')
+        ch.satellites.includes('Nilesat 7°W') &&
+        (ch.bouquets.includes('Nilesat MBC/OSN/Rotana') ||
+          /mbc|osn|rotana|wanasah|dubai\s*one|star\s*movies|star\s*world/i.test(
+            combined
+          ))
+      );
+    }
+    if (bq === 'TNT Arabe/Égypte') {
+      return (
+        ch.satellites.includes('Nilesat 7°W') &&
+        (ch.bouquets.includes('TNT Arabe/Égypte') ||
+          !/mbc|osn|rotana|wanasah|dubai\s*one|star\s*movies|star\s*world/i.test(
+            combined
+          ))
+      );
+    }
+    if (bq === 'Badr beIN (Sports & Movies)') {
+      return (
+        matchesSatellite(ch, "Badr / Es'hailSat 26°E") &&
+        (ch.bouquets.includes('Badr beIN (Sports & Movies)') ||
+          /bein|baraem|jeem|fatafeat/i.test(combined))
+      );
+    }
+    if (bq === 'Badr SSC') {
+      return (
+        matchesSatellite(ch, "Badr / Es'hailSat 26°E") &&
+        (ch.bouquets.includes('Badr SSC') || /\bssc\b/i.test(combined))
+      );
+    }
+    if (bq === 'Badr TV Arabes/Al Kass') {
+      return (
+        matchesSatellite(ch, "Badr / Es'hailSat 26°E") &&
+        (ch.bouquets.includes('Badr TV Arabes/Al Kass') ||
+          !/bein|baraem|jeem|fatafeat|\bssc\b/i.test(combined))
+      );
+    }
+    if (
+      bq === 'Astra Canal+ France' ||
+      bq === 'Canal+ France' ||
+      bq === 'Astra Canal+'
+    ) {
+      return (
+        ch.satellites.includes('Astra 19.2°E') &&
+        (ch.bouquets.includes('Astra Canal+ France') ||
+          ch.bouquetId === 'astra_canal_fr' ||
+          ch.bouquets.includes('Canal+ France') ||
+          ch.bouquets.includes('Astra Canal+'))
+      );
+    }
+    if (bq === 'Astra TNT France' || bq === 'TNT France') {
+      return (
+        ch.satellites.includes('Astra 19.2°E') &&
+        (ch.bouquets.includes('Astra TNT France') ||
+          ch.bouquetId === 'astra_tnt_fr' ||
+          ch.bouquetId === 'tnt_fr' ||
+          ch.bouquets.includes('TNT France'))
+      );
+    }
+    if (bq === 'Astra Movistar+ España' || bq === 'Movistar+ / DAZN ES') {
+      return (
+        ch.satellites.includes('Astra 19.2°E') &&
+        (ch.bouquets.includes('Astra Movistar+ España') ||
+          ch.bouquetId === 'movistar_es' ||
+          ch.bouquetId === 'sky_de' ||
+          ch.bouquets.includes('Movistar+ / DAZN ES') ||
+          ch.bouquets.includes('Sky DE / DAZN DE'))
+      );
+    }
+    if (
+      bq === 'Hotbird Polsat/Cyfra+' ||
+      bq === 'Polsat / Cyfra+ / Eleven' ||
+      bq === 'Canal+ / Eleven / FilmBox'
+    ) {
+      return (
+        ch.satellites.includes('Hotbird 13°E') &&
+        (ch.bouquets.includes('Hotbird Polsat/Cyfra+') ||
+          ch.bouquetId === 'canal_pl' ||
+          ch.country === 'PL')
+      );
+    }
+    if (
+      bq === 'Hotbird Bis TV/Rai' ||
+      bq === 'Bis TV France' ||
+      bq === 'Bis TV (Hotbird 13°E)' ||
+      bq === 'Rai / Sky Italia / Mediaset' ||
+      bq === 'Sky Italia / DAZN IT'
+    ) {
+      return (
+        ch.satellites.includes('Hotbird 13°E') &&
+        (ch.bouquets.includes('Hotbird Bis TV/Rai') ||
+          ch.bouquetId === 'hotbird_bis_fr' ||
+          ch.bouquetId === 'sky_it' ||
+          ch.country === 'IT' ||
+          ch.bouquets.some((b) => b.includes('Bis') || b.includes('Rai')))
+      );
+    }
+    if (
+      bq === 'Hispasat Meo/NOS/Movistar' ||
+      bq === 'Meo / NOS / Movistar 30°W' ||
+      bq === 'MEO / NOS / Movistar (30°W)'
+    ) {
+      return (
+        ch.satellites.includes('Hispasat 30°W') &&
+        (ch.bouquets.includes('Hispasat Meo/NOS/Movistar') ||
+          ch.bouquetId === 'hispasat_meo_nos' ||
+          ch.bouquets.some(
+            (b) => b.includes('30°W') || b.includes('MEO') || b.includes('Meo')
+          ))
       );
     }
     return ch.bouquets.includes(bq);
   };
 
-  const matchesCountry = (ch: EpgChannel, c: CountryCode): boolean =>
-    c === 'Tous' || ch.country === c;
+  const matchesBouquet = useCallback(
+    (ch: EpgChannel, bq: BouquetFilter): boolean => {
+      if (selectedBouquetsList.length > 0 && bq === selectedBouquet) {
+        return selectedBouquetsList.some((item) =>
+          matchesSingleBouquet(ch, item)
+        );
+      }
+      return matchesSingleBouquet(ch, bq);
+    },
+    [selectedBouquetsList, selectedBouquet]
+  );
 
-  const matchesGroup = (ch: EpgChannel, grp: ChannelGroup): boolean =>
-    grp === 'Toutes' || grp === 'Tous' || ch.group === grp;
+  // Gestion stricte du changement de Satellite : réinitialise immédiatement tout bouquet hors du satellite choisi
+  const handleSelectSatellite = useCallback((sat: SatelliteFilter) => {
+    setSelectedSatellite(sat);
+    setRamWarningMessage(null);
+    const allowedBouquets = getBouquetsForSatellite(sat);
+    setSelectedBouquetsList((prev) =>
+      sat === 'Tous'
+        ? prev
+        : prev.filter((b) => allowedBouquets.includes(b)).slice(0, 1)
+    );
+    setSelectedBouquet((prev) =>
+      allowedBouquets.includes(prev) ? prev : 'Tous'
+    );
+  }, []);
 
-  // Recalcul en temps réel des compteurs croisés
+  // Gestion de la sélection de Bouquet avec limite stricte de 3 bouquets simultanés max (RAM < 50 Mo)
+  const handleSelectBouquet = useCallback(
+    (bq: BouquetFilter) => {
+      if (bq === 'Tous') {
+        setSelectedBouquet('Tous');
+        setSelectedBouquetsList([]);
+        setRamWarningMessage(null);
+        return;
+      }
+
+      if (selectedSatellite !== 'Tous') {
+        setRamWarningMessage(null);
+        setSelectedBouquetsList((prev) => {
+          if (prev.includes(bq)) {
+            const next = prev.filter((item) => item !== bq);
+            setSelectedBouquet(next[0] || 'Tous');
+            return next;
+          }
+          if (prev.length >= MAX_ACTIVE_BOUQUETS) {
+            setRamWarningMessage(RAM_LIMIT_WARNING_MESSAGE);
+            return prev;
+          }
+          const next = [bq];
+          setSelectedBouquet(bq);
+          return next;
+        });
+        return;
+      }
+
+      setSelectedBouquetsList((prev) => {
+        if (prev.includes(bq)) {
+          const next = prev.filter((item) => item !== bq);
+          setSelectedBouquet(next[0] || 'Tous');
+          setRamWarningMessage(null);
+          return next;
+        }
+        if (prev.length >= MAX_ACTIVE_BOUQUETS) {
+          setRamWarningMessage(RAM_LIMIT_WARNING_MESSAGE);
+          return prev;
+        }
+        const next = [...prev, bq];
+        setSelectedBouquet(bq);
+        setRamWarningMessage(null);
+        return next;
+      });
+    },
+    [selectedSatellite]
+  );
+
+  const matchesGroup = useCallback(
+    (ch: EpgChannel, grp: ChannelGroup): boolean => {
+      const pair = currentAndNextByChannel[ch.id];
+      if (!pair?.current && !pair?.next) return false;
+      if (grp === 'Toutes' || grp === 'Tous') return true;
+
+      // Règle stricte : masquer impérativement toute chaîne exclusivement sportive (ex: beIN Sports 1 HD)
+      // lorsque "Cinéma Premières" ou tout autre genre non-sportif est actif
+      if (grp !== 'Sport / Football' && isExclusivelySportChannel(ch)) {
+        return false;
+      }
+      if (grp === 'Sport / Football' && !isExclusivelySportChannel(ch)) {
+        return false;
+      }
+
+      const isCinemaSubGenre =
+        grp === 'Cinéma Premières' ||
+        grp === 'Action & Thriller' ||
+        grp === 'Séries TV & US' ||
+        grp === 'Comédie & Famille' ||
+        grp === 'Classiques & Culte';
+
+      if (
+        isCinemaSubGenre &&
+        ch.contentCategory &&
+        ch.contentCategory !== 'Films & Séries'
+      ) {
+        return false;
+      }
+
+      return (
+        matchesProgrammeGenreGroup(
+          pair?.current,
+          grp,
+          ch.group,
+          ch.contentCategory
+        ) ||
+        matchesProgrammeGenreGroup(
+          pair?.next,
+          grp,
+          ch.group,
+          ch.contentCategory
+        )
+      );
+    },
+    [currentAndNextByChannel]
+  );
+
+  // Recalcul en temps réel des compteurs croisés ([CATÉGORIE] -> [SATELLITE / BOUQUET] -> [GENRE])
   const categoryCounts = useMemo(() => {
     const counts: Record<ContentCategoryFilter, number> = {
       Tous: 0,
       'Films & Séries': 0,
-      'Sport / Football': 0,
       Documentaires: 0,
+      'Actualités / News': 0,
+      'Jeunesse / Enfants': 0,
+      'Musique & Divertissement': 0,
+      'Sport / Football': 0,
     };
 
     const pool = baseViewChannels.filter(
       (ch) =>
         matchesSatellite(ch, selectedSatellite) &&
         matchesBouquet(ch, selectedBouquet) &&
-        matchesCountry(ch, selectedCountry) &&
         matchesGroup(ch, selectedGroup)
     );
 
     counts.Tous = pool.length;
     for (const ch of pool) {
-      if (
-        isCategoryFilterAllowedBySettings(
-          ch.contentCategory,
-          settings.enabledCategories
-        )
-      ) {
-        counts[ch.contentCategory] = (counts[ch.contentCategory] || 0) + 1;
+      for (const catOpt of CATEGORY_OPTIONS) {
+        if (
+          catOpt.code !== 'Tous' &&
+          isCategoryFilterAllowedBySettings(
+            catOpt.code,
+            settings.enabledCategories
+          ) &&
+          matchesCategory(ch, catOpt.code)
+        ) {
+          counts[catOpt.code] = (counts[catOpt.code] || 0) + 1;
+        }
       }
     }
     return counts;
@@ -485,15 +745,18 @@ export function App() {
     baseViewChannels,
     selectedSatellite,
     selectedBouquet,
-    selectedCountry,
     selectedGroup,
     settings.enabledCategories,
+    matchesCategory,
+    matchesGroup,
   ]);
 
   const satelliteCounts = useMemo(() => {
     const counts: Record<SatelliteFilter, number> = {
       Tous: 0,
       'Nilesat 7°W': 0,
+      'Badr 26°E': 0,
+      "Badr / Es'hailSat 26°E": 0,
       'Astra 19.2°E': 0,
       'Hotbird 13°E': 0,
       'Hispasat 30°W': 0,
@@ -507,18 +770,15 @@ export function App() {
     const pool = baseViewChannels.filter(
       (ch) =>
         matchesCategory(ch, selectedCategory) &&
-        matchesBouquet(ch, selectedBouquet) &&
-        matchesCountry(ch, selectedCountry) &&
         matchesGroup(ch, selectedGroup)
     );
 
     counts.Tous = pool.length;
     for (const ch of pool) {
       for (const sat of ch.satellites) {
-        if (
-          isSatelliteFilterAllowedBySettings(sat, settings.selectedBouquets)
-        ) {
-          counts[sat] = (counts[sat] || 0) + 1;
+        counts[sat] = (counts[sat] || 0) + 1;
+        if (sat === "Badr / Es'hailSat 26°E") {
+          counts['Badr 26°E'] = (counts['Badr 26°E'] || 0) + 1;
         }
       }
     }
@@ -526,48 +786,29 @@ export function App() {
   }, [
     baseViewChannels,
     selectedCategory,
-    selectedBouquet,
-    selectedCountry,
     selectedGroup,
-    settings.selectedBouquets,
+    matchesCategory,
+    matchesGroup,
   ]);
 
   const bouquetCounts = useMemo(() => {
-    const counts: Record<BouquetFilter, number> = {
-      Tous: 0,
-      'Nilesat OSN/MBC': 0,
-      'beIN / SSC (MENA)': 0,
-      'beIN / SSC / AD Sports': 0,
-      'Astra Canal+': 0,
-      'Movistar+ / DAZN ES': 0,
-      'Sky DE / DAZN DE': 0,
-      'Sky Italia / DAZN IT': 0,
-      'Canal+ / Eleven / FilmBox': 0,
-      'HBO / Cinemax': 0,
-      'AXN / Warner / Sci-Fi': 0,
-      'OSN / MBC (Nilesat)': 0,
-      'DigitAlb / Total TV / Focus Sat': 0,
-      'Claro TV Brasil': 0,
-      'Vivo TV / Movistar LATAM': 0,
-      'DirecTV LATAM / Sky Brasil': 0,
-    };
+    const counts = {} as Record<BouquetFilter, number>;
+    for (const bq of BOUQUET_OPTIONS) {
+      counts[bq] = 0;
+    }
 
     const pool = baseViewChannels.filter(
       (ch) =>
         matchesCategory(ch, selectedCategory) &&
         matchesSatellite(ch, selectedSatellite) &&
-        matchesCountry(ch, selectedCountry) &&
         matchesGroup(ch, selectedGroup)
     );
 
     counts.Tous = pool.length;
+    const targetBouquets = getBouquetsForSatellite(selectedSatellite);
     for (const ch of pool) {
-      for (const bq of BOUQUET_OPTIONS) {
-        if (
-          bq !== 'Tous' &&
-          isBouquetFilterAllowedBySettings(bq, settings.selectedBouquets) &&
-          matchesBouquet(ch, bq)
-        ) {
+      for (const bq of targetBouquets) {
+        if (bq !== 'Tous' && matchesSingleBouquet(ch, bq)) {
           counts[bq] = (counts[bq] || 0) + 1;
         }
       }
@@ -577,40 +818,41 @@ export function App() {
     baseViewChannels,
     selectedCategory,
     selectedSatellite,
-    selectedCountry,
     selectedGroup,
-    settings.selectedBouquets,
+    matchesCategory,
+    matchesGroup,
   ]);
 
-  const countryCounts = useMemo(() => {
-    const counts: Record<CountryCode, number> = {
+  const groupCounts = useMemo(() => {
+    const counts: Record<ChannelGroup, number> = {
       Tous: 0,
-      AR: 0,
-      FR: 0,
-      ES: 0,
-      DE: 0,
-      IT: 0,
-      PL: 0,
-      EU: 0,
-      BR: 0,
-      LATAM: 0,
-      Autre: 0,
+      Toutes: 0,
+      'Cinéma Premières': 0,
+      'Action & Thriller': 0,
+      'Séries TV & US': 0,
+      'Comédie & Famille': 0,
+      'Classiques & Culte': 0,
+      Documentaires: 0,
+      'Actualités / News': 0,
+      'Jeunesse / Enfants': 0,
+      'Musique & Divertissement': 0,
+      'Sport / Football': 0,
     };
 
     const pool = baseViewChannels.filter(
       (ch) =>
         matchesCategory(ch, selectedCategory) &&
         matchesSatellite(ch, selectedSatellite) &&
-        matchesBouquet(ch, selectedBouquet) &&
-        matchesGroup(ch, selectedGroup)
+        matchesBouquet(ch, selectedBouquet)
     );
 
+    counts.Toutes = pool.length;
     counts.Tous = pool.length;
     for (const ch of pool) {
-      if (
-        isCountryFilterAllowedBySettings(ch.country, settings.selectedBouquets)
-      ) {
-        counts[ch.country] = (counts[ch.country] || 0) + 1;
+      for (const grp of GROUP_OPTIONS) {
+        if (grp !== 'Tous' && grp !== 'Toutes' && matchesGroup(ch, grp)) {
+          counts[grp] = (counts[grp] || 0) + 1;
+        }
       }
     }
     return counts;
@@ -619,46 +861,11 @@ export function App() {
     selectedCategory,
     selectedSatellite,
     selectedBouquet,
-    selectedGroup,
-    settings.selectedBouquets,
+    matchesCategory,
+    matchesGroup,
   ]);
 
-  const groupCounts = useMemo(() => {
-    const counts: Record<ChannelGroup, number> = {
-      Tous: 0,
-      Toutes: 0,
-      'Sport / Football': 0,
-      Documentaires: 0,
-      'Cinéma Premières': 0,
-      'Séries TV & US': 0,
-      'Action & Thriller': 0,
-      'Comédie & Famille': 0,
-      'Classiques & Culte': 0,
-    };
-
-    const pool = baseViewChannels.filter(
-      (ch) =>
-        matchesCategory(ch, selectedCategory) &&
-        matchesSatellite(ch, selectedSatellite) &&
-        matchesBouquet(ch, selectedBouquet) &&
-        matchesCountry(ch, selectedCountry)
-    );
-
-    counts.Toutes = pool.length;
-    counts.Tous = pool.length;
-    for (const ch of pool) {
-      counts[ch.group] = (counts[ch.group] || 0) + 1;
-    }
-    return counts;
-  }, [
-    baseViewChannels,
-    selectedCategory,
-    selectedSatellite,
-    selectedBouquet,
-    selectedCountry,
-  ]);
-
-  // Auto-réinitialisation si un sous-filtre actif tombe à 0 ou est désactivé dans Settings
+  // Auto-réinitialisation si un filtre actif est désactivé dans Settings ou tombe à 0 chaîne
   useEffect(() => {
     if (baseViewChannels.length === 0) return;
 
@@ -672,7 +879,6 @@ export function App() {
     ) {
       setSelectedCategory('Tous');
     }
-
     if (
       selectedSatellite !== 'Tous' &&
       (!isSatelliteFilterAllowedBySettings(
@@ -682,8 +888,9 @@ export function App() {
         (satelliteCounts[selectedSatellite] ?? 0) === 0)
     ) {
       setSelectedSatellite('Tous');
+      setSelectedBouquet('Tous');
+      setSelectedBouquetsList([]);
     }
-
     if (
       selectedBouquet !== 'Tous' &&
       (!isBouquetFilterAllowedBySettings(
@@ -693,108 +900,101 @@ export function App() {
         (bouquetCounts[selectedBouquet] ?? 0) === 0)
     ) {
       setSelectedBouquet('Tous');
+      setSelectedBouquetsList((prev) =>
+        prev.filter(
+          (b) =>
+            isBouquetFilterAllowedBySettings(b, settings.selectedBouquets) &&
+            (bouquetCounts[b] ?? 0) > 0
+        )
+      );
     }
-
     if (
-      selectedCountry !== 'Tous' &&
-      (!isCountryFilterAllowedBySettings(
-        selectedCountry,
-        settings.selectedBouquets
-      ) ||
-        (countryCounts[selectedCountry] ?? 0) === 0)
-    ) {
-      setSelectedCountry('Tous');
-    }
-
-    if (
-      selectedGroup !== 'Toutes' &&
       selectedGroup !== 'Tous' &&
+      selectedGroup !== 'Toutes' &&
       (groupCounts[selectedGroup] ?? 0) === 0
     ) {
-      setSelectedGroup('Toutes');
+      setSelectedGroup('Tous');
     }
   }, [
     baseViewChannels.length,
     selectedCategory,
     selectedSatellite,
     selectedBouquet,
-    selectedCountry,
     selectedGroup,
+    settings.enabledCategories,
+    settings.selectedBouquets,
     categoryCounts,
     satelliteCounts,
     bouquetCounts,
-    countryCounts,
     groupCounts,
-    settings.selectedBouquets,
-    settings.enabledCategories,
   ]);
 
-  // Options visibles (Masquage strict de tous les boutons dont le compteur est égal à 0)
+  // Options visibles : masque strictement tout satellite/bouquet/catégorie/genre inactif dans Réglages ou dont le compteur = 0
   const visibleCategoryOptions = useMemo(
     () =>
-      CATEGORY_OPTIONS.filter(
-        (cat) =>
-          cat.code === 'Tous' ||
-          (isCategoryFilterAllowedBySettings(
+      CATEGORY_OPTIONS.filter((cat) => {
+        if (
+          cat.code !== 'Tous' &&
+          !isCategoryFilterAllowedBySettings(
             cat.code,
             settings.enabledCategories
-          ) &&
-            (categoryCounts[cat.code] ?? 0) > 0)
-      ),
-    [categoryCounts, settings.enabledCategories]
+          )
+        ) {
+          return false;
+        }
+        return (categoryCounts[cat.code] ?? 0) > 0;
+      }),
+    [settings.enabledCategories, categoryCounts]
   );
 
+  // Ne liste dans la barre "SAT" QUE les satellites activés dans Réglages et ayant > 0 chaîne
   const visibleSatelliteOptions = useMemo(
     () =>
-      SATELLITE_OPTIONS.filter(
-        (sat) =>
-          sat === 'Tous' ||
-          (isSatelliteFilterAllowedBySettings(sat, settings.selectedBouquets) &&
-            (satelliteCounts[sat] ?? 0) > 0)
-      ),
-    [satelliteCounts, settings.selectedBouquets]
+      STRICT_SAT_FILTER_LIST.filter((sat) => {
+        if (
+          sat !== 'Tous' &&
+          !isSatelliteFilterAllowedBySettings(sat, settings.selectedBouquets)
+        ) {
+          return false;
+        }
+        return (satelliteCounts[sat] ?? 0) > 0;
+      }),
+    [settings.selectedBouquets, satelliteCounts]
   );
 
+  // Liaison dynamique stricte + masquage des bouquets inactifs ou avec compteur = 0
   const visibleBouquetOptions = useMemo(
     () =>
-      BOUQUET_OPTIONS.filter(
-        (bq) =>
-          bq === 'Tous' ||
-          (isBouquetFilterAllowedBySettings(bq, settings.selectedBouquets) &&
-            (bouquetCounts[bq] ?? 0) > 0)
-      ),
-    [bouquetCounts, settings.selectedBouquets]
+      getBouquetsForSatellite(selectedSatellite).filter((bq) => {
+        if (
+          bq !== 'Tous' &&
+          !isBouquetFilterAllowedBySettings(bq, settings.selectedBouquets)
+        ) {
+          return false;
+        }
+        return (bouquetCounts[bq] ?? 0) > 0;
+      }),
+    [selectedSatellite, settings.selectedBouquets, bouquetCounts]
   );
 
-  const visibleCountryOptions = useMemo(
-    () =>
-      COUNTRY_OPTIONS.filter(
-        (c) =>
-          c.code === 'Tous' ||
-          (isCountryFilterAllowedBySettings(
-            c.code,
-            settings.selectedBouquets
-          ) &&
-            (countryCounts[c.code] ?? 0) > 0)
-      ),
-    [countryCounts, settings.selectedBouquets]
-  );
-
+  // Masque automatiquement tout bouton de genre dont le compteur est égal à 0
   const visibleGroupOptions = useMemo(
     () =>
-      GROUP_OPTIONS.filter(
-        (grp) => grp === 'Toutes' || (groupCounts[grp] ?? 0) > 0
-      ),
+      GROUP_OPTIONS.filter((grp) => {
+        const count =
+          (groupCounts[grp] ?? 0) ||
+          (grp === 'Tous' ? (groupCounts['Toutes'] ?? 0) : 0);
+        return count > 0;
+      }),
     [groupCounts]
   );
 
-  // Filtrage final des chaînes
+  // Filtrage final dynamique des chaînes (alimente à la fois En Direct, Grille TV et Favoris)
   const filteredChannels = useMemo(() => {
     return baseViewChannels.filter((ch) => {
       if (!matchesCategory(ch, selectedCategory)) return false;
       if (!matchesSatellite(ch, selectedSatellite)) return false;
       if (!matchesBouquet(ch, selectedBouquet)) return false;
-      if (!matchesCountry(ch, selectedCountry)) return false;
       if (!matchesGroup(ch, selectedGroup)) return false;
       return true;
     });
@@ -803,8 +1003,9 @@ export function App() {
     selectedCategory,
     selectedSatellite,
     selectedBouquet,
-    selectedCountry,
     selectedGroup,
+    matchesCategory,
+    matchesGroup,
   ]);
 
   useEffect(() => {
@@ -813,7 +1014,6 @@ export function App() {
     selectedCategory,
     selectedSatellite,
     selectedBouquet,
-    selectedCountry,
     selectedGroup,
     searchQuery,
     viewMode,
@@ -944,16 +1144,19 @@ export function App() {
     const target = getCasablancaTimestampForHour(nowMs, 20, 45);
     const diffMins = Math.round((target - nowMs) / 60000);
     setTimeOffsetMinutes(diffMins);
+    setActiveTimePreset('prime');
   };
 
   const resetAllFilters = () => {
     setSelectedCategory('Tous');
     setSelectedSatellite('Tous');
     setSelectedBouquet('Tous');
-    setSelectedCountry('Tous');
-    setSelectedGroup('Toutes');
+    setSelectedBouquetsList([]);
+    setRamWarningMessage(null);
+    setSelectedGroup('Tous');
     setSearchQuery('');
     setTimeOffsetMinutes(0);
+    setActiveTimePreset('now');
   };
 
   const visibleChannels = useMemo(
@@ -1188,17 +1391,29 @@ export function App() {
               </div>
 
               <button
-                onClick={() => setTimeOffsetMinutes((prev) => prev - 60)}
-                className="px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-800 text-xs font-semibold text-slate-300 border border-slate-700/70 cursor-pointer shrink-0"
+                type="button"
+                onClick={() => {
+                  setTimeOffsetMinutes((prev) => prev - 120);
+                  setActiveTimePreset('minus');
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer shrink-0 ${
+                  activeTimePreset === 'minus'
+                    ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/25'
+                    : 'bg-slate-800/90 text-slate-300 border-slate-700/70 hover:bg-slate-800'
+                }`}
               >
-                {tr.presetMinus1h}
+                -2h
               </button>
 
               <button
-                onClick={() => setTimeOffsetMinutes(0)}
-                className={`px-2.5 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer shrink-0 ${
-                  timeOffsetMinutes === 0
-                    ? 'bg-amber-500 text-slate-950 border-amber-400'
+                type="button"
+                onClick={() => {
+                  setTimeOffsetMinutes(0);
+                  setActiveTimePreset('now');
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer shrink-0 ${
+                  activeTimePreset === 'now'
+                    ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/25'
                     : 'bg-slate-800/90 text-slate-300 border-slate-700/70 hover:bg-slate-800'
                 }`}
               >
@@ -1206,25 +1421,38 @@ export function App() {
               </button>
 
               <button
+                type="button"
                 onClick={jumpToPrimeTimeTonight}
-                className="px-2.5 py-1.5 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 text-xs font-semibold text-indigo-300 border border-indigo-500/30 cursor-pointer shrink-0"
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer shrink-0 ${
+                  activeTimePreset === 'prime'
+                    ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/25'
+                    : 'bg-slate-800/90 text-slate-300 border-slate-700/70 hover:bg-slate-800'
+                }`}
               >
                 {tr.presetPrime}
               </button>
 
               <button
-                onClick={() => setTimeOffsetMinutes((prev) => prev + 60)}
-                className="px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-800 text-xs font-semibold text-slate-300 border border-slate-700/70 cursor-pointer shrink-0"
+                type="button"
+                onClick={() => {
+                  setTimeOffsetMinutes((prev) => prev + 120);
+                  setActiveTimePreset('plus');
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer shrink-0 ${
+                  activeTimePreset === 'plus'
+                    ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/25'
+                    : 'bg-slate-800/90 text-slate-300 border-slate-700/70 hover:bg-slate-800'
+                }`}
               >
-                {tr.presetPlus1h}
+                +2h
               </button>
             </div>
           </div>
 
-          {/* Barres de filtres rapides (uniquement affichées en mode Live / Favoris) */}
+          {/* Barres de filtres rapides [CATÉGORIE] -> [SATELLITE / BOUQUET] -> [GENRE] */}
           {viewMode !== 'grid' && (
             <div className="pt-2.5 border-t border-slate-800/80 space-y-2">
-              {/* Ligne 0 : Catégories principales */}
+              {/* Ligne 1 : [CATÉGORIE] */}
               <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
                 <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-amber-400 me-1 shrink-0">
                   <Film className="w-3.5 h-3.5" />
@@ -1237,6 +1465,7 @@ export function App() {
                   return (
                     <button
                       key={cat.code}
+                      type="button"
                       onClick={() => setSelectedCategory(cat.code)}
                       className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer border ${
                         active
@@ -1266,6 +1495,24 @@ export function App() {
                             active ? 'text-slate-950' : 'text-cyan-400'
                           }`}
                         />
+                      ) : cat.icon === 'news' ? (
+                        <Newspaper
+                          className={`w-3.5 h-3.5 ${
+                            active ? 'text-slate-950' : 'text-sky-400'
+                          }`}
+                        />
+                      ) : cat.icon === 'kids' ? (
+                        <Baby
+                          className={`w-3.5 h-3.5 ${
+                            active ? 'text-slate-950' : 'text-pink-400'
+                          }`}
+                        />
+                      ) : cat.icon === 'music' ? (
+                        <Music
+                          className={`w-3.5 h-3.5 ${
+                            active ? 'text-slate-950' : 'text-purple-400'
+                          }`}
+                        />
                       ) : (
                         <Tv
                           className={`w-3.5 h-3.5 ${
@@ -1288,8 +1535,8 @@ export function App() {
                 })}
               </div>
 
-              {/* Ligne 1 : Satellites + Zones */}
-              <div className="flex flex-wrap items-center justify-between gap-2">
+              {/* Ligne 2 : [SATELLITE / BOUQUET] */}
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-800/60">
                 {visibleSatelliteOptions.length > 1 && (
                   <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
                     <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-amber-400 me-1 shrink-0">
@@ -1303,8 +1550,9 @@ export function App() {
                       return (
                         <button
                           key={sat}
-                          onClick={() => setSelectedSatellite(sat)}
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all shrink-0 cursor-pointer border ${
+                          type="button"
+                          onClick={() => handleSelectSatellite(sat)}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0 cursor-pointer border ${
                             active
                               ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold shadow-sm'
                               : 'bg-slate-950 text-slate-300 border-slate-800 hover:bg-slate-800'
@@ -1326,32 +1574,36 @@ export function App() {
                   </div>
                 )}
 
-                {visibleCountryOptions.length > 1 && (
+                {visibleBouquetOptions.length > 1 && (
                   <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-0.5">
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-slate-400 me-1 shrink-0">
-                      <Globe className="w-3 h-3 text-indigo-400" />
-                      {tr.filterZoneLabel}
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 me-1 shrink-0">
+                      {tr.filterBouquetLabel}
                     </span>
-                    {visibleCountryOptions.map((c) => {
-                      const active = selectedCountry === c.code;
-                      const count = countryCounts[c.code] ?? 0;
-                      const label = translateCountryFilter(c.code, activeLang);
+                    {visibleBouquetOptions.map((bq) => {
+                      const active =
+                        bq === 'Tous'
+                          ? selectedBouquet === 'Tous' &&
+                            selectedBouquetsList.length === 0
+                          : selectedBouquet === bq ||
+                            selectedBouquetsList.includes(bq);
+                      const count = bouquetCounts[bq] ?? 0;
+                      const label = translateBouquetFilter(bq, activeLang);
                       return (
                         <button
-                          key={c.code}
-                          onClick={() => setSelectedCountry(c.code)}
-                          className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium transition-all shrink-0 cursor-pointer border ${
+                          key={bq}
+                          type="button"
+                          onClick={() => handleSelectBouquet(bq)}
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium shrink-0 cursor-pointer border ${
                             active
-                              ? 'bg-indigo-600 text-white border-indigo-400 font-bold'
+                              ? 'bg-emerald-500 text-slate-950 border-emerald-400 font-bold'
                               : 'bg-slate-950 text-slate-300 border-slate-800 hover:bg-slate-800'
                           }`}
                         >
-                          <span>{c.flag}</span>
                           <span>{label}</span>
                           <span
                             className={`text-[10px] px-1 rounded-full ${
                               active
-                                ? 'bg-white/20 text-white'
+                                ? 'bg-slate-950/20 text-slate-950 font-bold'
                                 : 'bg-slate-800 text-slate-400'
                             }`}
                           >
@@ -1364,74 +1616,52 @@ export function App() {
                 )}
               </div>
 
-              {/* Ligne 2 : Bouquets + Genres */}
-              {(visibleBouquetOptions.length > 1 ||
-                visibleGroupOptions.length > 1) && (
-                <div className="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-slate-800/60">
-                  {visibleBouquetOptions.length > 1 && (
-                    <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-0.5">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 me-1 shrink-0">
-                        {tr.filterBouquetLabel}
-                      </span>
-                      {visibleBouquetOptions.map((bq) => {
-                        const active = selectedBouquet === bq;
-                        const count = bouquetCounts[bq] ?? 0;
-                        const label = translateBouquetFilter(bq, activeLang);
-                        return (
-                          <button
-                            key={bq}
-                            onClick={() => setSelectedBouquet(bq)}
-                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all shrink-0 cursor-pointer border ${
-                              active
-                                ? 'bg-emerald-500 text-slate-950 border-emerald-400 font-bold'
-                                : 'bg-slate-950 text-slate-300 border-slate-800 hover:bg-slate-800'
-                            }`}
-                          >
-                            <span>{label}</span>
-                            <span
-                              className={`text-[10px] px-1 rounded-full ${
-                                active
-                                  ? 'bg-slate-950/20 text-slate-950 font-bold'
-                                  : 'bg-slate-800 text-slate-400'
-                              }`}
-                            >
-                              {count}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
+              {ramWarningMessage && (
+                <div className="px-3 py-2 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+                  <span>{ramWarningMessage}</span>
+                </div>
+              )}
 
-                  {visibleGroupOptions.length > 1 && (
-                    <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-0.5">
-                      <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-amber-300 me-1 shrink-0">
-                        <Sparkles className="w-3 h-3" />
-                        {tr.filterGenreLabel}
-                      </span>
-                      {visibleGroupOptions.map((grp) => {
-                        const active = selectedGroup === grp;
-                        const count = groupCounts[grp] ?? 0;
-                        const label = translateSubGenreGroup(grp, activeLang);
-                        return (
-                          <button
-                            key={grp}
-                            onClick={() => setSelectedGroup(grp)}
-                            className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium transition-all shrink-0 cursor-pointer border ${
-                              active
-                                ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 font-bold'
-                                : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200'
-                            }`}
-                          >
-                            <span>{label}</span>
-                            <span className="text-[10px] text-slate-500">
-                              ({count})
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
+              {/* Ligne 3 : [GENRE] */}
+              {visibleGroupOptions.length > 1 && (
+                <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pt-1 border-t border-slate-800/60 pb-0.5">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-amber-300 me-1 shrink-0">
+                    <Sparkles className="w-3 h-3" />
+                    {tr.filterGenreLabel}
+                  </span>
+                  {visibleGroupOptions.map((grp) => {
+                    const active =
+                      selectedGroup === grp ||
+                      (grp === 'Tous' && selectedGroup === 'Toutes');
+                    const count =
+                      (groupCounts[grp] ?? 0) ||
+                      (grp === 'Tous' ? (groupCounts['Toutes'] ?? 0) : 0);
+                    const label = translateSubGenreGroup(grp, activeLang);
+                    return (
+                      <button
+                        key={grp}
+                        type="button"
+                        onClick={() => setSelectedGroup(grp)}
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all shrink-0 cursor-pointer border ${
+                          active
+                            ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold shadow-sm'
+                            : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200'
+                        }`}
+                      >
+                        <span>{label}</span>
+                        <span
+                          className={`text-[10px] px-1 rounded-full ${
+                            active
+                              ? 'bg-slate-950/20 text-slate-950 font-bold'
+                              : 'text-slate-500'
+                          }`}
+                        >
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -1464,11 +1694,11 @@ export function App() {
             {(selectedCategory !== 'Tous' ||
               selectedSatellite !== 'Tous' ||
               selectedBouquet !== 'Tous' ||
-              selectedCountry !== 'Tous' ||
-              selectedGroup !== 'Toutes' ||
+              (selectedGroup !== 'Tous' && selectedGroup !== 'Toutes') ||
               searchQuery ||
               timeOffsetMinutes !== 0) && (
               <button
+                type="button"
                 onClick={resetAllFilters}
                 className="inline-flex items-center gap-1 text-xs font-semibold text-amber-400 hover:text-amber-300 cursor-pointer"
               >
@@ -1532,18 +1762,21 @@ export function App() {
             selectedCategory={selectedCategory}
             onSelectCategory={setSelectedCategory}
             selectedSatellite={selectedSatellite}
-            onSelectSatellite={setSelectedSatellite}
+            onSelectSatellite={handleSelectSatellite}
             selectedBouquet={selectedBouquet}
-            onSelectBouquet={setSelectedBouquet}
-            selectedCountry={selectedCountry}
-            onSelectCountry={setSelectedCountry}
+            onSelectBouquet={handleSelectBouquet}
+            selectedBouquetsList={selectedBouquetsList}
+            ramWarningMessage={ramWarningMessage}
             selectedGroup={selectedGroup}
             onSelectGroup={setSelectedGroup}
             categoryCounts={categoryCounts}
             satelliteCounts={satelliteCounts}
             bouquetCounts={bouquetCounts}
-            countryCounts={countryCounts}
             groupCounts={groupCounts}
+            allowedSatelliteOptions={visibleSatelliteOptions}
+            allowedBouquetOptions={visibleBouquetOptions}
+            allowedCategoryCodes={visibleCategoryOptions.map((c) => c.code)}
+            allowedGroupOptions={visibleGroupOptions}
             language={activeLang}
           />
         ) : filteredChannels.length === 0 ? (
@@ -1634,7 +1867,11 @@ export function App() {
       {selectedChannel && (
         <ChannelDetailPanel
           channel={selectedChannel}
-          programmes={schedulesByChannel[selectedChannel.id] || []}
+          programmes={
+            schedulesByChannel[cleanXmltvChannelId(selectedChannel.id)] ||
+            schedulesByChannel[selectedChannel.id] ||
+            []
+          }
           nowMs={effectiveTimeMs}
           isFavorite={favoriteSet.has(selectedChannel.id)}
           onToggleFavorite={handleToggleFavorite}

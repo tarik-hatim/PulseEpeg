@@ -3,29 +3,46 @@ export type AppLanguage = 'fr' | 'en' | 'ar' | 'es' | 'de' | 'pt';
 export type ContentCategoryFilter =
   | 'Tous'
   | 'Films & Séries'
-  | 'Sport / Football'
-  | 'Documentaires';
+  | 'Documentaires'
+  | 'Actualités / News'
+  | 'Jeunesse / Enfants'
+  | 'Musique & Divertissement'
+  | 'Sport / Football';
 
 export type ThematicCategoryId =
   | 'Films & Séries'
-  | 'Sport / Football'
   | 'Documentaires'
+  | 'Actualités / News'
+  | 'Jeunesse / Enfants'
+  | 'Musique & Divertissement'
+  | 'Sport / Football'
   | 'Classiques & Culte'
   | 'Jeunesse & Famille';
 
 export type EpgBouquetId =
   | 'nilesat_osn_mbc'
+  | 'badr_bein_ssc'
   | 'astra_canal_fr'
+  | 'astra_tnt_fr'
+  | 'tnt_fr'
   | 'movistar_es'
   | 'sky_de'
   | 'sky_it'
   | 'canal_pl'
+  | 'hotbird_bis_fr'
+  | 'hispasat_meo_nos'
   | 'eutelsat_16e_thor'
   | 'starone_70w_claro_br'
   | 'amazonas_61w_latam'
   | 'intelsat_43w_directv';
 
-export type TimeFilterPreset = 'now' | 'prime' | 'minus1h' | 'plus1h';
+export type TimeFilterPreset =
+  | 'minus2h'
+  | 'minus1h'
+  | 'now'
+  | 'prime'
+  | 'plus1h'
+  | 'plus2h';
 
 export type ChannelGroup =
   | 'Tous'
@@ -36,6 +53,9 @@ export type ChannelGroup =
   | 'Comédie & Famille'
   | 'Classiques & Culte'
   | 'Documentaires'
+  | 'Actualités / News'
+  | 'Jeunesse / Enfants'
+  | 'Musique & Divertissement'
   | 'Sport / Football';
 
 export type CountryCode =
@@ -53,10 +73,12 @@ export type CountryCode =
 
 export type SatelliteFilter =
   | 'Tous'
+  | 'Nilesat 7°W'
+  | 'Badr 26°E'
+  | "Badr / Es'hailSat 26°E"
   | 'Astra 19.2°E'
   | 'Hotbird 13°E'
   | 'Hispasat 30°W'
-  | 'Nilesat 7°W'
   | 'Eutelsat 16°E / Thor 0.8°W'
   | 'Star One D2 70°W'
   | 'Amazonas 61°W'
@@ -65,15 +87,37 @@ export type SatelliteFilter =
 
 export type BouquetFilter =
   | 'Tous'
+  | 'Nilesat MBC/OSN/Rotana'
+  | 'TNT Arabe/Égypte'
+  | 'Badr beIN (Sports & Movies)'
+  | 'Badr SSC'
+  | 'Badr TV Arabes/Al Kass'
+  | 'Astra Canal+ France'
+  | 'Astra TNT France'
+  | 'Astra Movistar+ España'
+  | 'Hotbird Polsat/Cyfra+'
+  | 'Hotbird Bis TV/Rai'
+  | 'Hispasat Meo/NOS/Movistar'
+  | 'Nilesat (MBC / OSN / Rotana)'
+  | 'Badr 26°E (beIN / SSC / Al Kass)'
+  | 'Badr Sport & MENA'
+  | 'Canal+ France'
+  | 'TNT France'
+  | 'Bis TV France'
+  | 'Movistar+ / DAZN ES'
+  | 'Meo / NOS / Movistar 30°W'
+  | 'Sky DE / DAZN DE'
+  | 'Polsat / Cyfra+ / Eleven'
+  | 'Bis TV (Hotbird 13°E)'
+  | 'Rai / Sky Italia / Mediaset'
+  | 'MEO / NOS / Movistar (30°W)'
+  | 'HBO / Cinemax'
+  | 'AXN / Warner / Sci-Fi'
   | 'Nilesat OSN/MBC'
   | 'beIN / SSC (MENA)'
   | 'Astra Canal+'
-  | 'Movistar+ / DAZN ES'
-  | 'Sky DE / DAZN DE'
   | 'Sky Italia / DAZN IT'
   | 'Canal+ / Eleven / FilmBox'
-  | 'HBO / Cinemax'
-  | 'AXN / Warner / Sci-Fi'
   | 'OSN / MBC (Nilesat)'
   | 'beIN / SSC / AD Sports'
   | 'DigitAlb / Total TV / Focus Sat'

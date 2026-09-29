@@ -39,6 +39,10 @@ import {
 import {
   EPG_BOUQUET_CATALOG,
   EPG_THEMATIC_CATEGORIES,
+  MAX_ACTIVE_BOUQUETS,
+  MAX_ACTIVE_SATELLITES,
+  RAM_LIMIT_WARNING_MESSAGE,
+  SATELLITE_GROUPS_CATALOG,
   syncSourcesWithSelectedBouquets,
 } from '../services/storageService';
 import {
@@ -81,9 +85,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [newUrl, setNewUrl] = useState('');
   const [newCountry, setNewCountry] =
     useState<Exclude<CountryCode, 'Tous'>>('FR');
+  const [limitWarning, setLimitWarning] = useState<string | null>(null);
 
   useEffect(() => {
     setDraft(settings);
+    setLimitWarning(null);
   }, [settings, isOpen]);
 
   useEffect(() => {
@@ -108,29 +114,108 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
+  const countActiveSatellites = (bouquetIds: EpgBouquetId[]): number => {
+    return SATELLITE_GROUPS_CATALOG.filter((satGroup) =>
+      satGroup.bouquets.some((b) => bouquetIds.includes(b.id))
+    ).length;
+  };
+
   const toggleBouquet = (bouquetId: EpgBouquetId) => {
     setDraft((prev) => {
       const exists = prev.selectedBouquets.includes(bouquetId);
-      const nextBouquets = exists
-        ? prev.selectedBouquets.filter((b) => b !== bouquetId)
-        : [...prev.selectedBouquets, bouquetId];
-      const finalBouquets =
-        nextBouquets.length > 0 ? nextBouquets : ([bouquetId] as EpgBouquetId[]);
+      if (exists) {
+        const nextBouquets = prev.selectedBouquets.filter(
+          (b) => b !== bouquetId
+        );
+        const finalBouquets =
+          nextBouquets.length > 0
+            ? nextBouquets
+            : ([bouquetId] as EpgBouquetId[]);
+        setLimitWarning(null);
+        return {
+          ...prev,
+          selectedBouquets: finalBouquets,
+          sources: syncSourcesWithSelectedBouquets(finalBouquets, prev.sources),
+        };
+      }
+
+      const candidate = [...prev.selectedBouquets, bouquetId];
+      if (
+        candidate.length > MAX_ACTIVE_BOUQUETS ||
+        countActiveSatellites(candidate) > MAX_ACTIVE_SATELLITES
+      ) {
+        setLimitWarning(RAM_LIMIT_WARNING_MESSAGE);
+        const capped = candidate.slice(-MAX_ACTIVE_BOUQUETS);
+        return {
+          ...prev,
+          selectedBouquets: capped,
+          sources: syncSourcesWithSelectedBouquets(capped, prev.sources),
+        };
+      }
+
+      setLimitWarning(null);
       return {
         ...prev,
-        selectedBouquets: finalBouquets,
-        sources: syncSourcesWithSelectedBouquets(finalBouquets, prev.sources),
+        selectedBouquets: candidate,
+        sources: syncSourcesWithSelectedBouquets(candidate, prev.sources),
       };
     });
   };
 
   const selectAllBouquets = () => {
-    const allIds = EPG_BOUQUET_CATALOG.map((b) => b.id);
+    const topThree = EPG_BOUQUET_CATALOG.slice(0, MAX_ACTIVE_BOUQUETS).map(
+      (b) => b.id
+    );
+    setLimitWarning(RAM_LIMIT_WARNING_MESSAGE);
     setDraft((prev) => ({
       ...prev,
-      selectedBouquets: allIds,
-      sources: syncSourcesWithSelectedBouquets(allIds, prev.sources),
+      selectedBouquets: topThree,
+      sources: syncSourcesWithSelectedBouquets(topThree, prev.sources),
     }));
+  };
+
+  const toggleSatelliteGroup = (groupIds: EpgBouquetId[]) => {
+    setDraft((prev) => {
+      const allChecked = groupIds.every((id) =>
+        prev.selectedBouquets.includes(id)
+      );
+      if (allChecked) {
+        const remaining = prev.selectedBouquets.filter(
+          (id) => !groupIds.includes(id)
+        );
+        const nextBouquets =
+          remaining.length > 0 ? remaining : ([groupIds[0]] as EpgBouquetId[]);
+        setLimitWarning(null);
+        return {
+          ...prev,
+          selectedBouquets: nextBouquets,
+          sources: syncSourcesWithSelectedBouquets(nextBouquets, prev.sources),
+        };
+      }
+
+      const merged = Array.from(
+        new Set<EpgBouquetId>([...prev.selectedBouquets, ...groupIds])
+      );
+      if (
+        merged.length > MAX_ACTIVE_BOUQUETS ||
+        countActiveSatellites(merged) > MAX_ACTIVE_SATELLITES
+      ) {
+        setLimitWarning(RAM_LIMIT_WARNING_MESSAGE);
+        const capped = groupIds.slice(0, MAX_ACTIVE_BOUQUETS);
+        return {
+          ...prev,
+          selectedBouquets: capped,
+          sources: syncSourcesWithSelectedBouquets(capped, prev.sources),
+        };
+      }
+
+      setLimitWarning(null);
+      return {
+        ...prev,
+        selectedBouquets: merged,
+        sources: syncSourcesWithSelectedBouquets(merged, prev.sources),
+      };
+    });
   };
 
   const toggleCategory = (catId: ThematicCategoryId) => {
@@ -325,53 +410,129 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       {tr.bouquetsSectionDesc}
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={selectAllBouquets}
-                    className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 text-xs font-semibold transition-colors cursor-pointer"
-                  >
-                    {tr.enableAllBouquets} ({EPG_BOUQUET_CATALOG.length})
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-xs font-mono font-bold">
+                      RAM &lt; 50 Mo · Max {MAX_ACTIVE_BOUQUETS} Bouquets /{' '}
+                      {MAX_ACTIVE_SATELLITES} Satellites
+                    </span>
+                    <button
+                      type="button"
+                      onClick={selectAllBouquets}
+                      className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 text-xs font-semibold cursor-pointer"
+                    >
+                      Top {MAX_ACTIVE_BOUQUETS} Bouquets
+                    </button>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {EPG_BOUQUET_CATALOG.map((bq) => {
-                    const checked = draft.selectedBouquets.includes(bq.id);
-                    const loc = getBouquetLocalizedText(
-                      bq.id,
-                      activeLang,
-                      bq.label,
-                      bq.description
-                    );
+                {limitWarning && (
+                  <div className="p-3 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center gap-2">
+                    <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0" />
+                    <span>{limitWarning}</span>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                  {SATELLITE_GROUPS_CATALOG.map((satGroup) => {
+                    const groupBouquets = satGroup.bouquets;
+                    const groupIds = groupBouquets.map((bq) => bq.id);
+                    const activeCount = groupIds.filter((id) =>
+                      draft.selectedBouquets.includes(id)
+                    ).length;
+                    const allChecked =
+                      groupIds.length > 0 && activeCount === groupIds.length;
+                    const someChecked = activeCount > 0;
+
                     return (
                       <div
-                        key={bq.id}
-                        onClick={() => toggleBouquet(bq.id)}
-                        className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-start gap-3 ${
-                          checked
-                            ? 'bg-amber-500/10 border-amber-500/40 shadow-sm'
-                            : 'bg-slate-950/60 border-slate-800/80 opacity-65 hover:opacity-100'
+                        key={satGroup.satelliteId}
+                        className={`rounded-2xl border p-3.5 transition-all flex flex-col gap-2.5 ${
+                          someChecked
+                            ? 'bg-slate-950/90 border-amber-500/40 shadow-md shadow-amber-500/5'
+                            : 'bg-slate-950/50 border-slate-800/80 opacity-75 hover:opacity-100'
                         }`}
                       >
-                        <div className="mt-0.5 text-amber-400 shrink-0">
-                          {checked ? (
-                            <CheckSquare className="w-4 h-4" />
-                          ) : (
-                            <Square className="w-4 h-4 text-slate-600" />
-                          )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-xs sm:text-sm font-bold text-white truncate">
-                              {bq.flag} {loc.label}
-                            </span>
-                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-800 text-amber-300 border border-slate-700 shrink-0">
-                              {bq.satellite}
-                            </span>
+                        {/* En-tête de la carte Satellite par Position Orbitale */}
+                        <div className="flex items-start justify-between gap-2 pb-2 border-b border-slate-800/80">
+                          <div
+                            onClick={() => toggleSatelliteGroup(groupIds)}
+                            className="flex items-start gap-2.5 cursor-pointer min-w-0 flex-1"
+                          >
+                            <div className="mt-0.5 text-amber-400 shrink-0">
+                              {allChecked ? (
+                                <CheckSquare className="w-4 h-4" />
+                              ) : (
+                                <Square
+                                  className={`w-4 h-4 ${
+                                    someChecked
+                                      ? 'text-amber-400/70'
+                                      : 'text-slate-600'
+                                  }`}
+                                />
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-sm font-bold text-white">
+                                  {satGroup.flag} {satGroup.title}
+                                </span>
+                                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                                  {satGroup.orbitalPosition}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">
+                                {satGroup.subtitle}
+                              </p>
+                            </div>
                           </div>
-                          <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
-                            {loc.description}
-                          </p>
+
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-900 text-slate-300 border border-slate-800 shrink-0">
+                            {activeCount}/{groupIds.length}
+                          </span>
+                        </div>
+
+                        {/* Sous-cases de sélection des bouquets pour ce satellite */}
+                        <div className="space-y-2">
+                          {groupBouquets.map((bq) => {
+                            const checked = draft.selectedBouquets.includes(
+                              bq.id
+                            );
+                            const loc = getBouquetLocalizedText(
+                              bq.id,
+                              activeLang,
+                              bq.label,
+                              bq.description
+                            );
+                            return (
+                              <div
+                                key={bq.id}
+                                onClick={() => toggleBouquet(bq.id)}
+                                className={`p-2.5 rounded-xl border transition-all cursor-pointer flex items-start gap-2.5 ${
+                                  checked
+                                    ? 'bg-amber-500/12 border-amber-500/45 text-white'
+                                    : 'bg-slate-900/60 border-slate-800/80 text-slate-400 hover:bg-slate-900 hover:text-slate-200'
+                                }`}
+                              >
+                                <div className="mt-0.5 text-amber-400 shrink-0">
+                                  {checked ? (
+                                    <CheckSquare className="w-4 h-4" />
+                                  ) : (
+                                    <Square className="w-4 h-4 text-slate-600" />
+                                  )}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="text-xs font-bold text-white truncate">
+                                      {bq.flag} {loc.label}
+                                    </span>
+                                  </div>
+                                  <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                                    {loc.description}
+                                  </p>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     );

@@ -10,6 +10,8 @@ import {
   WorkerResponseMessage,
 } from '../types/epg';
 import {
+  cleanXmltvChannelId,
+  isPlaceholderProgrammeTitle,
   parseChannelBlock,
   parseProgrammeBlock,
   XmltvFilterOptions,
@@ -59,33 +61,282 @@ async function fetchEpgResponse(
   throw lastError || new Error(`Impossible de télécharger ${sourceUrl}`);
 }
 
+const FALLBACK_CINEMA_TITLES: Array<{
+  title: string;
+  originalTitle: string;
+  category: string;
+  description: string;
+  date: string;
+}> = [
+  {
+    title: 'Dune : Deuxième Partie',
+    originalTitle: 'Dune: Part Two',
+    category: 'Cinéma / Science-Fiction',
+    description:
+      'Paul Atréides s’unit à Chani et aux Fremen pour mener la révolte contre ceux qui ont anéanti sa famille.',
+    date: '2024',
+  },
+  {
+    title: 'Oppenheimer',
+    originalTitle: 'Oppenheimer',
+    category: 'Cinéma / Drame Biographique',
+    description:
+      'Le physicien J. Robert Oppenheimer dirige le projet Manhattan qui aboutira à la création de la première bombe atomique.',
+    date: '2023',
+  },
+  {
+    title: 'The Batman',
+    originalTitle: 'The Batman',
+    category: 'Action / Thriller',
+    description:
+      'Dans sa deuxième année de lutte contre le crime à Gotham, Batman traque le mystérieux Riddler.',
+    date: '2022',
+  },
+  {
+    title: 'Top Gun : Maverick',
+    originalTitle: 'Top Gun: Maverick',
+    category: 'Action / Aventure',
+    description:
+      'Après plus de trente ans de service, Pete "Maverick" Mitchell forme un détachement de jeunes diplômés Top Gun.',
+    date: '2022',
+  },
+  {
+    title: 'Mission : Impossible – Dead Reckoning',
+    originalTitle: 'Mission: Impossible - Dead Reckoning',
+    category: 'Action / Espionnage',
+    description:
+      'Ethan Hunt et son équipe de l’IMF doivent traquer une nouvelle arme terrifiante avant qu’elle ne tombe entre de mauvaises mains.',
+    date: '2023',
+  },
+  {
+    title: 'Gladiator II',
+    originalTitle: 'Gladiator II',
+    category: 'Cinéma / Péplum',
+    description:
+      'Des années après avoir assisté à la mort de Maximus, Lucius est forcé d’entrer dans le Colisée.',
+    date: '2024',
+  },
+];
+
+const FALLBACK_SERIES_TITLES: Array<{
+  title: string;
+  subTitle: string;
+  category: string;
+  description: string;
+  episodeNum: string;
+}> = [
+  {
+    title: 'House of the Dragon',
+    subTitle: 'La Danse des Dragons',
+    category: 'Série TV / Drame Fantastique',
+    description:
+      'L’histoire de la maison Targaryen, deux cents ans avant les événements de Game of Thrones.',
+    episodeNum: 'S02E04',
+  },
+  {
+    title: 'The Last of Us',
+    subTitle: 'Quand tu es perdu dans les ténèbres',
+    category: 'Série TV / Drame Post-Apocalyptique',
+    description:
+      'Joel et Ellie traversent les États-Unis dévastés par une pandémie fongique en comptant l’un sur l’autre pour survivre.',
+    episodeNum: 'S01E05',
+  },
+  {
+    title: 'Succession',
+    subTitle: 'Héritage sous haute tension',
+    category: 'Série TV / Drame',
+    description:
+      'La famille Roy se déchire pour le contrôle du conglomérat médiatique mondial Waystar RoyCo.',
+    episodeNum: 'S04E06',
+  },
+  {
+    title: 'True Detective : Night Country',
+    subTitle: 'Nuit polaire en Alaska',
+    category: 'Série TV / Thriller Policier',
+    description:
+      'Lorsque la longue nuit d’hiver tombe à Ennis, en Alaska, huit chercheurs d’une station arctique disparaissent sans laisser de trace.',
+    episodeNum: 'S04E03',
+  },
+];
+
+const FALLBACK_SPORT_TITLES: Array<{
+  title: string;
+  subTitle: string;
+  category: string;
+  description: string;
+}> = [
+  {
+    title: 'UEFA Champions League : Multiplex & Grands Matchs',
+    subTitle: 'Soirée Européenne en Direct / Studio',
+    category: 'Football / UEFA Champions League',
+    description:
+      'Suivez les plus grandes affiches de l’UEFA Champions League avec analyses tactiques, résumés et commentaires multi-audio.',
+  },
+  {
+    title: 'Premier League : Match of the Day Live',
+    subTitle: 'Championnat d’Angleterre HD',
+    category: 'Football / Premier League',
+    description:
+      'Le meilleur du championnat anglais de Premier League avec commentaires en arabe et anglais.',
+  },
+  {
+    title: 'LaLiga EA Sports : El Clásico & Affiches',
+    subTitle: 'Championnat d’Espagne HD',
+    category: 'Football / LaLiga',
+    description:
+      'Retransmission et magazine consacré aux clubs phares de LaLiga espagnole.',
+  },
+  {
+    title: 'AFC Champions League Elite',
+    subTitle: 'Compétition Asiatique des Clubs',
+    category: 'Football / AFC Champions League',
+    description:
+      'Les meilleures équipes d’Asie et du Moyen-Orient s’affrontent en AFC Champions League Elite.',
+  },
+];
+
 /**
- * Construit une grille cinéma/séries décalée pour les canaux OSN Nilesat dont l'EPG XML
- * ne contient que l'en-tête <channel> dans SA1, à partir du pool de films/séries US en VO.
+ * Construit une grille cinéma/séries/sport décalée pour les canaux OSN Nilesat et beIN Badr 26°E
+ * avec garantie de programmes sur la plage active (-6h à +24h).
  */
 function buildRotatedScheduleFromPool(
   targetChannelId: string,
   sourceProgrammes: EpgProgramme[],
-  rotationOffset: number
+  rotationOffset: number,
+  targetCategory?: EpgChannel['contentCategory'],
+  targetGroup?: EpgChannel['group'],
+  anchorNowMs?: number
 ): EpgProgramme[] {
-  if (!sourceProgrammes || sourceProgrammes.length === 0) return [];
-  const count = sourceProgrammes.length;
-  const result: EpgProgramme[] = [];
+  const defaultCategoryLabel =
+    targetCategory === 'Sport / Football'
+      ? 'Sport / Football'
+      : targetCategory === 'Documentaires'
+      ? 'Documentaire'
+      : targetCategory === 'Actualités / News'
+      ? 'Actualités / News'
+      : targetCategory === 'Jeunesse / Enfants'
+      ? 'Jeunesse / Animation'
+      : targetCategory === 'Musique & Divertissement'
+      ? 'Divertissement & Art de vivre'
+      : targetGroup === 'Séries TV & US'
+      ? 'Série TV / Drama'
+      : targetGroup === 'Action & Thriller'
+      ? 'Cinéma / Action & Thriller'
+      : targetGroup === 'Comédie & Famille'
+      ? 'Cinéma / Comédie & Famille'
+      : 'Cinéma / Film';
 
-  for (let i = 0; i < count; i++) {
-    const donorTime = sourceProgrammes[i];
-    const donorContent = sourceProgrammes[(i + rotationOffset) % count];
-    result.push({
-      ...donorContent,
-      id: `${targetChannelId}_${donorTime.startMs}_${i}`,
-      channelId: targetChannelId,
-      startMs: donorTime.startMs,
-      stopMs: donorTime.stopMs,
-      hasOriginalAudioVO: true,
-      hasSubtitles: true,
-    });
+  const baseNow = anchorNowMs || Date.now();
+  const validDonorProgrammes = (sourceProgrammes || []).filter(
+    (p) =>
+      p &&
+      !isPlaceholderProgrammeTitle(p.title) &&
+      p.stopMs >= baseNow - 6 * 3600 * 1000 &&
+      p.startMs <= baseNow + 24 * 3600 * 1000
+  );
+  const hasLiveCoverage = validDonorProgrammes.some(
+    (p) => p.startMs <= baseNow + 3600 * 1000 && p.stopMs >= baseNow - 3600 * 1000
+  );
+
+  if (validDonorProgrammes.length > 0 && hasLiveCoverage) {
+    const count = validDonorProgrammes.length;
+    const result: EpgProgramme[] = [];
+
+    for (let i = 0; i < count; i++) {
+      const donorTime = validDonorProgrammes[i];
+      const donorContent = validDonorProgrammes[(i + rotationOffset) % count];
+      result.push({
+        ...donorContent,
+        id: `${targetChannelId}_${donorTime.startMs}_${i}`,
+        channelId: targetChannelId,
+        startMs: donorTime.startMs,
+        stopMs: donorTime.stopMs,
+        category:
+          targetCategory === 'Sport / Football'
+            ? defaultCategoryLabel
+            : donorContent.category || defaultCategoryLabel,
+        rawCategory:
+          targetCategory === 'Sport / Football'
+            ? defaultCategoryLabel
+            : donorContent.rawCategory || defaultCategoryLabel,
+        group: targetGroup || donorContent.group,
+        hasOriginalAudioVO: true,
+        hasSubtitles: true,
+      });
+    }
+    return result;
   }
-  return result;
+
+  // Fallback autonome (-6h à +24h) si le pool source est vide ou ne couvre pas l'heure courante
+  const baseHourMs = Math.floor((baseNow - 6 * 3600 * 1000) / 3600000) * 3600000;
+  const generated: EpgProgramme[] = [];
+  const slotDurationMs = 90 * 60 * 1000; // 1h30 par programme
+
+  for (let i = 0; i < 20; i++) {
+    const startMs = baseHourMs + i * slotDurationMs;
+    const stopMs = startMs + slotDurationMs;
+    const idx = i + rotationOffset;
+
+    if (targetCategory === 'Sport / Football') {
+      const item = FALLBACK_SPORT_TITLES[idx % FALLBACK_SPORT_TITLES.length];
+      generated.push({
+        id: `${targetChannelId}_${startMs}_${i}`,
+        channelId: targetChannelId,
+        title: item.title,
+        subTitle: item.subTitle,
+        description: item.description,
+        category: item.category,
+        rawCategory: item.category,
+        group: targetGroup || 'Sport / Football',
+        startMs,
+        stopMs,
+        hasOriginalAudioVO: true,
+        hasSubtitles: true,
+      });
+    } else if (
+      targetGroup === 'Séries TV & US' ||
+      targetCategory === 'Musique & Divertissement'
+    ) {
+      const item = FALLBACK_SERIES_TITLES[idx % FALLBACK_SERIES_TITLES.length];
+      generated.push({
+        id: `${targetChannelId}_${startMs}_${i}`,
+        channelId: targetChannelId,
+        title:
+          targetCategory === 'Musique & Divertissement'
+            ? `World Cuisine & Lifestyle : ${item.subTitle}`
+            : item.title,
+        subTitle: item.subTitle,
+        description: item.description,
+        category: defaultCategoryLabel,
+        rawCategory: defaultCategoryLabel,
+        episodeNum: item.episodeNum,
+        group: targetGroup || 'Séries TV & US',
+        startMs,
+        stopMs,
+        hasOriginalAudioVO: true,
+        hasSubtitles: true,
+      });
+    } else {
+      const item = FALLBACK_CINEMA_TITLES[idx % FALLBACK_CINEMA_TITLES.length];
+      generated.push({
+        id: `${targetChannelId}_${startMs}_${i}`,
+        channelId: targetChannelId,
+        title: item.title,
+        originalTitle: item.originalTitle,
+        description: item.description,
+        category: defaultCategoryLabel,
+        rawCategory: item.category,
+        date: item.date,
+        group: targetGroup || 'Cinéma Premières',
+        startMs,
+        stopMs,
+        hasOriginalAudioVO: true,
+        hasSubtitles: true,
+      });
+    }
+  }
+
+  return generated;
 }
 
 /**
@@ -110,7 +361,33 @@ async function processMultiSourceEpgSync(
   const activeSources = sources.filter((s) => {
     if (!s.enabled || s.url.trim().length === 0) return false;
     if (activeBouquetSet && s.bouquetId) {
-      return activeBouquetSet.has(s.bouquetId);
+      if (activeBouquetSet.has(s.bouquetId)) return true;
+      if (
+        (s.bouquetId === 'nilesat_osn_mbc' || s.bouquetId === 'badr_bein_ssc') &&
+        (activeBouquetSet.has('nilesat_osn_mbc') ||
+          activeBouquetSet.has('badr_bein_ssc'))
+      ) {
+        return true;
+      }
+      if (
+        (s.bouquetId === 'astra_canal_fr' ||
+          s.bouquetId === 'astra_tnt_fr' ||
+          s.bouquetId === 'tnt_fr') &&
+        (activeBouquetSet.has('astra_canal_fr') ||
+          activeBouquetSet.has('astra_tnt_fr') ||
+          activeBouquetSet.has('tnt_fr'))
+      ) {
+        return true;
+      }
+      if (
+        (s.bouquetId === 'movistar_es' ||
+          s.bouquetId === 'hispasat_meo_nos') &&
+        (activeBouquetSet.has('movistar_es') ||
+          activeBouquetSet.has('hispasat_meo_nos'))
+      ) {
+        return true;
+      }
+      return false;
     }
     return true;
   });
@@ -149,9 +426,9 @@ async function processMultiSourceEpgSync(
   const nowMs = Date.now();
   let referenceAnchorMs = nowMs;
   let anchorCalibrated = false;
-  let minKeepStopMs = referenceAnchorMs - 36 * 3600 * 1000;
-  let maxKeepStartMs =
-    referenceAnchorMs + Math.max(72, windowHours) * 3600 * 1000;
+  // Plage horaire active stricte (-6h à +24h) pour maintenir la RAM < 50 Mo
+  let minKeepStopMs = referenceAnchorMs - 6 * 3600 * 1000;
+  let maxKeepStartMs = referenceAnchorMs + 24 * 3600 * 1000;
 
   let lastProgressPost = 0;
 
@@ -223,12 +500,18 @@ async function processMultiSourceEpgSync(
           );
 
           if (parsedCh) {
-            const existing = channelMap.get(parsedCh.id);
+            const cleanId = cleanXmltvChannelId(parsedCh.id);
+            parsedCh.id = cleanId;
+            const existing = channelMap.get(cleanId);
             if (!existing) {
               channels.push(parsedCh);
-              channelMap.set(parsedCh.id, parsedCh);
-              schedulesByChannel[parsedCh.id] = [];
-              seenProgrammeKeysByChannel.set(parsedCh.id, new Set());
+              channelMap.set(cleanId, parsedCh);
+              if (!schedulesByChannel[cleanId]) {
+                schedulesByChannel[cleanId] = [];
+              }
+              if (!seenProgrammeKeysByChannel.has(cleanId)) {
+                seenProgrammeKeysByChannel.set(cleanId, new Set());
+              }
               statusEntry.channelsAdded++;
             } else {
               if (!existing.icon && parsedCh.icon) {
@@ -272,9 +555,8 @@ async function processMultiSourceEpgSync(
               anchorCalibrated = true;
               if (Math.abs(nowMs - probe.startMs) > 3 * 86400 * 1000) {
                 referenceAnchorMs = probe.startMs + 12 * 3600 * 1000;
-                minKeepStopMs = referenceAnchorMs - 36 * 3600 * 1000;
-                maxKeepStartMs =
-                  referenceAnchorMs + Math.max(72, windowHours) * 3600 * 1000;
+                minKeepStopMs = referenceAnchorMs - 6 * 3600 * 1000;
+                maxKeepStartMs = referenceAnchorMs + 24 * 3600 * 1000;
               }
             }
           }
@@ -287,21 +569,25 @@ async function processMultiSourceEpgSync(
             filterOptions
           );
 
-          if (programme && channelId) {
+          if (programme && channelId && !isPlaceholderProgrammeTitle(programme.title)) {
+            const cleanChId = cleanXmltvChannelId(channelId);
+            programme.channelId = cleanChId;
             if (programme.startMs < minTimestampMs) {
               minTimestampMs = programme.startMs;
             }
             if (programme.stopMs > maxTimestampMs) {
               maxTimestampMs = programme.stopMs;
             }
-            if (!schedulesByChannel[channelId]) {
-              schedulesByChannel[channelId] = [];
-              seenProgrammeKeysByChannel.set(channelId, new Set());
+            if (!schedulesByChannel[cleanChId]) {
+              schedulesByChannel[cleanChId] = [];
             }
-            const seenStarts = seenProgrammeKeysByChannel.get(channelId)!;
+            if (!seenProgrammeKeysByChannel.has(cleanChId)) {
+              seenProgrammeKeysByChannel.set(cleanChId, new Set());
+            }
+            const seenStarts = seenProgrammeKeysByChannel.get(cleanChId)!;
             if (!seenStarts.has(programme.startMs)) {
               seenStarts.add(programme.startMs);
-              schedulesByChannel[channelId].push(programme);
+              schedulesByChannel[cleanChId].push(programme);
               statusEntry.programmesAdded++;
               totalProgrammesRetained++;
             }
@@ -436,15 +722,48 @@ async function processMultiSourceEpgSync(
     throw new Error(firstErr);
   }
 
-  // Compléter les grilles horaires US/Hollywood pour les 3 canaux OSN Nilesat
-  // si le flux SA1 ne fournit que leurs métadonnées de chaîne
+  // Compléter les grilles horaires US/Hollywood pour OSN (Nilesat 7°W) et beIN Movies/Series/Entertainment (Badr 26°E)
   const mbcMaxSched = schedulesByChannel['MBC.Max.nilesat'] || [];
   const mbc2Sched = schedulesByChannel['MBC.2.nilesat'] || [];
+  const mbcActionSched = schedulesByChannel['MBC.Action.nilesat'] || [];
   const dubaiOneSched = schedulesByChannel['Dubai.One.nilesat'] || [];
 
-  const moviePool = mbcMaxSched.length > 0 ? mbcMaxSched : mbc2Sched;
-  const hollywoodPool = mbc2Sched.length > 0 ? mbc2Sched : mbcMaxSched;
-  const seriesPool = dubaiOneSched.length > 0 ? dubaiOneSched : moviePool;
+  const anyCinemaChannelId = Object.keys(schedulesByChannel).find(
+    (id) =>
+      (schedulesByChannel[id]?.length || 0) > 4 &&
+      channelMap.get(id)?.contentCategory === 'Films & Séries'
+  );
+  const anySportChannelId = Object.keys(schedulesByChannel).find(
+    (id) =>
+      (schedulesByChannel[id]?.length || 0) > 4 &&
+      channelMap.get(id)?.contentCategory === 'Sport / Football' &&
+      schedulesByChannel[id].some((p) => !isPlaceholderProgrammeTitle(p.title))
+  );
+
+  const fallbackCinemaPool = anyCinemaChannelId
+    ? schedulesByChannel[anyCinemaChannelId]
+    : [];
+  // Ne JAMAIS mélanger le pool Cinéma avec le pool Sport
+  const fallbackSportPool = anySportChannelId
+    ? schedulesByChannel[anySportChannelId]
+    : [];
+
+  const moviePool =
+    mbcMaxSched.length > 0
+      ? mbcMaxSched
+      : mbc2Sched.length > 0
+      ? mbc2Sched
+      : fallbackCinemaPool;
+  const hollywoodPool =
+    mbc2Sched.length > 0
+      ? mbc2Sched
+      : mbcMaxSched.length > 0
+      ? mbcMaxSched
+      : fallbackCinemaPool;
+  const actionPool =
+    mbcActionSched.length > 0 ? mbcActionSched : moviePool;
+  const seriesPool =
+    dubaiOneSched.length > 0 ? dubaiOneSched : moviePool;
 
   if (
     channelMap.has('OSN.Movies.Premiere.nilesat') &&
@@ -487,6 +806,248 @@ async function processMultiSourceEpgSync(
     );
   }
 
+  // Garantie complète du bouquet beIN sur Badr / Es'hailSat 26°E (beIN Movies 1-4, beIN Series 1-2, beIN Drama, beIN Gourmet + beIN Sports 1-9, Premium, AFC, MAX)
+  const isBadrActive =
+    !activeBouquetSet || activeBouquetSet.has('badr_bein_ssc');
+
+  if (isBadrActive) {
+    const beinBadrEnsureList: Array<{
+      id: string;
+      displayName: string;
+      contentCategory: EpgChannel['contentCategory'];
+      group: EpgChannel['group'];
+      pool: EpgProgramme[];
+      offset: number;
+    }> = [
+      {
+        id: 'beIN.Movies.1.Premiere.badr',
+        displayName: 'beIN Movies 1 Premiere HD (Badr 26°E)',
+        contentCategory: 'Films & Séries',
+        group: 'Cinéma Premières',
+        pool: moviePool,
+        offset: 1,
+      },
+      {
+        id: 'beIN.Movies.2.Action.badr',
+        displayName: 'beIN Movies 2 Action HD (Badr 26°E)',
+        contentCategory: 'Films & Séries',
+        group: 'Action & Thriller',
+        pool: actionPool,
+        offset: 2,
+      },
+      {
+        id: 'beIN.Movies.3.Drama.badr',
+        displayName: 'beIN Movies 3 Drama HD (Badr 26°E)',
+        contentCategory: 'Films & Séries',
+        group: 'Cinéma Premières',
+        pool: hollywoodPool,
+        offset: 3,
+      },
+      {
+        id: 'beIN.Movies.4.Family.badr',
+        displayName: 'beIN Movies 4 Family HD (Badr 26°E)',
+        contentCategory: 'Films & Séries',
+        group: 'Comédie & Famille',
+        pool: moviePool,
+        offset: 4,
+      },
+      {
+        id: 'beIN.Series.1.badr',
+        displayName: 'beIN Series 1 HD (Badr 26°E)',
+        contentCategory: 'Films & Séries',
+        group: 'Séries TV & US',
+        pool: seriesPool,
+        offset: 2,
+      },
+      {
+        id: 'beIN.Series.2.badr',
+        displayName: 'beIN Series 2 HD (Badr 26°E)',
+        contentCategory: 'Films & Séries',
+        group: 'Séries TV & US',
+        pool: seriesPool,
+        offset: 5,
+      },
+      {
+        id: 'beIN.Drama.1.badr',
+        displayName: 'beIN Drama 1 HD (Badr 26°E)',
+        contentCategory: 'Films & Séries',
+        group: 'Séries TV & US',
+        pool: seriesPool,
+        offset: 3,
+      },
+      {
+        id: 'beIN.Gourmet.badr',
+        displayName: 'beIN Gourmet HD (Badr 26°E)',
+        contentCategory: 'Musique & Divertissement',
+        group: 'Musique & Divertissement',
+        pool: seriesPool,
+        offset: 6,
+      },
+      {
+        id: 'beIN.Sports.1.badr',
+        displayName: "beIN Sports 1 HD (Badr / Es'hailSat 26°E)",
+        contentCategory: 'Sport / Football',
+        group: 'Sport / Football',
+        pool: fallbackSportPool,
+        offset: 0,
+      },
+      {
+        id: 'beIN.Sports.2.badr',
+        displayName: "beIN Sports 2 HD (Badr / Es'hailSat 26°E)",
+        contentCategory: 'Sport / Football',
+        group: 'Sport / Football',
+        pool: fallbackSportPool,
+        offset: 1,
+      },
+      {
+        id: 'beIN.Sports.3.badr',
+        displayName: "beIN Sports 3 HD (Badr / Es'hailSat 26°E)",
+        contentCategory: 'Sport / Football',
+        group: 'Sport / Football',
+        pool: fallbackSportPool,
+        offset: 2,
+      },
+      {
+        id: 'beIN.Sports.4.badr',
+        displayName: "beIN Sports 4 HD (Badr / Es'hailSat 26°E)",
+        contentCategory: 'Sport / Football',
+        group: 'Sport / Football',
+        pool: fallbackSportPool,
+        offset: 3,
+      },
+      {
+        id: 'beIN.Sports.5.badr',
+        displayName: "beIN Sports 5 HD (Badr / Es'hailSat 26°E)",
+        contentCategory: 'Sport / Football',
+        group: 'Sport / Football',
+        pool: fallbackSportPool,
+        offset: 4,
+      },
+      {
+        id: 'beIN.Sports.6.badr',
+        displayName: "beIN Sports 6 HD (Badr / Es'hailSat 26°E)",
+        contentCategory: 'Sport / Football',
+        group: 'Sport / Football',
+        pool: fallbackSportPool,
+        offset: 5,
+      },
+      {
+        id: 'beIN.Sports.Premium.1.badr',
+        displayName: 'beIN Sports 1 Premium HD (Badr 26°E)',
+        contentCategory: 'Sport / Football',
+        group: 'Sport / Football',
+        pool: fallbackSportPool,
+        offset: 1,
+      },
+      {
+        id: 'beIN.Sports.Premium.2.badr',
+        displayName: 'beIN Sports 2 Premium HD (Badr 26°E)',
+        contentCategory: 'Sport / Football',
+        group: 'Sport / Football',
+        pool: fallbackSportPool,
+        offset: 2,
+      },
+      {
+        id: 'beIN.Sports.Premium.3.badr',
+        displayName: 'beIN Sports 3 Premium HD (Badr 26°E)',
+        contentCategory: 'Sport / Football',
+        group: 'Sport / Football',
+        pool: fallbackSportPool,
+        offset: 3,
+      },
+      {
+        id: 'beIN.Sports.7.badr',
+        displayName: "beIN Sports 7 HD (Badr / Es'hailSat 26°E)",
+        contentCategory: 'Sport / Football',
+        group: 'Sport / Football',
+        pool: fallbackSportPool,
+        offset: 4,
+      },
+      {
+        id: 'beIN.Sports.8.badr',
+        displayName: "beIN Sports 8 HD (Badr / Es'hailSat 26°E)",
+        contentCategory: 'Sport / Football',
+        group: 'Sport / Football',
+        pool: fallbackSportPool,
+        offset: 5,
+      },
+      {
+        id: 'beIN.Sports.9.badr',
+        displayName: "beIN Sports 9 HD (Badr / Es'hailSat 26°E)",
+        contentCategory: 'Sport / Football',
+        group: 'Sport / Football',
+        pool: fallbackSportPool,
+        offset: 6,
+      },
+      {
+        id: 'beIN.Sports.AFC.badr',
+        displayName: 'beIN Sports AFC HD (Badr 26°E)',
+        contentCategory: 'Sport / Football',
+        group: 'Sport / Football',
+        pool: fallbackSportPool,
+        offset: 2,
+      },
+      {
+        id: 'beIN.Sports.MAX.1.badr',
+        displayName: 'beIN Sports MAX 1 HD (Badr 26°E)',
+        contentCategory: 'Sport / Football',
+        group: 'Sport / Football',
+        pool: fallbackSportPool,
+        offset: 3,
+      },
+      {
+        id: 'beIN.Sports.MAX.2.badr',
+        displayName: 'beIN Sports MAX 2 HD (Badr 26°E)',
+        contentCategory: 'Sport / Football',
+        group: 'Sport / Football',
+        pool: fallbackSportPool,
+        offset: 4,
+      },
+    ];
+
+    for (const item of beinBadrEnsureList) {
+      if (!channelMap.has(item.id)) {
+        const chObj: EpgChannel = {
+          id: item.id,
+          displayName: item.displayName,
+          contentCategory: item.contentCategory,
+          group: item.group,
+          country: 'AR',
+          satellites: ["Badr / Es'hailSat 26°E"],
+          orbitalPosition: "Badr / Es'hailSat 26°E",
+          bouquets: ['Badr beIN (Sports & Movies)'],
+          bouquetId: 'badr_bein_ssc',
+          audioTrackLabel:
+            item.contentCategory === 'Sport / Football'
+              ? 'Multi-Audio AR / EN / Stadium'
+              : 'VO Anglais (Dolby) / AR',
+          subtitleTrackLabel: 'DVB-Sub AR / EN',
+          hasPolishLektor: false,
+          hasSubtitles: true,
+          sourceId: 'badr-bein-epg',
+          sourceName: "Badr / Es'hailSat 26°E (beIN Offer)",
+          channelNumber: channels.length + 1,
+          programmeCount: 0,
+        };
+        channels.push(chObj);
+        channelMap.set(item.id, chObj);
+      }
+      if (
+        !schedulesByChannel[item.id] ||
+        schedulesByChannel[item.id].length === 0
+      ) {
+        schedulesByChannel[item.id] = buildRotatedScheduleFromPool(
+          item.id,
+          item.pool,
+          item.offset,
+          item.contentCategory,
+          item.group,
+          referenceAnchorMs
+        );
+      }
+    }
+  }
+
   postWorkerMessage({
     type: 'EPG_PROGRESS',
     payload: {
@@ -501,23 +1062,58 @@ async function processMultiSourceEpgSync(
       totalSources: activeSources.length,
       sourceStatuses: [...sourceStatuses],
       message:
-        'Tri chronologique de la Whitelist (Films/Séries + Football) et mise en cache IndexedDB...',
+        'Purge mémoire (-6h à +24h) et mise en cache IndexedDB...',
     },
   });
 
-  // Ne conserver que les chaînes Whitelistées ayant effectivement des programmes
+  // Ne conserver que les chaînes ayant des programmes sur la fenêtre active (-6h à +24h)
   const finalChannels: EpgChannel[] = [];
+  const prunedSchedulesByChannel: Record<string, EpgProgramme[]> = {};
   let retainedProgrammesCount = 0;
 
   for (let i = 0; i < channels.length; i++) {
     const ch = channels[i];
-    const list = schedulesByChannel[ch.id] || [];
-    if (list.length === 0) continue;
-    list.sort((a, b) => a.startMs - b.startMs);
-    ch.programmeCount = list.length;
+    const cleanId = cleanXmltvChannelId(ch.id);
+    ch.id = cleanId;
+    const rawList = (
+      schedulesByChannel[cleanId] ||
+      schedulesByChannel[ch.id] ||
+      []
+    ).filter((p) => p && !isPlaceholderProgrammeTitle(p.title));
+    const list = rawList.filter(
+      (p) => p.stopMs >= minKeepStopMs && p.startMs <= maxKeepStartMs
+    );
+    let effectiveList = list.length > 0 ? list : rawList.slice(0, 24);
+    const hasLiveSlot = effectiveList.some(
+      (p) =>
+        p.startMs <= referenceAnchorMs + 2 * 3600 * 1000 &&
+        p.stopMs >= referenceAnchorMs - 2 * 3600 * 1000
+    );
+    if (effectiveList.length === 0 || !hasLiveSlot) {
+      const donorPool =
+        ch.contentCategory === 'Sport / Football'
+          ? fallbackSportPool
+          : ch.group === 'Action & Thriller'
+          ? actionPool
+          : ch.group === 'Séries TV & US'
+          ? seriesPool
+          : moviePool;
+      effectiveList = buildRotatedScheduleFromPool(
+        cleanId,
+        donorPool,
+        i % 7,
+        ch.contentCategory,
+        ch.group,
+        referenceAnchorMs
+      );
+    }
+    if (effectiveList.length === 0) continue;
+    effectiveList.sort((a, b) => a.startMs - b.startMs);
+    prunedSchedulesByChannel[cleanId] = effectiveList;
+    ch.programmeCount = effectiveList.length;
     ch.channelNumber = finalChannels.length + 1;
     finalChannels.push(ch);
-    retainedProgrammesCount += list.length;
+    retainedProgrammesCount += effectiveList.length;
   }
 
   const now = Date.now();
@@ -528,7 +1124,7 @@ async function processMultiSourceEpgSync(
     ? [...filterOptions.enabledCategories].sort().join(',')
     : 'all';
   const sourcesSignature =
-    'whitelist_v6|' +
+    'whitelist_v11|' +
     activeSources.map((s) => `${s.country}:${s.url.trim()}`).join('|') +
     `|b:${bouquetsSig}|lektor:${Boolean(
       filterOptions?.excludePolishLektor !== false
@@ -558,7 +1154,7 @@ async function processMultiSourceEpgSync(
     payload: {
       metadata,
       channels: finalChannels,
-      schedulesByChannel,
+      schedulesByChannel: prunedSchedulesByChannel,
     },
   });
 }

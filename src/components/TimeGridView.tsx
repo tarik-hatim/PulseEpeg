@@ -1,12 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Baby,
   ChevronLeft,
   ChevronRight,
   Clock,
   Compass,
   Film,
-  Globe,
   Heart,
+  Music,
+  Newspaper,
   Radio,
   RotateCcw,
   Satellite,
@@ -21,7 +23,6 @@ import {
   BouquetFilter,
   ChannelGroup,
   ContentCategoryFilter,
-  CountryCode,
   EpgChannel,
   EpgProgramme,
   SatelliteFilter,
@@ -44,11 +45,18 @@ import {
   getTranslations,
   translateBouquetFilter,
   translateCategoryFilter,
-  translateCountryFilter,
   translateDynamicGenre,
   translateSatelliteFilter,
   translateSubGenreGroup,
 } from '../utils/i18n';
+import {
+  cleanXmltvChannelId,
+  isPlaceholderProgrammeTitle,
+} from '../utils/xmltvParser';
+import {
+  getBouquetsForSatellite,
+  STRICT_SAT_FILTER_LIST,
+} from '../services/storageService';
 
 interface TimeGridViewProps {
   channels: EpgChannel[];
@@ -63,15 +71,18 @@ interface TimeGridViewProps {
   onSelectSatellite: (sat: SatelliteFilter) => void;
   selectedBouquet: BouquetFilter;
   onSelectBouquet: (bouquet: BouquetFilter) => void;
-  selectedCountry: CountryCode;
-  onSelectCountry: (country: CountryCode) => void;
+  selectedBouquetsList?: BouquetFilter[];
+  ramWarningMessage?: string | null;
   selectedGroup: ChannelGroup;
   onSelectGroup: (group: ChannelGroup) => void;
   categoryCounts: Record<ContentCategoryFilter, number>;
   satelliteCounts: Record<SatelliteFilter, number>;
   bouquetCounts: Record<BouquetFilter, number>;
-  countryCounts: Record<CountryCode, number>;
   groupCounts: Record<ChannelGroup, number>;
+  allowedSatelliteOptions?: SatelliteFilter[];
+  allowedBouquetOptions?: BouquetFilter[];
+  allowedCategoryCodes?: ContentCategoryFilter[];
+  allowedGroupOptions?: ChannelGroup[];
   language?: AppLanguage;
 }
 
@@ -82,68 +93,29 @@ const TOTAL_TIMELINE_WIDTH = WINDOW_MINUTES * PIXELS_PER_MINUTE;
 
 const CATEGORY_OPTIONS: {
   code: ContentCategoryFilter;
-  icon: 'all' | 'cinema' | 'sport' | 'doc';
+  icon: 'all' | 'cinema' | 'doc' | 'news' | 'kids' | 'music' | 'sport';
 }[] = [
   { code: 'Tous', icon: 'all' },
   { code: 'Films & Séries', icon: 'cinema' },
-  { code: 'Sport / Football', icon: 'sport' },
   { code: 'Documentaires', icon: 'doc' },
-];
-
-const SATELLITE_OPTIONS: SatelliteFilter[] = [
-  'Tous',
-  'Nilesat 7°W',
-  'Astra 19.2°E',
-  'Hotbird 13°E',
-  'Hispasat 30°W',
-  'Eutelsat 16°E / Thor 0.8°W',
-  'Star One D2 70°W',
-  'Amazonas 61°W',
-  'Intelsat 43.1°W & SES-6 40.5°W',
-];
-
-const BOUQUET_OPTIONS: BouquetFilter[] = [
-  'Tous',
-  'Nilesat OSN/MBC',
-  'beIN / SSC (MENA)',
-  'Astra Canal+',
-  'Movistar+ / DAZN ES',
-  'Sky DE / DAZN DE',
-  'Sky Italia / DAZN IT',
-  'Canal+ / Eleven / FilmBox',
-  'HBO / Cinemax',
-  'AXN / Warner / Sci-Fi',
-  'DigitAlb / Total TV / Focus Sat',
-  'Claro TV Brasil',
-  'Vivo TV / Movistar LATAM',
-  'DirecTV LATAM / Sky Brasil',
-];
-
-const COUNTRY_OPTIONS: {
-  code: CountryCode;
-  flag: string;
-}[] = [
-  { code: 'Tous', flag: '🛰️' },
-  { code: 'AR', flag: '🇲🇦/🇦🇪' },
-  { code: 'FR', flag: '🇫🇷' },
-  { code: 'ES', flag: '🇪🇸' },
-  { code: 'DE', flag: '🇩🇪' },
-  { code: 'IT', flag: '🇮🇹' },
-  { code: 'PL', flag: '🇵🇱' },
-  { code: 'EU', flag: '🇪🇺' },
-  { code: 'BR', flag: '🇧🇷' },
-  { code: 'LATAM', flag: '🌎' },
+  { code: 'Actualités / News', icon: 'news' },
+  { code: 'Jeunesse / Enfants', icon: 'kids' },
+  { code: 'Musique & Divertissement', icon: 'music' },
+  { code: 'Sport / Football', icon: 'sport' },
 ];
 
 const GROUP_OPTIONS: ChannelGroup[] = [
-  'Toutes',
-  'Sport / Football',
-  'Documentaires',
+  'Tous',
   'Cinéma Premières',
-  'Séries TV & US',
   'Action & Thriller',
+  'Séries TV & US',
   'Comédie & Famille',
   'Classiques & Culte',
+  'Documentaires',
+  'Actualités / News',
+  'Jeunesse / Enfants',
+  'Musique & Divertissement',
+  'Sport / Football',
 ];
 
 const COUNTRY_FLAGS: Record<string, string> = {
@@ -171,15 +143,18 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
   onSelectSatellite,
   selectedBouquet,
   onSelectBouquet,
-  selectedCountry,
-  onSelectCountry,
+  selectedBouquetsList = [],
+  ramWarningMessage,
   selectedGroup,
   onSelectGroup,
   categoryCounts,
   satelliteCounts,
   bouquetCounts,
-  countryCounts,
   groupCounts,
+  allowedSatelliteOptions,
+  allowedBouquetOptions,
+  allowedCategoryCodes,
+  allowedGroupOptions,
   language,
 }) => {
   const activeLang = language || getActiveLanguage();
@@ -188,6 +163,9 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
   const [windowStartMs, setWindowStartMs] = useState<number>(() =>
     floorToHalfHourCasablanca(nowMs - 30 * 60000)
   );
+  const [activeTimeBtn, setActiveTimeBtn] = useState<
+    'minus' | 'now' | 'prime' | 'plus'
+  >('now');
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const windowEndMs = windowStartMs + WINDOW_MINUTES * 60000;
@@ -208,56 +186,81 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
 
   const shiftWindow = (hours: number) => {
     setWindowStartMs((prev) => prev + hours * 3600000);
+    setActiveTimeBtn(hours < 0 ? 'minus' : 'plus');
   };
 
   const resetToNow = () => {
     setWindowStartMs(floorToHalfHourCasablanca(nowMs - 30 * 60000));
+    setActiveTimeBtn('now');
   };
 
   const jumpToPrimeTime = () => {
     setWindowStartMs(getCasablancaTimestampForHour(nowMs, 20, 30));
+    setActiveTimeBtn('prime');
   };
 
   const favoriteSet = useMemo(() => new Set(favorites), [favorites]);
 
   const visibleCategoryOptions = useMemo(
     () =>
-      CATEGORY_OPTIONS.filter(
-        (cat) => cat.code === 'Tous' || (categoryCounts[cat.code] ?? 0) > 0
-      ),
-    [categoryCounts]
+      CATEGORY_OPTIONS.filter((cat) => {
+        if (
+          allowedCategoryCodes &&
+          !allowedCategoryCodes.includes(cat.code)
+        ) {
+          return false;
+        }
+        return (categoryCounts[cat.code] ?? 0) > 0;
+      }),
+    [allowedCategoryCodes, categoryCounts]
   );
 
+  // Ne liste dans la barre SAT que les satellites activés dans Réglages et ayant > 0 chaîne
   const visibleSatelliteOptions = useMemo(
     () =>
-      SATELLITE_OPTIONS.filter(
-        (sat) => sat === 'Tous' || (satelliteCounts[sat] ?? 0) > 0
+      (allowedSatelliteOptions || STRICT_SAT_FILTER_LIST).filter(
+        (sat) => (satelliteCounts[sat] ?? 0) > 0
       ),
-    [satelliteCounts]
+    [allowedSatelliteOptions, satelliteCounts]
   );
 
+  // Liaison dynamique stricte + masquage des bouquets avec compteur = 0
   const visibleBouquetOptions = useMemo(
     () =>
-      BOUQUET_OPTIONS.filter(
-        (bq) => bq === 'Tous' || (bouquetCounts[bq] ?? 0) > 0
-      ),
-    [bouquetCounts]
+      (
+        allowedBouquetOptions || getBouquetsForSatellite(selectedSatellite)
+      ).filter((bq) => (bouquetCounts[bq] ?? 0) > 0),
+    [allowedBouquetOptions, selectedSatellite, bouquetCounts]
   );
 
-  const visibleCountryOptions = useMemo(
-    () =>
-      COUNTRY_OPTIONS.filter(
-        (c) => c.code === 'Tous' || (countryCounts[c.code] ?? 0) > 0
-      ),
-    [countryCounts]
-  );
-
+  // Masquage strict de tout genre dont le compteur = 0
   const visibleGroupOptions = useMemo(
     () =>
-      GROUP_OPTIONS.filter(
-        (grp) => grp === 'Toutes' || (groupCounts[grp] ?? 0) > 0
-      ),
-    [groupCounts]
+      (allowedGroupOptions || GROUP_OPTIONS).filter((grp) => {
+        const count =
+          (groupCounts[grp] ?? 0) ||
+          (grp === 'Tous' ? (groupCounts['Toutes'] ?? 0) : 0);
+        return count > 0;
+      }),
+    [allowedGroupOptions, groupCounts]
+  );
+
+  // Ne conserve sur la Grille TV que les chaînes ayant au moins un programme valide dans la fenêtre horaire
+  const gridVisibleChannels = useMemo(
+    () =>
+      channels.filter((ch) => {
+        const cleanId = cleanXmltvChannelId(ch.id);
+        const list =
+          programmesByChannel[cleanId] || programmesByChannel[ch.id] || [];
+        return list.some(
+          (p) =>
+            p &&
+            !isPlaceholderProgrammeTitle(p.title) &&
+            p.stopMs > windowStartMs &&
+            p.startMs < windowEndMs
+        );
+      }),
+    [channels, programmesByChannel, windowStartMs, windowEndMs]
   );
 
   useEffect(() => {
@@ -269,9 +272,9 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
 
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900/95 overflow-hidden shadow-2xl">
-      {/* Barre de Filtres Satellite / Bouquet / Genre dédiée à la Grille TV */}
+      {/* Barre de Filtres [CATÉGORIE] -> [SATELLITE / BOUQUET] -> [GENRE] dédiée à la Grille TV */}
       <div className="p-3 sm:p-4 bg-slate-950/90 border-b border-slate-800/90 space-y-2.5">
-        {/* Ligne 0 : Catégories principales */}
+        {/* Ligne 1 : [CATÉGORIE] */}
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 border-b border-slate-800/70">
           <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-amber-400 me-1 shrink-0">
             <Film className="w-3.5 h-3.5" />
@@ -284,6 +287,7 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
             return (
               <button
                 key={cat.code}
+                type="button"
                 onClick={() => onSelectCategory(cat.code)}
                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer border ${
                   active
@@ -313,6 +317,24 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
                       active ? 'text-slate-950' : 'text-cyan-400'
                     }`}
                   />
+                ) : cat.icon === 'news' ? (
+                  <Newspaper
+                    className={`w-3.5 h-3.5 ${
+                      active ? 'text-slate-950' : 'text-sky-400'
+                    }`}
+                  />
+                ) : cat.icon === 'kids' ? (
+                  <Baby
+                    className={`w-3.5 h-3.5 ${
+                      active ? 'text-slate-950' : 'text-pink-400'
+                    }`}
+                  />
+                ) : cat.icon === 'music' ? (
+                  <Music
+                    className={`w-3.5 h-3.5 ${
+                      active ? 'text-slate-950' : 'text-purple-400'
+                    }`}
+                  />
                 ) : (
                   <Tv
                     className={`w-3.5 h-3.5 ${
@@ -335,7 +357,7 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
           })}
         </div>
 
-        {/* Ligne 1 : Satellites + Zones */}
+        {/* Ligne 2 : [SATELLITE / BOUQUET] */}
         <div className="flex flex-wrap items-center justify-between gap-2">
           {visibleSatelliteOptions.length > 1 && (
             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
@@ -350,6 +372,7 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
                 return (
                   <button
                     key={sat}
+                    type="button"
                     onClick={() => onSelectSatellite(sat)}
                     className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all shrink-0 cursor-pointer border ${
                       active
@@ -373,33 +396,36 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
             </div>
           )}
 
-          {/* Zones / Pays */}
-          {visibleCountryOptions.length > 1 && (
+          {visibleBouquetOptions.length > 1 && (
             <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-0.5">
-              <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-slate-400 me-1 shrink-0">
-                <Globe className="w-3 h-3 text-indigo-400" />
-                {tr.filterZoneLabel}
+              <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 me-1 shrink-0">
+                {tr.filterBouquetLabel}
               </span>
-              {visibleCountryOptions.map((c) => {
-                const active = selectedCountry === c.code;
-                const count = countryCounts[c.code] ?? 0;
-                const label = translateCountryFilter(c.code, activeLang);
+              {visibleBouquetOptions.map((bq) => {
+                const active =
+                  bq === 'Tous'
+                    ? selectedBouquet === 'Tous' &&
+                      selectedBouquetsList.length === 0
+                    : selectedBouquet === bq ||
+                      selectedBouquetsList.includes(bq);
+                const count = bouquetCounts[bq] ?? 0;
+                const label = translateBouquetFilter(bq, activeLang);
                 return (
                   <button
-                    key={c.code}
-                    onClick={() => onSelectCountry(c.code)}
-                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium transition-all shrink-0 cursor-pointer border ${
+                    key={bq}
+                    type="button"
+                    onClick={() => onSelectBouquet(bq)}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium shrink-0 cursor-pointer border ${
                       active
-                        ? 'bg-indigo-600 text-white border-indigo-400 font-bold'
+                        ? 'bg-emerald-500 text-slate-950 border-emerald-400 font-bold'
                         : 'bg-slate-900 text-slate-300 border-slate-800 hover:bg-slate-800'
                     }`}
                   >
-                    <span>{c.flag}</span>
                     <span>{label}</span>
                     <span
                       className={`text-[10px] px-1 rounded-full ${
                         active
-                          ? 'bg-white/20 text-white'
+                          ? 'bg-slate-950/20 text-slate-950 font-bold'
                           : 'bg-slate-800 text-slate-400'
                       }`}
                     >
@@ -412,74 +438,52 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
           )}
         </div>
 
-        {/* Ligne 2 : Bouquets + Genres */}
-        {(visibleBouquetOptions.length > 1 ||
-          visibleGroupOptions.length > 1) && (
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-800/60">
-            {visibleBouquetOptions.length > 1 && (
-              <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-0.5">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 me-1 shrink-0">
-                  {tr.filterBouquetLabel}
-                </span>
-                {visibleBouquetOptions.map((bq) => {
-                  const active = selectedBouquet === bq;
-                  const count = bouquetCounts[bq] ?? 0;
-                  const label = translateBouquetFilter(bq, activeLang);
-                  return (
-                    <button
-                      key={bq}
-                      onClick={() => onSelectBouquet(bq)}
-                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all shrink-0 cursor-pointer border ${
-                        active
-                          ? 'bg-emerald-500 text-slate-950 border-emerald-400 font-bold'
-                          : 'bg-slate-900 text-slate-300 border-slate-800 hover:bg-slate-800'
-                      }`}
-                    >
-                      <span>{label}</span>
-                      <span
-                        className={`text-[10px] px-1 rounded-full ${
-                          active
-                            ? 'bg-slate-950/20 text-slate-950 font-bold'
-                            : 'bg-slate-800 text-slate-400'
-                        }`}
-                      >
-                        {count}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+        {ramWarningMessage && (
+          <div className="px-3 py-2 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+            <span>{ramWarningMessage}</span>
+          </div>
+        )}
 
-            {visibleGroupOptions.length > 1 && (
-              <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-0.5">
-                <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-amber-300 me-1 shrink-0">
-                  <Sparkles className="w-3 h-3" />
-                  {tr.filterGenreLabel}
-                </span>
-                {visibleGroupOptions.map((grp) => {
-                  const active = selectedGroup === grp;
-                  const count = groupCounts[grp] ?? 0;
-                  const label = translateSubGenreGroup(grp, activeLang);
-                  return (
-                    <button
-                      key={grp}
-                      onClick={() => onSelectGroup(grp)}
-                      className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium transition-all shrink-0 cursor-pointer border ${
-                        active
-                          ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 font-bold'
-                          : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
-                      }`}
-                    >
-                      <span>{label}</span>
-                      <span className="text-[10px] text-slate-500">
-                        ({count})
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+        {/* Ligne 3 : [GENRE] */}
+        {visibleGroupOptions.length > 1 && (
+          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pt-1 border-t border-slate-800/60 pb-0.5">
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-amber-300 me-1 shrink-0">
+              <Sparkles className="w-3 h-3" />
+              {tr.filterGenreLabel}
+            </span>
+            {visibleGroupOptions.map((grp) => {
+              const active =
+                selectedGroup === grp ||
+                (grp === 'Tous' && selectedGroup === 'Toutes');
+              const count =
+                (groupCounts[grp] ?? 0) ||
+                (grp === 'Tous' ? (groupCounts['Toutes'] ?? 0) : 0);
+              const label = translateSubGenreGroup(grp, activeLang);
+              return (
+                <button
+                  key={grp}
+                  type="button"
+                  onClick={() => onSelectGroup(grp)}
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all shrink-0 cursor-pointer border ${
+                    active
+                      ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold shadow-sm'
+                      : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
+                  }`}
+                >
+                  <span>{label}</span>
+                  <span
+                    className={`text-[10px] px-1 rounded-full ${
+                      active
+                        ? 'bg-slate-950/20 text-slate-950 font-bold'
+                        : 'text-slate-500'
+                    }`}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         )}
       </div>
@@ -499,132 +503,90 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
             </span>
           </div>
 
-          <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-[11px] font-semibold text-emerald-300">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-[11px] font-semibold text-emerald-300">
             <Volume2 className="w-3 h-3" />
-            {channels.length} {tr.activeChannelsOnGrid}
+            {gridVisibleChannels.length} {tr.activeChannelsOnGrid}
           </span>
         </div>
 
         <div className="flex items-center gap-1.5">
           <button
+            type="button"
             onClick={() => shiftWindow(-2)}
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 border border-slate-700 transition-colors cursor-pointer"
+            className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+              activeTimeBtn === 'minus'
+                ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/25'
+                : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+            }`}
           >
             <ChevronLeft className="w-3.5 h-3.5 rtl:rotate-180" />
-            2h
+            -2h
           </button>
 
           <button
+            type="button"
             onClick={resetToNow}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-xs font-semibold text-amber-300 border border-amber-500/30 transition-colors cursor-pointer"
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+              activeTimeBtn === 'now'
+                ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/25'
+                : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+            }`}
           >
             <RotateCcw className="w-3.5 h-3.5" />
             {tr.presetNow}
           </button>
 
           <button
+            type="button"
             onClick={jumpToPrimeTime}
-            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 text-xs font-semibold text-indigo-300 border border-indigo-500/30 transition-colors cursor-pointer"
+            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+              activeTimeBtn === 'prime'
+                ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/25'
+                : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+            }`}
           >
             <Radio className="w-3.5 h-3.5" />
-            20h45
+            {tr.presetPrime}
           </button>
 
           <button
+            type="button"
             onClick={() => shiftWindow(2)}
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 border border-slate-700 transition-colors cursor-pointer"
+            className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+              activeTimeBtn === 'plus'
+                ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/25'
+                : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+            }`}
           >
-            2h
+            +2h
             <ChevronRight className="w-3.5 h-3.5 rtl:rotate-180" />
           </button>
         </div>
       </div>
 
-      {/* Corps de la Grille multi-colonnes (Forcé en LTR pour l'axe chronologique horizontal) */}
-      <div dir="ltr" className="relative flex overflow-hidden max-h-[68vh]">
-        {/* Colonne Fixe Gauche : Chaînes Satellite */}
-        <div className="w-52 sm:w-64 shrink-0 border-r border-slate-800 bg-slate-950/95 z-20 overflow-y-hidden select-none">
-          <div className="h-10 border-b border-slate-800 px-3 flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-400 bg-slate-950">
-            <span>{tr.gridChannelHeader}</span>
-            <span className="text-emerald-400 text-[10px]">
-              {tr.gridVoSubHeader}
-            </span>
-          </div>
-
-          <div className="divide-y divide-slate-800/70">
-            {channels.map((ch) => {
-              const isFav = favoriteSet.has(ch.id);
-              const flag = COUNTRY_FLAGS[ch.country] || '🛰️';
-              return (
-                <div
-                  key={ch.id}
-                  onClick={() => onSelectChannel(ch)}
-                  className="h-20 px-2.5 flex items-center justify-between gap-2 hover:bg-slate-900 transition-colors cursor-pointer group"
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-9 h-9 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center p-1 shrink-0">
-                      {ch.icon ? (
-                        <img
-                          src={ch.icon}
-                          alt={ch.displayName}
-                          className="max-w-full max-h-full object-contain"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <Tv className="w-4 h-4 text-slate-500" />
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1">
-                        <span className="text-[10px]">{flag}</span>
-                        <p className="text-xs font-bold text-slate-200 truncate group-hover:text-amber-300 transition-colors">
-                          {ch.displayName}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-1 mt-0.5">
-                        <span className="text-[9px] font-semibold px-1 py-0.2 rounded bg-slate-800 text-amber-300 border border-slate-700 truncate">
-                          {ch.orbitalPosition}
-                        </span>
-                        <span className="inline-flex items-center gap-0.5 text-[9px] text-cyan-300 font-medium">
-                          <Subtitles className="w-2.5 h-2.5" />
-                          SUB
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onToggleFavorite(ch.id);
-                    }}
-                    className={`p-1.5 rounded-lg transition-colors cursor-pointer shrink-0 ${
-                      isFav
-                        ? 'text-rose-400'
-                        : 'text-slate-600 hover:text-slate-300'
-                    }`}
-                  >
-                    <Heart
-                      className={`w-3.5 h-3.5 ${isFav ? 'fill-rose-500' : ''}`}
-                    />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Zone Scrollable Horizontale : Timeline & Programmes */}
+      {/* Corps de la Grille multi-colonnes synchronisée verticalement et horizontalement */}
+      <div
+        dir="ltr"
+        ref={scrollContainerRef}
+        className="relative overflow-x-auto overflow-y-auto max-h-[68vh]"
+      >
         <div
-          ref={scrollContainerRef}
-          className="flex-1 overflow-x-auto overflow-y-auto relative"
+          style={{ minWidth: `calc(13rem + ${TOTAL_TIMELINE_WIDTH}px)` }}
+          className="relative"
         >
-          <div
-            style={{ width: `${TOTAL_TIMELINE_WIDTH}px` }}
-            className="relative"
-          >
-            {/* En-tête gradué toutes les 30 minutes */}
-            <div className="h-10 border-b border-slate-800 bg-slate-950/90 sticky top-0 z-10 flex">
+          {/* En-tête collant : Colonne Chaînes + Axe temporel gradué toutes les 30 minutes */}
+          <div className="sticky top-0 z-30 flex h-10 border-b border-slate-800 bg-slate-950">
+            <div className="sticky left-0 z-40 w-52 sm:w-64 shrink-0 border-r border-slate-800 px-3 flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-400 bg-slate-950 select-none">
+              <span>{tr.gridChannelHeader}</span>
+              <span className="text-emerald-400 text-[10px]">
+                {tr.gridVoSubHeader}
+              </span>
+            </div>
+
+            <div
+              style={{ width: `${TOTAL_TIMELINE_WIDTH}px` }}
+              className="relative flex shrink-0 bg-slate-950/95"
+            >
               {timeSlots.map((slotMs) => (
                 <div
                   key={slotMs}
@@ -635,31 +597,96 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
                 </div>
               ))}
             </div>
+          </div>
 
-            {/* Marqueur vertical Temps Réel */}
-            {nowOffsetPx !== null && (
-              <div
-                style={{ left: `${nowOffsetPx}px` }}
-                className="absolute top-0 bottom-0 w-0.5 bg-amber-400 z-20 pointer-events-none shadow-[0_0_10px_rgba(251,191,36,0.9)]"
-              >
-                <div className="px-1.5 py-0.5 rounded bg-amber-400 text-slate-950 font-mono font-bold text-[9px] -translate-x-1/2 whitespace-nowrap shadow">
-                  {formatTimeShort(nowMs)}
-                </div>
-              </div>
-            )}
+          {/* Lignes dynamiques des chaînes filtrées et de leurs programmes */}
+          <div className="divide-y divide-slate-800/70">
+            {gridVisibleChannels.map((ch) => {
+              const isFav = favoriteSet.has(ch.id);
+              const flag = COUNTRY_FLAGS[ch.country] || '🛰️';
+              const cleanId = cleanXmltvChannelId(ch.id);
+              const rawChannelProgs =
+                programmesByChannel[cleanId] ||
+                programmesByChannel[ch.id] ||
+                [];
+              const progs = rawChannelProgs.filter(
+                (p) =>
+                  p &&
+                  !isPlaceholderProgrammeTitle(p.title) &&
+                  p.stopMs > windowStartMs &&
+                  p.startMs < windowEndMs
+              );
 
-            {/* Lignes des programmes */}
-            <div className="divide-y divide-slate-800/70">
-              {channels.map((ch) => {
-                const progs = (programmesByChannel[ch.id] || []).filter(
-                  (p) => p.stopMs > windowStartMs && p.startMs < windowEndMs
-                );
-
-                return (
+              return (
+                <div key={ch.id} className="flex h-20">
+                  {/* Cellule Chaîne Collante à Gauche */}
                   <div
-                    key={ch.id}
-                    className="h-20 relative bg-slate-900/40 hover:bg-slate-900/80 transition-colors"
+                    onClick={() => onSelectChannel(ch)}
+                    className="sticky left-0 z-20 w-52 sm:w-64 shrink-0 border-r border-slate-800 bg-slate-950/95 px-2.5 flex items-center justify-between gap-2 hover:bg-slate-900 transition-colors cursor-pointer group select-none"
                   >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-9 h-9 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center p-1 shrink-0">
+                        {ch.icon ? (
+                          <img
+                            src={ch.icon}
+                            alt={ch.displayName}
+                            className="max-w-full max-h-full object-contain"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <Tv className="w-4 h-4 text-slate-500" />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px]">{flag}</span>
+                          <p className="text-xs font-bold text-slate-200 truncate group-hover:text-amber-300 transition-colors">
+                            {ch.displayName}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <span className="text-[9px] font-semibold px-1 py-0.2 rounded bg-slate-800 text-amber-300 border border-slate-700 truncate">
+                            {ch.orbitalPosition}
+                          </span>
+                          <span className="inline-flex items-center gap-0.5 text-[9px] text-cyan-300 font-medium">
+                            <Subtitles className="w-2.5 h-2.5" />
+                            SUB
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onToggleFavorite(ch.id);
+                      }}
+                      className={`p-1.5 rounded-lg transition-colors cursor-pointer shrink-0 ${
+                        isFav
+                          ? 'text-rose-400'
+                          : 'text-slate-600 hover:text-slate-300'
+                      }`}
+                    >
+                      <Heart
+                        className={`w-3.5 h-3.5 ${isFav ? 'fill-rose-500' : ''}`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Cellule Timeline Programmes */}
+                  <div
+                    style={{ width: `${TOTAL_TIMELINE_WIDTH}px` }}
+                    className="h-20 relative shrink-0 bg-slate-900/40 hover:bg-slate-900/80 transition-colors"
+                  >
+                    {/* Marqueur vertical Temps Réel */}
+                    {nowOffsetPx !== null && (
+                      <div
+                        style={{ left: `${nowOffsetPx}px` }}
+                        className="absolute top-0 bottom-0 w-0.5 bg-amber-400 z-15 pointer-events-none shadow-[0_0_10px_rgba(251,191,36,0.9)]"
+                      />
+                    )}
+
                     {progs.map((prog) => {
                       const clampedStart = Math.max(
                         prog.startMs,
@@ -707,9 +734,9 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
                             left: `${leftPx}px`,
                             width: `${widthPx}px`,
                           }}
-                          className={`absolute top-1.5 bottom-1.5 rounded-xl px-2.5 py-1.5 border overflow-hidden cursor-pointer transition-all flex flex-col justify-between ${
+                          className={`absolute top-1.5 bottom-1.5 rounded-xl px-2.5 py-1.5 border overflow-hidden cursor-pointer flex flex-col justify-between ${
                             isLive
-                              ? 'bg-gradient-to-br from-amber-500/25 via-amber-500/10 to-slate-900 border-amber-500/60 shadow-md z-10'
+                              ? 'bg-slate-900 border-slate-700 border-l-4 border-amber-500 z-10'
                               : 'bg-slate-800/75 hover:bg-slate-800 border-slate-700/70 hover:border-slate-600'
                           }`}
                           title={`${
@@ -723,7 +750,7 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
                           <div className="min-w-0">
                             <div className="flex items-center gap-1.5">
                               {isLive && (
-                                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping shrink-0" />
+                                <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
                               )}
                               <p className="text-xs font-bold text-white truncate">
                                 {activeLang === 'fr'
@@ -765,9 +792,9 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
                       );
                     })}
                   </div>
-                );
-              })}
-            </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>

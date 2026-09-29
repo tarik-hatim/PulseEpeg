@@ -150,7 +150,9 @@ export const ChannelRowCard: React.FC<ChannelRowCardProps> = ({
   return (
     <div
       onClick={() => onSelectChannel(channel)}
-      className={`group relative rounded-2xl border transition-all duration-200 cursor-pointer overflow-hidden bg-gradient-to-br ${accent.glow} to-slate-900/95 ${
+      className={`group relative rounded-2xl border cursor-pointer overflow-hidden bg-slate-900/95 ${
+        isActualLive ? 'border-l-4 border-l-amber-500' : ''
+      } ${
         isSelected
           ? 'border-amber-500/70 ring-1 ring-amber-500/30 shadow-lg shadow-amber-950/30'
           : `border-slate-800/80 ${accent.border} hover:bg-slate-900`
@@ -243,14 +245,20 @@ export const ChannelRowCard: React.FC<ChannelRowCardProps> = ({
         </div>
 
         {/* Programme En Direct */}
-        <div className="flex-1 min-w-0 lg:border-s lg:border-slate-800/80 lg:ps-4">
+        <div
+          className={`flex-1 min-w-0 lg:ps-4 ${
+            isActualLive
+              ? 'border-l-4 border-amber-500 ps-3'
+              : 'lg:border-s lg:border-slate-800/80'
+          }`}
+        >
           {currentProgramme ? (
             <div>
               <div className="flex items-center justify-between gap-2 text-xs">
                 <div className="flex items-center gap-2 min-w-0 flex-wrap">
                   {isActualLive ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                      <Radio className="w-2.5 h-2.5 animate-pulse text-amber-400" />
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                      <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
                       {tr.liveBadge}
                     </span>
                   ) : (
@@ -320,10 +328,10 @@ export const ChannelRowCard: React.FC<ChannelRowCardProps> = ({
                 </p>
               )}
 
-              {/* Barre de progression */}
+              {/* Barre de progression statique économe en batterie */}
               <div className="mt-2.5 h-1.5 w-full bg-slate-800/90 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-amber-500 via-orange-400 to-amber-300 rounded-full transition-all duration-500"
+                  className="h-full bg-amber-500 rounded-full"
                   style={{ width: `${isActualLive ? progress : 100}%` }}
                 />
               </div>

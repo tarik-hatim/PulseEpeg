@@ -1183,12 +1183,36 @@ const CATEGORY_FILTER_LABELS: Record<
     pt: 'Esportes / Futebol',
   },
   Documentaires: {
-    fr: 'Documentaires',
-    en: 'Documentaries',
-    ar: 'وثائقيات',
-    es: 'Documentales',
-    de: 'Dokumentationen',
-    pt: 'Documentários',
+    fr: 'Documentaires & Culture',
+    en: 'Documentaries & Culture',
+    ar: 'وثائقيات وثقافة',
+    es: 'Documentales y Cultura',
+    de: 'Dokus & Kultur',
+    pt: 'Documentários e Cultura',
+  },
+  'Actualités / News': {
+    fr: 'Actualités / News',
+    en: 'News & Current Affairs',
+    ar: 'أخبار ومعلومات',
+    es: 'Noticias y Actualidad',
+    de: 'Nachrichten / News',
+    pt: 'Notícias e Jornalismo',
+  },
+  'Jeunesse / Enfants': {
+    fr: 'Jeunesse / Enfants',
+    en: 'Kids & Animation',
+    ar: 'أطفال ورسوم متحركة',
+    es: 'Infantil y Animación',
+    de: 'Kinder & Jugend',
+    pt: 'Infantil e Desenhos',
+  },
+  'Musique & Divertissement': {
+    fr: 'Musique & Divertissement',
+    en: 'Music & Entertainment',
+    ar: 'موسيقى وترفيه',
+    es: 'Música y Entretenimiento',
+    de: 'Musik & Unterhaltung',
+    pt: 'Música e Entretenimento',
   },
 };
 
@@ -1228,12 +1252,36 @@ const SUB_GENRE_LABELS: Record<ChannelGroup, Record<AppLanguage, string>> = {
     pt: 'Esportes / Futebol',
   },
   Documentaires: {
-    fr: 'Documentaires',
-    en: 'Documentaries',
-    ar: 'وثائقيات',
-    es: 'Documentales',
-    de: 'Dokumentationen',
-    pt: 'Documentários',
+    fr: 'Documentaires & Culture',
+    en: 'Documentaries & Culture',
+    ar: 'وثائقيات وثقافة',
+    es: 'Documentales y Cultura',
+    de: 'Dokus & Kultur',
+    pt: 'Documentários e Cultura',
+  },
+  'Actualités / News': {
+    fr: 'Actualités / News',
+    en: 'News & Current Affairs',
+    ar: 'أخبار ومعلومات',
+    es: 'Noticias y Actualidad',
+    de: 'Nachrichten / News',
+    pt: 'Notícias e Jornalismo',
+  },
+  'Jeunesse / Enfants': {
+    fr: 'Jeunesse / Enfants',
+    en: 'Kids & Animation',
+    ar: 'أطفال ورسوم متحركة',
+    es: 'Infantil y Animación',
+    de: 'Kinder & Jugend',
+    pt: 'Infantil e Desenhos',
+  },
+  'Musique & Divertissement': {
+    fr: 'Musique & Divertissement',
+    en: 'Music & Entertainment',
+    ar: 'موسيقى وترفيه',
+    es: 'Música y Entretenimiento',
+    de: 'Musik & Unterhaltung',
+    pt: 'Música e Entretenimento',
   },
   'Cinéma Premières': {
     fr: 'Cinéma Premières',
@@ -1294,6 +1342,9 @@ export function translateSatelliteFilter(
   const l = lang || currentActiveLanguage;
   if (sat === 'Tous') {
     return CATEGORY_FILTER_LABELS.Tous[l] || 'Tous';
+  }
+  if (sat === "Badr / Es'hailSat 26°E" || sat === 'Badr 26°E') {
+    return 'Badr 26°E';
   }
   return sat;
 }
@@ -1774,58 +1825,121 @@ export function getBouquetLocalizedText(
   > = {
     nilesat_osn_mbc: {
       en: {
-        label: 'Nilesat 7°W & Badr 26°E (OSN, MBC, beIN Sports MENA, SSC Sports)',
+        label: 'Nilesat 7°W — Arabic & Cinema Bouquets (MBC, OSN, Rotana)',
         description:
-          'MENA: OSN Movies/Series, MBC 2/Max/Action, Dubai One, beIN Sports MENA 1-7 HD & SSC Sports',
+          'Nilesat 7°W: MBC 2, MBC Action, MBC Max, MBC Drama, OSN Movies/Series, Rotana Cinema, Dubai One & Al Jazeera Doc',
       },
       ar: {
-        label: 'نايل سات 7°W وبدر 26°E (OSN، MBC، beIN Sports MENA، SSC Sports)',
+        label: 'نايل سات 7°W — الباقات العربية والسينمائية (MBC، OSN، روتانا)',
         description:
-          'الشرق الأوسط وشمال أفريقيا: باقة OSN، قنوات MBC 2/Max/Action، Dubai One، قنوات beIN Sports و SSC',
+          'نايل سات 7°W: قنوات MBC 2 و MBC Action و MBC Max وباقة OSN للأفلام والمسلسلات وروتانا سينما ودبي ون',
       },
       es: {
-        label: 'Nilesat 7°W y Badr 26°E (OSN, MBC, beIN Sports MENA, SSC Sports)',
+        label: 'Nilesat 7°W — Bouquets Árabes (MBC, OSN, Rotana)',
         description:
-          'MENA: OSN Movies/Series, MBC 2/Max/Action, Dubai One, beIN Sports MENA y SSC Sports',
+          'Nilesat 7°W: MBC 2/Action/Max, OSN Movies/Series, Rotana Cinema, Dubai One',
       },
       de: {
-        label: 'Nilesat 7°W & Badr 26°E (OSN, MBC, beIN Sports MENA, SSC Sports)',
+        label: 'Nilesat 7°W — Arabische Bouquets (MBC, OSN, Rotana)',
         description:
-          'MENA: OSN Movies/Series, MBC 2/Max/Action, Dubai One, beIN Sports MENA & SSC Sports',
+          'Nilesat 7°W: MBC 2/Action/Max, OSN Movies/Series, Rotana Cinema, Dubai One',
       },
       pt: {
-        label: 'Nilesat 7°W e Badr 26°E (OSN, MBC, beIN Sports MENA, SSC Sports)',
+        label: 'Nilesat 7°W — Bouquets Árabes (MBC, OSN, Rotana)',
         description:
-          'MENA: OSN Movies/Series, MBC 2/Max/Action, Dubai One, beIN Sports MENA e SSC Sports',
+          'Nilesat 7°W: MBC 2/Action/Max, OSN Movies/Series, Rotana Cinema, Dubai One',
+      },
+    },
+    badr_bein_ssc: {
+      en: {
+        label: 'Badr / Es\'hailSat 26°E — Sports & MENA (beIN Sports, SSC, Al Kass)',
+        description:
+          'Badr / Es\'hailSat 26°E: beIN Sports MENA 1-7 HD, beIN Premium 1-3, SSC Sports 1-5 HD, Al Kass 1-4 & AD Sports',
+      },
+      ar: {
+        label: 'بدر / سهيل سات 26°E — باقات الرياضة (beIN Sports، SSC، الكأس)',
+        description:
+          'بدر / سهيل سات 26°E: قنوات beIN Sports MENA 1-7 HD و beIN Premium و SSC Sports 1-5 وقنوات الكأس وأبوظبي الرياضية',
+      },
+      es: {
+        label: 'Badr / Es\'hailSat 26°E — Deportes y MENA (beIN Sports, SSC, Al Kass)',
+        description:
+          'Badr / Es\'hailSat 26°E: beIN Sports MENA, SSC Sports, Al Kass y AD Sports',
       },
     },
     astra_canal_fr: {
       en: {
-        label: 'Astra 19.2°E (Canal+ France, TNT)',
+        label: 'Canal+ France (Cinéma, Séries, Docs, Sport)',
         description:
-          'France: Canal+ HD, Cinéma(s), Box Office, Grand Écran, Séries, Docs, Sport/Foot, Ciné+ OCS & TNT',
+          'Astra 19.2°E: Canal+ HD, Box Office, Grand Écran, Cinéma(s), Séries, Docs, Sport/Foot, Ciné+ OCS & beIN FR',
       },
       ar: {
-        label: 'أسترا 19.2°E (Canal+ فرنسا، TNT)',
+        label: 'باقة Canal+ فرنسا (أفلام، مسلسلات، وثائقيات، رياضة)',
         description:
-          'فرنسا: باقة Canal+ الكاملة للأفلام والمسلسلات والوثائقيات والرياضة مع قنوات Ciné+ OCS',
+          'أسترا 19.2°E: باقة Canal+ الكاملة للأفلام والمسلسلات والوثائقيات والرياضة مع قنوات Ciné+ OCS',
+      },
+    },
+    tnt_fr: {
+      en: {
+        label: 'TNT France (TF1, France 2/3/4/5, M6, Arte, W9, TMC, TFX...)',
+        description:
+          'Astra 19.2°E (TNTSAT / Canal+): TF1, France 2, France 3, France 4, France 5, M6, Arte, W9, TMC, TFX, NRJ12, LCP, BFMTV, CNEWS, CSTAR, Gulli, 6ter, RMC',
+      },
+      ar: {
+        label: 'قنوات TNT الفرنسية (TF1، France 2/3/5، M6، Arte، W9، TMC...)',
+        description:
+          'أسترا 19.2°E: جميع قنوات TNT الوطنية الفرنسية (TF1، France 2/3/4/5، M6، Arte، W9، TMC، TFX، NRJ12، Gulli)',
       },
     },
     movistar_es: {
       en: {
-        label: 'Hispasat 30°W / Astra 19.2°E (Movistar+, MEO, NOS)',
+        label: 'Movistar+ / DAZN España (Astra 19.2°E)',
         description:
-          'Spain & Iberia: Movistar Plus+ Cinema/Series, LaLiga, Liga de Campeones, DAZN ES, MEO & NOS',
+          'Astra 19.2°E: Movistar Plus+ Estrenos/Acción/Series, M+ LaLiga, Liga de Campeones, DAZN 1-4 ES & Vamos',
       },
       ar: {
-        label: 'هيسباسات 30°W / أسترا 19.2°E (Movistar+، MEO، NOS)',
+        label: 'باقة Movistar+ / DAZN إسبانيا (أسترا 19.2°E)',
         description:
-          'إسبانيا والبرتغال: باقة Movistar+ للأفلام والليغا ودوري الأبطال و DAZN ES و MEO/NOS',
+          'أسترا 19.2°E: باقة Movistar+ للأفلام والمسلسلات والليغا ودوري الأبطال و DAZN ES',
       },
       es: {
-        label: 'Hispasat 30°W / Astra 19.2°E (Movistar+, MEO, NOS)',
+        label: 'Movistar+ / DAZN España (Astra 19.2°E)',
         description:
-          'España y Portugal: Movistar Plus+ Estrenos/Acción/Series, LaLiga, Liga de Campeones, DAZN ES, MEO y NOS',
+          'Astra 19.2°E: Movistar Plus+ Estrenos, Acción, Comedia, Series, M+ LaLiga, Liga de Campeones y DAZN ES',
+      },
+    },
+    hispasat_meo_nos: {
+      en: {
+        label: 'Hispasat 30°W — Meo, NOS, Movistar',
+        description:
+          'Hispasat 30°W: Meo, NOS, TVCine Top/Action/Edition/Emotion, Canal Hollywood, Sport TV 1-6, Eleven PT & Movistar',
+      },
+      ar: {
+        label: 'هيسباسات 30°W — باقات Meo، NOS، Movistar',
+        description:
+          'هيسباسات 30°W: باقات Meo و NOS وقنوات TVCine و Sport TV 1-6 و Movistar',
+      },
+      es: {
+        label: 'Hispasat 30°W — Meo, NOS, Movistar',
+        description:
+          'Hispasat 30°W: Meo, NOS, TVCine, Canal Hollywood, AXN, Sport TV 1-6 y Movistar',
+      },
+      pt: {
+        label: 'Hispasat 30°W — Meo, NOS, Movistar',
+        description:
+          'Hispasat 30°W: Meo, NOS, TVCine Top/Action/Edition/Emotion, Canal Hollywood, Sport TV 1-6, BTV e Movistar',
+      },
+    },
+    hotbird_bis_fr: {
+      en: {
+        label: 'Hotbird 13°E — Bis TV France',
+        description:
+          'Hotbird 13°E: Bis TV Panorama/Cinérama (TF1, France 2/3/4/5, M6, Arte, W9, TMC, TFX, RTL9, Action, AB1, Téva, Histoire, Science & Vie)',
+      },
+      ar: {
+        label: 'هوت بيرد 13°E — باقة Bis TV الفرنسية',
+        description:
+          'هوت بيرد 13°E: باقة Bis TV الفرنسية (TF1، France 2/3/5، M6، Arte، RTL9، Action، AB1، Téva)',
       },
     },
     sky_de: {
@@ -2015,25 +2129,97 @@ export function getCategoryLocalizedText(
     },
     Documentaires: {
       en: {
-        label: 'Documentaries',
+        label: 'Documentaries & Culture',
         description:
           'History, Science, Nature, Wildlife & Geopolitics (Nat Geo, Discovery, Planète+, Canal+ Docs)',
       },
       ar: {
-        label: 'وثائقيات',
+        label: 'وثائقيات وثقافة',
         description: 'التاريخ، العلوم، الطبيعة والحياة البرية (Nat Geo، Discovery، الجزيرة الوثائقية)',
       },
       es: {
-        label: 'Documentales',
+        label: 'Documentales y Cultura',
         description: 'Historia, Ciencia, Naturaleza y Geopolítica',
       },
       de: {
-        label: 'Dokumentationen',
+        label: 'Dokus & Kultur',
         description: 'Geschichte, Wissenschaft, Natur & Geopolitik',
       },
       pt: {
-        label: 'Documentários',
+        label: 'Documentários e Cultura',
         description: 'História, Ciência, Natureza e Geopolítica',
+      },
+    },
+    'Actualités / News': {
+      en: {
+        label: 'News & Current Affairs',
+        description:
+          'International & national news, debates, economy (Al Arabiya, Al Jazeera, Sky News, BFMTV, CNEWS, CNN, BBC)',
+      },
+      ar: {
+        label: 'أخبار ومعلومات',
+        description:
+          'قنوات الأخبار والنقاشات والاقتصاد (العربية، الحدث، سكاي نيوز عربية، الجزيرة، فرانس 24، BBC)',
+      },
+      es: {
+        label: 'Noticias y Actualidad',
+        description: 'Información continua, debates y economía (24h, Euronews, CNN, BBC)',
+      },
+      de: {
+        label: 'Nachrichten / News',
+        description: 'Nachrichten, Debatten & Wirtschaft (Tagesschau24, n-tv, WELT, CNN, BBC)',
+      },
+      pt: {
+        label: 'Notícias e Jornalismo',
+        description: 'Jornalismo 24h, debates e economia (GloboNews, BandNews, CNN)',
+      },
+    },
+    'Jeunesse / Enfants': {
+      en: {
+        label: 'Kids & Animation',
+        description:
+          'Cartoons, animated series & youth channels (Spacetoon, MBC 3, Gulli, Cartoon Network, Nickelodeon, Disney)',
+      },
+      ar: {
+        label: 'أطفال ورسوم متحركة',
+        description:
+          'قنوات الأطفال والرسوم المتحركة (سبيستون، MBC 3، ماجد، كرتون نتورك، نيكلوديون)',
+      },
+      es: {
+        label: 'Infantil y Animación',
+        description: 'Dibujos animados y canales infantiles (Clan, Boing, Disney, Nickelodeon)',
+      },
+      de: {
+        label: 'Kinder & Jugend',
+        description: 'Zeichentrick & Kinderprogramm (KiKA, Super RTL, Disney, Nickelodeon)',
+      },
+      pt: {
+        label: 'Infantil e Desenhos',
+        description: 'Desenhos animados e programação infantil (Gloob, Cartoon Network, Nickelodeon)',
+      },
+    },
+    'Musique & Divertissement': {
+      en: {
+        label: 'Music & Entertainment',
+        description:
+          'Music videos, concerts, talk shows, variety & general entertainment (Rotana Music, MTV, MBC 1, W9, TMC)',
+      },
+      ar: {
+        label: 'موسيقى وترفيه',
+        description:
+          'قنوات الموسيقى والمنوعات والترفيه العائلي (روتانا موسيقى، وناسة، MBC 1، دبي، أبوظبي)',
+      },
+      es: {
+        label: 'Música y Entretenimiento',
+        description: 'Conciertos, videoclips, entretenimiento y variedades (MTV, Mezzo, Antena 3, Telecinco)',
+      },
+      de: {
+        label: 'Musik & Unterhaltung',
+        description: 'Musik, Konzerte, Shows & Unterhaltung (MTV, Deluxe Music, ProSieben, RTL)',
+      },
+      pt: {
+        label: 'Música e Entretenimento',
+        description: 'Videoclipes, shows, variedades e entretenimento (Multishow, Bis, MTV)',
       },
     },
     'Classiques & Culte': {

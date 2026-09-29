@@ -342,7 +342,7 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                 <div className="flex items-center gap-2 flex-wrap">
                   {isLiveActiveProg ? (
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                      <Radio className="w-3 h-3 animate-pulse text-amber-400" />
+                      <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
                       {tr.liveBadge} · {formatTimeShort(displayProg.startMs)} →{' '}
                       {formatTimeShort(displayProg.stopMs)} (
                       {formatRemainingTime(displayProg.stopMs, nowMs, activeLang)})
