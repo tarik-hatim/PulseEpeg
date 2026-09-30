@@ -32,9 +32,17 @@ export const PulseEpgLogo: React.FC<PulseEpgLogoProps> = ({
 
   return (
     <svg
+      width="40"
+      height="40"
       viewBox="0 0 512 512"
       fill="none"
-      className={`${sizeClasses} shrink-0 rounded-[22%] shadow-[0_0_18px_rgba(225,29,72,0.32)] ${className}`}
+      style={{
+        maxWidth: '200px',
+        maxHeight: '200px',
+        objectFit: 'contain',
+        flexShrink: 0,
+      }}
+      className={`pulse-epg-logo-svg ${sizeClasses} shrink-0 rounded-[22%] shadow-[0_0_18px_rgba(225,29,72,0.32)] ${className}`}
       aria-label="PulseEPG Launcher Icon"
     >
       <defs>

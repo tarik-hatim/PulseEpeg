@@ -3692,23 +3692,23 @@ export function App() {
       dir={langOpt.dir}
       className="min-h-screen bg-[#0a0e17] text-[#ffffff] flex flex-col selection:bg-[#e11d48] selection:text-[#ffffff]"
     >
-      {/* Top Navigation Bar — Layout Fixe sans défilement horizontal */}
+      {/* Top Navigation Bar — Layout Fixe avec Marges de Sécurité TV Overscan (16px-24px) */}
       <header
         data-tv-zone="header"
         data-dpad-active={activeDpadZone === 'header' ? 'true' : undefined}
-        className="sticky top-0 z-30 w-full bg-[#0a0e17]/95 backdrop-blur-xl border-b border-[#1a202c] pt-safe overflow-x-clip"
+        className="sticky top-0 z-30 w-full bg-[#0a0e17] border-b border-[#1a202c] pt-safe overflow-x-hidden"
       >
         <div className="max-w-[1600px] w-full mx-auto">
-          {/* Ligne supérieure fixe : justify-between (Logo + Langue à gauche, Actions compactes Rafraîchir + Paramètres à droite avec pr-[12px]) */}
+          {/* Ligne supérieure fixe : justify-between (Logo + Langue à gauche, Actions compactes Rafraîchir + Paramètres ⚙️ à droite avec marge Overscan 16px-24px) */}
           <div
             data-tv-row="header-top"
-            className="w-full flex flex-nowrap items-center justify-between gap-2 py-2.5 pl-3 sm:pl-6 2xl:pl-10 pr-[12px]"
+            className="tv-overscan-header-row w-full flex flex-nowrap items-center justify-between gap-2 py-2.5"
           >
             {/* Gauche : Logo + Sélecteur de Langue + Badge Zone/Profil TV */}
             <div className="flex items-center gap-2 sm:gap-3 min-w-0">
               <div className="flex items-center gap-2 min-w-0 shrink-0">
                 <PulseEpgLogo adaptiveTerminalSize={true} />
-                <div className="hidden xs:block sm:block min-w-0">
+                <div className="hidden sm:block min-w-0">
                   <div className="flex items-center gap-1.5">
                     <h1 className="text-sm sm:text-base 2xl:text-lg font-bold tracking-tight text-[#ffffff] truncate">
                       PulseEPG
@@ -3733,7 +3733,7 @@ export function App() {
                     handleChangeLanguage(e.target.value as AppLanguage)
                   }
                   aria-label={tr.languageSectionTitle}
-                  className="ps-7 pe-5 py-1.5 rounded-lg bg-[#1d4ed8]/20 hover:bg-[#1d4ed8]/30 text-xs font-medium text-[#ffffff] border border-[#0055ff]/50 focus:outline-none focus:border-[#e11d48] transition-colors cursor-pointer"
+                  className="ps-7 pe-5 py-1.5 rounded-lg bg-[#141a26] hover:bg-[#1a202c] text-xs font-medium text-[#ffffff] border border-[#0055ff]/60 focus:outline-none focus:border-[#e11d48] transition-colors cursor-pointer"
                 >
                   {LANGUAGE_OPTIONS.map((opt) => (
                     <option
@@ -3768,7 +3768,7 @@ export function App() {
                       setIsSettingsOpen(true);
                     }}
                     title="Changer de Zone / Profil TV (Paramètres)"
-                    className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#1d4ed8]/20 hover:bg-[#1d4ed8]/35 text-xs font-semibold text-[#ffffff] border border-[#0055ff]/60 transition-colors cursor-pointer shrink-0"
+                    className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#141a26] hover:bg-[#1a202c] text-xs font-semibold text-[#ffffff] border border-[#0055ff]/60 transition-colors cursor-pointer shrink-0"
                   >
                     <Globe className="w-3.5 h-3.5 text-[#60a5fa] shrink-0" />
                     <span>{badgeFlag}</span>
@@ -3778,7 +3778,7 @@ export function App() {
               })()}
             </div>
 
-            {/* Droite : Boutons d'actions compacts (PWA masqué sur APK, Icône Rafraîchir compacte & Icône Paramètres fixe shrink-0) */}
+            {/* Droite : Boutons d'actions compacts (PWA masqué sur APK, Icône Rafraîchir compacte & Icône Paramètres ⚙️ fixe shrink-0) */}
             <div className="flex items-center justify-end gap-2 shrink-0">
               <PWAInstallButton language={activeLang} />
 
@@ -3786,7 +3786,7 @@ export function App() {
                 type="button"
                 onClick={() => triggerEpgSync(settings)}
                 disabled={isSyncing}
-                className="shrink-0 w-9 h-9 inline-flex items-center justify-center rounded-lg bg-[#141a26] hover:bg-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#0055ff]/60 transition-colors cursor-pointer disabled:opacity-50"
+                className="tv-fixed-action-btn shrink-0 w-9 h-9 inline-flex items-center justify-center rounded-lg bg-[#141a26] hover:bg-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#0055ff]/60 transition-colors cursor-pointer disabled:opacity-50"
                 title={isSyncing ? tr.refreshingBtn : tr.refreshBtn}
                 aria-label={isSyncing ? tr.refreshingBtn : tr.refreshBtn}
               >
@@ -3803,7 +3803,7 @@ export function App() {
                   setSettingsInitialTab('filters');
                   setIsSettingsOpen(true);
                 }}
-                className="shrink-0 w-9 h-9 inline-flex items-center justify-center rounded-lg bg-[#141a26] hover:bg-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#0055ff]/60 transition-colors cursor-pointer"
+                className="tv-fixed-action-btn shrink-0 w-9 h-9 inline-flex items-center justify-center rounded-lg bg-[#141a26] hover:bg-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#0055ff]/60 transition-colors cursor-pointer"
                 title={tr.settingsTitle}
                 aria-label={tr.settingsTitle}
               >
@@ -3815,7 +3815,7 @@ export function App() {
           {/* Ligne de navigation des vues (En Direct / Grille TV / Favoris / Mes Rappels) */}
           <div
             data-tv-row="header-tabs"
-            className="w-full flex items-center gap-1.5 overflow-x-auto no-scrollbar py-2 pl-3 sm:pl-6 2xl:pl-10 pr-[12px] border-t border-[#1a202c]/80"
+            className="tv-overscan-tabs-row w-full flex items-center gap-1.5 overflow-x-auto no-scrollbar py-2 border-t border-[#1a202c]"
           >
             <button
               type="button"
@@ -3941,8 +3941,8 @@ export function App() {
         </div>
       </header>
 
-      {/* Main Content (10-Foot UI compatible) */}
-      <main className="flex-1 max-w-[1600px] w-full mx-auto px-3 sm:px-6 2xl:px-10 py-4 sm:py-5">
+      {/* Main Content (10-Foot UI & TV Overscan 16px-24px compatible) */}
+      <main className="tv-overscan-main flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-6 2xl:px-10 py-4 sm:py-5">
         {/* Bannière de progression Web Worker & État d'erreur visuel */}
         <LoadingStatusBanner
           progress={workerProgress}

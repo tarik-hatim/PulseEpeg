@@ -1,53 +1,177 @@
 @import "tailwindcss";
 
-@layer base {
-  :root {
-    --font-display: 'Outfit', system-ui, -apple-system, sans-serif;
-    --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
-  }
+:root {
+  --bg-color: #0a0e17;
+  --surface-color: #141a26;
+  --border-color: #1a202c;
+  --text-color: #ffffff;
+  --text-muted: #cbd5e1;
+  --accent-blue: #0055ff;
+  --accent-crimson: #e11d48;
+  --font-display: 'Outfit', system-ui, -apple-system, sans-serif;
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+}
 
+html,
+body {
+  background-color: #0a0e17 !important;
+  background-color: var(--bg-color, #0a0e17) !important;
+  color: #ffffff !important;
+  color: var(--text-color, #ffffff) !important;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100%;
+  overflow-x: hidden;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans, system-ui, -apple-system, sans-serif);
+  -webkit-tap-highlight-color: transparent;
+}
+
+img,
+svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Garantie stricte sur le logo "P" (SplashScreen & Header) : jamais plus de 200x200px */
+.pulse-epg-logo-svg,
+.tv-boot-logo-svg,
+.tv-boot-logo-box {
+  max-width: 200px !important;
+  max-height: 200px !important;
+  object-fit: contain !important;
+}
+
+/* Rétrocompatibilité Android 8/9 (Chromium < 80) : Dimensions explicites des icônes SVG */
+svg.w-3 { width: 12px; height: 12px; flex-shrink: 0; }
+svg.w-3\.5 { width: 14px; height: 14px; flex-shrink: 0; }
+svg.w-4 { width: 16px; height: 16px; flex-shrink: 0; }
+svg.w-5 { width: 20px; height: 20px; flex-shrink: 0; }
+svg.w-6 { width: 24px; height: 24px; flex-shrink: 0; }
+
+/* 10-Foot UI (Android TV / Grands écrans TV >= 1536px) : Texte lisible à 3m */
+@media (min-width: 1536px) {
   html {
-    background-color: #0a0e17;
-    color: #ffffff;
-    scroll-behavior: smooth;
+    font-size: 17px;
   }
+}
 
-  /* 10-Foot UI (Android TV / Grands écrans TV >= 1536px) : Texte lisible à 3m */
-  @media (min-width: 1536px) {
-    html {
-      font-size: 17px;
-    }
+@media (min-width: 1920px) {
+  html {
+    font-size: 18.5px;
   }
+}
 
-  @media (min-width: 1920px) {
-    html {
-      font-size: 18.5px;
-    }
-  }
+h1,
+h2,
+.font-display {
+  font-family: 'Outfit', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-display, 'Outfit', system-ui, -apple-system, sans-serif);
+}
 
-  body {
-    font-family: var(--font-sans);
-    background-color: #0a0e17;
-    color: #ffffff;
-    -webkit-tap-highlight-color: transparent;
-    overscroll-behavior-y: none;
-  }
+.font-mono {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-variant-numeric: tabular-nums;
+}
 
-  h1, h2, .font-display {
-    font-family: var(--font-display);
-  }
+/* ==========================================================================
+   ADAPTABILITÉ ANDROID 12+ & TV 4K / OVERSCAN + HEADER FIXE
+   Marges de sécurité de 16px à 24px pour éviter que les bords TV (Overscan)
+   ne masquent le bouton Paramètres (⚙️) à droite
+   ========================================================================== */
+.tv-overscan-header-row {
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-wrap: nowrap;
+  flex-wrap: nowrap;
+  -webkit-box-align: center;
+  -webkit-align-items: center;
+  align-items: center;
+  -webkit-box-pack: justify;
+  -webkit-justify-content: space-between;
+  justify-content: space-between;
+  width: 100%;
+  box-sizing: border-box;
+  padding-left: 16px;
+  padding-right: 16px;
+}
 
-  .font-mono {
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
+.tv-overscan-tabs-row {
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-box-align: center;
+  -webkit-align-items: center;
+  align-items: center;
+  width: 100%;
+  box-sizing: border-box;
+  padding-left: 16px;
+  padding-right: 16px;
+  overflow-x: auto;
+}
+
+.tv-overscan-main {
+  box-sizing: border-box;
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+@media (min-width: 640px) {
+  .tv-overscan-header-row,
+  .tv-overscan-tabs-row,
+  .tv-overscan-main {
+    padding-left: 20px;
+    padding-right: 20px;
   }
+}
+
+@media (min-width: 1024px) {
+  .tv-overscan-header-row,
+  .tv-overscan-tabs-row,
+  .tv-overscan-main {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+}
+
+.tv-fixed-action-btn {
+  -webkit-flex-shrink: 0 !important;
+  flex-shrink: 0 !important;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  display: -webkit-inline-box;
+  display: -webkit-inline-flex;
+  display: inline-flex;
+  -webkit-box-align: center;
+  -webkit-align-items: center;
+  align-items: center;
+  -webkit-box-pack: center;
+  -webkit-justify-content: center;
+  justify-content: center;
 }
 
 /* ==========================================================================
    GESTION DU FOCUS TÉLÉCOMMANDE (D-PAD ANDROID TV / LEANBACK)
-   Styles de focus sobres et sans animations intrusives
+   Séparation de :focus (Android 8/9 Chromium < 86) et :focus-visible
    ========================================================================== */
+button:focus,
+[role="button"]:focus,
+a:focus,
+select:focus,
+input[type="checkbox"]:focus,
+input[type="date"]:focus,
+input[type="time"]:focus,
+.tv-focusable:focus {
+  outline: 2px solid var(--text-color, #ffffff) !important;
+  outline-offset: 2px !important;
+}
+
 button:focus-visible,
 [role="button"]:focus-visible,
 a:focus-visible,
@@ -56,7 +180,16 @@ input[type="checkbox"]:focus-visible,
 input[type="date"]:focus-visible,
 input[type="time"]:focus-visible,
 .tv-focusable:focus-visible {
-  outline: 2px solid #ffffff !important;
+  outline: 2px solid var(--text-color, #ffffff) !important;
+  outline-offset: 2px !important;
+}
+
+.tv-card-focusable:focus,
+[data-channel-card="true"]:focus,
+[data-reminder-card="true"]:focus,
+[data-programme-card="true"]:focus {
+  border-color: var(--text-color, #ffffff) !important;
+  outline: 2px solid #38bdf8 !important;
   outline-offset: 2px !important;
 }
 
@@ -64,14 +197,26 @@ input[type="time"]:focus-visible,
 [data-channel-card="true"]:focus-visible,
 [data-reminder-card="true"]:focus-visible,
 [data-programme-card="true"]:focus-visible {
-  border-color: #ffffff !important;
+  border-color: var(--text-color, #ffffff) !important;
   outline: 2px solid #38bdf8 !important;
   outline-offset: 2px !important;
 }
 
-[data-grid-focusable="true"]:focus-visible {
-  outline: 2px solid #ffffff !important;
+[data-grid-focusable="true"]:focus {
+  outline: 2px solid var(--text-color, #ffffff) !important;
   outline-offset: -2px !important;
+}
+
+[data-grid-focusable="true"]:focus-visible {
+  outline: 2px solid var(--text-color, #ffffff) !important;
+  outline-offset: -2px !important;
+}
+
+input[type="text"]:focus,
+input[type="url"]:focus,
+input[type="search"]:focus {
+  border-color: #38bdf8 !important;
+  outline: none !important;
 }
 
 input[type="text"]:focus-visible,
@@ -85,16 +230,14 @@ input[type="search"]:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 
-.text-balance {
-  text-wrap: balance;
-}
-
 /* Safe area padding for Capacitor Android / iOS status & navigation bars */
 .pb-safe {
+  padding-bottom: 0px;
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .pt-safe {
+  padding-top: 0px;
   padding-top: env(safe-area-inset-top, 0px);
 }
 

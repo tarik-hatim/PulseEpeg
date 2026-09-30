@@ -27,13 +27,23 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <style>
-      html, body {
-        margin: 0;
-        padding: 0;
-        background-color: #0a0e17;
-        color: #ffffff;
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      html, body { background-color: #0a0e17 !important; color: #ffffff !important; margin: 0; padding: 0; width: 100%; height: 100%; overflow-x: hidden; font-family: system-ui, -apple-system, sans-serif; }
+      img, svg { max-width: 100%; height: auto; }
+    </style>
+    <style>
+      :root {
+        --bg-color: #0a0e17;
+        --surface-color: #141a26;
+        --border-color: #1a202c;
+        --text-color: #ffffff;
+        --text-muted: #cbd5e1;
+        --accent-blue: #0055ff;
+        --accent-crimson: #e11d48;
+      }
+      #root {
         min-height: 100%;
+        background-color: var(--bg-color, #0a0e17);
+        color: var(--text-color, #ffffff);
       }
       #tv-boot-splash {
         position: fixed;
@@ -42,29 +52,58 @@
         bottom: 0;
         left: 0;
         z-index: 9999;
+        display: -webkit-box;
+        display: -webkit-flex;
         display: flex;
+        -webkit-box-orient: vertical;
+        -webkit-box-direction: normal;
+        -webkit-flex-direction: column;
         flex-direction: column;
+        -webkit-box-align: center;
+        -webkit-align-items: center;
         align-items: center;
+        -webkit-box-pack: center;
+        -webkit-justify-content: center;
         justify-content: center;
-        background-color: #0a0e17;
+        background-color: var(--bg-color, #0a0e17);
         background-image: radial-gradient(circle at 50% 38%, rgba(0, 85, 255, 0.22) 0%, rgba(10, 14, 23, 0.98) 65%);
-        color: #ffffff;
+        color: var(--text-color, #ffffff);
         text-align: center;
         padding: 24px;
         box-sizing: border-box;
       }
       .tv-boot-logo-box {
-        width: 80px;
-        height: 80px;
-        border-radius: 18px;
-        background: #060911;
+        width: 96px;
+        height: 96px;
+        max-width: 200px !important;
+        max-height: 200px !important;
+        margin: 0 auto 22px auto;
+        object-fit: contain;
+        border-radius: 20px;
+        background-color: #060911;
         border: 1.5px solid rgba(225, 29, 72, 0.55);
         box-shadow: 0 0 28px rgba(225, 29, 72, 0.38), 0 0 18px rgba(0, 85, 255, 0.25);
+        display: -webkit-box;
+        display: -webkit-flex;
         display: flex;
+        -webkit-box-align: center;
+        -webkit-align-items: center;
         align-items: center;
+        -webkit-box-pack: center;
+        -webkit-justify-content: center;
         justify-content: center;
-        margin-bottom: 22px;
         overflow: hidden;
+        -webkit-flex-shrink: 0;
+        flex-shrink: 0;
+      }
+      .tv-boot-logo-svg {
+        width: 100%;
+        height: 100%;
+        max-width: 200px !important;
+        max-height: 200px !important;
+        margin: auto;
+        object-fit: contain;
+        display: block;
       }
       .tv-boot-spinner {
         width: 44px;
@@ -74,14 +113,16 @@
         border-top-color: #e11d48;
         border-right-color: #0055ff;
         animation: tvBootSpin 0.85s linear infinite;
-        margin-bottom: 18px;
+        margin: 0 auto 18px auto;
+        -webkit-flex-shrink: 0;
+        flex-shrink: 0;
       }
       .tv-boot-title {
         font-size: 22px;
         font-weight: 700;
         letter-spacing: 0.02em;
         margin: 0 0 6px 0;
-        color: #ffffff;
+        color: var(--text-color, #ffffff);
       }
       .tv-boot-status {
         font-size: 16px;
@@ -94,7 +135,7 @@
         color: #94a3b8;
         max-width: 420px;
         line-height: 1.45;
-        margin: 0;
+        margin: 0 auto;
       }
       .tv-boot-retry-btn {
         margin-top: 18px;
@@ -122,8 +163,8 @@
     <div id="root">
       <!-- Fallback visuel immédiat affiché à 0ms avant l'exécution du moindre script JS (Android TV / Box Echolink Atomo) -->
       <div id="tv-boot-splash" role="status" aria-live="polite">
-        <div class="tv-boot-logo-box" aria-hidden="true">
-          <svg width="80" height="80" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <div class="tv-boot-logo-box" style="max-width: 200px; max-height: 200px; margin: 0 auto 22px auto; object-fit: contain;" aria-hidden="true">
+          <svg class="tv-boot-logo-svg" width="96" height="96" style="max-width: 200px; max-height: 200px; margin: auto; object-fit: contain; display: block;" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
             <defs>
               <linearGradient id="bootStem" x1="0%" y1="0%" x2="0%" y2="100%">
                 <stop offset="0%" stop-color="#38bdf8" />
