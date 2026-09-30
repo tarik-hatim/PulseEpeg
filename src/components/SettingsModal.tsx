@@ -371,6 +371,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       onClick={onClose}
     >
       <div
+        data-tv-modal="true"
         className="w-full max-w-4xl bg-[#141a26] border border-[#1a202c] rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]"
         onClick={(e) => e.stopPropagation()}
       >
@@ -400,7 +401,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
 
         {/* Navigation par Onglets — Rouge Crimson Sky Sport pour les boutons actifs */}
-        <div className="px-4 sm:px-5 py-2.5 bg-[#0a0e17] border-b border-[#1a202c] flex items-center gap-2 overflow-x-auto no-scrollbar">
+        <div
+          data-tv-row="settings-tabs"
+          className="px-4 sm:px-5 py-2.5 bg-[#0a0e17] border-b border-[#1a202c] flex items-center gap-2 overflow-x-auto no-scrollbar"
+        >
           <button
             type="button"
             onClick={() => setActiveTab('filters')}

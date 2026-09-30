@@ -324,8 +324,9 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[#0a0e17]/88 backdrop-blur-md p-0 sm:p-4 animate-fadeIn"
       onClick={onClose}
     >
-      {/* Conteneur principal du modal avec défilement vertical garanti sur mobile */}
+      {/* Conteneur principal du modal avec défilement vertical garanti sur mobile & navigation D-Pad TV */}
       <div
+        data-tv-modal="true"
         className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-[#141a26] border border-[#1a202c] rounded-t-xl sm:rounded-xl shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
@@ -401,7 +402,10 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div
+            data-tv-row="modal-header"
+            className="flex items-center gap-2 shrink-0"
+          >
             <button
               type="button"
               onClick={() => onToggleFavorite(channel.id)}
@@ -639,7 +643,10 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
 
           {/* Sélecteur de Jour & Tranche Horaire — Rouge Crimson pour les boutons actifs */}
           <div className="rounded-lg bg-[#0a0e17] border border-[#1a202c] p-3 space-y-2.5">
-            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+            <div
+              data-tv-row="modal-days"
+              className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 px-0.5"
+            >
               <Calendar className="w-4 h-4 text-[#0055ff] shrink-0 me-1" />
               {dayTabs.map((tab) => {
                 const isSelected = tab.offset === selectedDayOffset;
@@ -669,7 +676,10 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
               })}
             </div>
 
-            <div className="flex items-center gap-1.5 flex-wrap">
+            <div
+              data-tv-row="modal-periods"
+              className="flex items-center gap-1.5 flex-wrap"
+            >
               {(
                 [
                   { id: 'all', label: tr.allDay },
@@ -745,9 +755,17 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                     key={prog.id}
                     tabIndex={0}
                     role="button"
+                    data-programme-card="true"
+                    data-tv-focusable="true"
                     onClick={() => setSelectedProgramme(prog)}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
+                      if (
+                        e.key === 'Enter' ||
+                        e.key === ' ' ||
+                        e.key === 'Select' ||
+                        e.keyCode === 23 ||
+                        e.keyCode === 66
+                      ) {
                         e.preventDefault();
                         setSelectedProgramme(prog);
                       }

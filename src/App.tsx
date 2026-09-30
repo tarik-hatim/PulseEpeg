@@ -1983,7 +1983,23 @@ export function App() {
     };
   }, [visibleChannels, viewMode, currentAndNextByChannel, activeLang]);
 
-  // Navigation Télécommande Android TV / TV Box (D-Pad Spatial Navigation)
+  // Auto-focus du premier élément interactif à l'ouverture d'un modal (Android TV D-Pad)
+  useEffect(() => {
+    if (!selectedChannel && !isSettingsOpen) return;
+    const timer = setTimeout(() => {
+      const modalEl = document.querySelector<HTMLElement>(
+        '[data-tv-modal="true"]'
+      );
+      if (!modalEl) return;
+      const firstFocusable = modalEl.querySelector<HTMLElement>(
+        '[data-programme-card="true"], button:not([disabled]), [role="button"], select:not([disabled]), input:not([disabled])'
+      );
+      firstFocusable?.focus({ preventScroll: true });
+    }, 60);
+    return () => clearTimeout(timer);
+  }, [selectedChannel, isSettingsOpen]);
+
+  // Navigation Télécommande Android TV / Leanback (D-Pad Spatial & List Navigation)
   useEffect(() => {
     const handleGlobalDpadKeyDown = (e: KeyboardEvent) => {
       const activeEl = document.activeElement as HTMLElement | null;
@@ -1992,13 +2008,25 @@ export function App() {
         (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA') &&
         (activeEl as HTMLInputElement).type !== 'checkbox';
 
-      if (e.key === 'Escape') {
+      if (
+        e.key === 'Escape' ||
+        e.key === 'BrowserBack' ||
+        e.key === 'GoBack' ||
+        (e.key === 'Backspace' && !isTextInput)
+      ) {
+        if (isSearchDropdownOpen) {
+          e.preventDefault();
+          setIsSearchDropdownOpen(false);
+          return;
+        }
         if (selectedChannel) {
+          e.preventDefault();
           setSelectedChannel(null);
           setSelectedModalProgramme(null);
           return;
         }
         if (isSettingsOpen) {
+          e.preventDefault();
           setIsSettingsOpen(false);
           return;
         }
@@ -2018,25 +2046,179 @@ export function App() {
         return;
       }
 
-      // Si le focus est déjà géré par la Grille TV interne, laisser son gestionnaire dédié agir
+      // Si le focus est dans la Grille TV et que ce n'est pas une sortie par le haut (ligne 0),
+      // laisser le gestionnaire dédié de TimeGridView agir
       if (activeEl?.getAttribute('data-grid-focusable') === 'true') {
-        return;
+        const gridRow = Number(activeEl.getAttribute('data-grid-row') || '0');
+        if (!(e.key === 'ArrowUp' && gridRow === 0)) {
+          return;
+        }
+      }
+
+      const modalScope = document.querySelector<HTMLElement>(
+        '[data-tv-modal="true"]'
+      );
+      const rootScope: ParentNode = modalScope || document;
+
+      // 1. Navigation déterministe sur la liste des chaînes (ChannelRowCard)
+      const parentChannelCard = activeEl?.closest<HTMLElement>(
+        '[data-channel-card="true"]'
+      );
+      if (parentChannelCard && !modalScope) {
+        if (e.key === 'ArrowRight' && activeEl === parentChannelCard) {
+          const favBtn = Array.from(
+            parentChannelCard.querySelectorAll<HTMLElement>(
+              '[data-channel-fav="true"]'
+            )
+          ).find((btn) => {
+            const r = btn.getBoundingClientRect();
+            return r.width > 0 && r.height > 0;
+          });
+          if (favBtn) {
+            e.preventDefault();
+            favBtn.focus({ preventScroll: true });
+            return;
+          }
+        }
+        if (
+          e.key === 'ArrowLeft' &&
+          activeEl?.getAttribute('data-channel-fav') === 'true'
+        ) {
+          e.preventDefault();
+          parentChannelCard.focus({ preventScroll: true });
+          return;
+        }
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          const channelCards = Array.from(
+            document.querySelectorAll<HTMLElement>('[data-channel-card="true"]')
+          ).filter((el) => {
+            const r = el.getBoundingClientRect();
+            return r.width > 0 && r.height > 0;
+          });
+          const idx = channelCards.indexOf(parentChannelCard);
+          if (e.key === 'ArrowDown' && idx >= 0) {
+            if (idx >= channelCards.length - 3) {
+              setVisibleLimit((prev) => prev + 60);
+            }
+            if (idx < channelCards.length - 1) {
+              e.preventDefault();
+              const nextCard = channelCards[idx + 1];
+              nextCard.focus({ preventScroll: true });
+              nextCard.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center',
+              });
+              return;
+            }
+          } else if (e.key === 'ArrowUp' && idx > 0) {
+            e.preventDefault();
+            const prevCard = channelCards[idx - 1];
+            prevCard.focus({ preventScroll: true });
+            prevCard.scrollIntoView({
+              behavior: 'smooth',
+              block: 'center',
+            });
+            return;
+          }
+        }
+      }
+
+      // 2. Navigation déterministe sur la liste chronologique des programmes dans la fiche chaîne
+      const parentProgCard = activeEl?.closest<HTMLElement>(
+        '[data-programme-card="true"]'
+      );
+      if (parentProgCard && modalScope) {
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          const progCards = Array.from(
+            modalScope.querySelectorAll<HTMLElement>(
+              '[data-programme-card="true"]'
+            )
+          ).filter((el) => {
+            const r = el.getBoundingClientRect();
+            return r.width > 0 && r.height > 0;
+          });
+          const idx = progCards.indexOf(parentProgCard);
+          if (e.key === 'ArrowDown' && idx >= 0 && idx < progCards.length - 1) {
+            e.preventDefault();
+            const nextProg = progCards[idx + 1];
+            nextProg.focus({ preventScroll: true });
+            nextProg.scrollIntoView({
+              behavior: 'smooth',
+              block: 'nearest',
+            });
+            return;
+          } else if (e.key === 'ArrowUp' && idx > 0) {
+            e.preventDefault();
+            const prevProg = progCards[idx - 1];
+            prevProg.focus({ preventScroll: true });
+            prevProg.scrollIntoView({
+              behavior: 'smooth',
+              block: 'nearest',
+            });
+            return;
+          }
+        }
       }
 
       const selector =
         'button:not([disabled]), [role="button"], a[href], select:not([disabled]), input:not([disabled])';
+
+      // 3. Navigation horizontale fluide dans les barres de filtres et d'onglets ([data-tv-row])
+      const activeRow = activeEl?.closest<HTMLElement>('[data-tv-row]');
+      if (
+        activeRow &&
+        activeEl &&
+        (e.key === 'ArrowLeft' || e.key === 'ArrowRight')
+      ) {
+        const rowItems = Array.from(
+          activeRow.querySelectorAll<HTMLElement>(selector)
+        ).filter((el) => {
+          const r = el.getBoundingClientRect();
+          return r.width > 0 && r.height > 0;
+        });
+        const rowIdx = rowItems.indexOf(activeEl);
+        if (rowIdx !== -1) {
+          const isRtl = document.documentElement.dir === 'rtl';
+          const step =
+            (e.key === 'ArrowRight' ? 1 : -1) * (isRtl ? -1 : 1);
+          const nextInRow = rowItems[rowIdx + step];
+          if (nextInRow) {
+            e.preventDefault();
+            nextInRow.focus({ preventScroll: true });
+            nextInRow.scrollIntoView({
+              behavior: 'smooth',
+              block: 'nearest',
+              inline: 'center',
+            });
+            return;
+          }
+        }
+      }
+
       const allNodes = Array.from(
-        document.querySelectorAll<HTMLElement>(selector)
+        rootScope.querySelectorAll<HTMLElement>(selector)
       ).filter((el) => {
+        if (el.getAttribute('data-channel-fav') === 'true') {
+          return false;
+        }
         const rect = el.getBoundingClientRect();
         return rect.width > 0 && rect.height > 0;
       });
 
       if (allNodes.length === 0) return;
 
-      if (!activeEl || activeEl === document.body) {
+      if (!activeEl || activeEl === document.body || !rootScope.contains(activeEl)) {
         e.preventDefault();
-        allNodes[0].focus();
+        const initialTarget =
+          rootScope.querySelector<HTMLElement>('[data-channel-card="true"]') ||
+          rootScope.querySelector<HTMLElement>('[data-grid-focusable="true"]') ||
+          allNodes[0];
+        initialTarget.focus({ preventScroll: true });
+        initialTarget.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest',
+          inline: 'nearest',
+        });
         return;
       }
 
@@ -2048,33 +2230,42 @@ export function App() {
       let bestScore = Infinity;
 
       for (const el of allNodes) {
-        if (el === activeEl) continue;
+        if (el === activeEl || activeEl.contains(el)) continue;
         const r = el.getBoundingClientRect();
         const ex = r.left + r.width / 2;
         const ey = r.top + r.height / 2;
         const dx = ex - cx;
         const dy = ey - cy;
 
-        if (e.key === 'ArrowRight' && dx > 6 && Math.abs(dy) < 52) {
+        if (e.key === 'ArrowRight' && dx > 6 && Math.abs(dy) < 56) {
           const score = dx + Math.abs(dy) * 4;
           if (score < bestScore) {
             bestScore = score;
             bestCandidate = el;
           }
-        } else if (e.key === 'ArrowLeft' && dx < -6 && Math.abs(dy) < 52) {
+        } else if (e.key === 'ArrowLeft' && dx < -6 && Math.abs(dy) < 56) {
           const score = Math.abs(dx) + Math.abs(dy) * 4;
           if (score < bestScore) {
             bestScore = score;
             bestCandidate = el;
           }
-        } else if (e.key === 'ArrowDown' && dy > 14) {
-          const score = dy * 2.2 + Math.abs(dx) * 0.45;
+        } else if (e.key === 'ArrowDown' && dy > 12) {
+          // Privilégier la proximité verticale d'abord afin de passer facilement des filtres à la 1ère carte de chaîne
+          const horizDist =
+            cx >= r.left && cx <= r.right
+              ? 0
+              : Math.min(Math.abs(cx - r.left), Math.abs(cx - r.right));
+          const score = dy * 2.5 + horizDist * 0.35;
           if (score < bestScore) {
             bestScore = score;
             bestCandidate = el;
           }
-        } else if (e.key === 'ArrowUp' && dy < -14) {
-          const score = Math.abs(dy) * 2.2 + Math.abs(dx) * 0.45;
+        } else if (e.key === 'ArrowUp' && dy < -12) {
+          const horizDist =
+            cx >= r.left && cx <= r.right
+              ? 0
+              : Math.min(Math.abs(cx - r.left), Math.abs(cx - r.right));
+          const score = Math.abs(dy) * 2.5 + horizDist * 0.35;
           if (score < bestScore) {
             bestScore = score;
             bestCandidate = el;
@@ -2087,7 +2278,10 @@ export function App() {
         bestCandidate.focus({ preventScroll: true });
         bestCandidate.scrollIntoView({
           behavior: 'smooth',
-          block: 'nearest',
+          block:
+            bestCandidate.getAttribute('data-channel-card') === 'true'
+              ? 'center'
+              : 'nearest',
           inline: 'nearest',
         });
       }
@@ -2095,7 +2289,7 @@ export function App() {
 
     window.addEventListener('keydown', handleGlobalDpadKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalDpadKeyDown);
-  }, [selectedChannel, isSettingsOpen]);
+  }, [selectedChannel, isSettingsOpen, isSearchDropdownOpen]);
 
   return (
     <div
@@ -2157,7 +2351,7 @@ export function App() {
           </div>
 
           {/* Mode Switcher (En Direct / Grille TV / Favoris) — Rouge Crimson (#e11d48 / #ff0033) pour les boutons d'action principaux */}
-          <div className="flex items-center gap-1.5">
+          <div data-tv-row="header-tabs" className="flex items-center gap-1.5">
             <button
               type="button"
               onClick={() => {
@@ -2237,7 +2431,7 @@ export function App() {
           </div>
 
           {/* Right Actions : Badge Zone/Profil TV + Sélecteur de Langue + PWA + Sync + Settings */}
-          <div className="flex items-center gap-2">
+          <div data-tv-row="header-actions" className="flex items-center gap-2">
             {/* Bouton d'accès rapide au sélecteur "Zone / Profil TV" */}
             {(() => {
               const currentProfileId =
@@ -2602,7 +2796,10 @@ export function App() {
           {viewMode !== 'grid' && (
             <div className="pt-2.5 border-t border-[#1a202c] space-y-2">
               {/* Ligne 1 : [CATÉGORIE] */}
-              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
+              <div
+                data-tv-row="live-categories"
+                className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 px-0.5"
+              >
                 <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0">
                   <Film className="w-3.5 h-3.5 text-[#e11d48]" />
                   {tr.filterCatLabel}
@@ -2683,7 +2880,10 @@ export function App() {
               {/* Ligne 2 : [SATELLITE / BOUQUET] (Bleu Royal Sky Sport #1d4ed8 / #0055ff) */}
               <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-[#1a202c]">
                 {visibleSatelliteOptions.length > 1 && (
-                  <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+                  <div
+                    data-tv-row="live-satellites"
+                    className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 px-0.5"
+                  >
                     <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0">
                       <Satellite className="w-3.5 h-3.5 text-[#0055ff]" />
                       {tr.filterSatLabel}
@@ -2720,7 +2920,10 @@ export function App() {
                 )}
 
                 {visibleBouquetOptions.length > 1 && (
-                  <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-0.5">
+                  <div
+                    data-tv-row="live-bouquets"
+                    className="flex items-center gap-1 overflow-x-auto no-scrollbar py-1 px-0.5"
+                  >
                     <span className="text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0">
                       {tr.filterBouquetLabel}
                     </span>
@@ -2820,7 +3023,10 @@ export function App() {
                   </div>
 
                   {/* Tablette & TV : Puces (chips) sélectionnables au pad/télécommande */}
-                  <div className="hidden md:flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+                  <div
+                    data-tv-row="live-countries"
+                    className="hidden md:flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 px-0.5"
+                  >
                     <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0">
                       <Globe className="w-3.5 h-3.5 text-[#0055ff]" />
                       {tr.filterCountryLabel || tr.filterZoneLabel}
@@ -2864,7 +3070,10 @@ export function App() {
 
               {/* Ligne 3 : [GENRE] */}
               {visibleGroupOptions.length > 1 && (
-                <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pt-1 border-t border-[#1a202c] pb-0.5">
+                <div
+                  data-tv-row="live-genres"
+                  className="flex items-center gap-1 overflow-x-auto no-scrollbar pt-1.5 border-t border-[#1a202c] py-1 px-0.5"
+                >
                   <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0">
                     <Sparkles className="w-3 h-3 text-[#e11d48]" />
                     {tr.filterGenreLabel}
@@ -3090,7 +3299,7 @@ export function App() {
             )}
           </div>
         ) : (
-          <div className="space-y-2">
+          <div data-tv-list="channels" className="space-y-2.5">
             {visibleChannels.map((ch) => {
               const pair = currentAndNextByChannel[ch.id] || {
                 current: null,

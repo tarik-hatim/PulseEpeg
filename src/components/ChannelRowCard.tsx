@@ -209,9 +209,17 @@ export const ChannelRowCard: React.FC<ChannelRowCardProps> = ({
     <div
       tabIndex={0}
       role="button"
+      data-channel-card="true"
+      data-tv-focusable="true"
       onClick={() => onSelectChannel(channel)}
       onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
+        if (
+          e.key === 'Enter' ||
+          e.key === ' ' ||
+          e.key === 'Select' ||
+          e.keyCode === 23 ||
+          e.keyCode === 66
+        ) {
           e.preventDefault();
           onSelectChannel(channel);
         }
@@ -304,11 +312,12 @@ export const ChannelRowCard: React.FC<ChannelRowCardProps> = ({
 
           <button
             type="button"
+            data-channel-fav="true"
             onClick={(e) => {
               e.stopPropagation();
               onToggleFavorite(channel.id);
             }}
-            className={`p-2 rounded-lg transition-all lg:hidden cursor-pointer ${
+            className={`tv-focusable p-2 rounded-lg transition-all lg:hidden cursor-pointer ${
               isFavorite
                 ? 'bg-[#e11d48] border-[1.5px] border-[#ff0033] text-[#ffffff] shadow-[0_0_12px_rgba(225,29,72,0.45)]'
                 : 'bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60'
@@ -442,11 +451,12 @@ export const ChannelRowCard: React.FC<ChannelRowCardProps> = ({
           <div className="flex items-center gap-1.5 shrink-0">
             <button
               type="button"
+              data-channel-fav="true"
               onClick={(e) => {
                 e.stopPropagation();
                 onToggleFavorite(channel.id);
               }}
-              className={`hidden lg:flex p-2 rounded-lg transition-all cursor-pointer ${
+              className={`tv-focusable hidden lg:flex p-2 rounded-lg transition-all cursor-pointer ${
                 isFavorite
                   ? 'bg-[#e11d48] border-[1.5px] border-[#ff0033] text-[#ffffff] shadow-[0_0_12px_rgba(225,29,72,0.45)]'
                   : 'bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60'

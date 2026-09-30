@@ -391,6 +391,50 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
     }
   }, [liveSyncCount]);
 
+  const scrollGridElementIntoView = (el: HTMLElement) => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const colAttr = el.getAttribute('data-grid-col');
+    if (colAttr === 'channel') {
+      container.scrollTo({
+        left: 0,
+        behavior: 'smooth',
+      });
+    } else {
+      const leftPx = Number(el.getAttribute('data-left-px') || '0');
+      const widthPx = Number(el.getAttribute('data-width-px') || '120');
+      const stickyColWidth = window.innerWidth >= 640 ? 256 : 208;
+      const visibleTimelineWidth = Math.max(
+        200,
+        container.clientWidth - stickyColWidth
+      );
+      const targetLeft = Math.max(
+        0,
+        leftPx - visibleTimelineWidth / 2 + Math.min(widthPx, visibleTimelineWidth) / 2
+      );
+      container.scrollTo({
+        left: targetLeft,
+        behavior: 'smooth',
+      });
+    }
+
+    const containerRect = container.getBoundingClientRect();
+    const elRect = el.getBoundingClientRect();
+    const stickyHeaderHeight = 44;
+    if (elRect.top < containerRect.top + stickyHeaderHeight) {
+      container.scrollBy({
+        top: elRect.top - (containerRect.top + stickyHeaderHeight) - 12,
+        behavior: 'smooth',
+      });
+    } else if (elRect.bottom > containerRect.bottom - 12) {
+      container.scrollBy({
+        top: elRect.bottom - containerRect.bottom + 16,
+        behavior: 'smooth',
+      });
+    }
+  };
+
   const handleGridKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     const container = scrollContainerRef.current;
     if (!container) return;
@@ -405,62 +449,129 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
         container.querySelectorAll<HTMLElement>('[data-grid-focusable="true"]')
       );
       const current = document.activeElement as HTMLElement | null;
-      const currentRect = current?.getBoundingClientRect();
 
-      if (current && container.contains(current) && currentRect) {
-        const cx = currentRect.left + currentRect.width / 2;
-        const cy = currentRect.top + currentRect.height / 2;
+      if (
+        current &&
+        container.contains(current) &&
+        current.getAttribute('data-grid-focusable') === 'true'
+      ) {
+        const currentRow = Number(current.getAttribute('data-grid-row') || '0');
+        const currentCol = current.getAttribute('data-grid-col') || 'channel';
+        const currentStartMs = Number(
+          current.getAttribute('data-start-ms') || String(nowMs)
+        );
+        const currentStopMs = Number(
+          current.getAttribute('data-stop-ms') || String(nowMs + 1800000)
+        );
+        const currentMidMs =
+          Math.max(currentStartMs, windowStartMs) +
+          (Math.min(currentStopMs, windowEndMs) -
+            Math.max(currentStartMs, windowStartMs)) /
+            2;
 
-        let bestCandidate: HTMLElement | null = null;
-        let bestScore = Infinity;
+        const rowElements = focusables.filter(
+          (el) => Number(el.getAttribute('data-grid-row') || '-1') === currentRow
+        );
+        const rowProgs = rowElements
+          .filter((el) => el.getAttribute('data-grid-col') !== 'channel')
+          .sort(
+            (a, b) =>
+              Number(a.getAttribute('data-grid-col') || '0') -
+              Number(b.getAttribute('data-grid-col') || '0')
+          );
+        const rowChannelEl =
+          rowElements.find(
+            (el) => el.getAttribute('data-grid-col') === 'channel'
+          ) || null;
 
-        for (const el of focusables) {
-          if (el === current) continue;
-          const r = el.getBoundingClientRect();
-          if (r.width === 0 || r.height === 0) continue;
-          const ex = r.left + r.width / 2;
-          const ey = r.top + r.height / 2;
-          const dx = ex - cx;
-          const dy = ey - cy;
+        let targetEl: HTMLElement | null = null;
 
-          if (e.key === 'ArrowRight' && dx > 8 && Math.abs(dy) < 44) {
-            const score = dx + Math.abs(dy) * 3;
-            if (score < bestScore) {
-              bestScore = score;
-              bestCandidate = el;
+        if (e.key === 'ArrowRight') {
+          if (currentCol === 'channel') {
+            // Focus first programme in current window (or live programme)
+            targetEl =
+              rowProgs.find((el) => {
+                const s = Number(el.getAttribute('data-start-ms') || '0');
+                const end = Number(el.getAttribute('data-stop-ms') || '0');
+                return s <= nowMs && end > nowMs;
+              }) ||
+              rowProgs[0] ||
+              null;
+          } else {
+            const colIdx = Number(currentCol);
+            targetEl =
+              rowProgs.find(
+                (el) => Number(el.getAttribute('data-grid-col')) === colIdx + 1
+              ) || null;
+          }
+        } else if (e.key === 'ArrowLeft') {
+          if (currentCol !== 'channel') {
+            const colIdx = Number(currentCol);
+            if (colIdx > 0) {
+              targetEl =
+                rowProgs.find(
+                  (el) =>
+                    Number(el.getAttribute('data-grid-col')) === colIdx - 1
+                ) || rowChannelEl;
+            } else {
+              targetEl = rowChannelEl;
             }
-          } else if (e.key === 'ArrowLeft' && dx < -8 && Math.abs(dy) < 44) {
-            const score = Math.abs(dx) + Math.abs(dy) * 3;
-            if (score < bestScore) {
-              bestScore = score;
-              bestCandidate = el;
-            }
-          } else if (e.key === 'ArrowDown' && dy > 20) {
-            const score = dy * 2 + Math.abs(dx) * 0.6;
-            if (score < bestScore) {
-              bestScore = score;
-              bestCandidate = el;
-            }
-          } else if (e.key === 'ArrowUp' && dy < -20) {
-            const score = Math.abs(dy) * 2 + Math.abs(dx) * 0.6;
-            if (score < bestScore) {
-              bestScore = score;
-              bestCandidate = el;
+          }
+        } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          const nextRow =
+            e.key === 'ArrowDown' ? currentRow + 1 : currentRow - 1;
+          if (nextRow < 0) {
+            // Let global D-Pad handler move focus up to the Time Controls / Filters above the grid
+            return;
+          }
+          const nextRowElements = focusables.filter(
+            (el) => Number(el.getAttribute('data-grid-row') || '-1') === nextRow
+          );
+          if (nextRowElements.length > 0) {
+            if (currentCol === 'channel') {
+              targetEl =
+                nextRowElements.find(
+                  (el) => el.getAttribute('data-grid-col') === 'channel'
+                ) || nextRowElements[0];
+            } else {
+              const nextRowProgs = nextRowElements.filter(
+                (el) => el.getAttribute('data-grid-col') !== 'channel'
+              );
+              // Find programme in nextRow that overlaps currentMidMs or is closest in time
+              let bestProg: HTMLElement | null = null;
+              let bestTimeDist = Infinity;
+              for (const el of nextRowProgs) {
+                const s = Number(el.getAttribute('data-start-ms') || '0');
+                const end = Number(el.getAttribute('data-stop-ms') || '0');
+                if (s <= currentMidMs && end >= currentMidMs) {
+                  bestProg = el;
+                  break;
+                }
+                const mid = (s + end) / 2;
+                const dist = Math.abs(mid - currentMidMs);
+                if (dist < bestTimeDist) {
+                  bestTimeDist = dist;
+                  bestProg = el;
+                }
+              }
+              targetEl = bestProg || nextRowElements[0];
             }
           }
         }
 
-        if (bestCandidate) {
+        if (targetEl) {
           e.preventDefault();
           e.stopPropagation();
-          bestCandidate.focus({ preventScroll: true });
-          bestCandidate.scrollIntoView({
-            behavior: 'smooth',
-            block: 'nearest',
-            inline: 'center',
-          });
+          targetEl.focus({ preventScroll: true });
+          scrollGridElementIntoView(targetEl);
           return;
         }
+      } else if (focusables.length > 0 && e.key === 'ArrowDown') {
+        e.preventDefault();
+        e.stopPropagation();
+        focusables[0].focus({ preventScroll: true });
+        scrollGridElementIntoView(focusables[0]);
+        return;
       }
 
       // Défilement fluide direct de la Grille TV avec les flèches directionnelles
@@ -475,9 +586,6 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
       } else if (e.key === 'ArrowDown') {
         e.preventDefault();
         container.scrollBy({ top: stepY, behavior: 'smooth' });
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        container.scrollBy({ top: -stepY, behavior: 'smooth' });
       }
     }
   };
@@ -487,7 +595,10 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
       {/* Barre de Filtres [CATÉGORIE] -> [SATELLITE / BOUQUET] -> [GENRE] dédiée à la Grille TV */}
       <div className="p-3 sm:p-4 bg-[#141a26] border-b border-[#1a202c] space-y-2.5">
         {/* Ligne 1 : [CATÉGORIE] */}
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 border-b border-[#1a202c]">
+        <div
+          data-tv-row="grid-categories"
+          className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 px-0.5 border-b border-[#1a202c]"
+        >
           <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0">
             <Film className="w-3.5 h-3.5 text-[#e11d48]" />
             {tr.filterCatLabel}
@@ -568,7 +679,10 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
         {/* Ligne 2 : [SATELLITE / BOUQUET] (Bleu Royal Sky Sport #1d4ed8 / #0055ff) */}
         <div className="flex flex-wrap items-center justify-between gap-2">
           {visibleSatelliteOptions.length > 1 && (
-            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+            <div
+              data-tv-row="grid-satellites"
+              className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 px-0.5"
+            >
               <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0">
                 <Satellite className="w-3.5 h-3.5 text-[#0055ff]" />
                 {tr.filterSatLabel}
@@ -605,7 +719,10 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
           )}
 
           {visibleBouquetOptions.length > 1 && (
-            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-0.5">
+            <div
+              data-tv-row="grid-bouquets"
+              className="flex items-center gap-1 overflow-x-auto no-scrollbar py-1 px-0.5"
+            >
               <span className="text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0">
                 {tr.filterBouquetLabel}
               </span>
@@ -703,7 +820,10 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
             </div>
 
             {/* Tablette & TV : Puces (chips) sélectionnables au pad/télécommande */}
-            <div className="hidden md:flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+            <div
+              data-tv-row="grid-countries"
+              className="hidden md:flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 px-0.5"
+            >
               <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0">
                 <Globe className="w-3.5 h-3.5 text-[#0055ff]" />
                 {tr.filterCountryLabel || tr.filterZoneLabel}
@@ -744,7 +864,10 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
 
         {/* Ligne 3 : [GENRE] */}
         {visibleGroupOptions.length > 1 && (
-          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pt-1 border-t border-[#1a202c] pb-0.5">
+          <div
+            data-tv-row="grid-genres"
+            className="flex items-center gap-1 overflow-x-auto no-scrollbar pt-1.5 border-t border-[#1a202c] py-1 px-0.5"
+          >
             <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0">
               <Sparkles className="w-3 h-3 text-[#e11d48]" />
               {tr.filterGenreLabel}
@@ -806,7 +929,10 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
           </span>
         </div>
 
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div
+          data-tv-row="grid-time-controls"
+          className="flex flex-wrap items-center gap-1.5"
+        >
           <input
             type="date"
             value={formatDateInputValue(windowStartMs + 30 * 60000)}
@@ -927,7 +1053,7 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
 
           {/* Lignes dynamiques des chaînes filtrées et de leurs programmes */}
           <div className="divide-y divide-[#1a202c]">
-            {gridVisibleChannels.map((ch) => {
+            {gridVisibleChannels.map((ch, rowIdx) => {
               const isFav = favoriteSet.has(ch.id);
               const flag = COUNTRY_FLAGS[ch.country] || '🛰️';
               const cleanId = cleanXmltvChannelId(ch.id);
@@ -950,9 +1076,17 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
                     tabIndex={0}
                     role="button"
                     data-grid-focusable="true"
+                    data-grid-row={rowIdx}
+                    data-grid-col="channel"
                     onClick={() => onSelectChannel(ch)}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
+                      if (
+                        e.key === 'Enter' ||
+                        e.key === ' ' ||
+                        e.key === 'Select' ||
+                        e.keyCode === 23 ||
+                        e.keyCode === 66
+                      ) {
                         e.preventDefault();
                         onSelectChannel(ch);
                       }
@@ -1051,7 +1185,7 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
                       />
                     )}
 
-                    {progs.map((prog) => {
+                    {progs.map((prog, progIdx) => {
                       const clampedStart = Math.max(
                         prog.startMs,
                         windowStartMs
@@ -1096,9 +1230,21 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
                           tabIndex={0}
                           role="button"
                           data-grid-focusable="true"
+                          data-grid-row={rowIdx}
+                          data-grid-col={progIdx}
+                          data-start-ms={prog.startMs}
+                          data-stop-ms={prog.stopMs}
+                          data-left-px={Math.round(leftPx)}
+                          data-width-px={Math.round(widthPx)}
                           onClick={() => onSelectChannel(ch, prog)}
                           onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
+                            if (
+                              e.key === 'Enter' ||
+                              e.key === ' ' ||
+                              e.key === 'Select' ||
+                              e.keyCode === 23 ||
+                              e.keyCode === 66
+                            ) {
                               e.preventDefault();
                               onSelectChannel(ch, prog);
                             }
