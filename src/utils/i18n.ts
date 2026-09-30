@@ -107,23 +107,38 @@ export function getActiveLanguage(): AppLanguage {
 }
 
 export function setActiveLanguage(lang: AppLanguage): void {
-  currentActiveLanguage = lang;
-  if (typeof document !== 'undefined') {
-    const opt = getLanguageOption(lang);
-    document.documentElement.lang = opt.code === 'pt' ? 'pt-BR' : opt.code;
-    document.documentElement.dir = opt.dir;
+  try {
+    const safeLang: AppLanguage = LANGUAGE_OPTIONS.some((l) => l.code === lang)
+      ? lang
+      : 'fr';
+    currentActiveLanguage = safeLang;
+    if (typeof document !== 'undefined' && document.documentElement) {
+      const opt = getLanguageOption(safeLang);
+      document.documentElement.lang = opt.code === 'pt' ? 'pt-BR' : opt.code;
+      document.documentElement.dir = opt.dir;
+    }
+  } catch {
+    currentActiveLanguage = 'fr';
   }
 }
 
 export function applyDocumentLanguageDir(lang: AppLanguage): void {
-  setActiveLanguage(lang);
+  try {
+    setActiveLanguage(lang);
+  } catch {
+    // Ignore DOM attribute errors on legacy WebViews
+  }
 }
 
 export function getLanguageOption(lang?: AppLanguage): LanguageOption {
-  const target = lang || currentActiveLanguage;
-  return (
-    LANGUAGE_OPTIONS.find((l) => l.code === target) || LANGUAGE_OPTIONS[0]
-  );
+  try {
+    const target = lang || currentActiveLanguage;
+    return (
+      LANGUAGE_OPTIONS.find((l) => l.code === target) || LANGUAGE_OPTIONS[0]
+    );
+  } catch {
+    return LANGUAGE_OPTIONS[0];
+  }
 }
 
 export interface Translations {

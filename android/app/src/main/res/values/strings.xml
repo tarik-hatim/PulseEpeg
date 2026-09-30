@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">PulseEPG</string>
+    <string name="title_activity_main">PulseEPG</string>
+    <string name="package_name">com.pulseepg.tvguide</string>
+    <string name="custom_url_scheme">com.pulseepg.tvguide</string>
+</resources>

@@ -34,29 +34,75 @@ export function getLocalTimezoneLabel(): string {
   return activeTimezone;
 }
 
-const timeFormatter = new Intl.DateTimeFormat('fr-FR', {
+function createSafeDateTimeFormat(
+  locale: string,
+  options: Intl.DateTimeFormatOptions
+): Intl.DateTimeFormat | null {
+  try {
+    return new Intl.DateTimeFormat(locale, options);
+  } catch {
+    try {
+      return new Intl.DateTimeFormat('fr-FR', {
+        ...options,
+        timeZone: 'UTC',
+      });
+    } catch {
+      try {
+        const fallbackOpts = { ...options };
+        delete fallbackOpts.timeZone;
+        return new Intl.DateTimeFormat(undefined, fallbackOpts);
+      } catch {
+        return null;
+      }
+    }
+  }
+}
+
+const timeFormatter = createSafeDateTimeFormat('fr-FR', {
   timeZone: APP_TIMEZONE,
   hour: '2-digit',
   minute: '2-digit',
   hour12: false,
 });
 
-const hourOnlyFormatter = new Intl.DateTimeFormat('fr-FR', {
+const hourOnlyFormatter = createSafeDateTimeFormat('fr-FR', {
   timeZone: APP_TIMEZONE,
   hour: '2-digit',
   hour12: false,
 });
 
-const dateKeyFormatter = new Intl.DateTimeFormat('en-CA', {
+const dateKeyFormatter = createSafeDateTimeFormat('en-CA', {
   timeZone: APP_TIMEZONE,
   year: 'numeric',
   month: '2-digit',
   day: '2-digit',
 });
 
+function formatUtcFallbackTime(ms: number): string {
+  const d = new Date(ms);
+  const hh = String(d.getUTCHours()).padStart(2, '0');
+  const mm = String(d.getUTCMinutes()).padStart(2, '0');
+  return `${hh}:${mm}`;
+}
+
+function formatUtcFallbackDateKey(ms: number): string {
+  const d = new Date(ms);
+  const yyyy = d.getUTCFullYear();
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(d.getUTCDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 export function formatTimeShort(ms: number): string {
   if (!ms || Number.isNaN(ms)) return '--:--';
-  return timeFormatter.format(new Date(ms));
+  try {
+    if (timeFormatter) {
+      return timeFormatter.format(new Date(ms));
+    }
+  } catch {
+    // Fallback below
+  }
+  return formatUtcFallbackTime(ms);
 }
 
 export function formatLocalTime(ms: number): string {
@@ -73,31 +119,45 @@ export function formatShortDate(ms: number, lang?: AppLanguage): string {
 
 export function formatFullDateTime(ms: number, lang?: AppLanguage): string {
   if (!ms || Number.isNaN(ms)) return '--';
-  const activeLang = lang || getActiveLanguage();
-  const locale = getLanguageOption(activeLang).intlLocale;
-  const fullDateFormatter = new Intl.DateTimeFormat(locale, {
-    timeZone: APP_TIMEZONE,
-    weekday: 'short',
-    day: '2-digit',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  });
-  return fullDateFormatter.format(new Date(ms));
+  try {
+    const activeLang = lang || getActiveLanguage();
+    const locale = getLanguageOption(activeLang).intlLocale;
+    const fullDateFormatter = createSafeDateTimeFormat(locale, {
+      timeZone: APP_TIMEZONE,
+      weekday: 'short',
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+    if (fullDateFormatter) {
+      return fullDateFormatter.format(new Date(ms));
+    }
+  } catch {
+    // Fallback below
+  }
+  return `${formatUtcFallbackDateKey(ms)} ${formatUtcFallbackTime(ms)}`;
 }
 
 export function formatDayLabel(ms: number, lang?: AppLanguage): string {
   if (!ms || Number.isNaN(ms)) return '--';
-  const activeLang = lang || getActiveLanguage();
-  const locale = getLanguageOption(activeLang).intlLocale;
-  const dayLabelFormatter = new Intl.DateTimeFormat(locale, {
-    timeZone: APP_TIMEZONE,
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-  });
-  return dayLabelFormatter.format(new Date(ms));
+  try {
+    const activeLang = lang || getActiveLanguage();
+    const locale = getLanguageOption(activeLang).intlLocale;
+    const dayLabelFormatter = createSafeDateTimeFormat(locale, {
+      timeZone: APP_TIMEZONE,
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+    });
+    if (dayLabelFormatter) {
+      return dayLabelFormatter.format(new Date(ms));
+    }
+  } catch {
+    // Fallback below
+  }
+  return formatUtcFallbackDateKey(ms);
 }
 
 /**
@@ -107,11 +167,24 @@ export function getCasablancaHourMinute(ms: number): {
   hour: number;
   minute: number;
 } {
-  const formatted = timeFormatter.format(new Date(ms));
-  const [hStr, mStr] = formatted.split(':');
+  try {
+    const formatted = formatTimeShort(ms);
+    const [hStr, mStr] = formatted.split(':');
+    const h = parseInt(hStr || '0', 10);
+    const m = parseInt(mStr || '0', 10);
+    if (!Number.isNaN(h) && !Number.isNaN(m)) {
+      return {
+        hour: h % 24,
+        minute: m,
+      };
+    }
+  } catch {
+    // Fallback below
+  }
+  const d = new Date(ms || Date.now());
   return {
-    hour: parseInt(hStr || '0', 10) % 24,
-    minute: parseInt(mStr || '0', 10),
+    hour: d.getUTCHours() % 24,
+    minute: d.getUTCMinutes(),
   };
 }
 
@@ -123,15 +196,27 @@ export function getCasablancaTimestampForHour(
   targetHour: number,
   targetMinute = 0
 ): number {
-  const dateKey = dateKeyFormatter.format(new Date(referenceMs));
-  const [year, month, day] = dateKey.split('-').map((n) => parseInt(n, 10));
+  try {
+    const dateKey = formatDateInputValue(referenceMs);
+    const [year, month, day] = dateKey.split('-').map((n) => parseInt(n, 10));
 
-  const guessUtcMs = Date.UTC(year, month - 1, day, targetHour, targetMinute, 0, 0);
-  const actualHm = getCasablancaHourMinute(guessUtcMs);
-  const diffMinutes =
-    (targetHour - actualHm.hour) * 60 + (targetMinute - actualHm.minute);
+    const guessUtcMs = Date.UTC(
+      year,
+      month - 1,
+      day,
+      targetHour,
+      targetMinute,
+      0,
+      0
+    );
+    const actualHm = getCasablancaHourMinute(guessUtcMs);
+    const diffMinutes =
+      (targetHour - actualHm.hour) * 60 + (targetMinute - actualHm.minute);
 
-  return guessUtcMs + diffMinutes * 60_000;
+    return guessUtcMs + diffMinutes * 60_000;
+  } catch {
+    return referenceMs || Date.now();
+  }
 }
 
 export function getPrimeTimeMs(referenceMs: number): number {
@@ -144,19 +229,29 @@ export function getPrimeTimeMs(referenceMs: number): number {
  */
 export function formatDateTimeLocalValue(ms: number): string {
   if (!ms || Number.isNaN(ms)) return '';
-  const dKey = dateKeyFormatter.format(new Date(ms));
-  const tKey = timeFormatter.format(new Date(ms));
+  const dKey = formatDateInputValue(ms);
+  const tKey = formatTimeShort(ms);
   return `${dKey}T${tKey}`;
 }
 
 export function formatDateInputValue(ms: number): string {
   if (!ms || Number.isNaN(ms)) return '';
-  return dateKeyFormatter.format(new Date(ms));
+  try {
+    if (dateKeyFormatter) {
+      const formatted = dateKeyFormatter.format(new Date(ms));
+      if (/^\d{4}-\d{2}-\d{2}$/.test(formatted)) {
+        return formatted;
+      }
+    }
+  } catch {
+    // Fallback below
+  }
+  return formatUtcFallbackDateKey(ms);
 }
 
 export function formatTimeInputValue(ms: number): string {
   if (!ms || Number.isNaN(ms)) return '';
-  return timeFormatter.format(new Date(ms));
+  return formatTimeShort(ms);
 }
 
 export function parseDateInputWithCurrentTime(
@@ -224,8 +319,17 @@ export function floorToHalfHourCasablanca(ms: number): number {
 }
 
 export function getCasablancaHourNumber(ms: number): number {
-  const h = parseInt(hourOnlyFormatter.format(new Date(ms)), 10);
-  return Number.isNaN(h) ? new Date(ms).getUTCHours() : h % 24;
+  try {
+    if (hourOnlyFormatter) {
+      const h = parseInt(hourOnlyFormatter.format(new Date(ms)), 10);
+      if (!Number.isNaN(h)) {
+        return h % 24;
+      }
+    }
+  } catch {
+    // Fallback below
+  }
+  return new Date(ms).getUTCHours() % 24;
 }
 
 export function calculateProgress(

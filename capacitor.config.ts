@@ -10,12 +10,16 @@ export interface CapacitorConfig {
   appId: string;
   appName: string;
   webDir: string;
+  backgroundColor?: string;
   bundledWebRuntime?: boolean;
   server?: {
     androidScheme?: string;
     cleartext?: boolean;
   };
   android?: {
+    backgroundColor?: string;
+    allowMixedContent?: boolean;
+    webContentsDebuggingEnabled?: boolean;
     buildOptions?: {
       releaseType?: 'AAB' | 'APK';
     };
@@ -24,6 +28,17 @@ export interface CapacitorConfig {
     CapacitorHttp?: {
       enabled: boolean;
     };
+    StatusBar?: {
+      overlaysWebView?: boolean;
+      style?: string;
+      backgroundColor?: string;
+    };
+    SplashScreen?: {
+      launchShowDuration?: number;
+      launchAutoHide?: boolean;
+      backgroundColor?: string;
+      showSpinner?: boolean;
+    };
   };
 }
 
@@ -31,11 +46,14 @@ const config: CapacitorConfig = {
   appId: 'com.pulseepg.tvguide',
   appName: 'PulseEPG',
   webDir: 'dist',
+  backgroundColor: '#0a0e17',
   server: {
     androidScheme: 'https',
-    cleartext: false,
+    cleartext: true,
   },
   android: {
+    backgroundColor: '#0a0e17',
+    allowMixedContent: true,
     buildOptions: {
       releaseType: 'AAB',
     },
@@ -44,6 +62,18 @@ const config: CapacitorConfig = {
     // Active les requêtes HTTPS natives sur Android pour contourner le CORS sur les fichiers .xml.gz distants
     CapacitorHttp: {
       enabled: true,
+    },
+    // Empêche setDecorFitsSystemWindows(false) d'interrompre le cycle de vie de l'Activity sur Box Android TV
+    StatusBar: {
+      overlaysWebView: false,
+      style: 'DARK',
+      backgroundColor: '#0a0e17',
+    },
+    SplashScreen: {
+      launchShowDuration: 0,
+      launchAutoHide: true,
+      backgroundColor: '#0a0e17',
+      showSpinner: false,
     },
   },
 };

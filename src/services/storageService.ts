@@ -1399,141 +1399,152 @@ export function detectInitialTvProfileFromSystemLanguage(
   language: AppLanguage;
   selectedBouquets: EpgBouquetId[];
 } {
-  const browserLanguages: string[] =
-    sysLangOverride !== undefined
-      ? [sysLangOverride]
-      : typeof navigator !== 'undefined'
-      ? [
-          ...(navigator.language ? [navigator.language] : []),
-          ...(Array.isArray(navigator.languages) ? navigator.languages : []),
-        ]
-      : [];
+  try {
+    const browserLanguages: string[] =
+      sysLangOverride !== undefined
+        ? [sysLangOverride]
+        : typeof navigator !== 'undefined'
+        ? [
+            ...(typeof navigator.language === 'string' && navigator.language
+              ? [navigator.language]
+              : []),
+            ...(Array.isArray(navigator.languages) ? navigator.languages : []),
+          ]
+        : [];
 
-  const primaryRaw = (browserLanguages[0] || 'fr').trim();
-  const langLower = primaryRaw.toLowerCase();
-  const parts = primaryRaw.split(/[-_]/);
-  const langPrefix = (parts[0] || 'fr').toLowerCase();
-  let regionSubtag = (parts[1] || '').toUpperCase();
+    const primaryRaw = String(browserLanguages[0] || 'fr').trim();
+    const langLower = primaryRaw.toLowerCase();
+    const parts = primaryRaw.split(/[-_]/);
+    const langPrefix = (parts[0] || 'fr').toLowerCase();
+    let regionSubtag = (parts[1] || '').toUpperCase();
 
-  if (!regionSubtag && browserLanguages.length > 1) {
-    for (const candidate of browserLanguages) {
-      const cParts = candidate.trim().split(/[-_]/);
-      if (
-        cParts[0]?.toLowerCase() === langPrefix &&
-        cParts[1] &&
-        cParts[1].length >= 2
-      ) {
-        regionSubtag = cParts[1].toUpperCase();
-        break;
+    if (!regionSubtag && browserLanguages.length > 1) {
+      for (const candidate of browserLanguages) {
+        if (typeof candidate !== 'string') continue;
+        const cParts = candidate.trim().split(/[-_]/);
+        if (
+          cParts[0]?.toLowerCase() === langPrefix &&
+          cParts[1] &&
+          cParts[1].length >= 2
+        ) {
+          regionSubtag = cParts[1].toUpperCase();
+          break;
+        }
       }
     }
-  }
 
-  let sysTimeZone = '';
-  try {
-    sysTimeZone =
-      Intl.DateTimeFormat().resolvedOptions().timeZone?.toLowerCase() || '';
-  } catch {
-    sysTimeZone = '';
-  }
+    let sysTimeZone = '';
+    try {
+      sysTimeZone =
+        Intl.DateTimeFormat().resolvedOptions().timeZone?.toLowerCase() || '';
+    } catch {
+      sysTimeZone = '';
+    }
 
-  const isMaghrebTimezone =
-    sysTimeZone.includes('casablanca') ||
-    sysTimeZone.includes('algiers') ||
-    sysTimeZone.includes('tunis') ||
-    sysTimeZone.includes('tripoli') ||
-    sysTimeZone.includes('nouakchott');
+    const isMaghrebTimezone =
+      sysTimeZone.includes('casablanca') ||
+      sysTimeZone.includes('algiers') ||
+      sysTimeZone.includes('tunis') ||
+      sysTimeZone.includes('tripoli') ||
+      sysTimeZone.includes('nouakchott');
 
-  const isMaghrebRegion =
-    MAGHREB_COUNTRY_CODES.has(regionSubtag) || isMaghrebTimezone;
+    const isMaghrebRegion =
+      MAGHREB_COUNTRY_CODES.has(regionSubtag) || isMaghrebTimezone;
 
-  const isLatamTimezone =
-    sysTimeZone.startsWith('america/') &&
-    !sysTimeZone.includes('new_york') &&
-    !sysTimeZone.includes('chicago') &&
-    !sysTimeZone.includes('denver') &&
-    !sysTimeZone.includes('los_angeles') &&
-    !sysTimeZone.includes('toronto') &&
-    !sysTimeZone.includes('vancouver') &&
-    !sysTimeZone.includes('montreal');
+    const isLatamTimezone =
+      sysTimeZone.startsWith('america/') &&
+      !sysTimeZone.includes('new_york') &&
+      !sysTimeZone.includes('chicago') &&
+      !sysTimeZone.includes('denver') &&
+      !sysTimeZone.includes('los_angeles') &&
+      !sysTimeZone.includes('toronto') &&
+      !sysTimeZone.includes('vancouver') &&
+      !sysTimeZone.includes('montreal');
 
-  // 1. Profil "Maghreb / MENA Multi-Sat" (si région Maghreb détectée avec langue 'ar' ou 'fr')
-  // Charge UNIQUEMENT les 3 principaux : Nilesat 7°W, Astra 19.2°E, Hotbird 13°E
-  if ((langPrefix === 'ar' || langPrefix === 'fr') && isMaghrebRegion) {
+    // 1. Profil "Maghreb / MENA Multi-Sat" (si région Maghreb détectée avec langue 'ar' ou 'fr')
+    // Charge UNIQUEMENT les 3 principaux : Nilesat 7°W, Astra 19.2°E, Hotbird 13°E
+    if ((langPrefix === 'ar' || langPrefix === 'fr') && isMaghrebRegion) {
+      return {
+        tvProfile: 'maghreb_mena',
+        language: langPrefix === 'ar' ? 'ar' : 'fr',
+        selectedBouquets: getBouquetsForTvProfile('maghreb_mena'),
+      };
+    }
+
+    // 2. Profil "France / Europe Francophone" (Langue 'fr')
+    // Charge UNIQUEMENT : Astra 19.2°E et Hotbird 13°E
+    if (langPrefix === 'fr') {
+      return {
+        tvProfile: 'france_europe_fr',
+        language: 'fr',
+        selectedBouquets: getBouquetsForTvProfile('france_europe_fr'),
+      };
+    }
+
+    // 3. Profil "Moyen-Orient / Golfe" (Langue 'ar' hors Maghreb)
+    // Charge UNIQUEMENT : Nilesat 7°W et Badr 26°E
+    if (langPrefix === 'ar') {
+      return {
+        tvProfile: 'moyen_orient_golfe',
+        language: 'ar',
+        selectedBouquets: getBouquetsForTvProfile('moyen_orient_golfe'),
+      };
+    }
+
+    // 4. Profil "Amérique du Sud / LATAM" (Langues 'es' LATAM / 'pt')
+    // Charge UNIQUEMENT : Star One 70°W, Amazonas 61°W, SES-6 40.5°W
+    if (
+      langPrefix === 'pt' ||
+      (langPrefix === 'es' &&
+        (LATAM_COUNTRY_CODES.has(regionSubtag) ||
+          (regionSubtag !== 'ES' && isLatamTimezone)))
+    ) {
+      return {
+        tvProfile: 'amerique_sud_latam',
+        language: langPrefix === 'pt' ? 'pt' : 'es',
+        selectedBouquets: getBouquetsForTvProfile('amerique_sud_latam'),
+      };
+    }
+
+    // 5. Profil "Espagne" (Langue 'es')
+    // Charge UNIQUEMENT : Astra 19.2°E et Hispasat 30°W
+    if (langLower.startsWith('es')) {
+      return {
+        tvProfile: 'espagne',
+        language: 'es',
+        selectedBouquets: getBouquetsForTvProfile('espagne'),
+      };
+    }
+
+    // 6. Profil "Italie" (Langue 'it')
+    // Charge UNIQUEMENT : Hotbird 13°E
+    if (langLower.startsWith('it')) {
+      return {
+        tvProfile: 'italie',
+        language: 'fr',
+        selectedBouquets: getBouquetsForTvProfile('italie'),
+      };
+    }
+
+    // 7. Autres langues -> Profil "Europe Standard" (Astra 19.2°E, Hotbird 13°E)
+    const uiLang: AppLanguage = langLower.startsWith('de')
+      ? 'de'
+      : langLower.startsWith('en')
+      ? 'en'
+      : 'en';
+
     return {
-      tvProfile: 'maghreb_mena',
-      language: langPrefix === 'ar' ? 'ar' : 'fr',
-      selectedBouquets: getBouquetsForTvProfile('maghreb_mena'),
+      tvProfile: 'europe_standard',
+      language: uiLang,
+      selectedBouquets: getBouquetsForTvProfile('europe_standard'),
     };
-  }
-
-  // 2. Profil "France / Europe Francophone" (Langue 'fr')
-  // Charge UNIQUEMENT : Astra 19.2°E et Hotbird 13°E
-  if (langPrefix === 'fr') {
+  } catch {
     return {
       tvProfile: 'france_europe_fr',
       language: 'fr',
-      selectedBouquets: getBouquetsForTvProfile('france_europe_fr'),
+      selectedBouquets: [...DEFAULT_ENABLED_BOUQUET_IDS],
     };
   }
-
-  // 3. Profil "Moyen-Orient / Golfe" (Langue 'ar' hors Maghreb)
-  // Charge UNIQUEMENT : Nilesat 7°W et Badr 26°E
-  if (langPrefix === 'ar') {
-    return {
-      tvProfile: 'moyen_orient_golfe',
-      language: 'ar',
-      selectedBouquets: getBouquetsForTvProfile('moyen_orient_golfe'),
-    };
-  }
-
-  // 4. Profil "Amérique du Sud / LATAM" (Langues 'es' LATAM / 'pt')
-  // Charge UNIQUEMENT : Star One 70°W, Amazonas 61°W, SES-6 40.5°W
-  if (
-    langPrefix === 'pt' ||
-    (langPrefix === 'es' &&
-      (LATAM_COUNTRY_CODES.has(regionSubtag) ||
-        (regionSubtag !== 'ES' && isLatamTimezone)))
-  ) {
-    return {
-      tvProfile: 'amerique_sud_latam',
-      language: langPrefix === 'pt' ? 'pt' : 'es',
-      selectedBouquets: getBouquetsForTvProfile('amerique_sud_latam'),
-    };
-  }
-
-  // 5. Profil "Espagne" (Langue 'es')
-  // Charge UNIQUEMENT : Astra 19.2°E et Hispasat 30°W
-  if (langLower.startsWith('es')) {
-    return {
-      tvProfile: 'espagne',
-      language: 'es',
-      selectedBouquets: getBouquetsForTvProfile('espagne'),
-    };
-  }
-
-  // 6. Profil "Italie" (Langue 'it')
-  // Charge UNIQUEMENT : Hotbird 13°E
-  if (langLower.startsWith('it')) {
-    return {
-      tvProfile: 'italie',
-      language: 'fr',
-      selectedBouquets: getBouquetsForTvProfile('italie'),
-    };
-  }
-
-  // 7. Autres langues -> Profil "Europe Standard" (Astra 19.2°E, Hotbird 13°E)
-  const uiLang: AppLanguage = langLower.startsWith('de')
-    ? 'de'
-    : langLower.startsWith('en')
-    ? 'en'
-    : 'en';
-
-  return {
-    tvProfile: 'europe_standard',
-    language: uiLang,
-    selectedBouquets: getBouquetsForTvProfile('europe_standard'),
-  };
 }
 
 export const THEMATIC_CATEGORIES_CATALOG: {
@@ -2542,28 +2553,50 @@ export const PRESET_EPG_CATALOG: Omit<EpgSourceItem, 'id' | 'enabled'>[] = [
   })),
 ];
 
-const INITIAL_DETECTED_PROFILE = detectInitialTvProfileFromSystemLanguage();
+function createSafeDefaultSettings(): AppSettings {
+  try {
+    const detected = detectInitialTvProfileFromSystemLanguage();
+    return {
+      language: detected.language,
+      tvProfile: detected.tvProfile,
+      sourceUrl: DEFAULT_EPG_SOURCE_URL,
+      sources: syncSourcesWithSelectedBouquets(
+        detected.selectedBouquets,
+        DEFAULT_EPG_SOURCES,
+        detected.tvProfile
+      ),
+      cacheTtlHours: 12,
+      autoRefreshHours: 12,
+      windowHours: 48,
+      theme: 'dark',
+      autoTimezone: true,
+      manualTimezone: 'Africa/Casablanca',
+      selectedBouquets: [...detected.selectedBouquets],
+      excludePolishLektor: true,
+      excludeNoSubtitles: true,
+      enabledCategories: [...ALL_THEMATIC_CATEGORIES],
+    };
+  } catch {
+    return {
+      language: 'fr',
+      tvProfile: 'france_europe_fr',
+      sourceUrl: DEFAULT_EPG_SOURCE_URL,
+      sources: [...DEFAULT_EPG_SOURCES],
+      cacheTtlHours: 12,
+      autoRefreshHours: 12,
+      windowHours: 48,
+      theme: 'dark',
+      autoTimezone: true,
+      manualTimezone: 'Africa/Casablanca',
+      selectedBouquets: [...DEFAULT_ENABLED_BOUQUET_IDS],
+      excludePolishLektor: true,
+      excludeNoSubtitles: true,
+      enabledCategories: [...ALL_THEMATIC_CATEGORIES],
+    };
+  }
+}
 
-export const DEFAULT_SETTINGS: AppSettings = {
-  language: INITIAL_DETECTED_PROFILE.language,
-  tvProfile: INITIAL_DETECTED_PROFILE.tvProfile,
-  sourceUrl: DEFAULT_EPG_SOURCE_URL,
-  sources: syncSourcesWithSelectedBouquets(
-    INITIAL_DETECTED_PROFILE.selectedBouquets,
-    DEFAULT_EPG_SOURCES,
-    INITIAL_DETECTED_PROFILE.tvProfile
-  ),
-  cacheTtlHours: 12,
-  autoRefreshHours: 12,
-  windowHours: 48,
-  theme: 'dark',
-  autoTimezone: true,
-  manualTimezone: 'Africa/Casablanca',
-  selectedBouquets: [...INITIAL_DETECTED_PROFILE.selectedBouquets],
-  excludePolishLektor: true,
-  excludeNoSubtitles: true,
-  enabledCategories: [...ALL_THEMATIC_CATEGORIES],
-};
+export const DEFAULT_SETTINGS: AppSettings = createSafeDefaultSettings();
 
 export function buildSourcesSignature(
   sourcesOrSettings: EpgSourceItem[] | AppSettings
@@ -3034,6 +3067,39 @@ export function buildOfflineFallbackEpgSnapshot(
   };
 }
 
+export function buildOfflineFallbackEpgSnapshotAsync(
+  settings: AppSettings
+): Promise<StoredEpgSnapshot> {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      try {
+        resolve(buildOfflineFallbackEpgSnapshot(settings));
+      } catch {
+        const now = Date.now();
+        resolve({
+          id: SNAPSHOT_KEY,
+          metadata: {
+            sourceUrl: DEFAULT_EPG_SOURCE_URL,
+            sourcesSignature: 'fallback_empty',
+            lastUpdatedMs: now,
+            expiresAtMs: now + 12 * 3600 * 1000,
+            channelCount: 0,
+            channelsExcludedCount: 0,
+            programmeCount: 0,
+            compressedBytes: 0,
+            uncompressedBytes: 0,
+            minTimestampMs: now,
+            maxTimestampMs: now + 24 * 3600 * 1000,
+            parseDurationMs: 0,
+          },
+          channels: [],
+          schedulesByChannel: {},
+        });
+      }
+    }, 0);
+  });
+}
+
 export async function clearEpgCache(): Promise<void> {
   try {
     if (typeof localStorage !== 'undefined') {
@@ -3128,22 +3194,60 @@ export async function syncAppSettingsFromCapacitorPreferences(): Promise<AppSett
   return null;
 }
 
+function safeLocalStorageGet(key: string): string | null {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      return localStorage.getItem(key);
+    }
+  } catch {
+    // Ignore storage access error on restricted WebViews
+  }
+  return null;
+}
+
+function safeLocalStorageSet(key: string, value: string): void {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(key, value);
+    }
+  } catch {
+    // Ignore storage quota/security error on restricted WebViews
+  }
+}
+
+export function loadAppSettingsAsync(): Promise<AppSettings> {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      try {
+        resolve(loadAppSettings());
+      } catch {
+        resolve(DEFAULT_SETTINGS);
+      }
+    }, 0);
+  });
+}
+
 export function loadAppSettings(): AppSettings {
   try {
-    const raw = localStorage.getItem(LS_SETTINGS_KEY);
-    const storedProfileRaw = localStorage.getItem(LS_TV_PROFILE_KEY) as
+    const raw = safeLocalStorageGet(LS_SETTINGS_KEY);
+    const storedProfileRaw = safeLocalStorageGet(LS_TV_PROFILE_KEY) as
       | TvProfileId
       | null;
     const strictV12Migrated =
-      localStorage.getItem(LS_STRICT_PROFILE_V12_MIGRATED_KEY) === '1';
+      safeLocalStorageGet(LS_STRICT_PROFILE_V12_MIGRATED_KEY) === '1';
 
     // 1. Tout premier lancement (ou migration vers le filtrage strict à 2-3 satellites max au démarrage) :
     // Détection automatique basée sur navigator.language et sauvegarde immédiate
     if (!raw || !storedProfileRaw || !strictV12Migrated) {
       const detected = detectInitialTvProfileFromSystemLanguage();
-      const existingParsed: Partial<AppSettings> = raw
-        ? (JSON.parse(raw) as Partial<AppSettings>)
-        : {};
+      let existingParsed: Partial<AppSettings> = {};
+      if (raw) {
+        try {
+          existingParsed = (JSON.parse(raw) as Partial<AppSettings>) || {};
+        } catch {
+          existingParsed = {};
+        }
+      }
 
       const initialSettings: AppSettings = {
         ...DEFAULT_SETTINGS,
@@ -3159,38 +3263,54 @@ export function loadAppSettings(): AppSettings {
         enabledCategories: [...ALL_THEMATIC_CATEGORIES],
       };
 
-      localStorage.setItem(LS_TV_PROFILE_KEY, detected.tvProfile);
-      localStorage.setItem(LS_STRICT_PROFILE_V12_MIGRATED_KEY, '1');
-      localStorage.setItem(LS_TZ_CASA_MIGRATED_KEY, '1');
-      localStorage.setItem(LS_BOUQUETS_V8_MIGRATED_KEY, '1');
-      localStorage.setItem(LS_BOUQUETS_V10_MIGRATED_KEY, '1');
-      localStorage.setItem(LS_BOUQUETS_V11_MIGRATED_KEY, '1');
-      localStorage.setItem(LS_CATEGORIES_V9_MIGRATED_KEY, '1');
-      localStorage.setItem(LS_SETTINGS_KEY, JSON.stringify(initialSettings));
-      persistSettingsToCapacitorPreferences(initialSettings);
+      safeLocalStorageSet(LS_TV_PROFILE_KEY, detected.tvProfile);
+      safeLocalStorageSet(LS_STRICT_PROFILE_V12_MIGRATED_KEY, '1');
+      safeLocalStorageSet(LS_TZ_CASA_MIGRATED_KEY, '1');
+      safeLocalStorageSet(LS_BOUQUETS_V8_MIGRATED_KEY, '1');
+      safeLocalStorageSet(LS_BOUQUETS_V10_MIGRATED_KEY, '1');
+      safeLocalStorageSet(LS_BOUQUETS_V11_MIGRATED_KEY, '1');
+      safeLocalStorageSet(LS_CATEGORIES_V9_MIGRATED_KEY, '1');
+      safeLocalStorageSet(LS_SETTINGS_KEY, JSON.stringify(initialSettings));
+      try {
+        persistSettingsToCapacitorPreferences(initialSettings);
+      } catch {
+        // Ignore Capacitor bridge error
+      }
 
-      configureActiveTimezone(
-        initialSettings.autoTimezone,
-        initialSettings.manualTimezone
-      );
-      applyDocumentLanguageDir(initialSettings.language);
+      try {
+        configureActiveTimezone(
+          initialSettings.autoTimezone,
+          initialSettings.manualTimezone
+        );
+        applyDocumentLanguageDir(initialSettings.language);
+      } catch {
+        // Ignore DOM/Timezone errors
+      }
       return initialSettings;
     }
 
-    const parsed = JSON.parse(raw) as Partial<AppSettings>;
-    const tzMigrated = localStorage.getItem(LS_TZ_CASA_MIGRATED_KEY) === '1';
+    let parsed: Partial<AppSettings> = {};
+    try {
+      parsed = (JSON.parse(raw) as Partial<AppSettings>) || {};
+    } catch {
+      parsed = {};
+    }
+
+    const tzMigrated = safeLocalStorageGet(LS_TZ_CASA_MIGRATED_KEY) === '1';
     if (!tzMigrated) {
       parsed.manualTimezone = 'Africa/Casablanca';
       parsed.autoTimezone = true;
-      localStorage.setItem(LS_TZ_CASA_MIGRATED_KEY, '1');
+      safeLocalStorageSet(LS_TZ_CASA_MIGRATED_KEY, '1');
     }
 
     const v9CatsMigrated =
-      localStorage.getItem(LS_CATEGORIES_V9_MIGRATED_KEY) === '1';
+      safeLocalStorageGet(LS_CATEGORIES_V9_MIGRATED_KEY) === '1';
 
     const sanitizedSources = Array.isArray(parsed.sources)
       ? parsed.sources.filter(
           (s) =>
+            s &&
+            typeof s.url === 'string' &&
             (s.country as string) !== 'GR' &&
             !s.url.toLowerCase().includes('epg_ripper_gr')
         )
@@ -3242,7 +3362,7 @@ export function loadAppSettings(): AppSettings {
           enabledCategories.push(catId);
         }
       }
-      localStorage.setItem(LS_CATEGORIES_V9_MIGRATED_KEY, '1');
+      safeLocalStorageSet(LS_CATEGORIES_V9_MIGRATED_KEY, '1');
     }
 
     const validLang: AppLanguage = SUPPORTED_LANGUAGES.some(
@@ -3279,15 +3399,23 @@ export function loadAppSettings(): AppSettings {
           : DEFAULT_SETTINGS.excludeNoSubtitles,
     };
 
-    configureActiveTimezone(loaded.autoTimezone, loaded.manualTimezone);
-    applyDocumentLanguageDir(loaded.language);
+    try {
+      configureActiveTimezone(loaded.autoTimezone, loaded.manualTimezone);
+      applyDocumentLanguageDir(loaded.language);
+    } catch {
+      // Ignore
+    }
     return loaded;
   } catch {
-    configureActiveTimezone(
-      DEFAULT_SETTINGS.autoTimezone,
-      DEFAULT_SETTINGS.manualTimezone
-    );
-    applyDocumentLanguageDir(DEFAULT_SETTINGS.language);
+    try {
+      configureActiveTimezone(
+        DEFAULT_SETTINGS.autoTimezone,
+        DEFAULT_SETTINGS.manualTimezone
+      );
+      applyDocumentLanguageDir(DEFAULT_SETTINGS.language);
+    } catch {
+      // Ignore
+    }
     return DEFAULT_SETTINGS;
   }
 }

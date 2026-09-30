@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Thème principal compatible Mobile, Tablette et Box Android TV (Echolink Atomo / Leanback) -->
+    <style name="AppTheme" parent="Theme.AppCompat.NoActionBar">
+        <item name="colorPrimary">#0055FF</item>
+        <item name="colorPrimaryDark">#0A0E17</item>
+        <item name="colorAccent">#E11D48</item>
+        <item name="android:windowBackground">@color/ic_launcher_background</item>
+        <item name="android:colorBackground">#0A0E17</item>
+        <item name="android:fitsSystemWindows">true</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowActionBar">false</item>
+    </style>
+
+    <style name="AppTheme.NoActionBar" parent="AppTheme">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <item name="android:windowBackground">@color/ic_launcher_background</item>
+        <item name="android:fitsSystemWindows">true</item>
+    </style>
+
+    <style name="AppTheme.NoActionBarLaunch" parent="AppTheme.NoActionBar">
+        <item name="android:windowBackground">@color/ic_launcher_background</item>
+        <item name="android:fitsSystemWindows">true</item>
+    </style>
+</resources>

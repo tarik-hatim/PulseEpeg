@@ -26,9 +26,244 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        background-color: #0a0e17;
+        color: #ffffff;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        min-height: 100%;
+      }
+      #tv-boot-splash {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background-color: #0a0e17;
+        background-image: radial-gradient(circle at 50% 38%, rgba(0, 85, 255, 0.22) 0%, rgba(10, 14, 23, 0.98) 65%);
+        color: #ffffff;
+        text-align: center;
+        padding: 24px;
+        box-sizing: border-box;
+      }
+      .tv-boot-logo-box {
+        width: 76px;
+        height: 76px;
+        border-radius: 20px;
+        background: #111827;
+        border: 2px solid #38bdf8;
+        box-shadow: 0 0 24px rgba(0, 85, 255, 0.45);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 22px;
+      }
+      .tv-boot-spinner {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        border: 4px solid rgba(56, 189, 248, 0.22);
+        border-top-color: #38bdf8;
+        border-right-color: #ec4899;
+        animation: tvBootSpin 0.85s linear infinite;
+        margin-bottom: 18px;
+      }
+      .tv-boot-title {
+        font-size: 22px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        margin: 0 0 6px 0;
+        color: #ffffff;
+      }
+      .tv-boot-status {
+        font-size: 16px;
+        font-weight: 600;
+        color: #38bdf8;
+        margin: 0 0 6px 0;
+      }
+      .tv-boot-sub {
+        font-size: 13px;
+        color: #94a3b8;
+        max-width: 420px;
+        line-height: 1.45;
+        margin: 0;
+      }
+      .tv-boot-retry-btn {
+        margin-top: 18px;
+        padding: 10px 20px;
+        border-radius: 10px;
+        border: 2px solid #ffffff;
+        background-color: #0055ff;
+        color: #ffffff;
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+        display: none;
+      }
+      .tv-boot-retry-btn:focus {
+        outline: 3px solid #ec4899;
+        background-color: #1d4ed8;
+      }
+      @keyframes tvBootSpin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    </style>
   </head>
   <body class="bg-[#0a0e17] text-[#ffffff] antialiased selection:bg-[#e11d48] selection:text-[#ffffff]">
-    <div id="root"></div>
+    <div id="root">
+      <!-- Fallback visuel immédiat affiché à 0ms avant l'exécution du moindre script JS (Android TV / Box Echolink Atomo) -->
+      <div id="tv-boot-splash" role="status" aria-live="polite">
+        <div class="tv-boot-logo-box" aria-hidden="true">
+          <svg width="46" height="46" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="6" y="14" width="52" height="38" rx="10" fill="#0a0e17" stroke="#38bdf8" stroke-width="4"/>
+            <path d="M22 6L30 14M42 6L34 14" stroke="#ec4899" stroke-width="4" stroke-linecap="round"/>
+            <path d="M14 33H22L25 38L30 22L35 44L40 27L43 35L46 33H50" stroke="#38bdf8" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="tv-boot-spinner" aria-hidden="true"></div>
+        <h1 class="tv-boot-title">PulseEPG</h1>
+        <p id="tv-boot-status-text" class="tv-boot-status">Chargement...</p>
+        <p id="tv-boot-sub-text" class="tv-boot-sub">Initialisation du Guide TV &amp; compatibilité Android TV</p>
+        <button id="tv-boot-retry-btn" type="button" class="tv-boot-retry-btn" onclick="window.__pulseRecoverBoot && window.__pulseRecoverBoot()">
+          Réinitialiser &amp; Relancer
+        </button>
+      </div>
+    </div>
+    <script>
+      (function () {
+        try {
+          if (typeof window.globalThis === 'undefined') {
+            window.globalThis = window;
+          }
+          // Polyfill sécurisé pour ResizeObserver sur anciens moteurs WebView Android TV
+          if (typeof window.ResizeObserver === 'undefined') {
+            window.ResizeObserver = function (callback) {
+              this.callback = callback;
+              this.observe = function () {};
+              this.unobserve = function () {};
+              this.disconnect = function () {};
+            };
+          }
+          // Polyfill sécurisé pour IntersectionObserver sur anciens moteurs WebView Android TV
+          if (typeof window.IntersectionObserver === 'undefined') {
+            window.IntersectionObserver = function () {
+              this.observe = function () {};
+              this.unobserve = function () {};
+              this.disconnect = function () {};
+            };
+          }
+          // Polyfill Element.prototype.scrollTo et window.scrollTo pour anciens WebViews qui refusent ScrollToOptions
+          var origWinScrollTo = window.scrollTo;
+          if (typeof origWinScrollTo === 'function') {
+            window.scrollTo = function (a, b) {
+              try {
+                if (a && typeof a === 'object') {
+                  origWinScrollTo.call(window, a.left || 0, a.top || 0);
+                } else {
+                  origWinScrollTo.call(window, a || 0, b || 0);
+                }
+              } catch (_e) {}
+            };
+          }
+          if (typeof Element !== 'undefined' && Element.prototype) {
+            var origElScrollTo = Element.prototype.scrollTo;
+            Element.prototype.scrollTo = function (a, b) {
+              try {
+                if (a && typeof a === 'object') {
+                  if (typeof a.left === 'number') this.scrollLeft = a.left;
+                  if (typeof a.top === 'number') this.scrollTop = a.top;
+                } else if (typeof origElScrollTo === 'function') {
+                  origElScrollTo.call(this, a || 0, b || 0);
+                } else {
+                  if (typeof a === 'number') this.scrollLeft = a;
+                  if (typeof b === 'number') this.scrollTop = b;
+                }
+              } catch (_e) {}
+            };
+            var origScrollIntoView = Element.prototype.scrollIntoView;
+            if (typeof origScrollIntoView === 'function') {
+              Element.prototype.scrollIntoView = function (arg) {
+                try {
+                  origScrollIntoView.call(this, arg);
+                } catch (_e) {
+                  try {
+                    origScrollIntoView.call(this, false);
+                  } catch (_e2) {}
+                }
+              };
+            }
+          }
+          // Polyfills Array.prototype.flatMap / at / String.prototype.replaceAll / Object.hasOwn pour WebView Chromium < 73
+          if (!Array.prototype.flatMap) {
+            Array.prototype.flatMap = function (callback, thisArg) {
+              var res = [];
+              for (var i = 0; i < this.length; i++) {
+                if (i in this) {
+                  var el = callback.call(thisArg, this[i], i, this);
+                  if (Array.isArray(el)) {
+                    for (var j = 0; j < el.length; j++) res.push(el[j]);
+                  } else {
+                    res.push(el);
+                  }
+                }
+              }
+              return res;
+            };
+          }
+          if (!String.prototype.replaceAll) {
+            String.prototype.replaceAll = function (search, replacement) {
+              return this.split(search).join(replacement);
+            };
+          }
+          if (!Object.hasOwn) {
+            Object.hasOwn = function (obj, prop) {
+              return Object.prototype.hasOwnProperty.call(obj, prop);
+            };
+          }
+          window.__pulseRecoverBoot = function () {
+            try {
+              if (window.localStorage) {
+                window.localStorage.clear();
+              }
+            } catch (_e) {}
+            window.location.reload();
+          };
+          var showBootRecovery = function (msg) {
+            try {
+              var statusEl = document.getElementById('tv-boot-status-text');
+              var subEl = document.getElementById('tv-boot-sub-text');
+              var btnEl = document.getElementById('tv-boot-retry-btn');
+              if (statusEl) statusEl.textContent = 'Chargement en mode compatibilité TV...';
+              if (subEl && msg) subEl.textContent = String(msg).slice(0, 140);
+              if (btnEl) {
+                btnEl.style.display = 'inline-block';
+                btnEl.focus();
+              }
+            } catch (_e) {}
+          };
+          window.addEventListener('error', function (e) {
+            var splash = document.getElementById('tv-boot-splash');
+            if (splash && e && e.message) {
+              showBootRecovery(e.message);
+            }
+          });
+          window.addEventListener('unhandledrejection', function (e) {
+            var splash = document.getElementById('tv-boot-splash');
+            if (splash && e && e.reason) {
+              showBootRecovery(e.reason.message || e.reason);
+            }
+          });
+        } catch (_bootErr) {}
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -49,6 +49,7 @@ import {
 import {
   addRecentSearch,
   buildOfflineFallbackEpgSnapshot,
+  buildOfflineFallbackEpgSnapshotAsync,
   buildSourcesSignature,
   CHANNEL_COUNTRY_FILTER_OPTIONS,
   channelMatchesCountryFilter,
@@ -66,6 +67,7 @@ import {
   isChannelAllowedBySettings,
   isSatelliteFilterAllowedBySettings,
   loadAppSettings,
+  loadAppSettingsAsync,
   loadEpgFromCache,
   loadFavoriteChannels,
   loadRecentSearches,
@@ -178,8 +180,27 @@ interface VirtualViewportState {
   isDesktopLayout: boolean;
 }
 
+/**
+ * Cède la main au thread principal (via setTimeout / Promise) pour laisser le DOM
+ * s'afficher immédiatement avant les opérations de lecture profil / parsing EPG
+ * sur les processeurs de Box Android TV moins puissants (ex: Echolink Atomo).
+ */
+function yieldToTvMainThread(delayMs = 20): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, delayMs);
+  });
+}
+
 export function App() {
-  const [settings, setSettings] = useState<AppSettings>(() => loadAppSettings());
+  const [settings, setSettings] = useState<AppSettings>(() => {
+    try {
+      return DEFAULT_SETTINGS;
+    } catch {
+      return loadAppSettings();
+    }
+  });
+  const [isProfileBootstrapping, setIsProfileBootstrapping] =
+    useState<boolean>(true);
   const [channels, setChannels] = useState<EpgChannel[]>([]);
   const [schedulesByChannel, setSchedulesByChannel] = useState<
     Record<string, EpgProgramme[]>
@@ -208,9 +229,7 @@ export function App() {
   const [selectedCountry, setSelectedCountry] =
     useState<ChannelCountryFilter>('Tous');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [recentSearches, setRecentSearches] = useState<string[]>(() =>
-    loadRecentSearches()
-  );
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [isSearchDropdownOpen, setIsSearchDropdownOpen] =
     useState<boolean>(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
@@ -222,12 +241,8 @@ export function App() {
     useState<ActiveTimePreset>('now');
   const [liveSyncCount, setLiveSyncCount] = useState<number>(0);
 
-  const [favorites, setFavorites] = useState<string[]>(() =>
-    loadFavoriteChannels()
-  );
-  const [reminders, setReminders] = useState<ProgrammeReminder[]>(() =>
-    loadReminders()
-  );
+  const [favorites, setFavorites] = useState<string[]>([]);
+  const [reminders, setReminders] = useState<ProgrammeReminder[]>([]);
   const [dismissedBannerIds, setDismissedBannerIds] = useState<string[]>([]);
   const [recentlyAddedReminder, setRecentlyAddedReminder] =
     useState<ProgrammeReminder | null>(null);
@@ -399,291 +414,459 @@ export function App() {
 
   const handleLoadOfflineFallback = useCallback(
     (targetSettings: AppSettings = settings) => {
-      const fallback = buildOfflineFallbackEpgSnapshot(targetSettings);
-      if (fallback.channels.length > 0) {
-        setChannels(fallback.channels);
-        setSchedulesByChannel(fallback.schedulesByChannel);
-        setCacheMeta(fallback.metadata);
-      }
+      void buildOfflineFallbackEpgSnapshotAsync(targetSettings).then(
+        (fallback) => {
+          if (fallback.channels.length > 0) {
+            setChannels(fallback.channels);
+            setSchedulesByChannel(fallback.schedulesByChannel);
+            setCacheMeta(fallback.metadata);
+          }
+        }
+      );
     },
     [settings]
   );
 
   const triggerEpgSync = useCallback((currentSettings: AppSettings) => {
-    if (workerRef.current) {
-      workerRef.current.terminate();
-    }
-
-    const worker = new Worker(
-      new URL('./workers/epgWorker.ts', import.meta.url),
-      { type: 'module' }
-    );
-    workerRef.current = worker;
-
-    setIsSyncing(true);
-    setEpgError(null);
-
-    worker.onmessage = async (event: MessageEvent<WorkerResponseMessage>) => {
-      const msg = event.data;
-      if (msg.type === 'WORKER_FETCH_REQUEST') {
-        const { requestId, url } = msg.payload;
+    try {
+      if (workerRef.current) {
         try {
-          const cap = (
-            window as unknown as {
-              Capacitor?: {
-                Plugins?: {
-                  CapacitorHttp?: {
-                    get?: (opts: {
-                      url: string;
-                      responseType?: string;
-                      headers?: Record<string, string>;
-                    }) => Promise<{ status: number; data: unknown }>;
+          workerRef.current.terminate();
+        } catch {
+          // Ignore terminate error
+        }
+        workerRef.current = null;
+      }
+
+      if (typeof Worker === 'undefined') {
+        void buildOfflineFallbackEpgSnapshotAsync(currentSettings).then(
+          (fallback) => {
+            setIsSyncing(false);
+            setWorkerProgress(null);
+            setChannels((prev) => (prev.length > 0 ? prev : fallback.channels));
+            setSchedulesByChannel((prev) =>
+              Object.keys(prev).length > 0 ? prev : fallback.schedulesByChannel
+            );
+            setCacheMeta((prev) => prev || fallback.metadata);
+          }
+        );
+        return;
+      }
+
+      let worker: Worker;
+      try {
+        worker = new Worker(
+          new URL('./workers/epgWorker.ts', import.meta.url),
+          { type: 'module' }
+        );
+      } catch {
+        worker = new Worker(
+          new URL('./workers/epgWorker.ts', import.meta.url)
+        );
+      }
+      workerRef.current = worker;
+
+      setIsSyncing(true);
+      setEpgError(null);
+
+      worker.onmessage = async (event: MessageEvent<WorkerResponseMessage>) => {
+        const msg = event.data;
+        if (!msg) return;
+        if (msg.type === 'WORKER_FETCH_REQUEST') {
+          const { requestId, url } = msg.payload;
+          try {
+            const cap = (
+              window as unknown as {
+                Capacitor?: {
+                  Plugins?: {
+                    CapacitorHttp?: {
+                      get?: (opts: {
+                        url: string;
+                        responseType?: string;
+                        headers?: Record<string, string>;
+                      }) => Promise<{ status: number; data: unknown }>;
+                    };
                   };
                 };
-              };
+              }
+            ).Capacitor;
+
+            let resultBuffer: ArrayBuffer | null = null;
+
+            if (cap?.Plugins?.CapacitorHttp?.get) {
+              try {
+                const capRes = await cap.Plugins.CapacitorHttp.get({
+                  url,
+                  responseType: 'arraybuffer',
+                  headers: {
+                    Accept: 'application/octet-stream, application/x-gzip, */*',
+                  },
+                });
+                if (
+                  capRes &&
+                  capRes.status >= 200 &&
+                  capRes.status < 300 &&
+                  capRes.data
+                ) {
+                  if (typeof capRes.data === 'string') {
+                    const binStr = atob(capRes.data);
+                    const bytes = new Uint8Array(binStr.length);
+                    for (let i = 0; i < binStr.length; i++) {
+                      bytes[i] = binStr.charCodeAt(i);
+                    }
+                    resultBuffer = bytes.buffer;
+                  } else if (capRes.data instanceof ArrayBuffer) {
+                    resultBuffer = capRes.data;
+                  }
+                }
+              } catch {
+                // Fallback to window.fetch below
+              }
             }
-          ).Capacitor;
 
-          let resultBuffer: ArrayBuffer | null = null;
-
-          if (cap?.Plugins?.CapacitorHttp?.get) {
-            try {
-              const capRes = await cap.Plugins.CapacitorHttp.get({
-                url,
-                responseType: 'arraybuffer',
+            if (!resultBuffer) {
+              const res = await window.fetch(url, {
+                method: 'GET',
                 headers: {
                   Accept: 'application/octet-stream, application/x-gzip, */*',
                 },
               });
-              if (capRes && capRes.status >= 200 && capRes.status < 300 && capRes.data) {
-                if (typeof capRes.data === 'string') {
-                  const binStr = atob(capRes.data);
-                  const bytes = new Uint8Array(binStr.length);
-                  for (let i = 0; i < binStr.length; i++) {
-                    bytes[i] = binStr.charCodeAt(i);
-                  }
-                  resultBuffer = bytes.buffer;
-                } else if (capRes.data instanceof ArrayBuffer) {
-                  resultBuffer = capRes.data;
-                }
+              if (!res.ok) {
+                throw new Error(`HTTP ${res.status}`);
               }
-            } catch {
-              // Fallback to window.fetch below
+              const ct = (res.headers.get('content-type') || '').toLowerCase();
+              if (ct.includes('text/html')) {
+                throw new Error('Réponse HTML non valide');
+              }
+              resultBuffer = await res.arrayBuffer();
             }
-          }
 
-          if (!resultBuffer) {
-            const res = await window.fetch(url, {
-              method: 'GET',
-              headers: {
-                Accept: 'application/octet-stream, application/x-gzip, */*',
+            worker.postMessage(
+              {
+                type: 'WORKER_FETCH_RESPONSE',
+                payload: {
+                  requestId,
+                  ok: true,
+                  buffer: resultBuffer,
+                },
               },
-            });
-            if (!res.ok) {
-              throw new Error(`HTTP ${res.status}`);
-            }
-            const ct = (res.headers.get('content-type') || '').toLowerCase();
-            if (ct.includes('text/html')) {
-              throw new Error('Réponse HTML non valide');
-            }
-            resultBuffer = await res.arrayBuffer();
-          }
-
-          worker.postMessage(
-            {
+              [resultBuffer]
+            );
+          } catch (fetchErr: unknown) {
+            worker.postMessage({
               type: 'WORKER_FETCH_RESPONSE',
               payload: {
                 requestId,
-                ok: true,
-                buffer: resultBuffer,
+                ok: false,
+                error:
+                  fetchErr instanceof Error
+                    ? fetchErr.message
+                    : String(fetchErr),
               },
-            },
-            [resultBuffer]
-          );
-        } catch (fetchErr: unknown) {
-          worker.postMessage({
-            type: 'WORKER_FETCH_RESPONSE',
-            payload: {
-              requestId,
-              ok: false,
-              error:
-                fetchErr instanceof Error ? fetchErr.message : String(fetchErr),
-            },
-          });
-        }
-        return;
-      }
-
-      if (msg.type === 'EPG_PROGRESS') {
-        setWorkerProgress(msg);
-      } else if (msg.type === 'EPG_COMPLETE') {
-        const {
-          metadata,
-          channels: parsedChannels,
-          schedulesByChannel: parsedSchedules,
-        } = msg.payload;
-        setChannels(parsedChannels);
-        setSchedulesByChannel(parsedSchedules);
-        setCacheMeta(metadata);
-        setIsSyncing(false);
-        setWorkerProgress(null);
-        setEpgError(null);
-
-        try {
-          await saveEpgToCache(metadata, parsedChannels, parsedSchedules);
-        } catch {
-          // Ignore IndexedDB quota error
-        }
-        worker.terminate();
-        workerRef.current = null;
-      } else if (msg.type === 'EPG_ERROR') {
-        const errText =
-          msg.payload?.error ||
-          'Échec du chargement ou du parsing XMLTV HTTPS. Vérifiez votre connexion réseau ou réessayez.';
-        const fallback = buildOfflineFallbackEpgSnapshot(currentSettings);
-        setIsSyncing(false);
-        setWorkerProgress(null);
-        setEpgError(fallback.channels.length > 0 ? null : errText);
-        setChannels((prev) => (prev.length > 0 ? prev : fallback.channels));
-        setSchedulesByChannel((prev) =>
-          Object.keys(prev).length > 0 ? prev : fallback.schedulesByChannel
-        );
-        setCacheMeta((prev) => prev || fallback.metadata);
-        worker.terminate();
-        workerRef.current = null;
-      }
-    };
-
-    worker.onerror = (errEvent) => {
-      const fallback = buildOfflineFallbackEpgSnapshot(currentSettings);
-      setIsSyncing(false);
-      setWorkerProgress(null);
-      setEpgError(
-        fallback.channels.length > 0
-          ? null
-          : errEvent.message ||
-              'Erreur inattendue lors du traitement du flux XMLTV HTTPS.'
-      );
-      setChannels((prev) => (prev.length > 0 ? prev : fallback.channels));
-      setSchedulesByChannel((prev) =>
-        Object.keys(prev).length > 0 ? prev : fallback.schedulesByChannel
-      );
-      setCacheMeta((prev) => prev || fallback.metadata);
-      worker.terminate();
-      workerRef.current = null;
-    };
-
-    const isNativeCapacitor =
-      typeof window !== 'undefined' &&
-      Boolean(
-        (
-          window as unknown as {
-            Capacitor?: { isNativePlatform?: () => boolean };
-          }
-        ).Capacitor?.isNativePlatform?.() ||
-          window.location.protocol === 'capacitor:' ||
-          (window.location.hostname === 'localhost' && !window.location.port)
-      );
-
-    const resolvedTvProfile =
-      currentSettings.tvProfile ||
-      inferTvProfileFromBouquets(
-        currentSettings.selectedBouquets,
-        currentSettings.tvProfile
-      );
-
-    const req: WorkerRequestMessage = {
-      type: 'START_EPG_SYNC',
-      payload: {
-        sources: syncSourcesWithSelectedBouquets(
-          currentSettings.selectedBouquets,
-          currentSettings.sources,
-          resolvedTvProfile
-        ),
-        windowHours: currentSettings.windowHours,
-        cacheTtlHours: currentSettings.cacheTtlHours,
-        isNativeCapacitor,
-        tvProfile: resolvedTvProfile,
-        selectedBouquets: currentSettings.selectedBouquets,
-        excludePolishLektor: currentSettings.excludePolishLektor,
-        excludeNoSubtitles: currentSettings.excludeNoSubtitles,
-        enabledCategories: currentSettings.enabledCategories,
-      },
-    };
-    worker.postMessage(req);
-  }, []);
-
-  // Chargement initial : synchronisation Capacitor Preferences + filtrage strict selon le profil TV détecté/sauvegardé
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      const capSyncedSettings = await syncAppSettingsFromCapacitorPreferences();
-      const effectiveSettings = capSyncedSettings || settings;
-      if (capSyncedSettings && mounted) {
-        setSettings(capSyncedSettings);
-      }
-
-      const expectedSignature = buildSourcesSignature(effectiveSettings);
-      const cached = await loadEpgFromCache(effectiveSettings);
-
-      if (cached && cached.channels.length > 0) {
-        if (!mounted) return;
-        const allowedCachedChannels = cached.channels.filter((ch) =>
-          isChannelAllowedBySettings(ch, effectiveSettings)
-        );
-        const signatureMatches =
-          cached.metadata.sourcesSignature === expectedSignature;
-
-        if (allowedCachedChannels.length > 0 && signatureMatches) {
-          const allowedIds = new Set(
-            allowedCachedChannels.flatMap((ch) => [
-              ch.id,
-              cleanXmltvChannelId(ch.id),
-            ])
-          );
-          const prunedAll = pruneSchedulesToActiveWindow(
-            cached.schedulesByChannel,
-            Date.now()
-          );
-          const filteredSchedules: Record<string, EpgProgramme[]> = {};
-          for (const chId of Object.keys(prunedAll)) {
-            if (
-              allowedIds.has(chId) ||
-              allowedIds.has(cleanXmltvChannelId(chId))
-            ) {
-              filteredSchedules[chId] = prunedAll[chId];
-            }
-          }
-
-          setChannels(allowedCachedChannels);
-          setSchedulesByChannel(filteredSchedules);
-          setCacheMeta(cached.metadata);
-
-          const cacheAgeMs =
-            Date.now() - (cached.metadata.lastUpdatedMs || 0);
-          const isOlderThan12Hours = cacheAgeMs > 12 * 3600 * 1000;
-          if (isOlderThan12Hours && effectiveSettings.autoRefreshHours > 0) {
-            triggerEpgSync(effectiveSettings);
+            });
           }
           return;
         }
-      }
 
-      if (!mounted) return;
-      const initialSnapshot =
-        buildOfflineFallbackEpgSnapshot(effectiveSettings);
-      if (initialSnapshot.channels.length > 0) {
-        setChannels(initialSnapshot.channels);
-        setSchedulesByChannel(initialSnapshot.schedulesByChannel);
-        setCacheMeta(initialSnapshot.metadata);
-      }
-      triggerEpgSync(effectiveSettings);
-    })();
+        if (msg.type === 'EPG_PROGRESS') {
+          setWorkerProgress(msg);
+        } else if (msg.type === 'EPG_COMPLETE') {
+          const {
+            metadata,
+            channels: parsedChannels,
+            schedulesByChannel: parsedSchedules,
+          } = msg.payload;
+          setTimeout(async () => {
+            setChannels(parsedChannels);
+            setSchedulesByChannel(parsedSchedules);
+            setCacheMeta(metadata);
+            setIsSyncing(false);
+            setWorkerProgress(null);
+            setEpgError(null);
+
+            try {
+              await saveEpgToCache(metadata, parsedChannels, parsedSchedules);
+            } catch {
+              // Ignore IndexedDB quota error
+            }
+          }, 0);
+          try {
+            worker.terminate();
+          } catch {
+            // Ignore
+          }
+          workerRef.current = null;
+        } else if (msg.type === 'EPG_ERROR') {
+          const errText =
+            msg.payload?.error ||
+            'Échec du chargement ou du parsing XMLTV HTTPS. Vérifiez votre connexion réseau ou réessayez.';
+          void buildOfflineFallbackEpgSnapshotAsync(currentSettings).then(
+            (fallback) => {
+              setIsSyncing(false);
+              setWorkerProgress(null);
+              setEpgError(fallback.channels.length > 0 ? null : errText);
+              setChannels((prev) =>
+                prev.length > 0 ? prev : fallback.channels
+              );
+              setSchedulesByChannel((prev) =>
+                Object.keys(prev).length > 0
+                  ? prev
+                  : fallback.schedulesByChannel
+              );
+              setCacheMeta((prev) => prev || fallback.metadata);
+            }
+          );
+          try {
+            worker.terminate();
+          } catch {
+            // Ignore
+          }
+          workerRef.current = null;
+        }
+      };
+
+      worker.onerror = (errEvent) => {
+        void buildOfflineFallbackEpgSnapshotAsync(currentSettings).then(
+          (fallback) => {
+            setIsSyncing(false);
+            setWorkerProgress(null);
+            setEpgError(
+              fallback.channels.length > 0
+                ? null
+                : errEvent.message ||
+                    'Erreur inattendue lors du traitement du flux XMLTV HTTPS.'
+            );
+            setChannels((prev) =>
+              prev.length > 0 ? prev : fallback.channels
+            );
+            setSchedulesByChannel((prev) =>
+              Object.keys(prev).length > 0 ? prev : fallback.schedulesByChannel
+            );
+            setCacheMeta((prev) => prev || fallback.metadata);
+          }
+        );
+        try {
+          worker.terminate();
+        } catch {
+          // Ignore
+        }
+        workerRef.current = null;
+      };
+
+      const isNativeCapacitor =
+        typeof window !== 'undefined' &&
+        Boolean(
+          (
+            window as unknown as {
+              Capacitor?: { isNativePlatform?: () => boolean };
+            }
+          ).Capacitor?.isNativePlatform?.() ||
+            window.location.protocol === 'capacitor:' ||
+            (window.location.hostname === 'localhost' && !window.location.port)
+        );
+
+      const resolvedTvProfile =
+        currentSettings.tvProfile ||
+        inferTvProfileFromBouquets(
+          currentSettings.selectedBouquets,
+          currentSettings.tvProfile
+        );
+
+      // Lancement asynchrone du parsing Worker pour ne jamais bloquer le thread UI
+      setTimeout(() => {
+        try {
+          const req: WorkerRequestMessage = {
+            type: 'START_EPG_SYNC',
+            payload: {
+              sources: syncSourcesWithSelectedBouquets(
+                currentSettings.selectedBouquets,
+                currentSettings.sources,
+                resolvedTvProfile
+              ),
+              windowHours: currentSettings.windowHours,
+              cacheTtlHours: currentSettings.cacheTtlHours,
+              isNativeCapacitor,
+              tvProfile: resolvedTvProfile,
+              selectedBouquets: currentSettings.selectedBouquets,
+              excludePolishLektor: currentSettings.excludePolishLektor,
+              excludeNoSubtitles: currentSettings.excludeNoSubtitles,
+              enabledCategories: currentSettings.enabledCategories,
+            },
+          };
+          worker.postMessage(req);
+        } catch {
+          void buildOfflineFallbackEpgSnapshotAsync(currentSettings).then(
+            (fallback) => {
+              setIsSyncing(false);
+              setChannels((prev) =>
+                prev.length > 0 ? prev : fallback.channels
+              );
+              setSchedulesByChannel((prev) =>
+                Object.keys(prev).length > 0
+                  ? prev
+                  : fallback.schedulesByChannel
+              );
+              setCacheMeta((prev) => prev || fallback.metadata);
+            }
+          );
+        }
+      }, 25);
+    } catch {
+      void buildOfflineFallbackEpgSnapshotAsync(currentSettings).then(
+        (fallback) => {
+          setIsSyncing(false);
+          setWorkerProgress(null);
+          setChannels((prev) => (prev.length > 0 ? prev : fallback.channels));
+          setSchedulesByChannel((prev) =>
+            Object.keys(prev).length > 0 ? prev : fallback.schedulesByChannel
+          );
+          setCacheMeta((prev) => prev || fallback.metadata);
+        }
+      );
+    }
+  }, []);
+
+  // Chargement initial totalement asynchrone (via setTimeout / Promise + try/catch) :
+  // Laisse le temps au DOM de s'afficher d'abord sur les processeurs TV moins puissants (ex: Echolink Atomo)
+  useEffect(() => {
+    let mounted = true;
+
+    const timerId = setTimeout(() => {
+      void (async () => {
+        let effectiveSettings: AppSettings = DEFAULT_SETTINGS;
+        try {
+          // Étape 1 : Céder la main au moteur de rendu DOM avant de lire le profil et LocalStorage
+          await yieldToTvMainThread(16);
+          if (!mounted) return;
+
+          // Hydratation asynchrone sécurisée des recherches récentes, favoris et rappels
+          try {
+            setRecentSearches(loadRecentSearches());
+            setFavorites(loadFavoriteChannels());
+            setReminders(loadReminders());
+          } catch {
+            // Ignore storage errors
+          }
+
+          // Étape 2 : Détection et chargement asynchrone du profil TV et des préférences Capacitor
+          const localLoadedSettings = await loadAppSettingsAsync();
+          const capSyncedSettings =
+            await syncAppSettingsFromCapacitorPreferences();
+          effectiveSettings =
+            capSyncedSettings || localLoadedSettings || DEFAULT_SETTINGS;
+
+          if (mounted) {
+            setSettings(effectiveSettings);
+          }
+
+          // Étape 3 : Céder la main au DOM avant l'ouverture d'IndexedDB et le filtrage des chaînes
+          await yieldToTvMainThread(16);
+          if (!mounted) return;
+
+          const expectedSignature = buildSourcesSignature(effectiveSettings);
+          const cached = await loadEpgFromCache(effectiveSettings);
+
+          if (cached && cached.channels.length > 0) {
+            if (!mounted) return;
+            await yieldToTvMainThread(12);
+            if (!mounted) return;
+
+            const allowedCachedChannels = cached.channels.filter((ch) =>
+              isChannelAllowedBySettings(ch, effectiveSettings)
+            );
+            const signatureMatches =
+              cached.metadata.sourcesSignature === expectedSignature;
+
+            if (allowedCachedChannels.length > 0 && signatureMatches) {
+              const allowedIds = new Set(
+                allowedCachedChannels.flatMap((ch) => [
+                  ch.id,
+                  cleanXmltvChannelId(ch.id),
+                ])
+              );
+              const prunedAll = pruneSchedulesToActiveWindow(
+                cached.schedulesByChannel,
+                Date.now()
+              );
+              const filteredSchedules: Record<string, EpgProgramme[]> = {};
+              for (const chId of Object.keys(prunedAll)) {
+                if (
+                  allowedIds.has(chId) ||
+                  allowedIds.has(cleanXmltvChannelId(chId))
+                ) {
+                  filteredSchedules[chId] = prunedAll[chId];
+                }
+              }
+
+              if (!mounted) return;
+              setChannels(allowedCachedChannels);
+              setSchedulesByChannel(filteredSchedules);
+              setCacheMeta(cached.metadata);
+              setIsProfileBootstrapping(false);
+
+              const cacheAgeMs =
+                Date.now() - (cached.metadata.lastUpdatedMs || 0);
+              const isOlderThan12Hours = cacheAgeMs > 12 * 3600 * 1000;
+              if (isOlderThan12Hours && effectiveSettings.autoRefreshHours > 0) {
+                setTimeout(() => {
+                  if (mounted) triggerEpgSync(effectiveSettings);
+                }, 80);
+              }
+              return;
+            }
+          }
+
+          // Étape 4 : Construction asynchrone de la grille de secours initiale puis lancement différé du Worker
+          if (!mounted) return;
+          const initialSnapshot =
+            await buildOfflineFallbackEpgSnapshotAsync(effectiveSettings);
+          if (!mounted) return;
+
+          if (initialSnapshot.channels.length > 0) {
+            setChannels(initialSnapshot.channels);
+            setSchedulesByChannel(initialSnapshot.schedulesByChannel);
+            setCacheMeta(initialSnapshot.metadata);
+          }
+          setIsProfileBootstrapping(false);
+
+          setTimeout(() => {
+            if (mounted) {
+              triggerEpgSync(effectiveSettings);
+            }
+          }, 60);
+        } catch (initErr) {
+          console.warn(
+            'Erreur interceptée lors de l’initialisation asynchrone Android TV:',
+            initErr
+          );
+          if (!mounted) return;
+          try {
+            const fallback =
+              await buildOfflineFallbackEpgSnapshotAsync(effectiveSettings);
+            if (mounted && fallback.channels.length > 0) {
+              setChannels(fallback.channels);
+              setSchedulesByChannel(fallback.schedulesByChannel);
+              setCacheMeta(fallback.metadata);
+            }
+          } catch {
+            // Ignore
+          }
+          if (mounted) {
+            setIsProfileBootstrapping(false);
+          }
+        }
+      })();
+    }, 10);
 
     return () => {
       mounted = false;
+      clearTimeout(timerId);
       if (workerRef.current) {
-        workerRef.current.terminate();
+        try {
+          workerRef.current.terminate();
+        } catch {
+          // Ignore
+        }
       }
     };
   }, []);
@@ -4380,190 +4563,6 @@ export function App() {
           </div>
         </div>
 
-        {/* Visualisation Animée du Chemin de Focus Actif (D-Pad Grid State Machine) : En-tête <-> Lignes de Filtres <-> Liste des Chaînes (Index Mémorisé) */}
-        {viewMode !== 'grid' && viewMode !== 'reminders' && filteredChannels.length > 0 && (
-          <div
-            data-active-zone={activeDpadZone || 'idle'}
-            data-transition-seq={dpadState.transitionSeq}
-            className="tv-zone-bridge mb-3.5 rounded-lg bg-[#141a26]/95 border border-[#1a202c] px-3 sm:px-4 py-2 flex flex-wrap items-center justify-between gap-2 text-xs"
-          >
-            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-              {/* Nœud 1 : Zone En-tête (Header) */}
-              <button
-                type="button"
-                tabIndex={-1}
-                onClick={() => {
-                  const headerBtn = document.querySelector<HTMLElement>(
-                    '[data-tv-row="header-tabs"] button:not([disabled])'
-                  );
-                  if (headerBtn) {
-                    triggerZoneTransition(activeDpadZone, 'header', 'up');
-                    headerBtn.focus({ preventScroll: false });
-                  }
-                }}
-                className={`hidden md:inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold transition-all cursor-pointer ${
-                  activeDpadZone === 'header'
-                    ? 'bg-[#1d4ed8] text-[#ffffff] border border-[#38bdf8] shadow-[0_0_12px_rgba(56,189,248,0.6)]'
-                    : 'bg-[#0a0e17] text-[#cbd5e1] border border-[#1a202c] hover:text-[#ffffff]'
-                }`}
-              >
-                <span>
-                  {activeLang === 'fr'
-                    ? 'En-tête'
-                    : activeLang === 'es'
-                    ? 'Cabecera'
-                    : activeLang === 'ar'
-                    ? 'الرأس'
-                    : 'Header'}
-                </span>
-              </button>
-
-              {/* Connecteur animé Header <-> Filtres */}
-              <span
-                aria-hidden="true"
-                data-flow={
-                  activeDpadZone === 'header'
-                    ? 'up'
-                    : activeDpadZone === 'filters'
-                    ? 'down'
-                    : 'idle'
-                }
-                className="tv-focus-path-connector hidden md:inline-flex"
-              >
-                <span className="tv-focus-path-connector-beam" />
-              </span>
-
-              {/* Nœud 2 : Zone Lignes de Filtres (Grille 2D R/C) */}
-              <button
-                type="button"
-                tabIndex={-1}
-                onClick={() => {
-                  focusFilterGridRow('last', {
-                    preferRememberedCol: true,
-                    direction: 'up',
-                  });
-                }}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
-                  activeDpadZone === 'filters'
-                    ? 'bg-[#0055ff] text-[#ffffff] border border-[#38bdf8] shadow-[0_0_12px_rgba(56,189,248,0.65)]'
-                    : 'bg-[#0a0e17] text-[#cbd5e1] border border-[#1a202c] hover:text-[#ffffff]'
-                }`}
-              >
-                <ChevronUp className="w-3.5 h-3.5 text-[#38bdf8]" />
-                <span>
-                  {activeLang === 'fr'
-                    ? 'Lignes de Filtres'
-                    : activeLang === 'es'
-                    ? 'Filas de Filtros'
-                    : activeLang === 'ar'
-                    ? 'صفوف الفلاتر'
-                    : 'Filter Rows'}
-                </span>
-                {activeDpadZone === 'filters' && (
-                  <span className="px-1.5 py-0.2 rounded bg-[#0a0e17] text-[#38bdf8] border border-[#38bdf8]/60 font-mono text-[10px]">
-                    {activeFilterRow === 'filter-search'
-                      ? activeLang === 'fr'
-                        ? 'Recherche'
-                        : 'Search'
-                      : activeFilterRow === 'live-categories'
-                      ? tr.filterCatLabel
-                      : activeFilterRow === 'live-satellites'
-                      ? tr.filterSatLabel
-                      : activeFilterRow === 'live-bouquets'
-                      ? tr.filterBouquetLabel
-                      : activeFilterRow === 'live-countries'
-                      ? tr.filterCountryLabel || tr.filterZoneLabel
-                      : tr.filterGenreLabel}
-                    {dpadState.totalFilterRows > 0
-                      ? ` · R${dpadState.filterRowIndex + 1}/${dpadState.totalFilterRows}`
-                      : ''}
-                  </span>
-                )}
-              </button>
-
-              {/* Connecteur animé Filtres <-> Chaînes (Chemin de Focus Actif) */}
-              <span
-                aria-hidden="true"
-                data-flow={
-                  activeDpadZone === 'channels'
-                    ? 'down'
-                    : activeDpadZone === 'filters'
-                    ? 'up'
-                    : 'idle'
-                }
-                className="tv-focus-path-connector"
-              >
-                <span className="tv-focus-path-connector-beam" />
-              </span>
-
-              {/* Nœud 3 : Zone Liste des Chaînes (avec affichage permanent du dernier index focalisé mémorisé) */}
-              <button
-                type="button"
-                tabIndex={-1}
-                onClick={() => {
-                  focusChannelAtIndex(
-                    lastFocusedChannelIndexRef.current,
-                    0,
-                    'down'
-                  );
-                }}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
-                  activeDpadZone === 'channels'
-                    ? 'bg-[#e11d48] text-[#ffffff] border border-[#ffffff] shadow-[0_0_14px_rgba(236,72,153,0.75)]'
-                    : 'bg-[#0a0e17] text-[#cbd5e1] border border-[#1a202c] hover:text-[#ffffff]'
-                }`}
-              >
-                <ChevronDown className="w-3.5 h-3.5 text-[#ec4899]" />
-                <span>
-                  {activeLang === 'fr'
-                    ? 'Liste des Chaînes'
-                    : activeLang === 'es'
-                    ? 'Lista de Canales'
-                    : activeLang === 'ar'
-                    ? 'قائمة القنوات'
-                    : 'Channel List'}
-                </span>
-                <span
-                  className={`px-1.5 py-0.2 rounded font-mono text-[10px] ${
-                    activeDpadZone === 'channels'
-                      ? 'bg-[#0a0e17] text-[#ffffff] border border-[#ec4899]/80'
-                      : 'bg-[#141a26] text-[#38bdf8] border border-[#38bdf8]/40'
-                  }`}
-                >
-                  {activeDpadZone === 'channels'
-                    ? `#${(focusedChannelIndex ?? lastFocusedChannelIndex) + 1} / ${filteredChannels.length}`
-                    : `↺ #${Math.min(lastFocusedChannelIndex + 1, filteredChannels.length)} / ${filteredChannels.length}`}
-                </span>
-              </button>
-            </div>
-
-            {/* Guide contextuel D-Pad selon la zone active */}
-            <div className="hidden sm:flex items-center gap-2 text-[11px] text-[#cbd5e1]">
-              {activeDpadZone === 'filters' ? (
-                <span className="inline-flex items-center gap-1.5 text-[#38bdf8] font-semibold">
-                  <span className="w-2 h-2 rounded-full bg-[#38bdf8] animate-pulse" />
-                  {activeLang === 'fr'
-                    ? `◄ ► Parcourir · ▼ Retour précis à la chaîne #${Math.min(lastFocusedChannelIndex + 1, filteredChannels.length)}`
-                    : `◄ ► Browse row · ▼ Return to channel #${Math.min(lastFocusedChannelIndex + 1, filteredChannels.length)}`}
-                </span>
-              ) : activeDpadZone === 'channels' ? (
-                <span className="inline-flex items-center gap-1.5 text-[#ec4899] font-semibold">
-                  <span className="w-2 h-2 rounded-full bg-[#ec4899] animate-pulse" />
-                  {activeLang === 'fr'
-                    ? '▲ ▼ Chaînes · ► Rappel / Favori · ◄ Remonter aux filtres (index mémorisé)'
-                    : '▲ ▼ Channels · ► Reminder / Favorite · ◄ Jump to filters (index saved)'}
-                </span>
-              ) : (
-                <span className="text-[#cbd5e1]/80">
-                  {activeLang === 'fr'
-                    ? 'Navigation Télécommande D-Pad : ▲ ▼ Changer de zone · OK Sélectionner'
-                    : 'D-Pad Remote Navigation: ▲ ▼ Switch zone · OK Select'}
-                </span>
-              )}
-            </div>
-          </div>
-        )}
-
         {/* Rappels actifs dans l'onglet Favoris */}
         {viewMode === 'favorites' && reminders.length > 0 && (
           <div className="mb-4 rounded-lg p-4 bg-[#141a26] border border-[#1a202c] space-y-2.5">
@@ -4664,7 +4663,21 @@ export function App() {
           />
         ) : filteredChannels.length === 0 ? (
           <div className="rounded-lg border border-dashed border-[#1a202c] bg-[#141a26] p-10 text-center max-w-lg mx-auto my-8">
-            {epgError ? (
+            {isProfileBootstrapping || (isSyncing && channels.length === 0) ? (
+              <>
+                <RefreshCw className="w-10 h-10 text-[#38bdf8] mx-auto mb-3 animate-spin" />
+                <h3 className="text-base font-bold text-[#ffffff]">
+                  {activeLang === 'fr'
+                    ? 'Chargement...'
+                    : 'Loading...'}
+                </h3>
+                <p className="text-xs text-[#cbd5e1] mt-1 leading-relaxed">
+                  {activeLang === 'fr'
+                    ? 'Initialisation asynchrone du profil TV et des chaînes en cours...'
+                    : 'Asynchronously initializing TV profile and channels...'}
+                </p>
+              </>
+            ) : epgError ? (
               <>
                 <AlertTriangle className="w-10 h-10 text-[#e11d48] mx-auto mb-3" />
                 <h3 className="text-base font-bold text-[#ffffff]">
