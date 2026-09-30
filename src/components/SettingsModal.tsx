@@ -188,21 +188,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         const nextBouquets = prev.selectedBouquets.filter(
           (b) => b !== bouquetId
         );
-        const finalBouquets =
-          nextBouquets.length > 0
-            ? nextBouquets
-            : ([bouquetId] as EpgBouquetId[]);
         const nextProfile = inferTvProfileFromBouquets(
-          finalBouquets,
+          nextBouquets,
           prev.tvProfile
         );
         setLimitWarning(null);
         return {
           ...prev,
           tvProfile: nextProfile,
-          selectedBouquets: finalBouquets,
+          selectedBouquets: nextBouquets,
           sources: syncSourcesWithSelectedBouquets(
-            finalBouquets,
+            nextBouquets,
             prev.sources,
             nextProfile
           ),
@@ -215,10 +211,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       }
 
       const candidate = [...prev.selectedBouquets, bouquetId];
-      if (
-        candidate.length > MAX_ACTIVE_BOUQUETS ||
-        countActiveSatellites(candidate) > MAX_ACTIVE_SATELLITES
-      ) {
+      if (candidate.length > MAX_ACTIVE_BOUQUETS) {
         setLimitWarning(RAM_LIMIT_WARNING_MESSAGE);
         return prev;
       }
@@ -516,9 +509,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                  {TV_PROFILES_CATALOG.map((profile) => {
+                  {TV_PROFILES_CATALOG.filter(
+                    (profile) => profile.id !== 'all_satellites'
+                  ).map((profile) => {
                     const isSelected = activeProfileId === profile.id;
-                    const isAllSats = profile.id === 'all_satellites';
                     return (
                       <button
                         key={profile.id}
@@ -526,9 +520,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         onClick={() => handleSelectTvProfile(profile.id)}
                         className={`flex flex-col items-start justify-between gap-1.5 p-3 rounded-lg text-start transition-all cursor-pointer ${
                           isSelected
-                            ? isAllSats
-                              ? 'bg-[#e11d48]/20 border-[1.5px] border-[#ff0033] text-[#ffffff] shadow-[0_0_12px_rgba(225,29,72,0.35)]'
-                              : 'bg-[#1d4ed8]/25 border-[1.5px] border-[#0055ff] text-[#ffffff] shadow-[0_0_12px_rgba(0,85,255,0.35)]'
+                            ? 'bg-[#1d4ed8]/25 border-[1.5px] border-[#0055ff] text-[#ffffff] shadow-[0_0_12px_rgba(0,85,255,0.35)]'
                             : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60'
                         }`}
                       >
@@ -540,13 +532,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             <span className="truncate">{profile.label}</span>
                           </span>
                           {isSelected && (
-                            <span
-                              className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider shrink-0 ${
-                                isAllSats
-                                  ? 'bg-[#e11d48] text-[#ffffff]'
-                                  : 'bg-[#1d4ed8] text-[#ffffff]'
-                              }`}
-                            >
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider shrink-0 bg-[#1d4ed8] text-[#ffffff]">
                               Actif
                             </span>
                           )}
@@ -568,7 +554,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         Satellites complémentaires Maghreb / MENA (Optionnels) :
                       </span>
                       <span className="text-[10px] font-mono text-[#cbd5e1]">
-                        3 satellites principaux chargés par défaut (Nilesat 7°W, Astra 19.2°E, Hotbird 13°E)
+                        2 satellites principaux chargés par défaut (Nilesat 7°W &amp; Badr 26°E · Max 3 bouquets)
                       </span>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -576,15 +562,35 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         const isExtActive = ext.bouquetIds.every((id) =>
                           draft.selectedBouquets.includes(id)
                         );
+                        const wouldExceedMax =
+                          !isExtActive &&
+                          Array.from(
+                            new Set([
+                              ...draft.selectedBouquets,
+                              ...ext.bouquetIds,
+                            ])
+                          ).length > MAX_ACTIVE_BOUQUETS;
                         return (
                           <button
                             key={ext.id}
                             type="button"
-                            onClick={() => toggleSatelliteGroup(ext.bouquetIds)}
-                            className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${
-                              isExtActive
-                                ? 'bg-[#1d4ed8]/30 border-[#ec4899] text-[#ffffff] shadow-[0_0_10px_rgba(236,72,153,0.3)]'
-                                : 'bg-[#0a0e17] border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]'
+                            disabled={wouldExceedMax}
+                            style={
+                              wouldExceedMax
+                                ? { opacity: 0.4, cursor: 'not-allowed' }
+                                : undefined
+                            }
+                            onClick={() => {
+                              if (!wouldExceedMax) {
+                                toggleSatelliteGroup(ext.bouquetIds);
+                              }
+                            }}
+                            className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all border ${
+                              wouldExceedMax
+                                ? 'bg-[#0a0e17] border-[#1a202c] text-[#cbd5e1] opacity-40 cursor-not-allowed'
+                                : isExtActive
+                                ? 'bg-[#1d4ed8]/30 border-[#ec4899] text-[#ffffff] shadow-[0_0_10px_rgba(236,72,153,0.3)] cursor-pointer'
+                                : 'bg-[#0a0e17] border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff] cursor-pointer'
                             }`}
                           >
                             {isExtActive ? (
@@ -601,7 +607,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 )}
               </div>
 
-              {/* Section 1 : Couverture Globale des Satellites & Bouquets */}
+              {/* Section 1 : Couverture Globale des Satellites & Bouquets (Restriction Stricte à 3 Bouquets Max) */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div>
@@ -610,27 +616,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       {tr.bouquetsSectionTitle}
                     </h3>
                     <p className="text-xs text-[#cbd5e1] mt-0.5">
-                      {tr.bouquetsSectionDesc}
+                      Maximum {MAX_ACTIVE_BOUQUETS} bouquets sélectionnés simultanément. Décocher un bouquet actif pour en choisir un autre.
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="px-2.5 py-1 rounded-lg bg-[#0a0e17] text-[#cbd5e1] border border-[#1a202c] text-xs font-mono font-medium">
-                      RAM &lt; 50 Mo · {draft.selectedBouquets.length}/
-                      {ALL_BOUQUET_IDS.length} Bouquets actifs
-                    </span>
-                    <button
-                      type="button"
-                      onClick={selectAllBouquets}
-                      className="px-2.5 py-1 rounded-lg bg-[#e11d48] hover:bg-[#ff0033] text-[#ffffff] border border-[#ff0033] text-xs font-semibold shadow-[0_0_10px_rgba(225,29,72,0.35)] cursor-pointer"
+                    <span
+                      className={`px-3 py-1 rounded-lg border text-xs font-mono font-bold ${
+                        draft.selectedBouquets.length >= MAX_ACTIVE_BOUQUETS
+                          ? 'bg-[#e11d48]/20 text-[#ffffff] border-[#e11d48]'
+                          : 'bg-[#0a0e17] text-[#38bdf8] border-[#0055ff]/60'
+                      }`}
                     >
-                      Tous les satellites
-                    </button>
+                      {draft.selectedBouquets.length}/{MAX_ACTIVE_BOUQUETS} Bouquets actifs (Max {MAX_ACTIVE_BOUQUETS})
+                    </span>
                   </div>
                 </div>
 
                 {limitWarning && (
-                  <div className="p-3 rounded-lg bg-[#0a0e17] border border-[#0055ff]/50 text-[#ffffff] text-xs font-medium flex items-center gap-2">
-                    <ShieldAlert className="w-4 h-4 text-[#0055ff] shrink-0" />
+                  <div className="p-3 rounded-lg bg-[#0a0e17] border border-[#f59e0b]/70 text-[#ffffff] text-xs font-medium flex items-center gap-2">
+                    <ShieldAlert className="w-4 h-4 text-[#f59e0b] shrink-0" />
                     <span>{limitWarning}</span>
                   </div>
                 )}
@@ -645,6 +649,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     const allChecked =
                       groupIds.length > 0 && activeCount === groupIds.length;
                     const someChecked = activeCount > 0;
+                    const isMaxReached =
+                      draft.selectedBouquets.length >= MAX_ACTIVE_BOUQUETS;
+                    const groupWouldExceedMax =
+                      !allChecked &&
+                      Array.from(
+                        new Set([...draft.selectedBouquets, ...groupIds])
+                      ).length > MAX_ACTIVE_BOUQUETS;
 
                     return (
                       <div
@@ -652,35 +663,44 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         className={`rounded-lg border p-3.5 transition-all flex flex-col gap-2.5 ${
                           someChecked
                             ? 'bg-[#0a0e17] border-[#0055ff]/60'
-                            : 'bg-[#0a0e17]/60 border-[#1a202c] opacity-75 hover:opacity-100'
+                            : 'bg-[#0a0e17]/60 border-[#1a202c]'
                         }`}
                       >
                         {/* En-tête de la carte Satellite par Position Orbitale */}
                         <div className="flex items-start justify-between gap-2 pb-2 border-b border-[#1a202c]">
-                          <div
-                            tabIndex={0}
-                            role="button"
-                            onClick={() => toggleSatelliteGroup(groupIds)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault();
+                          <button
+                            type="button"
+                            disabled={groupWouldExceedMax}
+                            style={
+                              groupWouldExceedMax
+                                ? { opacity: 0.4, cursor: 'not-allowed' }
+                                : undefined
+                            }
+                            onClick={() => {
+                              if (!groupWouldExceedMax) {
                                 toggleSatelliteGroup(groupIds);
                               }
                             }}
-                            className="flex items-start gap-2.5 cursor-pointer min-w-0 flex-1 rounded-md p-0.5"
+                            className={`flex items-start gap-2.5 min-w-0 flex-1 rounded-md p-0.5 text-start ${
+                              groupWouldExceedMax
+                                ? 'opacity-40 cursor-not-allowed'
+                                : 'cursor-pointer'
+                            }`}
                           >
                             <div className="mt-0.5 text-[#0055ff] shrink-0">
-                              {allChecked ? (
-                                <CheckSquare className="w-4 h-4" />
-                              ) : (
-                                <Square
-                                  className={`w-4 h-4 ${
-                                    someChecked
-                                      ? 'text-[#0055ff]'
-                                      : 'text-[#cbd5e1]/60'
-                                  }`}
-                                />
-                              )}
+                              <input
+                                type="checkbox"
+                                readOnly
+                                tabIndex={-1}
+                                checked={allChecked}
+                                disabled={groupWouldExceedMax}
+                                style={
+                                  groupWouldExceedMax
+                                    ? { cursor: 'not-allowed' }
+                                    : { cursor: 'pointer' }
+                                }
+                                className="w-4 h-4 accent-[#0055ff] rounded pointer-events-none"
+                              />
                             </div>
                             <div className="min-w-0">
                               <div className="flex items-center gap-1.5 flex-wrap">
@@ -695,7 +715,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 {satGroup.subtitle}
                               </p>
                             </div>
-                          </div>
+                          </button>
 
                           <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50 shrink-0">
                             {activeCount}/{groupIds.length}
@@ -708,6 +728,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             const checked = draft.selectedBouquets.includes(
                               bq.id
                             );
+                            const isDisabled = !checked && isMaxReached;
                             const loc = getBouquetLocalizedText(
                               bq.id,
                               activeLang,
@@ -715,29 +736,49 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               bq.description
                             );
                             return (
-                              <div
+                              <label
                                 key={bq.id}
-                                tabIndex={0}
-                                role="button"
-                                onClick={() => toggleBouquet(bq.id)}
+                                tabIndex={isDisabled ? -1 : 0}
+                                aria-disabled={isDisabled}
+                                style={
+                                  isDisabled
+                                    ? { opacity: 0.4, cursor: 'not-allowed' }
+                                    : { cursor: 'pointer' }
+                                }
                                 onKeyDown={(e) => {
-                                  if (e.key === 'Enter' || e.key === ' ') {
+                                  if (
+                                    !isDisabled &&
+                                    (e.key === 'Enter' || e.key === ' ')
+                                  ) {
                                     e.preventDefault();
                                     toggleBouquet(bq.id);
                                   }
                                 }}
-                                className={`p-2.5 rounded-lg transition-all cursor-pointer flex items-start gap-2.5 ${
-                                  checked
-                                    ? 'bg-[#141a26] border-[1.5px] border-[#0055ff] text-[#ffffff]'
-                                    : 'bg-[#141a26]/60 border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff]'
+                                className={`p-2.5 rounded-lg transition-all flex items-start gap-2.5 ${
+                                  isDisabled
+                                    ? 'bg-[#141a26]/40 border border-[#1a202c] text-[#cbd5e1] opacity-40 cursor-not-allowed'
+                                    : checked
+                                    ? 'bg-[#141a26] border-[1.5px] border-[#0055ff] text-[#ffffff] cursor-pointer'
+                                    : 'bg-[#141a26]/60 border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] cursor-pointer'
                                 }`}
                               >
-                                <div className="mt-0.5 shrink-0">
-                                  {checked ? (
-                                    <CheckSquare className="w-4 h-4 text-[#0055ff]" />
-                                  ) : (
-                                    <Square className="w-4 h-4 text-[#cbd5e1]/60" />
-                                  )}
+                                <div className="mt-0.5 shrink-0 flex items-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    disabled={isDisabled}
+                                    onChange={() => {
+                                      if (!isDisabled) {
+                                        toggleBouquet(bq.id);
+                                      }
+                                    }}
+                                    style={
+                                      isDisabled
+                                        ? { cursor: 'not-allowed' }
+                                        : { cursor: 'pointer' }
+                                    }
+                                    className="w-4 h-4 accent-[#0055ff] rounded disabled:cursor-not-allowed"
+                                  />
                                 </div>
                                 <div className="min-w-0 flex-1">
                                   <div className="flex items-center justify-between gap-2">
@@ -766,7 +807,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                       </div>
                                     )}
                                 </div>
-                              </div>
+                              </label>
                             );
                           })}
                         </div>

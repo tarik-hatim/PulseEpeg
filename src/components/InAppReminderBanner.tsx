@@ -136,16 +136,17 @@ export const InAppReminderBanner: React.FC<InAppReminderBannerProps> = ({
         left: '50%',
         transform: 'translateX(-50%)',
         zIndex: 9999,
-        backgroundColor: '#141a26',
+        background: '#1e293b',
+        color: '#ffffff',
         border: '1px solid #3b82f6',
         borderRadius: '12px',
         padding: '12px 24px',
-        boxShadow: '0 10px 25px rgba(0,0,0,0.8)',
+        boxShadow: '0 10px 25px rgba(0,0,0,0.85)',
         display: 'flex',
         alignItems: 'center',
-        gap: '10px',
+        gap: '12px',
       }}
-      className="toast-notification in-app-toast-banner pointer-events-auto w-[calc(100vw-32px)] max-w-2xl transition-all"
+      className="toast-notification in-app-toast-banner pointer-events-auto w-auto min-w-[290px] max-w-[calc(100vw-24px)] sm:max-w-xl transition-all"
     >
       {/* Bouton principal immédiatement sélectionnable via OK / Enter sur la télécommande */}
       <button
@@ -167,7 +168,7 @@ export const InAppReminderBanner: React.FC<InAppReminderBannerProps> = ({
             onSelectReminder(primaryAlert);
           }
         }}
-        className="tv-focusable flex-1 flex items-center gap-3 text-start rounded-lg p-1.5 bg-transparent hover:bg-[#1a202c]/80 border border-transparent transition-all cursor-pointer min-w-0 group"
+        className="tv-focusable flex-1 flex items-center gap-3 text-start rounded-lg p-1 bg-transparent hover:bg-[#0f172a]/70 border border-transparent transition-all cursor-pointer min-w-0 group"
       >
         {/* Icône Cloche & Logo Chaîne */}
         <div className="relative shrink-0 flex items-center gap-2">
@@ -207,7 +208,7 @@ export const InAppReminderBanner: React.FC<InAppReminderBannerProps> = ({
             ) : (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-[#2563eb] text-[#ffffff]">
                 <BellRing className="w-3 h-3 text-[#ffffff]" />
-                ⏰ RAPPEL ACTIVÉ (-5 MIN)
+                RAPPEL ENREGISTRÉ (-5 MIN)
               </span>
             )}
 

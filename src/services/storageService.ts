@@ -36,7 +36,7 @@ const SNAPSHOT_KEY = 'active_epg_whitelist_v19';
 const LS_META_KEY = 'pulse_epg_meta_v19';
 const LS_SETTINGS_KEY = 'pulse_epg_settings_v5';
 export const LS_TV_PROFILE_KEY = 'pulse_epg_tv_profile_v1';
-const LS_STRICT_PROFILE_V12_MIGRATED_KEY = 'pulse_epg_strict_2_3_sats_v12';
+const LS_STRICT_PROFILE_V12_MIGRATED_KEY = 'pulse_epg_strict_fr_ar_v16';
 const LS_TZ_CASA_MIGRATED_KEY = 'pulse_epg_tz_casablanca_utc0_v1';
 const LS_BOUQUETS_V8_MIGRATED_KEY = 'pulse_epg_bouquets_separated_v8';
 const LS_BOUQUETS_V10_MIGRATED_KEY = 'pulse_epg_bouquets_16e_52e_v10';
@@ -1181,35 +1181,30 @@ export const TV_PROFILES_CATALOG: TvProfileSpec[] = [
     satellitesSummary: 'Astra 19.2°E & Hotbird 13°E (2 satellites)',
     satellitesList: ['Astra 19.2°E', 'Hotbird 13°E'],
     description:
-      'Charge uniquement Astra 19.2°E (Canal+ France, TNT France) et Hotbird 13°E (Bis TV France).',
+      'Charge par défaut UNIQUEMENT Astra 19.2°E (France : Canal+, TNT) et Hotbird 13°E (Bis TV, Italie, Pologne). Sans Nilesat.',
     bouquets: ['astra_canal_fr', 'astra_tnt_fr', 'hotbird_bis_fr'],
   },
   {
     id: 'moyen_orient_golfe',
     flag: '🇸🇦/🇦🇪/🇶🇦',
-    label: 'Moyen-Orient / Golfe',
+    label: 'Moyen-Orient / Golfe (AR)',
     shortLabel: 'Moyen-Orient / Golfe',
     satellitesSummary: 'Nilesat 7°W & Badr 26°E (2 satellites)',
     satellitesList: ['Nilesat 7°W', 'Badr 26°E'],
     description:
-      'Charge uniquement Nilesat 7°W (MBC, OSN, Rotana) et Badr 26°E (beIN Sports/Movies, SSC, Al Kass).',
+      'Charge par défaut UNIQUEMENT Nilesat 7°W (MBC, OSN, Rotana) et Badr 26°E (beIN Sports/Movies, SSC, Al Kass).',
     bouquets: ['nilesat_osn_mbc', 'badr_bein_ssc'],
   },
   {
     id: 'maghreb_mena',
     flag: '🇲🇦/🇩🇿/🇹🇳',
-    label: 'Maghreb / MENA Multi-Sat',
+    label: 'Maghreb / MENA (AR)',
     shortLabel: 'Maghreb / MENA',
-    satellitesSummary:
-      'Nilesat 7°W, Astra 19.2°E & Hotbird 13°E (3 satellites principaux)',
-    satellitesList: ['Nilesat 7°W', 'Astra 19.2°E', 'Hotbird 13°E'],
+    satellitesSummary: 'Nilesat 7°W & Badr 26°E (2 satellites)',
+    satellitesList: ['Nilesat 7°W', 'Badr 26°E'],
     description:
-      'Charge uniquement les 3 principaux au démarrage : Nilesat 7°W, Astra 19.2°E, Hotbird 13°E (maximum 3 bouquets actifs simultanément pour préserver la RAM TV).',
-    bouquets: [
-      'nilesat_osn_mbc',
-      'astra_canal_fr',
-      'hotbird_bis_fr',
-    ],
+      'Charge par défaut UNIQUEMENT Nilesat 7°W (MBC, OSN, Rotana) et Badr 26°E (beIN Sports, SSC, Al Kass).',
+    bouquets: ['nilesat_osn_mbc', 'badr_bein_ssc'],
     optionalExtensions: MAGHREB_OPTIONAL_EXTENSIONS,
   },
   {
@@ -1316,7 +1311,7 @@ export function getDynamicProfileForLanguage(lang: AppLanguage): {
       };
     case 'ar':
       return {
-        tvProfile: 'moyen_orient_golfe',
+        tvProfile: 'maghreb_mena',
         selectedBouquets: ['nilesat_osn_mbc', 'badr_bein_ssc'],
       };
     case 'es':
@@ -1519,33 +1514,23 @@ export function detectInitialTvProfileFromSystemLanguage(
       !sysTimeZone.includes('vancouver') &&
       !sysTimeZone.includes('montreal');
 
-    // 1. Profil "Maghreb / MENA Multi-Sat" (si région Maghreb détectée avec langue 'ar' ou 'fr')
-    // Charge UNIQUEMENT les 3 principaux : Nilesat 7°W, Astra 19.2°E, Hotbird 13°E
-    if ((langPrefix === 'ar' || langPrefix === 'fr') && isMaghrebRegion) {
-      return {
-        tvProfile: 'maghreb_mena',
-        language: langPrefix === 'ar' ? 'ar' : 'fr',
-        selectedBouquets: getBouquetsForTvProfile('maghreb_mena'),
-      };
-    }
-
-    // 2. Profil "France / Europe Francophone" (Langue 'fr')
-    // Charge UNIQUEMENT : Astra 19.2°E et Hotbird 13°E
+    // 1. Profil "FR" (Français) :
+    // Charge par défaut UNIQUEMENT Astra 19.2°E (pour la France) et Hotbird 13°E (pour Pologne, Italie, Allemagne / Bis TV). Exclut Nilesat par défaut.
     if (langPrefix === 'fr') {
       return {
         tvProfile: 'france_europe_fr',
         language: 'fr',
-        selectedBouquets: getBouquetsForTvProfile('france_europe_fr'),
+        selectedBouquets: ['astra_canal_fr', 'astra_tnt_fr', 'hotbird_bis_fr'],
       };
     }
 
-    // 3. Profil "Moyen-Orient / Golfe" (Langue 'ar' hors Maghreb)
-    // Charge UNIQUEMENT : Nilesat 7°W et Badr 26°E
+    // 2. Profil "AR" / Maghreb-MENA (Langue 'ar') :
+    // Charge par défaut UNIQUEMENT Badr 26°E et Nilesat 7°W
     if (langPrefix === 'ar') {
       return {
-        tvProfile: 'moyen_orient_golfe',
+        tvProfile: isMaghrebRegion ? 'maghreb_mena' : 'moyen_orient_golfe',
         language: 'ar',
-        selectedBouquets: getBouquetsForTvProfile('moyen_orient_golfe'),
+        selectedBouquets: ['nilesat_osn_mbc', 'badr_bein_ssc'],
       };
     }
 
@@ -2022,7 +2007,12 @@ export function isBouquetFilterAllowedBySettings(
     return active.includes('hispasat_meo_nos');
   }
   if (b === 'Sky DE / DAZN DE') {
-    return active.includes('sky_de');
+    return (
+      active.includes('sky_de') ||
+      (active.includes('astra_canal_fr') &&
+        active.includes('hotbird_bis_fr') &&
+        !active.includes('nilesat_osn_mbc'))
+    );
   }
   if (
     b === 'Hotbird Polsat/Cyfra+' ||
@@ -2031,7 +2021,12 @@ export function isBouquetFilterAllowedBySettings(
     b === 'HBO / Cinemax' ||
     b === 'AXN / Warner / Sci-Fi'
   ) {
-    return active.includes('canal_pl');
+    return (
+      active.includes('canal_pl') ||
+      (active.includes('hotbird_bis_fr') &&
+        active.includes('astra_canal_fr') &&
+        !active.includes('nilesat_osn_mbc'))
+    );
   }
   if (
     b === 'Nilesat MBC/OSN/Rotana' ||
@@ -2208,9 +2203,28 @@ export function isCountryFilterAllowedBySettings(
       active.includes('movistar_es') || active.includes('hispasat_meo_nos')
     );
   }
-  if (c === 'DE') return active.includes('sky_de');
-  if (c === 'IT') return active.includes('sky_it');
-  if (c === 'PL') return active.includes('canal_pl');
+  if (c === 'DE') {
+    return (
+      active.includes('sky_de') ||
+      (active.includes('astra_canal_fr') &&
+        active.includes('hotbird_bis_fr') &&
+        !active.includes('nilesat_osn_mbc'))
+    );
+  }
+  if (c === 'IT') {
+    return (
+      active.includes('sky_it') ||
+      active.includes('hotbird_bis_fr')
+    );
+  }
+  if (c === 'PL') {
+    return (
+      active.includes('canal_pl') ||
+      (active.includes('hotbird_bis_fr') &&
+        active.includes('astra_canal_fr') &&
+        !active.includes('nilesat_osn_mbc'))
+    );
+  }
   if (c === 'AR') {
     return (
       active.includes('nilesat_osn_mbc') || active.includes('badr_bein_ssc')
@@ -2320,7 +2334,25 @@ export function isChannelAllowedBySettings(
     }
   }
 
-  // Si la chaîne est une chaîne de la TNT Française, elle est autorisée si astra_tnt_fr ou tnt_fr est actif
+  // Autoriser les chaînes Hotbird 13°E (Italie, Pologne) et Astra 19.2°E (Allemagne) dans le profil "FR" par défaut (tout en excluant strictement Nilesat)
+  if (
+    !bouquetAllowed &&
+    settings.tvProfile === 'france_europe_fr' &&
+    !activeBouquets.includes('nilesat_osn_mbc')
+  ) {
+    if (
+      (chBouquetId === 'sky_it' || chBouquetId === 'canal_pl') &&
+      activeBouquets.includes('hotbird_bis_fr')
+    ) {
+      bouquetAllowed = true;
+    }
+    if (
+      chBouquetId === 'sky_de' &&
+      activeBouquets.includes('astra_canal_fr')
+    ) {
+      bouquetAllowed = true;
+    }
+  }
   if (
     !bouquetAllowed &&
     (chBouquetId === 'astra_tnt_fr' || chBouquetId === 'tnt_fr')
@@ -2534,6 +2566,23 @@ export function syncSourcesWithSelectedBouquets(
         selectedBouquets.includes('astra_canal_fr') ||
         selectedBouquets.includes('astra_tnt_fr') ||
         selectedBouquets.includes('hotbird_bis_fr');
+    }
+    // DE1, IT1, PL1 sont également activés pour le profil FR par défaut (Astra 19.2°E France/Allemagne + Hotbird 13°E Pologne/Italie)
+    else if (u.includes('_de1')) {
+      enabled =
+        selectedBouquets.includes('sky_de') ||
+        (tvProfile === 'france_europe_fr' &&
+          selectedBouquets.includes('astra_canal_fr'));
+    } else if (u.includes('_it1')) {
+      enabled =
+        selectedBouquets.includes('sky_it') ||
+        (tvProfile === 'france_europe_fr' &&
+          selectedBouquets.includes('hotbird_bis_fr'));
+    } else if (u.includes('_pl1')) {
+      enabled =
+        selectedBouquets.includes('canal_pl') ||
+        (tvProfile === 'france_europe_fr' &&
+          selectedBouquets.includes('hotbird_bis_fr'));
     }
     // ES1 fournit Movistar+ (Astra 19.2°E) et TNT Abertis (Hispasat 30°W)
     else if (u.includes('_es1')) {

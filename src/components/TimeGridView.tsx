@@ -641,59 +641,53 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
                   active ? 'active selected-filter' : ''
                 }`}
               >
-                {cat.icon === 'sport' ? (
-                  <Trophy
-                    className={`w-3.5 h-3.5 ${
-                      active ? 'text-[#ffffff]' : 'text-[#cbd5e1]'
-                    }`}
-                  />
-                ) : cat.icon === 'cinema' ? (
-                  <Film
-                    className={`w-3.5 h-3.5 ${
-                      active ? 'text-[#ffffff]' : 'text-[#cbd5e1]'
-                    }`}
-                  />
-                ) : cat.icon === 'doc' ? (
-                  <Compass
-                    className={`w-3.5 h-3.5 ${
-                      active ? 'text-[#ffffff]' : 'text-[#cbd5e1]'
-                    }`}
-                  />
-                ) : cat.icon === 'news' ? (
-                  <Newspaper
-                    className={`w-3.5 h-3.5 ${
-                      active ? 'text-[#ffffff]' : 'text-[#cbd5e1]'
-                    }`}
-                  />
-                ) : cat.icon === 'kids' ? (
-                  <Baby
-                    className={`w-3.5 h-3.5 ${
-                      active ? 'text-[#ffffff]' : 'text-[#cbd5e1]'
-                    }`}
-                  />
-                ) : cat.icon === 'music' ? (
-                  <Music
-                    className={`w-3.5 h-3.5 ${
-                      active ? 'text-[#ffffff]' : 'text-[#cbd5e1]'
-                    }`}
-                  />
-                ) : (
-                  <Tv
-                    className={`w-3.5 h-3.5 ${
-                      active ? 'text-[#ffffff]' : 'text-[#cbd5e1]'
-                    }`}
-                  />
-                )}
-                <span>{label}</span>
-                <span
-                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                    active
-                      ? 'bg-[#0a0e17]/70 text-[#ffffff] font-bold'
-                      : 'bg-[#0a0e17]/60 text-[#cbd5e1]'
-                  }`}
-                >
-                  {count}
+                <span className="filter-label">
+                  {cat.icon === 'sport' ? (
+                    <Trophy
+                      className={`w-3.5 h-3.5 ${
+                        active ? 'text-[#ffffff]' : 'text-[#cbd5e1]'
+                      }`}
+                    />
+                  ) : cat.icon === 'cinema' ? (
+                    <Film
+                      className={`w-3.5 h-3.5 ${
+                        active ? 'text-[#ffffff]' : 'text-[#cbd5e1]'
+                      }`}
+                    />
+                  ) : cat.icon === 'doc' ? (
+                    <Compass
+                      className={`w-3.5 h-3.5 ${
+                        active ? 'text-[#ffffff]' : 'text-[#cbd5e1]'
+                      }`}
+                    />
+                  ) : cat.icon === 'news' ? (
+                    <Newspaper
+                      className={`w-3.5 h-3.5 ${
+                        active ? 'text-[#ffffff]' : 'text-[#cbd5e1]'
+                      }`}
+                    />
+                  ) : cat.icon === 'kids' ? (
+                    <Baby
+                      className={`w-3.5 h-3.5 ${
+                        active ? 'text-[#ffffff]' : 'text-[#cbd5e1]'
+                      }`}
+                    />
+                  ) : cat.icon === 'music' ? (
+                    <Music
+                      className={`w-3.5 h-3.5 ${
+                        active ? 'text-[#ffffff]' : 'text-[#cbd5e1]'
+                      }`}
+                    />
+                  ) : (
+                    <Tv
+                      className={`w-3.5 h-3.5 ${
+                        active ? 'text-[#ffffff]' : 'text-[#cbd5e1]'
+                      }`}
+                    />
+                  )}
+                  <span>{label}</span>
                 </span>
+                <span className="filter-count">{count}</span>
               </div>
             );
           })}
@@ -736,16 +730,8 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
                     active ? 'active selected-filter' : ''
                   }`}
                 >
-                  <span>{label}</span>
-                  <span
-                    className={`text-[10px] px-1.5 rounded-full font-mono ${
-                      active
-                        ? 'bg-[#0a0e17]/70 text-[#ffffff] font-bold'
-                        : 'bg-[#0a0e17]/60 text-[#cbd5e1]'
-                    }`}
-                  >
-                    {count}
-                  </span>
+                  <span className="filter-label">{label}</span>
+                  <span className="filter-count">{count}</span>
                 </div>
               );
             })}
@@ -793,16 +779,8 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
                     active ? 'active selected-filter' : ''
                   }`}
                 >
-                  <span>{label}</span>
-                  <span
-                    className={`text-[10px] px-1.5 rounded-full font-mono ${
-                      active
-                        ? 'bg-[#0a0e17]/70 text-[#ffffff] font-bold'
-                        : 'bg-[#0a0e17]/60 text-[#cbd5e1]'
-                    }`}
-                  >
-                    {count}
-                  </span>
+                  <span className="filter-label">{label}</span>
+                  <span className="filter-count">{count}</span>
                 </div>
               );
             })}
@@ -854,17 +832,11 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
                     active ? 'active selected-filter' : ''
                   }`}
                 >
-                  <span>{flag}</span>
-                  <span>{label}</span>
-                  <span
-                    className={`text-[10px] px-1.5 rounded-full font-mono ${
-                      active
-                        ? 'bg-[#0a0e17]/70 text-[#ffffff] font-bold'
-                        : 'bg-[#0a0e17]/60 text-[#cbd5e1]'
-                    }`}
-                  >
-                    {count}
+                  <span className="filter-label">
+                    <span>{flag}</span>
+                    <span>{label}</span>
                   </span>
+                  <span className="filter-count">{count}</span>
                 </div>
               );
             })}
@@ -912,16 +884,8 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
                     active ? 'active selected-filter' : ''
                   }`}
                 >
-                  <span>{label}</span>
-                  <span
-                    className={`text-[10px] px-1.5 rounded-full font-mono ${
-                      active
-                        ? 'bg-[#0a0e17]/70 text-[#ffffff] font-bold'
-                        : 'bg-[#0a0e17]/60 text-[#cbd5e1]'
-                    }`}
-                  >
-                    {count}
-                  </span>
+                  <span className="filter-label">{label}</span>
+                  <span className="filter-count">{count}</span>
                 </div>
               );
             })}

@@ -3735,130 +3735,37 @@ export function App() {
       dir={langOpt.dir}
       className="min-h-screen bg-[#0a0e17] text-[#ffffff] flex flex-col selection:bg-[#e11d48] selection:text-[#ffffff]"
     >
-      {/* Top Navigation Bar — En-tête décompressé avec Marges de Sécurité TV Overscan */}
+      {/* Top Navigation Bar — En-tête décompressé avec Marges de Sécurité TV Overscan & Flexbox Responsive */}
       <header
         data-tv-zone="header"
         data-dpad-active={activeDpadZone === 'header' ? 'true' : undefined}
-        className="tv-decompressed-header sticky top-0 z-30 w-full bg-[#0a0e17] border-b border-[#1a202c] pt-safe overflow-x-hidden"
+        className="sticky top-0 z-30 w-full bg-[#0a0e17] border-b border-[#1a202c] pt-safe overflow-x-hidden mb-5"
       >
-        <div className="max-w-[1600px] w-full mx-auto">
-          {/* Ligne supérieure fixe : justify-between (Logo + Langue à gauche, Actions compactes Rafraîchir + Paramètres ⚙️ à droite) */}
-          <div
-            data-tv-row="header-top"
-            className="tv-overscan-header-row w-full flex flex-nowrap items-center justify-between gap-4 py-2.5"
-          >
-            {/* Gauche : Logo + Sélecteur de Langue + Badge Zone/Profil TV */}
-            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-              <div className="flex items-center gap-2 min-w-0 shrink-0">
-                <PulseEpgLogo adaptiveTerminalSize={true} />
-                <div className="hidden sm:block min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <h1 className="text-sm sm:text-base 2xl:text-lg font-bold tracking-tight text-[#ffffff] truncate">
-                      PulseEPG
-                    </h1>
-                    <span className="hidden lg:inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider bg-[#1d4ed8]/25 text-[#ffffff] border border-[#0055ff]/60 shrink-0">
-                      <Volume2 className="w-3 h-3 text-[#60a5fa]" />
-                      VO + SUB
-                    </span>
-                  </div>
-                  <p className="hidden sm:block text-[10px] font-normal text-[#cbd5e1] tracking-wide leading-tight truncate">
-                    Your Ultimate TV Guide
-                  </p>
-                </div>
+        <div className="tv-decompressed-header max-w-[1600px] w-full mx-auto py-2.5">
+          {/* 1. Gauche : Logo PulseEPG */}
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink-0">
+            <PulseEpgLogo adaptiveTerminalSize={true} />
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <h1 className="text-sm sm:text-base 2xl:text-lg font-bold tracking-tight text-[#ffffff] truncate">
+                  PulseEPG
+                </h1>
+                <span className="hidden lg:inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider bg-[#1d4ed8]/25 text-[#ffffff] border border-[#0055ff]/60 shrink-0">
+                  <Volume2 className="w-3 h-3 text-[#60a5fa]" />
+                  VO + SUB
+                </span>
               </div>
-
-              {/* Sélecteur de Langue calé à gauche */}
-              <div className="relative flex items-center shrink-0">
-                <Languages className="w-3.5 h-3.5 text-[#60a5fa] absolute start-2.5 pointer-events-none" />
-                <select
-                  value={activeLang}
-                  onChange={(e) =>
-                    handleChangeLanguage(e.target.value as AppLanguage)
-                  }
-                  aria-label={tr.languageSectionTitle}
-                  className="ps-7 pe-5 py-1.5 rounded-lg bg-[#141a26] hover:bg-[#1a202c] text-xs font-medium text-[#ffffff] border border-[#0055ff]/60 focus:outline-none focus:border-[#e11d48] transition-colors cursor-pointer"
-                >
-                  {LANGUAGE_OPTIONS.map((opt) => (
-                    <option
-                      key={opt.code}
-                      value={opt.code}
-                      className="bg-[#141a26] text-[#ffffff]"
-                    >
-                      {opt.flag} {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Bouton d'accès rapide au sélecteur "Zone / Profil TV" (écrans md+) */}
-              {(() => {
-                const currentProfileId =
-                  settings.tvProfile ||
-                  inferTvProfileFromBouquets(
-                    settings.selectedBouquets,
-                    settings.tvProfile
-                  );
-                const matchedSpec = TV_PROFILES_CATALOG.find(
-                  (p) => p.id === currentProfileId
-                );
-                const badgeFlag = matchedSpec?.flag || '⚙️';
-                const badgeLabel = matchedSpec?.shortLabel || 'Profil perso';
-                return (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSettingsInitialTab('filters');
-                      setIsSettingsOpen(true);
-                    }}
-                    title="Changer de Zone / Profil TV (Paramètres)"
-                    className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#141a26] hover:bg-[#1a202c] text-xs font-semibold text-[#ffffff] border border-[#0055ff]/60 transition-colors cursor-pointer shrink-0"
-                  >
-                    <Globe className="w-3.5 h-3.5 text-[#60a5fa] shrink-0" />
-                    <span>{badgeFlag}</span>
-                    <span className="truncate max-w-[120px]">{badgeLabel}</span>
-                  </button>
-                );
-              })()}
-            </div>
-
-            {/* Droite : Boutons d'actions compacts (PWA masqué sur APK, Icône Rafraîchir compacte & Icône Paramètres ⚙️ fixe shrink-0) */}
-            <div className="flex items-center justify-end gap-2 shrink-0">
-              <PWAInstallButton language={activeLang} />
-
-              <button
-                type="button"
-                onClick={() => triggerEpgSync(settings)}
-                disabled={isSyncing}
-                className="tv-fixed-action-btn shrink-0 w-9 h-9 inline-flex items-center justify-center rounded-lg bg-[#141a26] hover:bg-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#0055ff]/60 transition-colors cursor-pointer disabled:opacity-50"
-                title={isSyncing ? tr.refreshingBtn : tr.refreshBtn}
-                aria-label={isSyncing ? tr.refreshingBtn : tr.refreshBtn}
-              >
-                <RefreshCw
-                  className={`w-4 h-4 shrink-0 text-[#cbd5e1] ${
-                    isSyncing ? 'animate-spin text-[#e11d48]' : ''
-                  }`}
-                />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setSettingsInitialTab('filters');
-                  setIsSettingsOpen(true);
-                }}
-                className="tv-fixed-action-btn shrink-0 w-9 h-9 inline-flex items-center justify-center rounded-lg bg-[#141a26] hover:bg-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#0055ff]/60 transition-colors cursor-pointer"
-                title={tr.settingsTitle}
-                aria-label={tr.settingsTitle}
-              >
-                <Settings className="w-4 h-4 shrink-0" />
-              </button>
+              <p className="hidden sm:block text-[10px] font-normal text-[#cbd5e1] tracking-wide leading-tight truncate">
+                Your Ultimate TV Guide
+              </p>
             </div>
           </div>
 
-          {/* Ligne de navigation des vues (En Direct / Grille TV / Favoris / Mes Rappels) */}
-          <div
+          {/* 2. Centre : Menu de navigation ("En Direct", "Grille TV", "Favoris", "Mes Rappels") */}
+          <nav
             data-tv-row="header-tabs"
-            className="tv-overscan-tabs-row w-full flex items-center gap-1.5 overflow-x-auto no-scrollbar py-2 border-t border-[#1a202c]"
+            aria-label="Navigation principale"
+            className="tv-overscan-tabs-row flex items-center gap-2 sm:gap-3 overflow-x-auto no-scrollbar order-3 lg:order-2 w-full lg:w-auto pt-2 lg:pt-0 border-t lg:border-t-0 border-[#1a202c]"
           >
             <button
               type="button"
@@ -3979,6 +3886,93 @@ export function App() {
                   {activeRemindersCount || reminders.length}
                 </span>
               )}
+            </button>
+          </nav>
+
+          {/* 3. Droite : Sélecteur de Langue (Drapeaux) + Profil TV + Actions Rafraîchir & Réglages */}
+          <div
+            data-tv-row="header-top"
+            className="flex items-center justify-end gap-2 sm:gap-3 shrink-0 order-2 lg:order-3"
+          >
+            <div className="relative flex items-center shrink-0">
+              <Languages className="w-3.5 h-3.5 text-[#60a5fa] absolute start-2.5 pointer-events-none" />
+              <select
+                value={activeLang}
+                onChange={(e) =>
+                  handleChangeLanguage(e.target.value as AppLanguage)
+                }
+                aria-label={tr.languageSectionTitle}
+                className="ps-7 pe-5 py-1.5 rounded-lg bg-[#141a26] hover:bg-[#1a202c] text-xs font-medium text-[#ffffff] border border-[#0055ff]/60 focus:outline-none focus:border-[#e11d48] transition-colors cursor-pointer"
+              >
+                {LANGUAGE_OPTIONS.map((opt) => (
+                  <option
+                    key={opt.code}
+                    value={opt.code}
+                    className="bg-[#141a26] text-[#ffffff]"
+                  >
+                    {opt.flag} {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {(() => {
+              const currentProfileId =
+                settings.tvProfile ||
+                inferTvProfileFromBouquets(
+                  settings.selectedBouquets,
+                  settings.tvProfile
+                );
+              const matchedSpec = TV_PROFILES_CATALOG.find(
+                (p) => p.id === currentProfileId
+              );
+              const badgeFlag = matchedSpec?.flag || '⚙️';
+              const badgeLabel = matchedSpec?.shortLabel || 'Profil perso';
+              return (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSettingsInitialTab('filters');
+                    setIsSettingsOpen(true);
+                  }}
+                  title="Changer de Zone / Profil TV (Paramètres)"
+                  className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#141a26] hover:bg-[#1a202c] text-xs font-semibold text-[#ffffff] border border-[#0055ff]/60 transition-colors cursor-pointer shrink-0"
+                >
+                  <Globe className="w-3.5 h-3.5 text-[#60a5fa] shrink-0" />
+                  <span>{badgeFlag}</span>
+                  <span className="truncate max-w-[120px]">{badgeLabel}</span>
+                </button>
+              );
+            })()}
+
+            <PWAInstallButton language={activeLang} />
+
+            <button
+              type="button"
+              onClick={() => triggerEpgSync(settings)}
+              disabled={isSyncing}
+              className="tv-fixed-action-btn shrink-0 w-9 h-9 inline-flex items-center justify-center rounded-lg bg-[#141a26] hover:bg-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#0055ff]/60 transition-colors cursor-pointer disabled:opacity-50"
+              title={isSyncing ? tr.refreshingBtn : tr.refreshBtn}
+              aria-label={isSyncing ? tr.refreshingBtn : tr.refreshBtn}
+            >
+              <RefreshCw
+                className={`w-4 h-4 shrink-0 text-[#cbd5e1] ${
+                  isSyncing ? 'animate-spin text-[#e11d48]' : ''
+                }`}
+              />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setSettingsInitialTab('filters');
+                setIsSettingsOpen(true);
+              }}
+              className="tv-fixed-action-btn shrink-0 w-9 h-9 inline-flex items-center justify-center rounded-lg bg-[#141a26] hover:bg-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#0055ff]/60 transition-colors cursor-pointer"
+              title={tr.settingsTitle}
+              aria-label={tr.settingsTitle}
+            >
+              <Settings className="w-4 h-4 shrink-0" />
             </button>
           </div>
         </div>
@@ -4318,59 +4312,53 @@ export function App() {
                         active ? 'active selected-filter' : ''
                       }`}
                     >
-                      {cat.icon === 'sport' ? (
-                        <Trophy
-                          className={`w-3.5 h-3.5 ${
-                            active ? 'text-[#ffffff]' : 'text-[#cbd5e1]'
-                          }`}
-                        />
-                      ) : cat.icon === 'cinema' ? (
-                        <Film
-                          className={`w-3.5 h-3.5 ${
-                            active ? 'text-[#ffffff]' : 'text-[#cbd5e1]'
-                          }`}
-                        />
-                      ) : cat.icon === 'doc' ? (
-                        <Compass
-                          className={`w-3.5 h-3.5 ${
-                            active ? 'text-[#ffffff]' : 'text-[#cbd5e1]'
-                          }`}
-                        />
-                      ) : cat.icon === 'news' ? (
-                        <Newspaper
-                          className={`w-3.5 h-3.5 ${
-                            active ? 'text-[#ffffff]' : 'text-[#cbd5e1]'
-                          }`}
-                        />
-                      ) : cat.icon === 'kids' ? (
-                        <Baby
-                          className={`w-3.5 h-3.5 ${
-                            active ? 'text-[#ffffff]' : 'text-[#cbd5e1]'
-                          }`}
-                        />
-                      ) : cat.icon === 'music' ? (
-                        <Music
-                          className={`w-3.5 h-3.5 ${
-                            active ? 'text-[#ffffff]' : 'text-[#cbd5e1]'
-                          }`}
-                        />
-                      ) : (
-                        <Tv
-                          className={`w-3.5 h-3.5 ${
-                            active ? 'text-[#ffffff]' : 'text-[#cbd5e1]'
-                          }`}
-                        />
-                      )}
-                      <span>{label}</span>
-                      <span
-                        className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                          active
-                            ? 'bg-[#0a0e17]/70 text-[#ffffff] font-bold'
-                            : 'bg-[#0a0e17]/60 text-[#cbd5e1]'
-                        }`}
-                      >
-                        {count}
+                      <span className="filter-label">
+                        {cat.icon === 'sport' ? (
+                          <Trophy
+                            className={`w-3.5 h-3.5 ${
+                              active ? 'text-[#ffffff]' : 'text-[#cbd5e1]'
+                            }`}
+                          />
+                        ) : cat.icon === 'cinema' ? (
+                          <Film
+                            className={`w-3.5 h-3.5 ${
+                              active ? 'text-[#ffffff]' : 'text-[#cbd5e1]'
+                            }`}
+                          />
+                        ) : cat.icon === 'doc' ? (
+                          <Compass
+                            className={`w-3.5 h-3.5 ${
+                              active ? 'text-[#ffffff]' : 'text-[#cbd5e1]'
+                            }`}
+                          />
+                        ) : cat.icon === 'news' ? (
+                          <Newspaper
+                            className={`w-3.5 h-3.5 ${
+                              active ? 'text-[#ffffff]' : 'text-[#cbd5e1]'
+                            }`}
+                          />
+                        ) : cat.icon === 'kids' ? (
+                          <Baby
+                            className={`w-3.5 h-3.5 ${
+                              active ? 'text-[#ffffff]' : 'text-[#cbd5e1]'
+                            }`}
+                          />
+                        ) : cat.icon === 'music' ? (
+                          <Music
+                            className={`w-3.5 h-3.5 ${
+                              active ? 'text-[#ffffff]' : 'text-[#cbd5e1]'
+                            }`}
+                          />
+                        ) : (
+                          <Tv
+                            className={`w-3.5 h-3.5 ${
+                              active ? 'text-[#ffffff]' : 'text-[#cbd5e1]'
+                            }`}
+                          />
+                        )}
+                        <span>{label}</span>
                       </span>
+                      <span className="filter-count">{count}</span>
                     </div>
                   );
                 })}
@@ -4399,17 +4387,19 @@ export function App() {
                     viewMode === 'reminders' ? 'active selected-filter' : ''
                   }`}
                 >
-                  <BellRing className="w-3.5 h-3.5 text-[#ec4899]" />
-                  <span>
-                    {activeLang === 'fr'
-                      ? 'Mes Rappels'
-                      : activeLang === 'es'
-                      ? 'Mis Recordatorios'
-                      : activeLang === 'ar'
-                      ? 'تذكيراتي'
-                      : 'My Reminders'}
+                  <span className="filter-label">
+                    <BellRing className="w-3.5 h-3.5 text-[#ec4899]" />
+                    <span>
+                      {activeLang === 'fr'
+                        ? 'Mes Rappels'
+                        : activeLang === 'es'
+                        ? 'Mis Recordatorios'
+                        : activeLang === 'ar'
+                        ? 'تذكيراتي'
+                        : 'My Reminders'}
+                    </span>
                   </span>
-                  <span className="text-[10px] px-1.5 py-0.2 rounded-full font-mono bg-gradient-to-r from-[#0055ff] to-[#ec4899] text-[#ffffff] font-bold">
+                  <span className="filter-count">
                     {activeRemindersCount || reminders.length}
                   </span>
                 </div>
@@ -4455,16 +4445,8 @@ export function App() {
                           active ? 'active selected-filter' : ''
                         }`}
                       >
-                        <span>{label}</span>
-                        <span
-                          className={`text-[10px] px-1.5 rounded-full font-mono ${
-                            active
-                              ? 'bg-[#0a0e17]/70 text-[#ffffff] font-bold'
-                              : 'bg-[#0a0e17]/60 text-[#cbd5e1]'
-                          }`}
-                        >
-                          {count}
-                        </span>
+                        <span className="filter-label">{label}</span>
+                        <span className="filter-count">{count}</span>
                       </div>
                     );
                   })}
@@ -4515,16 +4497,8 @@ export function App() {
                           active ? 'active selected-filter' : ''
                         }`}
                       >
-                        <span>{label}</span>
-                        <span
-                          className={`text-[10px] px-1.5 rounded-full font-mono ${
-                            active
-                              ? 'bg-[#0a0e17]/70 text-[#ffffff] font-bold'
-                              : 'bg-[#0a0e17]/60 text-[#cbd5e1]'
-                          }`}
-                        >
-                          {count}
-                        </span>
+                        <span className="filter-label">{label}</span>
+                        <span className="filter-count">{count}</span>
                       </div>
                     );
                   })}
@@ -4582,17 +4556,11 @@ export function App() {
                           active ? 'active selected-filter' : ''
                         }`}
                       >
-                        <span>{flag}</span>
-                        <span>{label}</span>
-                        <span
-                          className={`text-[10px] px-1.5 rounded-full font-mono ${
-                            active
-                              ? 'bg-[#0a0e17]/70 text-[#ffffff] font-bold'
-                              : 'bg-[#0a0e17]/60 text-[#cbd5e1]'
-                          }`}
-                        >
-                          {count}
+                        <span className="filter-label">
+                          <span>{flag}</span>
+                          <span>{label}</span>
                         </span>
+                        <span className="filter-count">{count}</span>
                       </div>
                     );
                   })}
@@ -4643,16 +4611,8 @@ export function App() {
                           active ? 'active selected-filter' : ''
                         }`}
                       >
-                        <span>{label}</span>
-                        <span
-                          className={`text-[10px] px-1.5 rounded-full font-mono ${
-                            active
-                              ? 'bg-[#0a0e17]/70 text-[#ffffff] font-bold'
-                              : 'bg-[#0a0e17]/60 text-[#cbd5e1]'
-                          }`}
-                        >
-                          {count}
-                        </span>
+                        <span className="filter-label">{label}</span>
+                        <span className="filter-count">{count}</span>
                       </div>
                     );
                   })}

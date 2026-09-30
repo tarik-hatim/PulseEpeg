@@ -40,7 +40,7 @@ body {
   color: #ffffff !important;
   color: var(--text-color, #ffffff) !important;
   margin: 0;
-  padding: 24px 32px !important;
+  padding: 8px 10px !important;
   width: 100%;
   min-height: 100%;
   overflow-x: hidden;
@@ -48,6 +48,18 @@ body {
   font-family: system-ui, -apple-system, sans-serif;
   font-family: var(--font-sans, system-ui, -apple-system, sans-serif);
   -webkit-tap-highlight-color: transparent;
+}
+
+@media (max-width: 767px) {
+  body {
+    padding: 8px 10px !important;
+  }
+}
+
+@media (min-width: 768px) {
+  body {
+    padding: 24px 32px !important;
+  }
 }
 
 img,
@@ -210,7 +222,7 @@ input[type="url"] {
 }
 
 .filter-badge {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 20px;
   padding: 6px 14px;
@@ -222,7 +234,7 @@ input[type="url"] {
   -webkit-box-align: center;
   -webkit-align-items: center;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   white-space: nowrap;
   -webkit-flex-shrink: 0;
   flex-shrink: 0;
@@ -235,8 +247,39 @@ input[type="url"] {
 }
 
 .filter-badge:hover {
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.14);
   color: #ffffff;
+}
+
+.filter-badge .filter-label {
+  display: -webkit-inline-box;
+  display: -webkit-inline-flex;
+  display: inline-flex;
+  -webkit-box-align: center;
+  -webkit-align-items: center;
+  align-items: center;
+  gap: 6px;
+  color: inherit;
+  font-weight: 500;
+}
+
+.filter-badge .filter-count {
+  background: #0a0e17 !important;
+  color: #38bdf8 !important;
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  font-size: 11px;
+  font-weight: 700 !important;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  line-height: 1.2;
+  margin-left: 8px;
+  display: inline-block;
+}
+
+@supports (gap: 8px) {
+  .filter-badge .filter-count {
+    margin-left: 0;
+  }
 }
 
 /* Filtre Sélectionné (ex: Monde Arabe, Tous les genres, Bouquet) */
@@ -250,6 +293,21 @@ input[type="url"] {
   border-radius: 20px !important;
   outline: none !important;
   caret-color: transparent !important;
+}
+
+.filter-badge.active .filter-label,
+.filter-badge[data-filter-active="true"] .filter-label,
+.selected-filter .filter-label {
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+
+.filter-badge.active .filter-count,
+.filter-badge[data-filter-active="true"] .filter-count,
+.selected-filter .filter-count {
+  background: #ffffff !important;
+  color: #1e40af !important;
+  font-weight: 700 !important;
 }
 
 /* ==========================================================================
@@ -331,6 +389,9 @@ input[type="url"] {
   outline: none !important;
   border: 2px solid #ec4899 !important;
   background: rgba(236, 72, 153, 0.15) !important;
+  box-shadow: 0 0 15px rgba(236, 72, 153, 0.4) !important;
+  -webkit-transform: scale(1.01);
+  transform: scale(1.01);
   border-radius: 8px;
   transition: all 0.2s ease;
 }
@@ -339,6 +400,9 @@ input[type="url"] {
 .filter-badge:focus-visible {
   outline: none !important;
   border: 2px solid #ec4899 !important;
+  box-shadow: 0 0 15px rgba(236, 72, 153, 0.4) !important;
+  -webkit-transform: scale(1.01);
+  transform: scale(1.01);
   border-radius: 20px !important;
   transition: all 0.2s ease;
 }
@@ -357,31 +421,30 @@ input[type="search"]:focus-visible {
 }
 
 /* ==========================================================================
-   BANDEAU / TOAST DE NOTIFICATION IN-APP
+   BANDEAU / TOAST DE NOTIFICATION IN-APP ("RAPPEL ENREGISTRÉ")
    ========================================================================== */
 .toast-notification,
 .in-app-toast-banner {
-  position: fixed;
-  bottom: 24px;
-  left: 50%;
-  -webkit-transform: translateX(-50%);
-  transform: translateX(-50%);
-  z-index: 9999;
-  background: rgba(15, 23, 42, 0.96);
-  background-color: #141a26;
-  color: #ffffff;
-  border: 1px solid #3b82f6;
-  border-radius: 12px;
-  padding: 12px 24px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.8);
+  position: fixed !important;
+  bottom: 24px !important;
+  left: 50% !important;
+  -webkit-transform: translateX(-50%) !important;
+  transform: translateX(-50%) !important;
+  z-index: 9999 !important;
+  background: #1e293b !important;
+  color: #ffffff !important;
+  border: 1px solid #3b82f6 !important;
+  border-radius: 12px !important;
+  padding: 12px 24px !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.85) !important;
   display: -webkit-box;
   display: -webkit-flex;
   display: flex;
   -webkit-box-align: center;
   -webkit-align-items: center;
   align-items: center;
-  gap: 10px;
-  max-width: calc(100vw - 32px);
+  gap: 12px;
+  max-width: calc(100vw - 24px);
 }
 
 .tabular-nums {
