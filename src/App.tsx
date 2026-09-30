@@ -4,6 +4,8 @@ import {
   Baby,
   Bell,
   BellRing,
+  ChevronDown,
+  ChevronUp,
   Clock,
   Compass,
   Film,
@@ -259,6 +261,10 @@ export function App() {
   const [focusedChannelIndex, setFocusedChannelIndex] = useState<number | null>(
     null
   );
+  const [activeDpadZone, setActiveDpadZone] = useState<
+    'header' | 'filters' | 'channels' | null
+  >(null);
+  const [activeFilterRow, setActiveFilterRow] = useState<string | null>(null);
   const [virtualViewport, setVirtualViewport] = useState<VirtualViewportState>(
     () => ({
       scrollTop: typeof window !== 'undefined' ? window.scrollY : 0,
@@ -2531,6 +2537,46 @@ export function App() {
     return () => clearTimeout(timer);
   }, [selectedChannel, isSettingsOpen]);
 
+  // Suivi en temps réel de la zone de focus D-Pad (Filtres vs Liste des chaînes) pour les indicateurs visuels TV
+  useEffect(() => {
+    const handleFocusIn = (e: FocusEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+
+      const channelCard = target.closest<HTMLElement>('[data-channel-card="true"]');
+      if (channelCard) {
+        setActiveDpadZone('channels');
+        setActiveFilterRow(null);
+        const idxAttr = channelCard.getAttribute('data-channel-index');
+        if (idxAttr !== null) {
+          setFocusedChannelIndex(Number(idxAttr));
+        }
+        return;
+      }
+
+      const tvRow = target.closest<HTMLElement>('[data-tv-row]');
+      if (tvRow) {
+        const rowName = tvRow.getAttribute('data-tv-row') || '';
+        if (rowName === 'header-tabs' || rowName === 'header-actions') {
+          setActiveDpadZone('header');
+          setActiveFilterRow(null);
+        } else {
+          setActiveDpadZone('filters');
+          setActiveFilterRow(rowName);
+        }
+        return;
+      }
+
+      if (target.closest('[data-tv-zone="filters"]')) {
+        setActiveDpadZone('filters');
+        return;
+      }
+    };
+
+    window.addEventListener('focusin', handleFocusIn);
+    return () => window.removeEventListener('focusin', handleFocusIn);
+  }, []);
+
   // Navigation Télécommande Android TV / Leanback (D-Pad Spatial & List Navigation)
   useEffect(() => {
     const handleGlobalDpadKeyDown = (e: KeyboardEvent) => {
@@ -2702,8 +2748,44 @@ export function App() {
                 }
                 return;
               } else {
-                // virtualIdx === 0 : laisser la navigation spatiale remonter vers la barre de filtres
+                // virtualIdx === 0 : remonter directement à la dernière ligne de filtres visible
                 setFocusedChannelIndex(null);
+                const filterZone = document.querySelector<HTMLElement>(
+                  '[data-tv-zone="filters"]'
+                );
+                if (filterZone) {
+                  const visibleRows = Array.from(
+                    filterZone.querySelectorAll<HTMLElement>('[data-tv-row]')
+                  ).filter((row) => {
+                    const r = row.getBoundingClientRect();
+                    return r.width > 0 && r.height > 0;
+                  });
+                  const lastRow = visibleRows[visibleRows.length - 1];
+                  if (lastRow) {
+                    const rowBtns = Array.from(
+                      lastRow.querySelectorAll<HTMLElement>(
+                        'button:not([disabled]), select:not([disabled])'
+                      )
+                    ).filter((el) => {
+                      const r = el.getBoundingClientRect();
+                      return r.width > 0 && r.height > 0;
+                    });
+                    if (rowBtns.length > 0) {
+                      e.preventDefault();
+                      const targetBtn =
+                        rowBtns.find(
+                          (b) => b.getAttribute('data-filter-active') === 'true'
+                        ) || rowBtns[0];
+                      targetBtn.focus({ preventScroll: true });
+                      targetBtn.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'center',
+                        inline: 'nearest',
+                      });
+                      return;
+                    }
+                  }
+                }
               }
             }
           } else {
@@ -2806,7 +2888,7 @@ export function App() {
       const selector =
         'button:not([disabled]), [role="button"], a[href], select:not([disabled]), input:not([disabled])';
 
-      // 3. Navigation horizontale fluide dans les barres de filtres et d'onglets ([data-tv-row])
+      // 3. Navigation horizontale et verticale fluide dans les barres de filtres ([data-tv-row])
       const activeRow = activeEl?.closest<HTMLElement>('[data-tv-row]');
       if (
         activeRow &&
@@ -2834,6 +2916,115 @@ export function App() {
               inline: 'center',
             });
             return;
+          }
+        }
+      }
+
+      // 3B. Passage vertical déterministe entre les lignes de filtres et vers la liste des chaînes
+      const parentFilterZone = activeEl?.closest<HTMLElement>(
+        '[data-tv-zone="filters"]'
+      );
+      if (
+        parentFilterZone &&
+        activeRow &&
+        activeEl &&
+        !modalScope &&
+        (e.key === 'ArrowDown' || e.key === 'ArrowUp')
+      ) {
+        const filterRows = Array.from(
+          parentFilterZone.querySelectorAll<HTMLElement>('[data-tv-row]')
+        ).filter((row) => {
+          const r = row.getBoundingClientRect();
+          return r.width > 0 && r.height > 0;
+        });
+        const currentRowIdx = filterRows.indexOf(activeRow);
+
+        if (currentRowIdx !== -1) {
+          const curRect = activeEl.getBoundingClientRect();
+          const curCenterX = curRect.left + curRect.width / 2;
+
+          if (e.key === 'ArrowDown') {
+            if (currentRowIdx < filterRows.length - 1) {
+              const nextRow = filterRows[currentRowIdx + 1];
+              const nextRowItems = Array.from(
+                nextRow.querySelectorAll<HTMLElement>(selector)
+              ).filter((el) => {
+                const r = el.getBoundingClientRect();
+                return r.width > 0 && r.height > 0;
+              });
+              if (nextRowItems.length > 0) {
+                e.preventDefault();
+                let bestItem = nextRowItems[0];
+                let minHorizDist = Infinity;
+                for (const item of nextRowItems) {
+                  const ir = item.getBoundingClientRect();
+                  const icx = ir.left + ir.width / 2;
+                  const dist = Math.abs(icx - curCenterX);
+                  if (dist < minHorizDist) {
+                    minHorizDist = dist;
+                    bestItem = item;
+                  }
+                }
+                bestItem.focus({ preventScroll: true });
+                bestItem.scrollIntoView({
+                  behavior: 'smooth',
+                  block: 'nearest',
+                  inline: 'nearest',
+                });
+                return;
+              }
+            } else {
+              // Dernière ligne de filtres -> passage direct à la 1re carte visible de la liste des chaînes
+              const firstChannelCard =
+                document.querySelector<HTMLElement>(
+                  '[data-channel-card="true"][data-channel-index="0"]'
+                ) ||
+                document.querySelector<HTMLElement>('[data-channel-card="true"]');
+              if (firstChannelCard) {
+                e.preventDefault();
+                const idxAttr = firstChannelCard.getAttribute(
+                  'data-channel-index'
+                );
+                if (idxAttr !== null) {
+                  setFocusedChannelIndex(Number(idxAttr));
+                }
+                firstChannelCard.focus({ preventScroll: true });
+                firstChannelCard.scrollIntoView({
+                  behavior: 'smooth',
+                  block: 'center',
+                });
+                return;
+              }
+            }
+          } else if (e.key === 'ArrowUp' && currentRowIdx > 0) {
+            const prevRow = filterRows[currentRowIdx - 1];
+            const prevRowItems = Array.from(
+              prevRow.querySelectorAll<HTMLElement>(selector)
+            ).filter((el) => {
+              const r = el.getBoundingClientRect();
+              return r.width > 0 && r.height > 0;
+            });
+            if (prevRowItems.length > 0) {
+              e.preventDefault();
+              let bestItem = prevRowItems[0];
+              let minHorizDist = Infinity;
+              for (const item of prevRowItems) {
+                const ir = item.getBoundingClientRect();
+                const icx = ir.left + ir.width / 2;
+                const dist = Math.abs(icx - curCenterX);
+                if (dist < minHorizDist) {
+                  minHorizDist = dist;
+                  bestItem = item;
+                }
+              }
+              bestItem.focus({ preventScroll: true });
+              bestItem.scrollIntoView({
+                behavior: 'smooth',
+                block: 'nearest',
+                inline: 'nearest',
+              });
+              return;
+            }
           }
         }
       }
@@ -3195,8 +3386,11 @@ export function App() {
           language={activeLang}
         />
 
-        {/* Barre de Recherche & Contrôle Temporel Rapide */}
-        <div className="mb-4 rounded-lg bg-[#141a26] border border-[#1a202c] p-3 sm:p-4 space-y-3">
+        {/* Barre de Recherche & Contrôle Temporel Rapide + Zone de Filtres D-Pad */}
+        <div
+          data-tv-zone="filters"
+          className="mb-3 rounded-lg bg-[#141a26] border border-[#1a202c] p-3 sm:p-4 space-y-3"
+        >
           <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
             {/* Search Input & Recent Searches Dropdown */}
             <div ref={searchContainerRef} className="relative flex-1">
@@ -3848,6 +4042,125 @@ export function App() {
             )}
           </div>
         </div>
+
+        {/* Indicateur Visuel de Transition Télécommande (D-Pad) : Lignes de Filtres <-> Liste des Chaînes */}
+        {viewMode !== 'grid' && viewMode !== 'reminders' && filteredChannels.length > 0 && (
+          <div
+            data-active-zone={activeDpadZone || 'idle'}
+            className="tv-zone-bridge mb-3.5 rounded-lg bg-[#141a26]/95 border border-[#1a202c] px-3 sm:px-4 py-2 flex flex-wrap items-center justify-between gap-2 text-xs"
+          >
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Indicateur Zone Filtres */}
+              <button
+                type="button"
+                tabIndex={-1}
+                onClick={() => {
+                  const firstFilterBtn = document.querySelector<HTMLElement>(
+                    '[data-tv-zone="filters"] [data-tv-row] button:not([disabled])'
+                  );
+                  firstFilterBtn?.focus({ preventScroll: false });
+                }}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
+                  activeDpadZone === 'filters'
+                    ? 'bg-[#0055ff] text-[#ffffff] border border-[#38bdf8] shadow-[0_0_12px_rgba(56,189,248,0.65)]'
+                    : 'bg-[#0a0e17] text-[#cbd5e1] border border-[#1a202c] hover:text-[#ffffff]'
+                }`}
+              >
+                <ChevronUp className="w-3.5 h-3.5 text-[#38bdf8]" />
+                <span>
+                  {activeLang === 'fr'
+                    ? 'Lignes de Filtres'
+                    : activeLang === 'es'
+                    ? 'Filas de Filtros'
+                    : activeLang === 'ar'
+                    ? 'صفوف الفلاتر'
+                    : 'Filter Rows'}
+                </span>
+                {activeDpadZone === 'filters' && activeFilterRow && (
+                  <span className="px-1.5 py-0.2 rounded bg-[#0a0e17] text-[#38bdf8] border border-[#38bdf8]/60 font-mono text-[10px]">
+                    {activeFilterRow === 'live-categories'
+                      ? tr.filterCatLabel
+                      : activeFilterRow === 'live-satellites'
+                      ? tr.filterSatLabel
+                      : activeFilterRow === 'live-bouquets'
+                      ? tr.filterBouquetLabel
+                      : activeFilterRow === 'live-countries'
+                      ? tr.filterCountryLabel || tr.filterZoneLabel
+                      : tr.filterGenreLabel}
+                  </span>
+                )}
+              </button>
+
+              <span className="text-[#cbd5e1]/60 font-mono text-[11px] select-none">
+                ▲ / ▼
+              </span>
+
+              {/* Indicateur Zone Liste des Chaînes */}
+              <button
+                type="button"
+                tabIndex={-1}
+                onClick={() => {
+                  const firstChannelCard = document.querySelector<HTMLElement>(
+                    '[data-channel-card="true"]'
+                  );
+                  firstChannelCard?.focus({ preventScroll: false });
+                }}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
+                  activeDpadZone === 'channels'
+                    ? 'bg-[#e11d48] text-[#ffffff] border border-[#ffffff] shadow-[0_0_14px_rgba(236,72,153,0.75)]'
+                    : 'bg-[#0a0e17] text-[#cbd5e1] border border-[#1a202c] hover:text-[#ffffff]'
+                }`}
+              >
+                <ChevronDown className="w-3.5 h-3.5 text-[#ec4899]" />
+                <span>
+                  {activeLang === 'fr'
+                    ? 'Liste des Chaînes'
+                    : activeLang === 'es'
+                    ? 'Lista de Canales'
+                    : activeLang === 'ar'
+                    ? 'قائمة القنوات'
+                    : 'Channel List'}
+                </span>
+                <span
+                  className={`px-1.5 py-0.2 rounded font-mono text-[10px] ${
+                    activeDpadZone === 'channels'
+                      ? 'bg-[#0a0e17] text-[#ffffff] border border-[#ec4899]/80'
+                      : 'bg-[#141a26] text-[#cbd5e1]'
+                  }`}
+                >
+                  {activeDpadZone === 'channels' && focusedChannelIndex !== null
+                    ? `#${focusedChannelIndex + 1} / ${filteredChannels.length}`
+                    : `${filteredChannels.length}`}
+                </span>
+              </button>
+            </div>
+
+            {/* Guide contextuel D-Pad selon la zone active */}
+            <div className="hidden sm:flex items-center gap-2 text-[11px] text-[#cbd5e1]">
+              {activeDpadZone === 'filters' ? (
+                <span className="inline-flex items-center gap-1.5 text-[#38bdf8] font-semibold">
+                  <span className="w-2 h-2 rounded-full bg-[#38bdf8] animate-pulse" />
+                  {activeLang === 'fr'
+                    ? '◄ ► Parcourir la ligne · ▼ Descendre vers les chaînes'
+                    : '◄ ► Browse filter row · ▼ Move down to channels'}
+                </span>
+              ) : activeDpadZone === 'channels' ? (
+                <span className="inline-flex items-center gap-1.5 text-[#ec4899] font-semibold">
+                  <span className="w-2 h-2 rounded-full bg-[#ec4899] animate-pulse" />
+                  {activeLang === 'fr'
+                    ? '▲ ▼ Défiler les chaînes · ◄ ► Rappel / Favori · ▲ (ligne 1) Retour aux filtres'
+                    : '▲ ▼ Scroll channels · ◄ ► Reminder / Favorite · ▲ (row 1) Back to filters'}
+                </span>
+              ) : (
+                <span className="text-[#cbd5e1]/80">
+                  {activeLang === 'fr'
+                    ? 'Navigation Télécommande D-Pad : ▲ ▼ Changer de zone · OK Sélectionner'
+                    : 'D-Pad Remote Navigation: ▲ ▼ Switch zone · OK Select'}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Rappels actifs dans l'onglet Favoris */}
         {viewMode === 'favorites' && reminders.length > 0 && (

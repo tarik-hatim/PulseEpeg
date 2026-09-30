@@ -45,8 +45,9 @@
 }
 
 /* ==========================================================================
-   GESTION DU FOCUS TÉLÉCOMMANDE (D-PAD NAVIGATION ANDROID TV / LEANBACK)
-   Bordure & Contour net (#ec4899 / #e11d48) sur tous les boutons, cartes et filtres
+   GESTION DU FOCUS TÉLÉCOMMANDE HAUT CONTRASTE (D-PAD ANDROID TV / LEANBACK)
+   Double anneau haute luminance (#ffffff + #ec4899 / #38bdf8) lisible à 3 mètres
+   sur tous les fonds (sombres #0a0e17, rouges #e11d48 et bleus #1d4ed8)
    ========================================================================== */
 button:focus,
 button:focus-visible,
@@ -64,25 +65,206 @@ input[type="time"]:focus,
 input[type="time"]:focus-visible,
 .tv-focusable:focus,
 .tv-focusable:focus-visible {
-  border: 2px solid #ec4899 !important;
-  outline: 2px solid #ec4899 !important;
+  border-color: #ffffff !important;
+  outline: 3px solid #ffffff !important;
   outline-offset: 2px !important;
-  box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.38), 0 0 20px rgba(225, 29, 72, 0.78) !important;
-  transform: scale(1.03);
-  z-index: 30;
-  transition: transform 150ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 150ms ease, border-color 150ms ease, outline-color 150ms ease;
+  box-shadow:
+    0 0 0 2px #0a0e17,
+    0 0 0 5px #ec4899,
+    0 0 22px 4px rgba(236, 72, 153, 0.88),
+    0 0 36px 8px rgba(0, 85, 255, 0.55) !important;
+  transform: scale(1.045) translateY(-1px);
+  filter: brightness(1.1);
+  z-index: 35;
+  transition:
+    transform 140ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 140ms ease,
+    border-color 140ms ease,
+    outline-color 140ms ease,
+    filter 140ms ease;
 }
 
-/* Cartes larges (lignes de chaînes & programmes) : bordure 2px #ec4899 + halo D-Pad net */
-.tv-card-focusable:focus,
-.tv-card-focusable:focus-visible {
-  border: 2px solid #ec4899 !important;
-  outline: 2px solid #ec4899 !important;
+/* ==========================================================================
+   INDICATEURS VISUELS DE LIGNES DE FILTRES ([data-tv-row]) & ZONE DE FILTRAGE
+   Met en évidence la ligne de filtre active lors de la navigation verticale ▲/▼
+   ========================================================================== */
+[data-tv-zone="filters"] {
+  position: relative;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background-color 180ms ease;
+}
+
+[data-tv-zone="filters"]:focus-within {
+  border-color: #38bdf8 !important;
+  box-shadow:
+    0 0 0 1px rgba(56, 189, 248, 0.55),
+    0 0 28px -4px rgba(0, 85, 255, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+[data-tv-row] {
+  position: relative;
+  border-radius: 0.625rem;
+  transition:
+    background 160ms ease,
+    box-shadow 160ms ease,
+    padding-inline-start 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+[data-tv-row]:not([data-tv-row="header-tabs"]):not([data-tv-row="header-actions"]):focus-within {
+  background: linear-gradient(
+    90deg,
+    rgba(0, 85, 255, 0.24) 0%,
+    rgba(236, 72, 153, 0.16) 55%,
+    rgba(10, 14, 23, 0.05) 100%
+  );
+  box-shadow:
+    inset 4px 0 0 #38bdf8,
+    0 0 0 1px rgba(56, 189, 248, 0.5),
+    0 4px 16px rgba(0, 85, 255, 0.3);
+  padding-inline-start: 0.625rem;
+}
+
+/* Boutons et puces focalisés à l'intérieur d'une barre de filtres */
+[data-tv-row] button:focus,
+[data-tv-row] button:focus-visible,
+[data-tv-row] select:focus,
+[data-tv-row] select:focus-visible {
+  border-color: #ffffff !important;
+  outline: 3px solid #ffffff !important;
   outline-offset: 2px !important;
-  box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.4), 0 0 24px rgba(225, 29, 72, 0.82) !important;
-  transform: scale(1.015);
-  z-index: 25;
-  transition: transform 150ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 150ms ease, border-color 150ms ease, outline-color 150ms ease;
+  box-shadow:
+    0 0 0 2px #0a0e17,
+    0 0 0 5px #38bdf8,
+    0 0 20px 4px rgba(56, 189, 248, 0.9),
+    0 0 32px 6px rgba(236, 72, 153, 0.7) !important;
+  transform: scale(1.06) translateY(-1px);
+  z-index: 40;
+}
+
+/* ==========================================================================
+   BANDEAU D'INDICATION DE PASSAGE FILTRES <-> LISTE DES CHAÎNES (.tv-zone-bridge)
+   ========================================================================== */
+.tv-zone-bridge {
+  position: relative;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease;
+}
+
+.tv-zone-bridge[data-active-zone="filters"] {
+  background: linear-gradient(
+    90deg,
+    rgba(0, 85, 255, 0.22) 0%,
+    rgba(56, 189, 248, 0.14) 50%,
+    rgba(10, 14, 23, 0.92) 100%
+  );
+  border-color: #38bdf8 !important;
+  box-shadow:
+    0 0 0 1px rgba(56, 189, 248, 0.45),
+    0 0 20px rgba(0, 85, 255, 0.35);
+}
+
+.tv-zone-bridge[data-active-zone="channels"] {
+  background: linear-gradient(
+    90deg,
+    rgba(225, 29, 72, 0.24) 0%,
+    rgba(236, 72, 153, 0.16) 50%,
+    rgba(10, 14, 23, 0.92) 100%
+  );
+  border-color: #ec4899 !important;
+  box-shadow:
+    0 0 0 1px rgba(236, 72, 153, 0.5),
+    0 0 22px rgba(225, 29, 72, 0.38);
+}
+
+/* ==========================================================================
+   LISTE DES CHAÎNES ([data-tv-list="channels"]) & CARTES DE CHAÎNES (.tv-card-focusable)
+   ========================================================================== */
+[data-tv-list="channels"] {
+  position: relative;
+  border-radius: 0.75rem;
+  transition: box-shadow 180ms ease;
+}
+
+[data-tv-list="channels"]:focus-within {
+  box-shadow:
+    inset 0 0 0 1px rgba(236, 72, 153, 0.35),
+    0 0 28px -6px rgba(225, 29, 72, 0.3);
+}
+
+/* Cartes larges (lignes de chaînes, rappels & programmes) : double anneau Blanc + Rose/Cyan + barre latérale lumineuse */
+.tv-card-focusable:focus,
+.tv-card-focusable:focus-visible,
+[data-channel-card="true"]:focus,
+[data-channel-card="true"]:focus-visible,
+[data-reminder-card="true"]:focus,
+[data-reminder-card="true"]:focus-visible,
+[data-programme-card="true"]:focus,
+[data-programme-card="true"]:focus-visible {
+  background-color: #1e293b !important;
+  border: 2px solid #ffffff !important;
+  outline: 3px solid #ec4899 !important;
+  outline-offset: 2px !important;
+  box-shadow:
+    0 0 0 2px #0a0e17,
+    0 0 0 6px rgba(236, 72, 153, 0.85),
+    0 0 28px 4px rgba(225, 29, 72, 0.8),
+    0 0 44px 8px rgba(56, 189, 248, 0.4) !important;
+  transform: scale(1.016);
+  z-index: 30;
+  transition:
+    transform 150ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 150ms ease,
+    border-color 150ms ease,
+    outline-color 150ms ease,
+    background-color 150ms ease;
+}
+
+/* Indicateur latéral lumineux sur la carte de chaîne active ou contenant le focus (actions Rappel / Favori) */
+[data-channel-card="true"]::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 0;
+  background: linear-gradient(180deg, #38bdf8 0%, #ec4899 50%, #e11d48 100%);
+  transition: width 150ms ease, box-shadow 150ms ease;
+  z-index: 20;
+  pointer-events: none;
+}
+
+[data-channel-card="true"]:focus::before,
+[data-channel-card="true"]:focus-visible::before,
+[data-channel-card="true"]:focus-within::before {
+  width: 6px;
+  box-shadow: 0 0 16px 2px rgba(236, 72, 153, 0.9);
+}
+
+/* Maintien du repère visuel sur la carte parente quand le focus D-Pad est sur le bouton Cloche ou Favori (►) */
+[data-channel-card="true"]:focus-within:not(:focus) {
+  background-color: #1a2436 !important;
+  border: 2px solid #38bdf8 !important;
+  box-shadow:
+    0 0 0 2px rgba(56, 189, 248, 0.45),
+    0 10px 28px -4px rgba(0, 85, 255, 0.5) !important;
+  z-index: 28;
+}
+
+/* Cellules de la Grille TV (TimeGridView) */
+[data-grid-focusable="true"]:focus,
+[data-grid-focusable="true"]:focus-visible {
+  border-color: #ffffff !important;
+  outline: 3px solid #ffffff !important;
+  outline-offset: -2px !important;
+  box-shadow:
+    inset 0 0 0 3px #ec4899,
+    0 0 24px 4px rgba(236, 72, 153, 0.85),
+    0 0 36px 6px rgba(56, 189, 248, 0.55) !important;
+  z-index: 35;
 }
 
 input[type="text"]:focus,
@@ -91,10 +273,13 @@ input[type="url"]:focus,
 input[type="url"]:focus-visible,
 input[type="search"]:focus,
 input[type="search"]:focus-visible {
-  border: 2px solid #ec4899 !important;
-  outline: 2px solid #0055ff !important;
-  outline-offset: 1px !important;
-  box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.3), 0 0 16px rgba(0, 85, 255, 0.65) !important;
+  border: 2px solid #ffffff !important;
+  outline: 3px solid #38bdf8 !important;
+  outline-offset: 2px !important;
+  box-shadow:
+    0 0 0 2px #0a0e17,
+    0 0 0 5px rgba(0, 85, 255, 0.75),
+    0 0 24px rgba(56, 189, 248, 0.8) !important;
 }
 
 .tabular-nums {

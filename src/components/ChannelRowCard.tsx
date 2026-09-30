@@ -133,6 +133,207 @@ const COUNTRY_ACCENTS: Record<
   },
 };
 
+// ============================================================================
+// CACHE PERSISTANT DE LOGOS DE CHAÎNES VIA LOCALSTORAGE + MÉMOIRE (ANDROID TV)
+// Évite les re-téléchargements réseau et les cascades d'erreurs lors du scroll
+// rapide sur les listes virtualisées (Windowing).
+// ============================================================================
+const LOGO_CACHE_STORAGE_KEY = 'pulse_epg_channel_logo_cache_v1';
+const LOGO_CACHE_MAX_ENTRIES = 220;
+const LOGO_CACHE_TTL_MS = 7 * 24 * 3600 * 1000; // 7 jours
+const MAX_INLINE_DATA_URI_LENGTH = 10240; // ~10 Ko max par miniature inline
+
+interface CachedLogoEntry {
+  src: string;
+  ts: number;
+}
+
+let memoryLogoCache: Map<string, CachedLogoEntry> | null = null;
+const failedLogoUrlsMemory = new Set<string>();
+const pendingDataUriUpgrades = new Set<string>();
+let flushCacheTimer: ReturnType<typeof setTimeout> | null = null;
+
+function ensureMemoryLogoCacheLoaded(): Map<string, CachedLogoEntry> {
+  if (memoryLogoCache) return memoryLogoCache;
+  memoryLogoCache = new Map<string, CachedLogoEntry>();
+
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return memoryLogoCache;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(LOGO_CACHE_STORAGE_KEY);
+    if (!raw) return memoryLogoCache;
+    const parsed = JSON.parse(raw) as Record<string, CachedLogoEntry | string>;
+    const now = Date.now();
+    for (const [key, val] of Object.entries(parsed)) {
+      if (!val) continue;
+      if (typeof val === 'string') {
+        memoryLogoCache.set(key, { src: val, ts: now });
+      } else if (
+        typeof val === 'object' &&
+        typeof val.src === 'string' &&
+        now - (val.ts || 0) < LOGO_CACHE_TTL_MS
+      ) {
+        memoryLogoCache.set(key, { src: val.src, ts: val.ts || now });
+      }
+    }
+  } catch {
+    // Ignore JSON or storage access errors
+  }
+
+  return memoryLogoCache;
+}
+
+function scheduleFlushLogoCacheToLocalStorage(): void {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  if (flushCacheTimer !== null) return;
+
+  flushCacheTimer = setTimeout(() => {
+    flushCacheTimer = null;
+    if (!memoryLogoCache) return;
+
+    // Éviction LRU si le nombre d'entrées dépasse LOGO_CACHE_MAX_ENTRIES
+    if (memoryLogoCache.size > LOGO_CACHE_MAX_ENTRIES) {
+      const sorted = Array.from(memoryLogoCache.entries()).sort(
+        (a, b) => a[1].ts - b[1].ts
+      );
+      const toRemove = sorted.length - LOGO_CACHE_MAX_ENTRIES;
+      for (let i = 0; i < toRemove; i++) {
+        memoryLogoCache.delete(sorted[i][0]);
+      }
+    }
+
+    const serializedObj: Record<string, CachedLogoEntry> = {};
+    for (const [k, v] of memoryLogoCache.entries()) {
+      serializedObj[k] = v;
+    }
+
+    try {
+      window.localStorage.setItem(
+        LOGO_CACHE_STORAGE_KEY,
+        JSON.stringify(serializedObj)
+      );
+    } catch {
+      // En cas de dépassement de quota LocalStorage, purger la moitié la plus ancienne
+      try {
+        const entries = Array.from(memoryLogoCache.entries()).sort(
+          (a, b) => b[1].ts - a[1].ts
+        );
+        const kept = entries.slice(0, Math.floor(LOGO_CACHE_MAX_ENTRIES / 2));
+        memoryLogoCache = new Map(kept);
+        const compactObj: Record<string, CachedLogoEntry> = {};
+        for (const [k, v] of memoryLogoCache.entries()) {
+          compactObj[k] = v;
+        }
+        window.localStorage.setItem(
+          LOGO_CACHE_STORAGE_KEY,
+          JSON.stringify(compactObj)
+        );
+      } catch {
+        // Ignore storage quota error
+      }
+    }
+  }, 280);
+}
+
+function getCachedChannelLogo(channelKey: string): string | null {
+  const cache = ensureMemoryLogoCacheLoaded();
+  const entry = cache.get(channelKey);
+  if (!entry) return null;
+  if (failedLogoUrlsMemory.has(entry.src)) {
+    cache.delete(channelKey);
+    return null;
+  }
+  return entry.src;
+}
+
+function setCachedChannelLogo(channelKey: string, resolvedSrc: string): void {
+  if (!channelKey || !resolvedSrc) return;
+  const cache = ensureMemoryLogoCacheLoaded();
+  const existing = cache.get(channelKey);
+  if (existing && existing.src === resolvedSrc) {
+    return;
+  }
+  // Ne pas écraser une miniature Data-URI déjà convertie par une simple URL distante
+  if (
+    existing &&
+    existing.src.startsWith('data:image/webp') &&
+    !resolvedSrc.startsWith('data:image/')
+  ) {
+    return;
+  }
+  cache.set(channelKey, { src: resolvedSrc, ts: Date.now() });
+  scheduleFlushLogoCacheToLocalStorage();
+}
+
+/**
+ * Convertit en arrière-plan un logo distant CORS (ex: GitHub tv-logos, Wikimedia)
+ * en miniature Data-URI WebP compacte (<= 96x64px) stockée dans localStorage
+ * pour un affichage instantané (0 requête réseau) lors du scroll rapide Android TV.
+ */
+function upgradeRemoteLogoToLocalStorageDataUri(
+  channelKey: string,
+  remoteHttpsUrl: string
+): void {
+  if (
+    typeof window === 'undefined' ||
+    !remoteHttpsUrl.startsWith('https://') ||
+    pendingDataUriUpgrades.has(channelKey)
+  ) {
+    return;
+  }
+
+  const cache = ensureMemoryLogoCacheLoaded();
+  const current = cache.get(channelKey);
+  if (current?.src.startsWith('data:image/')) {
+    return;
+  }
+
+  pendingDataUriUpgrades.add(channelKey);
+
+  const corsImg = new Image();
+  corsImg.crossOrigin = 'anonymous';
+  corsImg.decoding = 'async';
+
+  corsImg.onload = () => {
+    pendingDataUriUpgrades.delete(channelKey);
+    try {
+      const natW = corsImg.naturalWidth || 64;
+      const natH = corsImg.naturalHeight || 64;
+      const maxDim = 72;
+      const scale = Math.min(1, maxDim / Math.max(natW, natH));
+      const w = Math.max(16, Math.round(natW * scale));
+      const h = Math.max(16, Math.round(natH * scale));
+
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.clearRect(0, 0, w, h);
+      ctx.drawImage(corsImg, 0, 0, w, h);
+
+      const dataUri = canvas.toDataURL('image/webp', 0.82);
+      if (
+        dataUri &&
+        dataUri.startsWith('data:image/') &&
+        dataUri.length <= MAX_INLINE_DATA_URI_LENGTH
+      ) {
+        setCachedChannelLogo(channelKey, dataUri);
+      }
+    } catch {
+      // Si le serveur distant ne supporte pas CORS canvas, l'URL HTTPS vérifiée reste en cache localStorage
+    }
+  };
+
+  corsImg.onerror = () => {
+    pendingDataUriUpgrades.delete(channelKey);
+  };
+
+  corsImg.src = remoteHttpsUrl;
+}
+
 const ChannelRowCardInner: React.FC<ChannelRowCardProps> = ({
   channel,
   currentProgramme,
@@ -216,28 +417,39 @@ const ChannelRowCardInner: React.FC<ChannelRowCardProps> = ({
     ? formatSeasonEpisodeCode(parsedCurrentSE.season, parsedCurrentSE.episode)
     : undefined;
 
-  const logoCandidates = React.useMemo(
-    () =>
-      getChannelLogoCandidates(
-        channel.id,
-        channel.displayName,
-        channel.icon ? channel.icon.replace(/^http:\/\//i, 'https://') : undefined
-      ),
-    [channel.id, channel.displayName, channel.icon]
+  const channelLogoCacheKey = React.useMemo(
+    () => `${channel.id.toLowerCase()}::${channel.displayName.toLowerCase()}`,
+    [channel.id, channel.displayName]
   );
+
+  const logoCandidates = React.useMemo(() => {
+    const rawList = getChannelLogoCandidates(
+      channel.id,
+      channel.displayName,
+      channel.icon ? channel.icon.replace(/^http:\/\//i, 'https://') : undefined
+    ).filter((url) => !failedLogoUrlsMemory.has(url));
+
+    const cachedSrc = getCachedChannelLogo(channelLogoCacheKey);
+    if (cachedSrc) {
+      return [cachedSrc, ...rawList.filter((u) => u !== cachedSrc)];
+    }
+    return rawList;
+  }, [channel.id, channel.displayName, channel.icon, channelLogoCacheKey]);
 
   const [logoCandidateIdx, setLogoCandidateIdx] = React.useState(0);
 
   React.useEffect(() => {
     setLogoCandidateIdx(0);
-  }, [channel.id, channel.icon]);
+  }, [channelLogoCacheKey, channel.icon]);
 
   const rawLogoUrl =
     logoCandidates[Math.min(logoCandidateIdx, logoCandidates.length - 1)] ||
     buildCleanFallbackLogoDataUri(channel.displayName, channel.id);
   const secureChannelLogoUrl =
-    ensureHttpsUrl(rawLogoUrl.replace(/^http:\/\//i, 'https://')) ||
-    buildCleanFallbackLogoDataUri(channel.displayName, channel.id);
+    rawLogoUrl.startsWith('data:image/')
+      ? rawLogoUrl
+      : ensureHttpsUrl(rawLogoUrl.replace(/^http:\/\//i, 'https://')) ||
+        buildCleanFallbackLogoDataUri(channel.displayName, channel.id);
 
   return (
     <div
@@ -277,8 +489,27 @@ const ChannelRowCardInner: React.FC<ChannelRowCardProps> = ({
                   src={secureChannelLogoUrl}
                   alt={channel.displayName}
                   className="max-w-full max-h-full object-contain"
-                  loading="lazy"
+                  decoding="async"
+                  onLoad={(e) => {
+                    const loadedSrc =
+                      e.currentTarget.currentSrc || e.currentTarget.src;
+                    if (loadedSrc) {
+                      setCachedChannelLogo(channelLogoCacheKey, loadedSrc);
+                      if (loadedSrc.startsWith('https://')) {
+                        upgradeRemoteLogoToLocalStorageDataUri(
+                          channelLogoCacheKey,
+                          loadedSrc
+                        );
+                      }
+                    }
+                  }}
                   onError={(e) => {
+                    if (
+                      secureChannelLogoUrl &&
+                      !secureChannelLogoUrl.startsWith('data:image/')
+                    ) {
+                      failedLogoUrlsMemory.add(secureChannelLogoUrl);
+                    }
                     if (logoCandidateIdx < logoCandidates.length - 1) {
                       setLogoCandidateIdx((prev) => prev + 1);
                     } else {
@@ -286,6 +517,7 @@ const ChannelRowCardInner: React.FC<ChannelRowCardProps> = ({
                         channel.displayName,
                         channel.id
                       );
+                      setCachedChannelLogo(channelLogoCacheKey, fallbackUri);
                       if (e.currentTarget.src !== fallbackUri) {
                         e.currentTarget.src = fallbackUri;
                       }
