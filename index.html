@@ -8,15 +8,15 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="PulseEPG" />
-    <link rel="manifest" href="/manifest.json" />
-    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
-    <link rel="icon" type="image/png" sizes="72x72" href="/pwa-72x72.png" />
-    <link rel="icon" type="image/png" sizes="96x96" href="/pwa-96x96.png" />
-    <link rel="icon" type="image/png" sizes="128x128" href="/pwa-128x128.png" />
-    <link rel="icon" type="image/png" sizes="192x192" href="/pwa-192x192.png" />
-    <link rel="icon" type="image/png" sizes="512x512" href="/pwa-512x512.png" />
-    <link rel="apple-touch-icon" sizes="152x152" href="/pwa-152x152.png" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.json?v=nx1" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg?v=nx1" />
+    <link rel="icon" type="image/png" sizes="72x72" href="/pwa-72x72.png?v=nx1" />
+    <link rel="icon" type="image/png" sizes="96x96" href="/pwa-96x96.png?v=nx1" />
+    <link rel="icon" type="image/png" sizes="128x128" href="/pwa-128x128.png?v=nx1" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/pwa-192x192.png?v=nx1" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/pwa-512x512.png?v=nx1" />
+    <link rel="apple-touch-icon" sizes="152x152" href="/pwa-152x152.png?v=nx1" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=nx1" />
     <title>PulseEPG - Global TV Guide</title>
     <meta name="description" content="Application mobile responsive de guide TV EPG (XML.GZ) avec décompression en arrière-plan, cache IndexedDB/LocalStorage et compatibilité APK Capacitor." />
     <meta property="og:title" content="PulseEPG — Guide TV XML.GZ Mobile" />
@@ -54,24 +54,25 @@
         box-sizing: border-box;
       }
       .tv-boot-logo-box {
-        width: 76px;
-        height: 76px;
-        border-radius: 20px;
-        background: #111827;
-        border: 2px solid #38bdf8;
-        box-shadow: 0 0 24px rgba(0, 85, 255, 0.45);
+        width: 80px;
+        height: 80px;
+        border-radius: 18px;
+        background: #060911;
+        border: 1.5px solid rgba(225, 29, 72, 0.55);
+        box-shadow: 0 0 28px rgba(225, 29, 72, 0.38), 0 0 18px rgba(0, 85, 255, 0.25);
         display: flex;
         align-items: center;
         justify-content: center;
         margin-bottom: 22px;
+        overflow: hidden;
       }
       .tv-boot-spinner {
         width: 44px;
         height: 44px;
         border-radius: 50%;
-        border: 4px solid rgba(56, 189, 248, 0.22);
-        border-top-color: #38bdf8;
-        border-right-color: #ec4899;
+        border: 4px solid rgba(225, 29, 72, 0.22);
+        border-top-color: #e11d48;
+        border-right-color: #0055ff;
         animation: tvBootSpin 0.85s linear infinite;
         margin-bottom: 18px;
       }
@@ -122,10 +123,31 @@
       <!-- Fallback visuel immédiat affiché à 0ms avant l'exécution du moindre script JS (Android TV / Box Echolink Atomo) -->
       <div id="tv-boot-splash" role="status" aria-live="polite">
         <div class="tv-boot-logo-box" aria-hidden="true">
-          <svg width="46" height="46" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="6" y="14" width="52" height="38" rx="10" fill="#0a0e17" stroke="#38bdf8" stroke-width="4"/>
-            <path d="M22 6L30 14M42 6L34 14" stroke="#ec4899" stroke-width="4" stroke-linecap="round"/>
-            <path d="M14 33H22L25 38L30 22L35 44L40 27L43 35L46 33H50" stroke="#38bdf8" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <svg width="80" height="80" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="bootStem" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#38bdf8" />
+                <stop offset="30%" stop-color="#0055ff" />
+                <stop offset="100%" stop-color="#0f2361" />
+              </linearGradient>
+              <linearGradient id="bootUnder" x1="100%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#e11d48" />
+                <stop offset="65%" stop-color="#0055ff" />
+                <stop offset="100%" stop-color="#172554" />
+              </linearGradient>
+              <linearGradient id="bootHero" x1="0%" y1="0%" x2="95%" y2="90%">
+                <stop offset="0%" stop-color="#ff335c" />
+                <stop offset="38%" stop-color="#ff0033" />
+                <stop offset="100%" stop-color="#9f1239" />
+              </linearGradient>
+            </defs>
+            <rect width="512" height="512" fill="#060911" />
+            <path d="M 128 92 C 128 81, 136 74, 147 74 H 200 C 210 74, 218 81, 218 92 V 430 Q 173 422, 128 438 Z" fill="url(#bootStem)" />
+            <path d="M 314 184 H 404 C 404 274, 338 332, 232 332 H 176 V 248 H 232 C 284 248, 314 224, 314 196 Z" fill="url(#bootUnder)" />
+            <path d="M 128 148 L 218 112 V 224 L 128 246 Z" fill="#020409" fill-opacity="0.7" />
+            <path d="M 128 92 C 128 81, 136 74, 147 74 H 242 C 344 74, 404 126, 404 202 C 404 214, 402 226, 397 238 L 308 198 C 312 191, 314 183, 314 174 C 314 149, 284 134, 232 134 H 206 L 128 168 Z" fill="url(#bootHero)" />
+            <path d="M 248 386 H 284 L 302 346 L 326 420 L 348 366 L 362 386 H 398" stroke="#e11d48" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M 248 386 H 284 L 302 346 L 326 420 L 348 366 L 362 386 H 398" stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
         </div>
         <div class="tv-boot-spinner" aria-hidden="true"></div>

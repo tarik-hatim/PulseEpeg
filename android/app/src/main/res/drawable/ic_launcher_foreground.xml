@@ -5,124 +5,102 @@
     android:height="108dp"
     android:viewportWidth="512"
     android:viewportHeight="512">
-    <!-- Adaptive Icon Safe Zone Group (66dp / 108dp centered) -->
+    <!-- Adaptive Icon Safe Zone Group (66dp / 108dp centered across all Android launchers) -->
     <group
         android:pivotX="256"
         android:pivotY="256"
-        android:scaleX="0.64"
-        android:scaleY="0.64"
-        android:translateY="-4">
+        android:scaleX="0.68"
+        android:scaleY="0.68">
 
-        <!-- V-Shaped Antennas -->
+        <!-- Plane 1: Left Vertical Stem (Royal Blue #38bdf8 -> #0055ff -> #1d4ed8) -->
         <path
-            android:pathData="M188,64 L244,122"
-            android:strokeWidth="14"
-            android:strokeLineCap="round"
-            android:strokeColor="#FF38BDF8" />
-        <path
-            android:pathData="M324,64 L268,122"
-            android:strokeWidth="14"
-            android:strokeLineCap="round"
-            android:strokeColor="#FFEC4899" />
-
-        <!-- Antenna Base -->
-        <path
-            android:pathData="M236,112 L276,112 A8,8 0 0,1 284,120 L284,120 A8,8 0 0,1 276,128 L236,128 A8,8 0 0,1 228,120 L228,120 A8,8 0 0,1 236,112 Z"
-            android:fillColor="#FF0055FF" />
-
-        <!-- TV Screen Frame -->
-        <path
-            android:pathData="M144,122 L368,122 A44,44 0 0,1 412,166 L412,290 A44,44 0 0,1 368,334 L144,334 A44,44 0 0,1 100,290 L100,166 A44,44 0 0,1 144,122 Z"
-            android:fillColor="#FF070B14"
-            android:strokeWidth="18">
-            <aapt:attr name="android:strokeColor">
+            android:pathData="M 128 92 C 128 81, 136 74, 147 74 H 200 C 210 74, 218 81, 218 92 V 430 Q 173 422, 128 438 Z">
+            <aapt:attr name="android:fillColor">
                 <gradient
-                    android:startX="100"
-                    android:startY="122"
-                    android:endX="412"
-                    android:endY="334"
+                    android:startX="173"
+                    android:startY="74"
+                    android:endX="173"
+                    android:endY="438"
                     android:type="linear">
                     <item android:offset="0.0" android:color="#FF38BDF8" />
-                    <item android:offset="0.36" android:color="#FF0055FF" />
-                    <item android:offset="0.68" android:color="#FFEC4899" />
-                    <item android:offset="1.0" android:color="#FFE11D48" />
+                    <item android:offset="0.28" android:color="#FF0055FF" />
+                    <item android:offset="0.72" android:color="#FF1D4ED8" />
+                    <item android:offset="1.0" android:color="#FF0F2361" />
                 </gradient>
             </aapt:attr>
         </path>
 
-        <!-- Heartbeat Pulse Glow Layer -->
+        <!-- Plane 2: Lower Return Ribbon of the "P" Bowl -->
         <path
-            android:pathData="M 136 230 H 184 L 202 256 L 233 162 L 265 298 L 295 192 L 315 246 L 330 230 H 376"
-            android:strokeWidth="26"
-            android:strokeAlpha="0.26"
-            android:strokeLineCap="round"
-            android:strokeLineJoin="round">
-            <aapt:attr name="android:strokeColor">
+            android:pathData="M 314 184 H 404 C 404 274, 338 332, 232 332 H 176 V 248 H 232 C 284 248, 314 224, 314 196 Z">
+            <aapt:attr name="android:fillColor">
                 <gradient
-                    android:startX="136"
-                    android:startY="230"
-                    android:endX="376"
-                    android:endY="230"
+                    android:startX="404"
+                    android:startY="184"
+                    android:endX="176"
+                    android:endY="332"
                     android:type="linear">
-                    <item android:offset="0.0" android:color="#FF38BDF8" />
-                    <item android:offset="0.5" android:color="#FF0055FF" />
-                    <item android:offset="1.0" android:color="#FFE11D48" />
+                    <item android:offset="0.0" android:color="#FFE11D48" />
+                    <item android:offset="0.35" android:color="#FFBE123C" />
+                    <item android:offset="0.70" android:color="#FF0055FF" />
+                    <item android:offset="1.0" android:color="#FF172554" />
                 </gradient>
             </aapt:attr>
         </path>
 
-        <!-- Heartbeat Pulse Main Neon Stroke -->
+        <!-- 3D Cast Shadow on Vertical Stem under Top-Left Fold -->
         <path
-            android:pathData="M 136 230 H 184 L 202 256 L 233 162 L 265 298 L 295 192 L 315 246 L 330 230 H 376"
+            android:pathData="M 128 148 L 218 112 V 224 L 128 246 Z"
+            android:fillColor="#B0020409" />
+
+        <!-- 3D Cast Shadow on Right Loop under Hero Foreground Fold -->
+        <path
+            android:pathData="M 312 194 L 404 218 C 401 242, 391 264, 375 282 L 298 232 Z"
+            android:fillColor="#94020409" />
+
+        <!-- Plane 3: Hero Foreground 3D Folded Ribbon (Netflix-Style Vivid Crimson #ff0033 -> #e11d48) -->
+        <path
+            android:pathData="M 128 92 C 128 81, 136 74, 147 74 H 242 C 344 74, 404 126, 404 202 C 404 214, 402 226, 397 238 L 308 198 C 312 191, 314 183, 314 174 C 314 149, 284 134, 232 134 H 206 L 128 168 Z">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:startX="128"
+                    android:startY="74"
+                    android:endX="404"
+                    android:endY="238"
+                    android:type="linear">
+                    <item android:offset="0.0" android:color="#FFFF335C" />
+                    <item android:offset="0.35" android:color="#FFFF0033" />
+                    <item android:offset="0.72" android:color="#FFE11D48" />
+                    <item android:offset="1.0" android:color="#FF9F1239" />
+                </gradient>
+            </aapt:attr>
+        </path>
+
+        <!-- Plane 4: Signature Pulse Energy Wave in Lower-Right Counter -->
+        <path
+            android:pathData="M 248 386 H 284 L 302 346 L 326 420 L 348 366 L 362 386 H 398"
             android:strokeWidth="15"
             android:strokeLineCap="round"
             android:strokeLineJoin="round">
             <aapt:attr name="android:strokeColor">
                 <gradient
-                    android:startX="136"
-                    android:startY="230"
-                    android:endX="376"
-                    android:endY="230"
+                    android:startX="248"
+                    android:startY="386"
+                    android:endX="398"
+                    android:endY="386"
                     android:type="linear">
                     <item android:offset="0.0" android:color="#FF38BDF8" />
                     <item android:offset="0.35" android:color="#FF0055FF" />
-                    <item android:offset="0.7" android:color="#FFEC4899" />
+                    <item android:offset="0.70" android:color="#FFEC4899" />
                     <item android:offset="1.0" android:color="#FFFF0033" />
                 </gradient>
             </aapt:attr>
         </path>
-
-        <!-- Heartbeat Pulse White Core -->
         <path
-            android:pathData="M 136 230 H 184 L 202 256 L 233 162 L 265 298 L 295 192 L 315 246 L 330 230 H 376"
-            android:strokeWidth="5"
+            android:pathData="M 248 386 H 284 L 302 346 L 326 420 L 348 366 L 362 386 H 398"
+            android:strokeWidth="4.5"
             android:strokeColor="#FFFFFFFF"
             android:strokeLineCap="round"
             android:strokeLineJoin="round" />
-
-        <!-- TV Stand Base -->
-        <path
-            android:pathData="M234,334 h44 v14 h-44 z"
-            android:fillColor="#FF0055FF" />
-        <path
-            android:pathData="M192,346 L320,346 A6,6 0 0,1 326,352 L326,352 A6,6 0 0,1 320,358 L192,358 A6,6 0 0,1 186,352 L186,352 A6,6 0 0,1 192,346 Z">
-            <aapt:attr name="android:fillColor">
-                <gradient
-                    android:startX="186"
-                    android:startY="352"
-                    android:endX="326"
-                    android:endY="352"
-                    android:type="linear">
-                    <item android:offset="0.0" android:color="#FF38BDF8" />
-                    <item android:offset="0.5" android:color="#FF0055FF" />
-                    <item android:offset="1.0" android:color="#FFE11D48" />
-                </gradient>
-            </aapt:attr>
-        </path>
-
-        <!-- "PULSE EPG" Bold Geometric Logotype -->
-        <path
-            android:pathData="M84 436V392H103C111.5 392 117 397.2 117 405.5C117 413.8 111.5 419 103 419H94V436H84ZM94 410.5H102.2C105.4 410.5 107.2 408.7 107.2 405.5C107.2 402.3 105.4 400.5 102.2 400.5H94V410.5Z M125 392H135V418.5C135 424.5 138.2 427.8 143 427.8C147.8 427.8 151 424.5 151 418.5V392H161V418.8C161 430.2 153.8 436.8 143 436.8C132.2 436.8 125 430.2 125 418.8V392Z M171 392H181V427H201V436H171V392Z M208 426.5L214.5 419.8C217.8 424.8 221.6 427.8 225.8 427.8C229.8 427.8 232 426.2 232 423.5C232 420.8 229.5 419.6 222.8 418C213.5 415.8 208.5 412 208.5 404.2C208.5 396.4 215 391.2 224.8 391.2C232.2 391.2 237.8 394.2 241.2 399.5L234.2 405.8C231.5 401.8 228.4 399.8 224.8 399.8C221.2 399.8 218.8 401.4 218.8 403.8C218.8 406.3 221.2 407.4 227.8 409C237.2 411.2 242.2 415.2 242.2 423C242.2 431.4 235.5 436.8 225.2 436.8C216.8 436.8 211.2 433.2 208 426.5Z M250 392H282V400.8H260V409.5H279V418.2H260V427.2H282V436H250V392Z M304 392H336V400.8H314V409.5H333V418.2H314V427.2H336V436H304V392Z M346 436V392H365C373.5 392 379 397.2 379 405.5C379 413.8 373.5 419 365 419H356V436H346ZM356 410.5H364.2C367.4 410.5 369.2 408.7 369.2 405.5C369.2 402.3 367.4 400.5 364.2 400.5H356V410.5Z M408.5 391.2C417.8 391.2 424.8 395.8 427.8 403.5L418.5 407.2C416.5 402.5 413 400.2 408.5 400.2C401.2 400.2 396.8 405.6 396.8 414C396.8 422.4 401.2 427.8 408.8 427.8C414.2 427.8 418.2 425.2 419.2 420.2H409V411.8H428.5V417.5C428.5 429.8 420.5 436.8 408.5 436.8C395.2 436.8 386.5 427.6 386.5 414C386.5 400.4 395.2 391.2 408.5 391.2Z"
-            android:fillColor="#FFFFFFFF" />
     </group>
 </vector>

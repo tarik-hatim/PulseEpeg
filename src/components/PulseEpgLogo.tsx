@@ -2,25 +2,28 @@ import React, { useEffect, useState } from 'react';
 import { Download, Monitor, Smartphone, Tablet, Tv } from 'lucide-react';
 import { AppLanguage } from '../types/epg';
 
-const PULSE_TEXT_PATHS =
-  'M84 436V392H103C111.5 392 117 397.2 117 405.5C117 413.8 111.5 419 103 419H94V436H84ZM94 410.5H102.2C105.4 410.5 107.2 408.7 107.2 405.5C107.2 402.3 105.4 400.5 102.2 400.5H94V410.5Z M125 392H135V418.5C135 424.5 138.2 427.8 143 427.8C147.8 427.8 151 424.5 151 418.5V392H161V418.8C161 430.2 153.8 436.8 143 436.8C132.2 436.8 125 430.2 125 418.8V392Z M171 392H181V427H201V436H171V392Z M208 426.5L214.5 419.8C217.8 424.8 221.6 427.8 225.8 427.8C229.8 427.8 232 426.2 232 423.5C232 420.8 229.5 419.6 222.8 418C213.5 415.8 208.5 412 208.5 404.2C208.5 396.4 215 391.2 224.8 391.2C232.2 391.2 237.8 394.2 241.2 399.5L234.2 405.8C231.5 401.8 228.4 399.8 224.8 399.8C221.2 399.8 218.8 401.4 218.8 403.8C218.8 406.3 221.2 407.4 227.8 409C237.2 411.2 242.2 415.2 242.2 423C242.2 431.4 235.5 436.8 225.2 436.8C216.8 436.8 211.2 433.2 208 426.5Z M250 392H282V400.8H260V409.5H279V418.2H260V427.2H282V436H250V392Z M304 392H336V400.8H314V409.5H333V418.2H314V427.2H336V436H304V392Z M346 436V392H365C373.5 392 379 397.2 379 405.5C379 413.8 373.5 419 365 419H356V436H346ZM356 410.5H364.2C367.4 410.5 369.2 408.7 369.2 405.5C369.2 402.3 367.4 400.5 364.2 400.5H356V410.5Z M408.5 391.2C417.8 391.2 424.8 395.8 427.8 403.5L418.5 407.2C416.5 402.5 413 400.2 408.5 400.2C401.2 400.2 396.8 405.6 396.8 414C396.8 422.4 401.2 427.8 408.8 427.8C414.2 427.8 418.2 425.2 419.2 420.2H409V411.8H428.5V417.5C428.5 429.8 420.5 436.8 408.5 436.8C395.2 436.8 386.5 427.6 386.5 414C386.5 400.4 395.2 391.2 408.5 391.2Z';
-
 interface PulseEpgLogoProps {
   /**
    * If true, automatically scales the icon according to the active terminal:
    * - Smartphone: 36x36px (w-9 h-9)
    * - Tablette (sm/md): 40x40px / 44x44px (sm:w-10 sm:h-10 md:w-11 md:h-11)
-   * - Android TV & TV Box (xl/2xl): 48x48px / 52x52px (xl:w-12 xl:h-12 2xl:w-13 2xl:h-13)
+   * - Android TV & TV Box (xl/2xl): 48x48px (xl:w-12 xl:h-12)
    */
   adaptiveTerminalSize?: boolean;
   className?: string;
   showWordmarkInside?: boolean;
 }
 
+/**
+ * Netflix-inspired ("Netfly") 3D Folded Ribbon Emblem strictly respecting the PulseEPG color charter:
+ * - Deep Studio Midnight Navy (#05070d -> #0a0e17)
+ * - Hero Foreground 3D Folded Crimson Ribbon (#ff0033 -> #e11d48 -> #9f1239)
+ * - Left Vertical Stem & Under-Fold in Royal Blue (#38bdf8 -> #0055ff -> #1d4ed8)
+ * - Signature Pulse Wave in the lower-right counter
+ */
 export const PulseEpgLogo: React.FC<PulseEpgLogoProps> = ({
   adaptiveTerminalSize = true,
   className = '',
-  showWordmarkInside = true,
 }) => {
   const uid = React.useId().replace(/:/g, '');
   const sizeClasses = adaptiveTerminalSize
@@ -31,161 +34,134 @@ export const PulseEpgLogo: React.FC<PulseEpgLogoProps> = ({
     <svg
       viewBox="0 0 512 512"
       fill="none"
-      className={`${sizeClasses} shrink-0 rounded-[22%] shadow-[0_0_18px_rgba(0,85,255,0.28)] ${className}`}
+      className={`${sizeClasses} shrink-0 rounded-[22%] shadow-[0_0_18px_rgba(225,29,72,0.32)] ${className}`}
       aria-label="PulseEPG Launcher Icon"
     >
       <defs>
         <linearGradient id={`bg-${uid}`} x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#060911" />
-          <stop offset="48%" stopColor="#0a0e17" />
-          <stop offset="100%" stopColor="#14132b" />
+          <stop offset="0%" stopColor="#05070d" />
+          <stop offset="50%" stopColor="#0a0e17" />
+          <stop offset="100%" stopColor="#0f1524" />
         </linearGradient>
-        <radialGradient id={`blue-${uid}`} cx="30%" cy="38%" r="52%">
-          <stop offset="0%" stopColor="#0055ff" stopOpacity="0.42" />
-          <stop offset="100%" stopColor="#0055ff" stopOpacity="0" />
-        </radialGradient>
-        <radialGradient id={`crimson-${uid}`} cx="72%" cy="46%" r="52%">
-          <stop offset="0%" stopColor="#e11d48" stopOpacity="0.40" />
+        <radialGradient id={`crimson-${uid}`} cx="56%" cy="34%" r="54%">
+          <stop offset="0%" stopColor="#e11d48" stopOpacity="0.34" />
           <stop offset="100%" stopColor="#e11d48" stopOpacity="0" />
         </radialGradient>
-        <linearGradient id={`neon-${uid}`} x1="12%" y1="15%" x2="88%" y2="85%">
+        <radialGradient id={`blue-${uid}`} cx="32%" cy="72%" r="54%">
+          <stop offset="0%" stopColor="#0055ff" stopOpacity="0.36" />
+          <stop offset="100%" stopColor="#0055ff" stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id={`stem-${uid}`} x1="0%" y1="0%" x2="0%" y2="100%">
           <stop offset="0%" stopColor="#38bdf8" />
-          <stop offset="36%" stopColor="#0055ff" />
-          <stop offset="68%" stopColor="#ec4899" />
-          <stop offset="100%" stopColor="#e11d48" />
+          <stop offset="28%" stopColor="#0055ff" />
+          <stop offset="72%" stopColor="#1d4ed8" />
+          <stop offset="100%" stopColor="#0f2361" />
+        </linearGradient>
+        <linearGradient id={`under-${uid}`} x1="100%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#e11d48" />
+          <stop offset="32%" stopColor="#be123c" />
+          <stop offset="68%" stopColor="#0055ff" />
+          <stop offset="100%" stopColor="#172554" />
+        </linearGradient>
+        <linearGradient id={`hero-${uid}`} x1="0%" y1="0%" x2="95%" y2="90%">
+          <stop offset="0%" stopColor="#ff335c" />
+          <stop offset="34%" stopColor="#ff0033" />
+          <stop offset="72%" stopColor="#e11d48" />
+          <stop offset="100%" stopColor="#9f1239" />
+        </linearGradient>
+        <linearGradient id={`shadowTop-${uid}`} x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#020409" stopOpacity="0.82" />
+          <stop offset="55%" stopColor="#020409" stopOpacity="0.38" />
+          <stop offset="100%" stopColor="#020409" stopOpacity="0" />
+        </linearGradient>
+        <linearGradient id={`shadowWaist-${uid}`} x1="0%" y1="50%" x2="100%" y2="50%">
+          <stop offset="0%" stopColor="#020409" stopOpacity="0.80" />
+          <stop offset="65%" stopColor="#020409" stopOpacity="0.42" />
+          <stop offset="100%" stopColor="#020409" stopOpacity="0" />
         </linearGradient>
         <linearGradient id={`pulse-${uid}`} x1="0%" y1="50%" x2="100%" y2="50%">
           <stop offset="0%" stopColor="#38bdf8" />
-          <stop offset="32%" stopColor="#0055ff" />
-          <stop offset="65%" stopColor="#ec4899" />
+          <stop offset="35%" stopColor="#0055ff" />
+          <stop offset="70%" stopColor="#ec4899" />
           <stop offset="100%" stopColor="#ff0033" />
         </linearGradient>
-        <linearGradient id={`core-${uid}`} x1="0%" y1="50%" x2="100%" y2="50%">
-          <stop offset="0%" stopColor="#e0f2fe" />
-          <stop offset="45%" stopColor="#ffffff" />
-          <stop offset="100%" stopColor="#ffe4e6" />
+        <linearGradient id={`rim-${uid}`} x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#ff0033" stopOpacity="0.55" />
+          <stop offset="50%" stopColor="#0055ff" stopOpacity="0.35" />
+          <stop offset="100%" stopColor="#e11d48" stopOpacity="0.55" />
         </linearGradient>
       </defs>
 
       <rect width="512" height="512" rx="114" fill={`url(#bg-${uid})`} />
-      <rect width="512" height="512" rx="114" fill={`url(#blue-${uid})`} />
       <rect width="512" height="512" rx="114" fill={`url(#crimson-${uid})`} />
+      <rect width="512" height="512" rx="114" fill={`url(#blue-${uid})`} />
       <rect
-        x="16"
-        y="16"
-        width="480"
-        height="480"
-        rx="100"
+        x="14"
+        y="14"
+        width="484"
+        height="484"
+        rx="102"
         fill="none"
-        stroke={`url(#neon-${uid})`}
-        strokeWidth="6"
-        strokeOpacity="0.65"
+        stroke={`url(#rim-${uid})`}
+        strokeWidth="5"
       />
 
-      <g transform={showWordmarkInside ? 'translate(0, 0)' : 'translate(0, 36)'}>
-        {/* Neon Halo */}
-        <rect
-          x="94"
-          y="116"
-          width="324"
-          height="226"
-          rx="50"
-          fill="none"
-          stroke={`url(#neon-${uid})`}
-          strokeWidth="24"
-          strokeOpacity="0.18"
-        />
+      {/* Plane 1: Left Vertical Stem (Royal Blue with Netflix-style curved bottom arch) */}
+      <path
+        d="M 128 92 C 128 81, 136 74, 147 74 H 200 C 210 74, 218 81, 218 92 V 430 Q 173 422, 128 438 Z"
+        fill={`url(#stem-${uid})`}
+      />
 
-        {/* V-Shaped Antennas */}
-        <path
-          d="M188 64 L244 122"
-          stroke={`url(#neon-${uid})`}
-          strokeWidth="14"
-          strokeLinecap="round"
-        />
-        <path
-          d="M324 64 L268 122"
-          stroke={`url(#neon-${uid})`}
-          strokeWidth="14"
-          strokeLinecap="round"
-        />
-        <circle cx="188" cy="64" r="8" fill="#38bdf8" />
-        <circle cx="324" cy="64" r="8" fill="#ec4899" />
+      {/* Plane 2: Lower Return Ribbon of the "P" Bowl (Under-Fold) */}
+      <path
+        d="M 314 184 H 404 C 404 274, 338 332, 232 332 H 176 V 248 H 232 C 284 248, 314 224, 314 196 Z"
+        fill={`url(#under-${uid})`}
+      />
 
-        {/* Antenna Base */}
-        <rect
-          x="228"
-          y="112"
-          width="56"
-          height="16"
-          rx="8"
-          fill={`url(#neon-${uid})`}
-        />
+      {/* 3D Cast Shadows at Ribbon Overlaps */}
+      <path d="M 218 248 H 268 L 244 332 H 218 Z" fill={`url(#shadowWaist-${uid})`} />
+      <path d="M 128 148 L 218 112 V 224 L 128 246 Z" fill={`url(#shadowTop-${uid})`} />
+      <path
+        d="M 312 194 L 404 218 C 401 242, 391 264, 375 282 L 298 232 Z"
+        fill="#020409"
+        fillOpacity="0.58"
+      />
 
-        {/* Retro-Modern TV Bezel */}
-        <rect
-          x="100"
-          y="122"
-          width="312"
-          height="212"
-          rx="44"
-          fill="#070b14"
-          stroke={`url(#neon-${uid})`}
-          strokeWidth="18"
-        />
+      {/* Plane 3: Hero Foreground 3D Folded Ribbon (Vivid Crimson #ff0033 -> #e11d48) */}
+      <path
+        d="M 128 92 C 128 81, 136 74, 147 74 H 242 C 344 74, 404 126, 404 202 C 404 214, 402 226, 397 238 L 308 198 C 312 191, 314 183, 314 174 C 314 149, 284 134, 232 134 H 206 L 128 168 Z"
+        fill={`url(#hero-${uid})`}
+      />
 
-        {/* Heartbeat / ECG Pulse Waveform */}
-        <path
-          d="M 136 230 H 184 L 202 256 L 233 162 L 265 298 L 295 192 L 315 246 L 330 230 H 376"
-          fill="none"
-          stroke={`url(#pulse-${uid})`}
-          strokeWidth="28"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeOpacity="0.24"
-        />
-        <path
-          d="M 136 230 H 184 L 202 256 L 233 162 L 265 298 L 295 192 L 315 246 L 330 230 H 376"
-          fill="none"
-          stroke={`url(#pulse-${uid})`}
-          strokeWidth="15"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M 136 230 H 184 L 202 256 L 233 162 L 265 298 L 295 192 L 315 246 L 330 230 H 376"
-          fill="none"
-          stroke={`url(#core-${uid})`}
-          strokeWidth="5.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <circle cx="136" cy="230" r="7" fill="#38bdf8" />
-        <circle cx="376" cy="230" r="7" fill="#ff0033" />
-
-        {/* TV Pedestal Stand */}
-        <rect
-          x="234"
-          y="334"
-          width="44"
-          height="16"
-          rx="4"
-          fill={`url(#neon-${uid})`}
-        />
-        <rect
-          x="186"
-          y="346"
-          width="140"
-          height="12"
-          rx="6"
-          fill={`url(#neon-${uid})`}
-        />
-
-        {/* "PULSE EPG" Vector Logotype */}
-        {showWordmarkInside && (
-          <path d={PULSE_TEXT_PATHS} fill="#ffffff" />
-        )}
-      </g>
+      {/* Plane 4: Signature Pulse Wave in Lower-Right Counter */}
+      <path
+        d="M 248 386 H 284 L 302 346 L 326 420 L 348 366 L 362 386 H 398"
+        fill="none"
+        stroke={`url(#pulse-${uid})`}
+        strokeWidth="22"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeOpacity="0.28"
+      />
+      <path
+        d="M 248 386 H 284 L 302 346 L 326 420 L 348 366 L 362 386 H 398"
+        fill="none"
+        stroke={`url(#pulse-${uid})`}
+        strokeWidth="13"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M 248 386 H 284 L 302 346 L 326 420 L 348 366 L 362 386 H 398"
+        fill="none"
+        stroke="#ffffff"
+        strokeWidth="4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeOpacity="0.92"
+      />
+      <circle cx="248" cy="386" r="6.5" fill="#38bdf8" />
+      <circle cx="398" cy="386" r="6.5" fill="#ff0033" />
     </svg>
   );
 };
@@ -223,16 +199,16 @@ export const LauncherIconsPreviewCard: React.FC<{ language: AppLanguage }> = ({
   const labels = {
     title:
       language === 'ar'
-        ? 'أيقونة تشغيل التطبيق المتكيفة (هاتف، لوحي، Android TV، TV Box)'
+        ? 'أيقونة تشغيل بتصميم شريطي ثلاثي الأبعاد على جميع أجهزة Android'
         : language === 'en'
-        ? 'Adaptive Launcher Icon (Smartphone, Tablet, Android TV, TV Box)'
-        : 'Icône de Lancement Adaptative (Smartphone, Tablette, Android TV, TV Box)',
+        ? '3D Ribbon Streaming Launcher Icon (Unified across all Android devices)'
+        : 'Icône de Lancement Ruban 3D Cinéma (Généralisée sur tous les appareils Android)',
     subtitle:
       language === 'ar'
-        ? 'تصميم متوافق مع الهوية البصرية (#0a0e17، #0055ff، #e11d48) وأحجام مخصصة لكل جهاز'
+        ? 'مونوغرام ثلاثي الأبعاد مستوحى من منصات البث الكبرى بهويتنا البصرية (#0a0e17، #e11d48، #0055ff)'
         : language === 'en'
-        ? 'Styled to match the brand charter (#0a0e17, #0055ff, #e11d48) with terminal-specific sizes'
-        : 'Respect strict de la charte graphique (#0a0e17, #0055ff, #e11d48) avec tailles adaptées par terminal',
+        ? 'Folded 3D ribbon monogram in our brand palette (#0a0e17, #e11d48, #0055ff) for Phone, Tablet, Android TV & Box'
+        : 'Monogramme ruban 3D plié respectant notre palette (#0a0e17, #e11d48, #0055ff) sur Smartphone, Tablette, Android TV & Box',
     installBtn:
       language === 'ar'
         ? 'تثبيت على الشاشة الرئيسية'
@@ -249,8 +225,8 @@ export const LauncherIconsPreviewCard: React.FC<{ language: AppLanguage }> = ({
       sizes: '48×48 → 192×192 px (Adaptive 108dp / Safe Zone 66dp)',
       desc:
         language === 'fr'
-          ? 'Icône Adaptive Android (Squircle MIUI / Samsung / Pixel) & iOS 180×180 px sans rognage.'
-          : 'Android Adaptive Icon (Squircle / Circle) & iOS 180×180 px with safe-zone padding.',
+          ? 'Monogramme ruban 3D plié plein contraste (Samsung OneUI, Xiaomi HyperOS, Pixel, PWA) sans texte minuscule.'
+          : 'High-contrast 3D folded ribbon monogram (OneUI, Xiaomi, Pixel, PWA) with zero cluttered small text.',
     },
     {
       id: 'tablet' as const,
@@ -259,8 +235,8 @@ export const LauncherIconsPreviewCard: React.FC<{ language: AppLanguage }> = ({
       sizes: '152×152 → 512×512 px (Vectorielle & Haute Densité xxxhdpi)',
       desc:
         language === 'fr'
-          ? 'Grille large tablette Android & iPadOS Retina avec rendu vectoriel sans perte.'
-          : 'Large tablet launcher grid & Retina iPadOS with lossless vector rendering.',
+          ? 'Rendu vectoriel studio sur grille tablette Android & iPadOS avec ombres portées 3D du ruban Crimson/Bleu.'
+          : 'Lossless studio vector rendering on Android Tablet & iPadOS grids with 3D crimson/blue ribbon folds.',
     },
     {
       id: 'android_tv' as const,
@@ -269,8 +245,8 @@ export const LauncherIconsPreviewCard: React.FC<{ language: AppLanguage }> = ({
       sizes: '320×180 dp / 640×360 px (Bannière Leanback 16:9)',
       desc:
         language === 'fr'
-          ? 'Bannière horizontale officielle Leanback (@drawable/tv_banner) pour Google TV / Android TV.'
-          : 'Official 16:9 Leanback horizontal banner (@drawable/tv_banner) for Android TV.',
+          ? 'Bannière Leanback officielle (@drawable/tv_banner) associant le ruban 3D et le logotype PULSE EPG.'
+          : 'Official 16:9 Leanback banner (@drawable/tv_banner) combining the 3D ribbon emblem and PULSE EPG logotype.',
     },
     {
       id: 'tv_box' as const,
@@ -279,8 +255,8 @@ export const LauncherIconsPreviewCard: React.FC<{ language: AppLanguage }> = ({
       sizes: '192×192 px + 320×180 px (Hybride AOSP & Leanback)',
       desc:
         language === 'fr'
-          ? 'Double support icône carrée/ronde HD (@mipmap/ic_launcher) et bannière TV Box.'
-          : 'Dual support for AOSP square/round HD tile and Leanback TV Box launcher.',
+          ? 'Généralisé sur toutes les Box Android (Echolink Atomo, Xiaomi Box, Nvidia Shield) en icône Adaptive et bannière.'
+          : 'Generalized across all Android TV Boxes (AOSP square/round adaptive icon + 16:9 Leanback banner).',
     },
   ];
 
@@ -322,13 +298,13 @@ export const LauncherIconsPreviewCard: React.FC<{ language: AppLanguage }> = ({
               onClick={() => setActiveTerminal(spec.id)}
               className={`flex items-center gap-2 px-2.5 py-2 rounded-lg border text-left transition-all cursor-pointer ${
                 isActive
-                  ? 'bg-[#0055ff]/20 border-[#0055ff] text-[#ffffff] shadow-[0_0_12px_rgba(0,85,255,0.25)]'
+                  ? 'bg-[#e11d48]/20 border-[#e11d48] text-[#ffffff] shadow-[0_0_12px_rgba(225,29,72,0.25)]'
                   : 'bg-[#141a26] border-[#1a202c] text-[#cbd5e1] hover:border-[#0055ff]/50'
               }`}
             >
               <IconComp
                 className={`w-4 h-4 shrink-0 ${
-                  isActive ? 'text-[#38bdf8]' : 'text-[#94a3b8]'
+                  isActive ? 'text-[#e11d48]' : 'text-[#94a3b8]'
                 }`}
               />
               <span className="text-xs font-semibold truncate">{spec.label}</span>
@@ -342,13 +318,13 @@ export const LauncherIconsPreviewCard: React.FC<{ language: AppLanguage }> = ({
         <div className="flex items-center justify-center shrink-0">
           {activeTerminal === 'smartphone' && (
             <div className="flex items-center gap-3">
-              {/* Squircle Smartphone Preview (MIUI / OneUI style) */}
+              {/* Squircle Smartphone Preview (OneUI / HyperOS style) */}
               <div className="flex flex-col items-center gap-1">
                 <img
-                  src="/pwa-192x192.png"
+                  src="/pwa-192x192.png?v=nx1"
                   alt="Icône Smartphone Squircle"
                   referrerPolicy="no-referrer"
-                  className="w-14 h-14 rounded-[22%] border border-[#0055ff]/40 shadow-[0_0_16px_rgba(225,29,72,0.25)]"
+                  className="w-14 h-14 rounded-[22%] border border-[#e11d48]/50 shadow-[0_0_16px_rgba(225,29,72,0.35)]"
                 />
                 <span className="text-[10px] font-medium text-[#cbd5e1]">
                   PulseEPG
@@ -357,10 +333,10 @@ export const LauncherIconsPreviewCard: React.FC<{ language: AppLanguage }> = ({
               {/* Round Android Pixel Preview */}
               <div className="flex flex-col items-center gap-1">
                 <img
-                  src="/pwa-maskable-192x192.png"
+                  src="/pwa-maskable-192x192.png?v=nx1"
                   alt="Icône Smartphone Ronde Adaptive"
                   referrerPolicy="no-referrer"
-                  className="w-14 h-14 rounded-full border border-[#ec4899]/40 shadow-[0_0_16px_rgba(0,85,255,0.25)]"
+                  className="w-14 h-14 rounded-full border border-[#0055ff]/50 shadow-[0_0_16px_rgba(0,85,255,0.3)]"
                 />
                 <span className="text-[10px] font-medium text-[#94a3b8]">
                   Adaptive
@@ -372,10 +348,10 @@ export const LauncherIconsPreviewCard: React.FC<{ language: AppLanguage }> = ({
           {activeTerminal === 'tablet' && (
             <div className="flex flex-col items-center gap-1.5">
               <img
-                src="/pwa-512x512.png"
+                src="/pwa-512x512.png?v=nx1"
                 alt="Icône Tablette HD"
                 referrerPolicy="no-referrer"
-                className="w-20 h-20 rounded-[22%] border border-[#0055ff]/50 shadow-[0_0_20px_rgba(0,85,255,0.3)]"
+                className="w-20 h-20 rounded-[22%] border border-[#e11d48]/50 shadow-[0_0_20px_rgba(225,29,72,0.35)]"
               />
               <span className="text-[11px] font-semibold text-[#ffffff]">
                 PulseEPG HD (Tablette)
@@ -386,10 +362,10 @@ export const LauncherIconsPreviewCard: React.FC<{ language: AppLanguage }> = ({
           {activeTerminal === 'android_tv' && (
             <div className="flex flex-col items-center gap-1.5">
               <img
-                src="/tv-banner-320x180.png"
+                src="/tv-banner-320x180.png?v=nx1"
                 alt="Bannière Android TV Leanback 16:9"
                 referrerPolicy="no-referrer"
-                className="w-40 h-[90px] rounded-lg border-2 border-[#ec4899] shadow-[0_0_18px_rgba(236,72,153,0.4)] object-cover"
+                className="w-40 h-[90px] rounded-lg border-2 border-[#e11d48] shadow-[0_0_18px_rgba(225,29,72,0.4)] object-cover"
               />
               <span className="text-[10px] font-semibold text-[#38bdf8]">
                 Leanback Banner 320×180 dp (16:9)
@@ -400,23 +376,23 @@ export const LauncherIconsPreviewCard: React.FC<{ language: AppLanguage }> = ({
           {activeTerminal === 'tv_box' && (
             <div className="flex items-center gap-3">
               <img
-                src="/pwa-192x192.png"
+                src="/pwa-192x192.png?v=nx1"
                 alt="Icône TV Box AOSP"
                 referrerPolicy="no-referrer"
-                className="w-16 h-16 rounded-2xl border-2 border-[#0055ff] shadow-[0_0_16px_rgba(0,85,255,0.35)]"
+                className="w-16 h-16 rounded-2xl border-2 border-[#e11d48] shadow-[0_0_16px_rgba(225,29,72,0.35)]"
               />
               <img
-                src="/tv-banner-320x180.png"
+                src="/tv-banner-320x180.png?v=nx1"
                 alt="Bannière TV Box Leanback"
                 referrerPolicy="no-referrer"
-                className="w-32 h-[72px] rounded-lg border border-[#e11d48]/60 shadow-[0_0_16px_rgba(225,29,72,0.3)] object-cover"
+                className="w-32 h-[72px] rounded-lg border border-[#0055ff]/60 shadow-[0_0_16px_rgba(0,85,255,0.3)] object-cover"
               />
             </div>
           )}
         </div>
 
         <div className="flex-1 min-w-0 text-center sm:text-left space-y-1">
-          <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#0055ff]/15 border border-[#0055ff]/40 text-[10px] font-mono text-[#38bdf8]">
+          <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#e11d48]/15 border border-[#e11d48]/40 text-[10px] font-mono text-[#fda4af]">
             {currentSpec.sizes}
           </div>
           <p className="text-xs text-[#e2e8f0] leading-relaxed">
@@ -425,15 +401,15 @@ export const LauncherIconsPreviewCard: React.FC<{ language: AppLanguage }> = ({
           <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1 text-[10px] text-[#94a3b8]">
             <span className="inline-flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-[#0a0e17] border border-[#38bdf8]" />
-              #0a0e17 Navy
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-[#0055ff]" />
-              #0055ff Royal Blue
+              #0a0e17 Studio Dark
             </span>
             <span className="inline-flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-[#e11d48]" />
-              #e11d48 Crimson
+              #e11d48 / #ff0033 Ruban Crimson
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-[#0055ff]" />
+              #0055ff / #38bdf8 Pilier Bleu Royal
             </span>
           </div>
         </div>

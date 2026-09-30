@@ -1,84 +1,96 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" width="640" height="360">
   <defs>
     <linearGradient id="tvBgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#060911" />
+      <stop offset="0%" stop-color="#05070d" />
       <stop offset="50%" stop-color="#0a0e17" />
-      <stop offset="100%" stop-color="#15132d" />
+      <stop offset="100%" stop-color="#111827" />
     </linearGradient>
-    <radialGradient id="tvBlueGlow" cx="25%" cy="45%" r="55%">
-      <stop offset="0%" stop-color="#0055ff" stop-opacity="0.40" />
-      <stop offset="100%" stop-color="#0055ff" stop-opacity="0" />
-    </radialGradient>
-    <radialGradient id="tvCrimsonGlow" cx="78%" cy="55%" r="55%">
+    <radialGradient id="tvCrimsonGlow" cx="28%" cy="42%" r="55%">
       <stop offset="0%" stop-color="#e11d48" stop-opacity="0.36" />
       <stop offset="100%" stop-color="#e11d48" stop-opacity="0" />
     </radialGradient>
-    <linearGradient id="tvBrandGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+    <radialGradient id="tvBlueGlow" cx="75%" cy="58%" r="55%">
+      <stop offset="0%" stop-color="#0055ff" stop-opacity="0.34" />
+      <stop offset="100%" stop-color="#0055ff" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="tvStemBlue" x1="0%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" stop-color="#38bdf8" />
-      <stop offset="38%" stop-color="#0055ff" />
-      <stop offset="70%" stop-color="#ec4899" />
-      <stop offset="100%" stop-color="#e11d48" />
+      <stop offset="30%" stop-color="#0055ff" />
+      <stop offset="75%" stop-color="#1d4ed8" />
+      <stop offset="100%" stop-color="#0f2361" />
     </linearGradient>
-    <linearGradient id="tvPulseCore" x1="0%" y1="50%" x2="100%" y2="50%">
-      <stop offset="0%" stop-color="#e0f2fe" />
-      <stop offset="50%" stop-color="#ffffff" />
-      <stop offset="100%" stop-color="#ffe4e6" />
+    <linearGradient id="tvUnderLoop" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#e11d48" />
+      <stop offset="35%" stop-color="#be123c" />
+      <stop offset="70%" stop-color="#0055ff" />
+      <stop offset="100%" stop-color="#172554" />
+    </linearGradient>
+    <linearGradient id="tvHeroCrimson" x1="0%" y1="0%" x2="95%" y2="90%">
+      <stop offset="0%" stop-color="#ff335c" />
+      <stop offset="35%" stop-color="#ff0033" />
+      <stop offset="72%" stop-color="#e11d48" />
+      <stop offset="100%" stop-color="#9f1239" />
+    </linearGradient>
+    <linearGradient id="tvBrandGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ff0033" />
+      <stop offset="45%" stop-color="#e11d48" />
+      <stop offset="75%" stop-color="#0055ff" />
+      <stop offset="100%" stop-color="#38bdf8" />
     </linearGradient>
   </defs>
 
-  <!-- 16:9 Background for Android TV / TV Box Leanback -->
+  <!-- 16:9 Studio Dark Background for Android TV / TV Box Leanback -->
   <rect width="640" height="360" rx="28" fill="url(#tvBgGrad)" />
-  <rect width="640" height="360" rx="28" fill="url(#tvBlueGlow)" />
   <rect width="640" height="360" rx="28" fill="url(#tvCrimsonGlow)" />
+  <rect width="640" height="360" rx="28" fill="url(#tvBlueGlow)" />
   <rect x="8" y="8" width="624" height="344" rx="22" fill="none" stroke="url(#tvBrandGrad)" stroke-width="3" stroke-opacity="0.55" />
 
-  <!-- Left Side: Neon TV + Heartbeat Pulse Emblem -->
-  <g transform="translate(22, 16) scale(0.64)">
-    <rect x="94" y="116" width="324" height="226" rx="50" fill="none" stroke="url(#tvBrandGrad)" stroke-width="26" stroke-opacity="0.16" />
-    <path d="M188 64 L244 122" stroke="url(#tvBrandGrad)" stroke-width="14" stroke-linecap="round" />
-    <path d="M324 64 L268 122" stroke="url(#tvBrandGrad)" stroke-width="14" stroke-linecap="round" />
-    <circle cx="188" cy="64" r="8" fill="#38bdf8" />
-    <circle cx="324" cy="64" r="8" fill="#ec4899" />
-    <rect x="228" y="112" width="56" height="16" rx="8" fill="url(#tvBrandGrad)" />
-    <rect x="100" y="122" width="312" height="212" rx="44" fill="#070b14" stroke="url(#tvBrandGrad)" stroke-width="18" />
+  <!-- Left Side: Netflix-Style 3D Folded Ribbon "P" Emblem -->
+  <g transform="translate(26, 8) scale(0.67)">
     <path
-      d="M 136 230 H 184 L 202 256 L 233 162 L 265 298 L 295 192 L 315 246 L 330 230 H 376"
+      d="M 128 92 C 128 81, 136 74, 147 74 H 200 C 210 74, 218 81, 218 92 V 430 Q 173 422, 128 438 Z"
+      fill="url(#tvStemBlue)"
+    />
+    <path
+      d="M 314 184 H 404 C 404 274, 338 332, 232 332 H 176 V 248 H 232 C 284 248, 314 224, 314 196 Z"
+      fill="url(#tvUnderLoop)"
+    />
+    <path
+      d="M 128 148 L 218 112 V 224 L 128 246 Z"
+      fill="#020409"
+      fill-opacity="0.68"
+    />
+    <path
+      d="M 128 92 C 128 81, 136 74, 147 74 H 242 C 344 74, 404 126, 404 202 C 404 214, 402 226, 397 238 L 308 198 C 312 191, 314 183, 314 174 C 314 149, 284 134, 232 134 H 206 L 128 168 Z"
+      fill="url(#tvHeroCrimson)"
+    />
+    <path
+      d="M 248 386 H 284 L 302 346 L 326 420 L 348 366 L 362 386 H 398"
       fill="none"
       stroke="url(#tvBrandGrad)"
-      stroke-width="26"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-      stroke-opacity="0.25"
-    />
-    <path
-      d="M 136 230 H 184 L 202 256 L 233 162 L 265 298 L 295 192 L 315 246 L 330 230 H 376"
-      fill="none"
-      stroke="url(#tvBrandGrad)"
-      stroke-width="15"
+      stroke-width="14"
       stroke-linecap="round"
       stroke-linejoin="round"
     />
     <path
-      d="M 136 230 H 184 L 202 256 L 233 162 L 265 298 L 295 192 L 315 246 L 330 230 H 376"
+      d="M 248 386 H 284 L 302 346 L 326 420 L 348 366 L 362 386 H 398"
       fill="none"
-      stroke="url(#tvPulseCore)"
-      stroke-width="5.5"
+      stroke="#ffffff"
+      stroke-width="4"
       stroke-linecap="round"
       stroke-linejoin="round"
     />
-    <rect x="234" y="334" width="44" height="16" rx="4" fill="url(#tvBrandGrad)" />
-    <rect x="186" y="346" width="140" height="12" rx="6" fill="url(#tvBrandGrad)" />
   </g>
 
-  <!-- Right Side: Bold "PULSE EPG" Vector Logotype + Accent Bar -->
-  <g transform="translate(248, -195) scale(0.88)">
-    <path d="M84 436V392H103C111.5 392 117 397.2 117 405.5C117 413.8 111.5 419 103 419H94V436H84ZM94 410.5H102.2C105.4 410.5 107.2 408.7 107.2 405.5C107.2 402.3 105.4 400.5 102.2 400.5H94V410.5Z M125 392H135V418.5C135 424.5 138.2 427.8 143 427.8C147.8 427.8 151 424.5 151 418.5V392H161V418.8C161 430.2 153.8 436.8 143 436.8C132.2 436.8 125 430.2 125 418.8V392Z M171 392H181V427H201V436H171V392Z M208 426.5L214.5 419.8C217.8 424.8 221.6 427.8 225.8 427.8C229.8 427.8 232 426.2 232 423.5C232 420.8 229.5 419.6 222.8 418C213.5 415.8 208.5 412 208.5 404.2C208.5 396.4 215 391.2 224.8 391.2C232.2 391.2 237.8 394.2 241.2 399.5L234.2 405.8C231.5 401.8 228.4 399.8 224.8 399.8C221.2 399.8 218.8 401.4 218.8 403.8C218.8 406.3 221.2 407.4 227.8 409C237.2 411.2 242.2 415.2 242.2 423C242.2 431.4 235.5 436.8 225.2 436.8C216.8 436.8 211.2 433.2 208 426.5Z M250 392H282V400.8H260V409.5H279V418.2H260V427.2H282V436H250V392Z M304 392H336V400.8H314V409.5H333V418.2H314V427.2H336V436H304V392Z M346 436V392H365C373.5 392 379 397.2 379 405.5C379 413.8 373.5 419 365 419H356V436H346ZM356 410.5H364.2C367.4 410.5 369.2 408.7 369.2 405.5C369.2 402.3 367.4 400.5 364.2 400.5H356V410.5Z M408.5 391.2C417.8 391.2 424.8 395.8 427.8 403.5L418.5 407.2C416.5 402.5 413 400.2 408.5 400.2C401.2 400.2 396.8 405.6 396.8 414C396.8 422.4 401.2 427.8 408.8 427.8C414.2 427.8 418.2 425.2 419.2 420.2H409V411.8H428.5V417.5C428.5 429.8 420.5 436.8 408.5 436.8C395.2 436.8 386.5 427.6 386.5 414C386.5 400.4 395.2 391.2 408.5 391.2Z" fill="url(#tvBrandGrad)" opacity="0.35" transform="translate(0, 3)" />
+  <!-- Right Side: Bold "PULSE EPG" Vector Logotype + Netflix-Style Crimson Ribbon Bar -->
+  <g transform="translate(238, -200) scale(0.90)">
+    <path d="M84 436V392H103C111.5 392 117 397.2 117 405.5C117 413.8 111.5 419 103 419H94V436H84ZM94 410.5H102.2C105.4 410.5 107.2 408.7 107.2 405.5C107.2 402.3 105.4 400.5 102.2 400.5H94V410.5Z M125 392H135V418.5C135 424.5 138.2 427.8 143 427.8C147.8 427.8 151 424.5 151 418.5V392H161V418.8C161 430.2 153.8 436.8 143 436.8C132.2 436.8 125 430.2 125 418.8V392Z M171 392H181V427H201V436H171V392Z M208 426.5L214.5 419.8C217.8 424.8 221.6 427.8 225.8 427.8C229.8 427.8 232 426.2 232 423.5C232 420.8 229.5 419.6 222.8 418C213.5 415.8 208.5 412 208.5 404.2C208.5 396.4 215 391.2 224.8 391.2C232.2 391.2 237.8 394.2 241.2 399.5L234.2 405.8C231.5 401.8 228.4 399.8 224.8 399.8C221.2 399.8 218.8 401.4 218.8 403.8C218.8 406.3 221.2 407.4 227.8 409C237.2 411.2 242.2 415.2 242.2 423C242.2 431.4 235.5 436.8 225.2 436.8C216.8 436.8 211.2 433.2 208 426.5Z M250 392H282V400.8H260V409.5H279V418.2H260V427.2H282V436H250V392Z M304 392H336V400.8H314V409.5H333V418.2H314V427.2H336V436H304V392Z M346 436V392H365C373.5 392 379 397.2 379 405.5C379 413.8 373.5 419 365 419H356V436H346ZM356 410.5H364.2C367.4 410.5 369.2 408.7 369.2 405.5C369.2 402.3 367.4 400.5 364.2 400.5H356V410.5Z M408.5 391.2C417.8 391.2 424.8 395.8 427.8 403.5L418.5 407.2C416.5 402.5 413 400.2 408.5 400.2C401.2 400.2 396.8 405.6 396.8 414C396.8 422.4 401.2 427.8 408.8 427.8C414.2 427.8 418.2 425.2 419.2 420.2H409V411.8H428.5V417.5C428.5 429.8 420.5 436.8 408.5 436.8C395.2 436.8 386.5 427.6 386.5 414C386.5 400.4 395.2 391.2 408.5 391.2Z" fill="#e11d48" opacity="0.45" transform="translate(0, 4)" />
     <path d="M84 436V392H103C111.5 392 117 397.2 117 405.5C117 413.8 111.5 419 103 419H94V436H84ZM94 410.5H102.2C105.4 410.5 107.2 408.7 107.2 405.5C107.2 402.3 105.4 400.5 102.2 400.5H94V410.5Z M125 392H135V418.5C135 424.5 138.2 427.8 143 427.8C147.8 427.8 151 424.5 151 418.5V392H161V418.8C161 430.2 153.8 436.8 143 436.8C132.2 436.8 125 430.2 125 418.8V392Z M171 392H181V427H201V436H171V392Z M208 426.5L214.5 419.8C217.8 424.8 221.6 427.8 225.8 427.8C229.8 427.8 232 426.2 232 423.5C232 420.8 229.5 419.6 222.8 418C213.5 415.8 208.5 412 208.5 404.2C208.5 396.4 215 391.2 224.8 391.2C232.2 391.2 237.8 394.2 241.2 399.5L234.2 405.8C231.5 401.8 228.4 399.8 224.8 399.8C221.2 399.8 218.8 401.4 218.8 403.8C218.8 406.3 221.2 407.4 227.8 409C237.2 411.2 242.2 415.2 242.2 423C242.2 431.4 235.5 436.8 225.2 436.8C216.8 436.8 211.2 433.2 208 426.5Z M250 392H282V400.8H260V409.5H279V418.2H260V427.2H282V436H250V392Z M304 392H336V400.8H314V409.5H333V418.2H314V427.2H336V436H304V392Z M346 436V392H365C373.5 392 379 397.2 379 405.5C379 413.8 373.5 419 365 419H356V436H346ZM356 410.5H364.2C367.4 410.5 369.2 408.7 369.2 405.5C369.2 402.3 367.4 400.5 364.2 400.5H356V410.5Z M408.5 391.2C417.8 391.2 424.8 395.8 427.8 403.5L418.5 407.2C416.5 402.5 413 400.2 408.5 400.2C401.2 400.2 396.8 405.6 396.8 414C396.8 422.4 401.2 427.8 408.8 427.8C414.2 427.8 418.2 425.2 419.2 420.2H409V411.8H428.5V417.5C428.5 429.8 420.5 436.8 408.5 436.8C395.2 436.8 386.5 427.6 386.5 414C386.5 400.4 395.2 391.2 408.5 391.2Z" fill="#ffffff" />
   </g>
 
-  <!-- Neon Divider Pill & Live Pulse Accent on Right Side -->
-  <rect x="322" y="210" width="248" height="6" rx="3" fill="url(#tvBrandGrad)" />
-  <circle cx="334" cy="244" r="6" fill="#e11d48" />
-  <rect x="350" y="239" width="90" height="10" rx="5" fill="#38bdf8" fill-opacity="0.85" />
-  <rect x="450" y="239" width="118" height="10" rx="5" fill="#cbd5e1" fill-opacity="0.45" />
+  <!-- Crimson & Royal Blue Signature Ribbon Accent on Right Side -->
+  <rect x="314" y="206" width="260" height="7" rx="3.5" fill="url(#tvBrandGrad)" />
+  <circle cx="326" cy="242" r="6.5" fill="#ff0033" />
+  <rect x="342" y="237" width="96" height="10" rx="5" fill="#e11d48" />
+  <rect x="448" y="237" width="126" height="10" rx="5" fill="#0055ff" fill-opacity="0.85" />
 </svg>
