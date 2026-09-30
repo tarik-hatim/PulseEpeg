@@ -1,12 +1,136 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <rect width="512" height="512" rx="112" fill="#0B0F17" />
-  <rect x="36" y="36" width="440" height="440" rx="88" fill="#131927" stroke="#2A324B" stroke-width="8" />
-  <!-- Antenna ears -->
-  <path d="M188 128 L244 184 M324 128 L268 184" stroke="#94A3B8" stroke-width="16" stroke-linecap="round" />
-  <!-- TV Screen Frame -->
-  <rect x="104" y="184" width="304" height="208" rx="28" fill="#0B0F17" stroke="#FFFFFF" stroke-width="16" />
-  <!-- Pulse Waveform inside TV -->
-  <path d="M144 288 H196 L224 232 L264 344 L296 264 L318 288 H368" fill="none" stroke="#3B82F6" stroke-width="18" stroke-linecap="round" stroke-linejoin="round" />
-  <!-- Stand -->
-  <path d="M200 428 H312" stroke="#94A3B8" stroke-width="14" stroke-linecap="round" />
+  <defs>
+    <!-- Deep Midnight Navy Background Gradient (Charte Graphique #0a0e17 -> #111827 -> #1a1635) -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#060911" />
+      <stop offset="48%" stop-color="#0a0e17" />
+      <stop offset="100%" stop-color="#14132b" />
+    </linearGradient>
+
+    <!-- Ambient Royal Blue Left Glow (#0055ff / #38bdf8) -->
+    <radialGradient id="blueGlow" cx="30%" cy="38%" r="52%">
+      <stop offset="0%" stop-color="#0055ff" stop-opacity="0.42" />
+      <stop offset="55%" stop-color="#0055ff" stop-opacity="0.12" />
+      <stop offset="100%" stop-color="#0055ff" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Ambient Crimson / Rose Right Glow (#e11d48 / #ec4899) -->
+    <radialGradient id="crimsonGlow" cx="72%" cy="46%" r="52%">
+      <stop offset="0%" stop-color="#e11d48" stop-opacity="0.40" />
+      <stop offset="55%" stop-color="#ec4899" stop-opacity="0.12" />
+      <stop offset="100%" stop-color="#e11d48" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Brand Signature Gradient: Electric Cyan / Royal Blue (#38bdf8 -> #0055ff) to Neon Rose / Crimson (#ec4899 -> #e11d48) -->
+    <linearGradient id="brandNeonGrad" x1="12%" y1="15%" x2="88%" y2="85%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="36%" stop-color="#0055ff" />
+      <stop offset="68%" stop-color="#ec4899" />
+      <stop offset="100%" stop-color="#e11d48" />
+    </linearGradient>
+
+    <!-- Horizontal Pulse Waveform Gradient -->
+    <linearGradient id="pulseWaveGrad" x1="0%" y1="50%" x2="100%" y2="50%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="32%" stop-color="#0055ff" />
+      <stop offset="65%" stop-color="#ec4899" />
+      <stop offset="100%" stop-color="#ff0033" />
+    </linearGradient>
+
+    <!-- Inner Bright Core Gradient for ECG Pulse -->
+    <linearGradient id="pulseCoreGrad" x1="0%" y1="50%" x2="100%" y2="50%">
+      <stop offset="0%" stop-color="#e0f2fe" />
+      <stop offset="45%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#ffe4e6" />
+    </linearGradient>
+
+    <!-- TV Screen Interior Dark Gloss Gradient -->
+    <linearGradient id="tvScreenFill" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0d1526" />
+      <stop offset="50%" stop-color="#070b14" />
+      <stop offset="100%" stop-color="#0f1424" />
+    </linearGradient>
+
+    <!-- Subtle Rim Border Gradient -->
+    <linearGradient id="rimGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.65" />
+      <stop offset="50%" stop-color="#0055ff" stop-opacity="0.35" />
+      <stop offset="100%" stop-color="#e11d48" stop-opacity="0.65" />
+    </linearGradient>
+  </defs>
+
+  <!-- Base Background -->
+  <rect width="512" height="512" rx="114" fill="url(#bgGrad)" />
+  <rect width="512" height="512" rx="114" fill="url(#blueGlow)" />
+  <rect width="512" height="512" rx="114" fill="url(#crimsonGlow)" />
+
+  <!-- Sleek Inner Charte Graphique Border -->
+  <rect x="18" y="18" width="476" height="476" rx="98" fill="none" stroke="url(#rimGrad)" stroke-width="5" />
+
+  <g transform="translate(0, 0)">
+    <!-- Soft Neon Halo Behind TV & Antenna -->
+    <rect x="94" y="116" width="324" height="226" rx="50" fill="none" stroke="url(#brandNeonGrad)" stroke-width="26" stroke-opacity="0.16" />
+
+    <!-- V-Shaped Retro-Modern TV Antennas -->
+    <path d="M188 64 L244 122" stroke="#38bdf8" stroke-width="20" stroke-linecap="round" stroke-opacity="0.25" />
+    <path d="M324 64 L268 122" stroke="#ec4899" stroke-width="20" stroke-linecap="round" stroke-opacity="0.25" />
+    <path d="M188 64 L244 122" stroke="url(#brandNeonGrad)" stroke-width="13" stroke-linecap="round" />
+    <path d="M324 64 L268 122" stroke="url(#brandNeonGrad)" stroke-width="13" stroke-linecap="round" />
+    <circle cx="188" cy="64" r="8" fill="#38bdf8" />
+    <circle cx="324" cy="64" r="8" fill="#ec4899" />
+
+    <!-- Antenna Base Node -->
+    <rect x="228" y="112" width="56" height="16" rx="8" fill="url(#brandNeonGrad)" />
+
+    <!-- Main TV Outer Frame (Rounded Retro-Modern Bezel) -->
+    <rect x="100" y="122" width="312" height="212" rx="44" fill="url(#tvScreenFill)" stroke="url(#brandNeonGrad)" stroke-width="18" />
+
+    <!-- Inner Screen Bevel Highlight -->
+    <rect x="118" y="140" width="276" height="176" rx="28" fill="none" stroke="#ffffff" stroke-opacity="0.12" stroke-width="2.5" />
+
+    <!-- Subtle Screen Grid / Broadcast Scanline Accent -->
+    <line x1="132" y1="230" x2="380" y2="230" stroke="#1e293b" stroke-width="2" stroke-dasharray="6 6" />
+
+    <!-- Heartbeat / ECG Pulse Waveform (3-Layer Neon Glow) -->
+    <!-- Layer 1: Wide Neon Outer Glow -->
+    <path
+      d="M 136 230 H 184 L 202 256 L 233 162 L 265 298 L 295 192 L 315 246 L 330 230 H 376"
+      fill="none"
+      stroke="url(#pulseWaveGrad)"
+      stroke-width="28"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      stroke-opacity="0.24"
+    />
+    <!-- Layer 2: Primary Brand Neon Gradient Stroke -->
+    <path
+      d="M 136 230 H 184 L 202 256 L 233 162 L 265 298 L 295 192 L 315 246 L 330 230 H 376"
+      fill="none"
+      stroke="url(#pulseWaveGrad)"
+      stroke-width="15"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <!-- Layer 3: Intense White-Hot Center Core -->
+    <path
+      d="M 136 230 H 184 L 202 256 L 233 162 L 265 298 L 295 192 L 315 246 L 330 230 H 376"
+      fill="none"
+      stroke="url(#pulseCoreGrad)"
+      stroke-width="5.5"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+
+    <!-- Glowing Pulse Endpoints -->
+    <circle cx="136" cy="230" r="7" fill="#38bdf8" />
+    <circle cx="376" cy="230" r="7" fill="#ff0033" />
+
+    <!-- TV Pedestal Neck & Base Stand -->
+    <rect x="234" y="334" width="44" height="16" rx="4" fill="url(#brandNeonGrad)" />
+    <rect x="186" y="346" width="140" height="12" rx="6" fill="url(#brandNeonGrad)" />
+
+    <!-- "PULSE EPG" Typography with Subtle Neon Halo -->
+    <path d="M84 436V392H103C111.5 392 117 397.2 117 405.5C117 413.8 111.5 419 103 419H94V436H84ZM94 410.5H102.2C105.4 410.5 107.2 408.7 107.2 405.5C107.2 402.3 105.4 400.5 102.2 400.5H94V410.5Z M125 392H135V418.5C135 424.5 138.2 427.8 143 427.8C147.8 427.8 151 424.5 151 418.5V392H161V418.8C161 430.2 153.8 436.8 143 436.8C132.2 436.8 125 430.2 125 418.8V392Z M171 392H181V427H201V436H171V392Z M208 426.5L214.5 419.8C217.8 424.8 221.6 427.8 225.8 427.8C229.8 427.8 232 426.2 232 423.5C232 420.8 229.5 419.6 222.8 418C213.5 415.8 208.5 412 208.5 404.2C208.5 396.4 215 391.2 224.8 391.2C232.2 391.2 237.8 394.2 241.2 399.5L234.2 405.8C231.5 401.8 228.4 399.8 224.8 399.8C221.2 399.8 218.8 401.4 218.8 403.8C218.8 406.3 221.2 407.4 227.8 409C237.2 411.2 242.2 415.2 242.2 423C242.2 431.4 235.5 436.8 225.2 436.8C216.8 436.8 211.2 433.2 208 426.5Z M250 392H282V400.8H260V409.5H279V418.2H260V427.2H282V436H250V392Z M304 392H336V400.8H314V409.5H333V418.2H314V427.2H336V436H304V392Z M346 436V392H365C373.5 392 379 397.2 379 405.5C379 413.8 373.5 419 365 419H356V436H346ZM356 410.5H364.2C367.4 410.5 369.2 408.7 369.2 405.5C369.2 402.3 367.4 400.5 364.2 400.5H356V410.5Z M408.5 391.2C417.8 391.2 424.8 395.8 427.8 403.5L418.5 407.2C416.5 402.5 413 400.2 408.5 400.2C401.2 400.2 396.8 405.6 396.8 414C396.8 422.4 401.2 427.8 408.8 427.8C414.2 427.8 418.2 425.2 419.2 420.2H409V411.8H428.5V417.5C428.5 429.8 420.5 436.8 408.5 436.8C395.2 436.8 386.5 427.6 386.5 414C386.5 400.4 395.2 391.2 408.5 391.2Z" fill="url(#brandNeonGrad)" opacity="0.35" transform="translate(0, 3)" />
+    <path d="M84 436V392H103C111.5 392 117 397.2 117 405.5C117 413.8 111.5 419 103 419H94V436H84ZM94 410.5H102.2C105.4 410.5 107.2 408.7 107.2 405.5C107.2 402.3 105.4 400.5 102.2 400.5H94V410.5Z M125 392H135V418.5C135 424.5 138.2 427.8 143 427.8C147.8 427.8 151 424.5 151 418.5V392H161V418.8C161 430.2 153.8 436.8 143 436.8C132.2 436.8 125 430.2 125 418.8V392Z M171 392H181V427H201V436H171V392Z M208 426.5L214.5 419.8C217.8 424.8 221.6 427.8 225.8 427.8C229.8 427.8 232 426.2 232 423.5C232 420.8 229.5 419.6 222.8 418C213.5 415.8 208.5 412 208.5 404.2C208.5 396.4 215 391.2 224.8 391.2C232.2 391.2 237.8 394.2 241.2 399.5L234.2 405.8C231.5 401.8 228.4 399.8 224.8 399.8C221.2 399.8 218.8 401.4 218.8 403.8C218.8 406.3 221.2 407.4 227.8 409C237.2 411.2 242.2 415.2 242.2 423C242.2 431.4 235.5 436.8 225.2 436.8C216.8 436.8 211.2 433.2 208 426.5Z M250 392H282V400.8H260V409.5H279V418.2H260V427.2H282V436H250V392Z M304 392H336V400.8H314V409.5H333V418.2H314V427.2H336V436H304V392Z M346 436V392H365C373.5 392 379 397.2 379 405.5C379 413.8 373.5 419 365 419H356V436H346ZM356 410.5H364.2C367.4 410.5 369.2 408.7 369.2 405.5C369.2 402.3 367.4 400.5 364.2 400.5H356V410.5Z M408.5 391.2C417.8 391.2 424.8 395.8 427.8 403.5L418.5 407.2C416.5 402.5 413 400.2 408.5 400.2C401.2 400.2 396.8 405.6 396.8 414C396.8 422.4 401.2 427.8 408.8 427.8C414.2 427.8 418.2 425.2 419.2 420.2H409V411.8H428.5V417.5C428.5 429.8 420.5 436.8 408.5 436.8C395.2 436.8 386.5 427.6 386.5 414C386.5 400.4 395.2 391.2 408.5 391.2Z" fill="#ffffff" />
+  </g>
 </svg>

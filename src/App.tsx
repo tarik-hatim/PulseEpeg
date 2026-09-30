@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   Baby,
   Bell,
+  BellRing,
   Clock,
   Compass,
   Film,
@@ -101,6 +102,9 @@ import { ChannelDetailPanel } from './components/ChannelDetailPanel';
 import { SettingsModal } from './components/SettingsModal';
 import { LoadingStatusBanner } from './components/LoadingStatusBanner';
 import { PWAInstallButton } from './components/PWAInstallButton';
+import { InAppReminderBanner } from './components/InAppReminderBanner';
+import { RemindersChronologicalView } from './components/RemindersChronologicalView';
+import { PulseEpgLogo } from './components/PulseEpgLogo';
 import {
   clearEnrichedMetadataCache,
   enrichProgrammeMetadata,
@@ -126,7 +130,7 @@ import {
   matchesProgrammeGenreGroup,
 } from './utils/xmltvParser';
 
-type ViewMode = 'live' | 'grid' | 'favorites';
+type ViewMode = 'live' | 'grid' | 'favorites' | 'reminders';
 type ActiveTimePreset = 'minus' | 'now' | 'prime' | 'plus';
 
 const CATEGORY_OPTIONS: {
@@ -210,6 +214,12 @@ export function App() {
   const [reminders, setReminders] = useState<ProgrammeReminder[]>(() =>
     loadReminders()
   );
+  const [dismissedBannerIds, setDismissedBannerIds] = useState<string[]>([]);
+  const [recentlyAddedReminder, setRecentlyAddedReminder] =
+    useState<ProgrammeReminder | null>(null);
+  const recentReminderTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
 
   const [selectedChannel, setSelectedChannel] = useState<EpgChannel | null>(
     null
@@ -247,11 +257,11 @@ export function App() {
     });
   }, []);
 
-  // Horloge temps réel (rafraîchie toutes les 30s)
+  // Horloge temps réel (rafraîchie toutes les 15s pour détecter les rappels à J-5 min et en direct)
   useEffect(() => {
     const timer = setInterval(() => {
       setNowMs(Date.now());
-    }, 30000);
+    }, 15000);
     return () => clearInterval(timer);
   }, []);
 
@@ -855,6 +865,26 @@ export function App() {
         ch.orbitalPosition === 'TurkmenÄlem 52°E'
       );
     }
+    if (sat === 'Star One D2 70°W' || sat === 'Star One 70°W') {
+      return (
+        ch.satellites.includes('Star One D2 70°W') ||
+        ch.satellites.includes('Star One 70°W') ||
+        ch.orbitalPosition?.includes('70°W')
+      );
+    }
+    if (
+      sat === 'Intelsat 43.1°W / SES-6 40.5°W' ||
+      sat === 'Intelsat 43.1°W & SES-6 40.5°W' ||
+      sat === 'SES-6 40.5°W'
+    ) {
+      return (
+        ch.satellites.includes('Intelsat 43.1°W / SES-6 40.5°W') ||
+        ch.satellites.includes('Intelsat 43.1°W & SES-6 40.5°W') ||
+        ch.satellites.includes('SES-6 40.5°W') ||
+        ch.orbitalPosition?.includes('40.5°W') ||
+        ch.orbitalPosition?.includes('43.1°W')
+      );
+    }
     return ch.satellites.includes(sat) || ch.orbitalPosition === sat;
   };
 
@@ -1295,8 +1325,10 @@ export function App() {
       'Thor 0.8°W / Intelsat 10-02': 0,
       'TurkmenÄlem 52°E': 0,
       'MonacoSat 52°E': 0,
+      'Star One 70°W': 0,
       'Star One D2 70°W': 0,
       'Amazonas 61°W': 0,
+      'SES-6 40.5°W': 0,
       'Intelsat 43.1°W / SES-6 40.5°W': 0,
       'Intelsat 43.1°W & SES-6 40.5°W': 0,
     };
@@ -1682,25 +1714,213 @@ export function App() {
     (programme: EpgProgramme, channel: EpgChannel) => {
       setReminders((prev) => {
         const exists = prev.some((r) => r.id === programme.id);
-        const next = exists
-          ? prev.filter((r) => r.id !== programme.id)
-          : [
-              ...prev,
-              {
-                id: programme.id,
-                channelId: channel.id,
-                channelName: channel.displayName,
-                title: programme.title,
-                startMs: programme.startMs,
-                stopMs: programme.stopMs,
-                category: programme.category,
-              },
-            ];
+        if (exists) {
+          const next = prev.filter((r) => r.id !== programme.id);
+          saveReminders(next);
+          setRecentlyAddedReminder((curr) =>
+            curr?.id === programme.id ? null : curr
+          );
+          return next;
+        }
+
+        const newReminder: ProgrammeReminder = {
+          id: programme.id,
+          channelId: channel.id,
+          channelName: channel.displayName,
+          channelIcon: channel.icon,
+          orbitalPosition: channel.orbitalPosition,
+          title: programme.title,
+          subTitle: programme.subTitle,
+          description: programme.description,
+          icon: programme.icon,
+          startMs: programme.startMs,
+          stopMs: programme.stopMs,
+          category: programme.category,
+        };
+
+        const next = [...prev, newReminder].sort(
+          (a, b) => a.startMs - b.startMs
+        );
         saveReminders(next);
+
+        setDismissedBannerIds((old) =>
+          old.filter((id) => id !== newReminder.id)
+        );
+        setRecentlyAddedReminder(newReminder);
+        if (recentReminderTimerRef.current) {
+          clearTimeout(recentReminderTimerRef.current);
+        }
+        recentReminderTimerRef.current = setTimeout(() => {
+          setRecentlyAddedReminder(null);
+        }, 5000);
+
         return next;
       });
     },
     []
+  );
+
+  const handleRemoveReminderById = useCallback((reminderId: string) => {
+    setReminders((prev) => {
+      const next = prev.filter((r) => r.id !== reminderId);
+      saveReminders(next);
+      return next;
+    });
+    setRecentlyAddedReminder((curr) =>
+      curr?.id === reminderId ? null : curr
+    );
+  }, []);
+
+  const handleClearExpiredReminders = useCallback(() => {
+    const currentNow = Date.now();
+    setReminders((prev) => {
+      const next = prev.filter((r) => r.stopMs > currentNow);
+      saveReminders(next);
+      return next;
+    });
+  }, []);
+
+  const handleDismissBannerAlert = useCallback((reminderId: string) => {
+    setDismissedBannerIds((prev) =>
+      prev.includes(reminderId) ? prev : [...prev, reminderId]
+    );
+    setRecentlyAddedReminder((curr) =>
+      curr?.id === reminderId ? null : curr
+    );
+  }, []);
+
+  const handleSelectReminderTarget = useCallback(
+    (rem: ProgrammeReminder) => {
+      const cleanTarget = cleanXmltvChannelId(rem.channelId);
+      const foundChannel =
+        channels.find(
+          (c) =>
+            c.id === rem.channelId ||
+            cleanXmltvChannelId(c.id) === cleanTarget
+        ) ||
+        ({
+          id: rem.channelId,
+          displayName: rem.channelName,
+          icon: rem.channelIcon,
+          orbitalPosition: rem.orbitalPosition || 'Astra 19.2°E',
+          satellites: ['Astra 19.2°E'],
+          bouquets: ['Tous'],
+          country: 'FR',
+          group: 'Films & Séries',
+          contentCategory: (rem.category as EpgChannel['contentCategory']) || 'Films & Séries',
+        } as EpgChannel);
+
+      const channelSchedule =
+        activeSchedulesByChannel[cleanXmltvChannelId(foundChannel.id)] ||
+        activeSchedulesByChannel[foundChannel.id] ||
+        [];
+
+      const matchedProg =
+        channelSchedule.find(
+          (p) =>
+            p.id === rem.id ||
+            (p.startMs === rem.startMs && p.title === rem.title)
+        ) ||
+        ({
+          id: rem.id,
+          channelId: foundChannel.id,
+          title: rem.title,
+          subTitle: rem.subTitle,
+          description: rem.description,
+          icon: rem.icon,
+          category: rem.category || 'Films & Séries',
+          rawCategory: rem.category || 'Films & Séries',
+          group: foundChannel.group || 'Films & Séries',
+          startMs: rem.startMs,
+          stopMs: rem.stopMs,
+          hasOriginalAudioVO: true,
+          hasSubtitles: true,
+        } as EpgProgramme);
+
+      setSelectedChannel(foundChannel);
+      setSelectedModalProgramme(matchedProg);
+      handleDismissBannerAlert(rem.id);
+    },
+    [channels, activeSchedulesByChannel, handleDismissBannerAlert]
+  );
+
+  const handleTriggerTestAlertBanner = useCallback(() => {
+    const currentNow = Date.now();
+    setNowMs(currentNow);
+    setDismissedBannerIds([]);
+
+    // Si un rappel est déjà à J-5 min ou en direct, le réafficher immédiatement
+    const hasActiveOrImminent = reminders.some((r) => {
+      const diff = r.startMs - currentNow;
+      return (
+        (diff > 0 && diff <= 5 * 60 * 1000) ||
+        (r.startMs <= currentNow && r.stopMs > currentNow)
+      );
+    });
+    if (hasActiveOrImminent) {
+      return;
+    }
+
+    // Sinon créer un rappel de démonstration commençant dans 3 minutes sur la 1ère chaîne active
+    const sampleChannel = settingsAllowedChannels[0] || channels[0];
+    if (!sampleChannel) return;
+    const samplePair = currentAndNextByChannel[sampleChannel.id];
+    const sampleProg = samplePair?.next || samplePair?.current;
+
+    const demoReminder: ProgrammeReminder = {
+      id: `demo_alert_${sampleChannel.id}_${Math.floor(currentNow / 60000)}`,
+      channelId: sampleChannel.id,
+      channelName: sampleChannel.displayName,
+      channelIcon: sampleChannel.icon,
+      orbitalPosition: sampleChannel.orbitalPosition,
+      title:
+        sampleProg?.title ||
+        (activeLang === 'fr'
+          ? 'Soirée Ligue des Champions / Grand Cinéma HD'
+          : 'Champions League Night / Prime Cinema HD'),
+      subTitle:
+        sampleProg?.subTitle ||
+        (activeLang === 'fr'
+          ? 'Diffusion Imminente (Test Bandeau TV)'
+          : 'Starting Soon (TV Banner Test)'),
+      description: sampleProg?.description,
+      icon: sampleProg?.icon,
+      startMs: currentNow + 3 * 60 * 1000,
+      stopMs: currentNow + 95 * 60 * 1000,
+      category: sampleChannel.contentCategory || 'Sport / Football',
+    };
+
+    setReminders((prev) => {
+      const filtered = prev.filter((r) => !r.id.startsWith('demo_alert_'));
+      const next = [...filtered, demoReminder].sort(
+        (a, b) => a.startMs - b.startMs
+      );
+      saveReminders(next);
+      return next;
+    });
+  }, [
+    reminders,
+    settingsAllowedChannels,
+    channels,
+    currentAndNextByChannel,
+    activeLang,
+  ]);
+
+  const activeRemindersCount = useMemo(
+    () => reminders.filter((r) => r.stopMs > nowMs).length,
+    [reminders, nowMs]
+  );
+
+  const hasImminentOrLiveReminder = useMemo(
+    () =>
+      reminders.some((r) => {
+        const diff = r.startMs - nowMs;
+        return (
+          (diff > 0 && diff <= 5 * 60 * 1000) ||
+          (r.startMs <= nowMs && r.stopMs > nowMs)
+        );
+      }),
+    [reminders, nowMs]
   );
 
   const handleSaveSettings = useCallback(
@@ -2065,28 +2285,40 @@ export function App() {
         '[data-channel-card="true"]'
       );
       if (parentChannelCard && !modalScope) {
-        if (e.key === 'ArrowRight' && activeEl === parentChannelCard) {
-          const favBtn = Array.from(
-            parentChannelCard.querySelectorAll<HTMLElement>(
-              '[data-channel-fav="true"]'
-            )
-          ).find((btn) => {
-            const r = btn.getBoundingClientRect();
-            return r.width > 0 && r.height > 0;
-          });
-          if (favBtn) {
+        const cardActions = Array.from(
+          parentChannelCard.querySelectorAll<HTMLElement>(
+            '[data-channel-reminder="true"], [data-channel-fav="true"]'
+          )
+        ).filter((btn) => {
+          const r = btn.getBoundingClientRect();
+          return r.width > 0 && r.height > 0;
+        });
+
+        if (e.key === 'ArrowRight') {
+          if (activeEl === parentChannelCard && cardActions.length > 0) {
             e.preventDefault();
-            favBtn.focus({ preventScroll: true });
+            cardActions[0].focus({ preventScroll: true });
+            return;
+          }
+          const actionIdx = activeEl ? cardActions.indexOf(activeEl) : -1;
+          if (actionIdx >= 0 && actionIdx < cardActions.length - 1) {
+            e.preventDefault();
+            cardActions[actionIdx + 1].focus({ preventScroll: true });
             return;
           }
         }
-        if (
-          e.key === 'ArrowLeft' &&
-          activeEl?.getAttribute('data-channel-fav') === 'true'
-        ) {
-          e.preventDefault();
-          parentChannelCard.focus({ preventScroll: true });
-          return;
+        if (e.key === 'ArrowLeft') {
+          const actionIdx = activeEl ? cardActions.indexOf(activeEl) : -1;
+          if (actionIdx > 0) {
+            e.preventDefault();
+            cardActions[actionIdx - 1].focus({ preventScroll: true });
+            return;
+          }
+          if (actionIdx === 0) {
+            e.preventDefault();
+            parentChannelCard.focus({ preventScroll: true });
+            return;
+          }
         }
         if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
           const channelCards = Array.from(
@@ -2118,6 +2350,35 @@ export function App() {
               behavior: 'smooth',
               block: 'center',
             });
+            return;
+          }
+        }
+      }
+
+      // 1B. Navigation déterministe sur la liste chronologique "Mes Rappels"
+      const parentReminderCard = activeEl?.closest<HTMLElement>(
+        '[data-reminder-card="true"]'
+      );
+      if (parentReminderCard && !modalScope) {
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          const remCards = Array.from(
+            document.querySelectorAll<HTMLElement>('[data-reminder-card="true"]')
+          ).filter((el) => {
+            const r = el.getBoundingClientRect();
+            return r.width > 0 && r.height > 0;
+          });
+          const idx = remCards.indexOf(parentReminderCard);
+          if (e.key === 'ArrowDown' && idx >= 0 && idx < remCards.length - 1) {
+            e.preventDefault();
+            const nextRem = remCards[idx + 1];
+            nextRem.focus({ preventScroll: true });
+            nextRem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+          } else if (e.key === 'ArrowUp' && idx > 0) {
+            e.preventDefault();
+            const prevRem = remCards[idx - 1];
+            prevRem.focus({ preventScroll: true });
+            prevRem.scrollIntoView({ behavior: 'smooth', block: 'center' });
             return;
           }
         }
@@ -2198,7 +2459,10 @@ export function App() {
       const allNodes = Array.from(
         rootScope.querySelectorAll<HTMLElement>(selector)
       ).filter((el) => {
-        if (el.getAttribute('data-channel-fav') === 'true') {
+        if (
+          el.getAttribute('data-channel-fav') === 'true' ||
+          el.getAttribute('data-channel-reminder') === 'true'
+        ) {
           return false;
         }
         const rect = el.getBoundingClientRect();
@@ -2299,41 +2563,9 @@ export function App() {
       {/* Top Navigation Bar */}
       <header className="sticky top-0 z-30 bg-[#0a0e17]/95 backdrop-blur-xl border-b border-[#1a202c] pt-safe">
         <div className="max-w-[1600px] mx-auto px-3 sm:px-6 2xl:px-10 py-3 flex flex-wrap items-center justify-between gap-3">
-          {/* Brand Logo Minimaliste & Épuré (Style Sky Sport : Blanc, Bleu Royal #0055ff & Crimson #e11d48) */}
+          {/* Brand Logo & Launcher Icon Adaptatif (Smartphone, Tablette, Android TV, TV Box — Charte #0a0e17, #0055ff, #e11d48) */}
           <div className="flex items-center gap-3">
-            <svg
-              viewBox="0 0 28 28"
-              fill="none"
-              className="w-7 h-7 shrink-0 text-[#ffffff]"
-              aria-hidden="true"
-            >
-              <path
-                d="M7.5 20.5L12 16M14.5 6.5L21.5 13.5C19.2 16.5 15.2 17.2 12 14C8.8 10.8 9.5 6.8 12.5 4.5L14.5 6.5Z"
-                stroke="currentColor"
-                strokeWidth="1.75"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M17.5 6.5C19.4 6.5 21.5 8.6 21.5 10.5"
-                stroke="#e11d48"
-                strokeWidth="1.75"
-                strokeLinecap="round"
-              />
-              <path
-                d="M18.5 3.5C21.8 3.5 24.5 6.2 24.5 9.5"
-                stroke="#0055ff"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeOpacity="0.9"
-              />
-              <path
-                d="M5 23H11"
-                stroke="currentColor"
-                strokeWidth="1.75"
-                strokeLinecap="round"
-              />
-            </svg>
+            <PulseEpgLogo adaptiveTerminalSize={true} />
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-base sm:text-lg 2xl:text-xl font-bold tracking-tight text-[#ffffff]">
@@ -2425,6 +2657,52 @@ export function App() {
                   }`}
                 >
                   {favorites.length}
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setViewMode('reminders')}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer ${
+                viewMode === 'reminders'
+                  ? 'bg-gradient-to-r from-[#0055ff] to-[#ec4899] border border-[#ec4899] text-[#ffffff] font-bold shadow-[0_0_14px_rgba(236,72,153,0.55)]'
+                  : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#ec4899]/70 font-medium'
+              }`}
+            >
+              {hasImminentOrLiveReminder ? (
+                <BellRing className="w-3.5 h-3.5 text-[#ec4899] animate-bounce" />
+              ) : (
+                <Bell
+                  className={`w-3.5 h-3.5 ${
+                    viewMode === 'reminders'
+                      ? 'text-[#ffffff]'
+                      : activeRemindersCount > 0
+                      ? 'text-[#ec4899]'
+                      : ''
+                  }`}
+                />
+              )}
+              <span>
+                {activeLang === 'fr'
+                  ? 'Mes Rappels'
+                  : activeLang === 'es'
+                  ? 'Mis Recordatorios'
+                  : activeLang === 'it'
+                  ? 'I Miei Promemoria'
+                  : activeLang === 'ar'
+                  ? 'تذكيراتي'
+                  : 'My Reminders'}
+              </span>
+              {reminders.length > 0 && (
+                <span
+                  className={`px-1.5 py-0.2 rounded text-[10px] font-mono ${
+                    viewMode === 'reminders'
+                      ? 'bg-[#0a0e17] text-[#ffffff] border border-[#ec4899]/80 font-bold'
+                      : 'bg-gradient-to-r from-[#0055ff] to-[#ec4899] text-[#ffffff] font-bold'
+                  }`}
+                >
+                  {activeRemindersCount || reminders.length}
                 </span>
               )}
             </button>
@@ -2875,6 +3153,35 @@ export function App() {
                     </button>
                   );
                 })}
+
+                {/* Filtre Rapide "Mes Rappels" directement dans la barre des filtres */}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setViewMode(viewMode === 'reminders' ? 'live' : 'reminders')
+                  }
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all shrink-0 cursor-pointer ms-1 ${
+                    viewMode === 'reminders'
+                      ? 'bg-gradient-to-r from-[#0055ff] to-[#ec4899] border border-[#ec4899] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(236,72,153,0.5)]'
+                      : 'bg-[#0a0e17] border border-[#ec4899]/50 text-[#ffffff] hover:border-[#ec4899] font-semibold'
+                  }`}
+                >
+                  <BellRing className="w-3.5 h-3.5 text-[#ec4899]" />
+                  <span>
+                    {activeLang === 'fr'
+                      ? 'Mes Rappels'
+                      : activeLang === 'es'
+                      ? 'Mis Recordatorios'
+                      : activeLang === 'it'
+                      ? 'I Miei Promemoria'
+                      : activeLang === 'ar'
+                      ? 'تذكيراتي'
+                      : 'My Reminders'}
+                  </span>
+                  <span className="text-[10px] px-1.5 py-0.2 rounded font-mono bg-gradient-to-r from-[#0055ff] to-[#ec4899] text-[#ffffff] font-bold">
+                    {activeRemindersCount || reminders.length}
+                  </span>
+                </button>
               </div>
 
               {/* Ligne 2 : [SATELLITE / BOUQUET] (Bleu Royal Sky Sport #1d4ed8 / #0055ff) */}
@@ -3197,8 +3504,20 @@ export function App() {
           </div>
         )}
 
-        {/* Contenu Principal : Vue Grille TV ou Vue Liste En Direct */}
-        {viewMode === 'grid' ? (
+        {/* Contenu Principal : Vue Mes Rappels, Vue Grille TV ou Vue Liste En Direct */}
+        {viewMode === 'reminders' ? (
+          <RemindersChronologicalView
+            reminders={reminders}
+            channels={channels}
+            nowMs={nowMs}
+            language={activeLang}
+            onSelectReminder={handleSelectReminderTarget}
+            onRemoveReminder={handleRemoveReminderById}
+            onClearExpired={handleClearExpiredReminders}
+            onTriggerTestAlert={handleTriggerTestAlertBanner}
+            onBackToLive={() => setViewMode('live')}
+          />
+        ) : viewMode === 'grid' ? (
           <TimeGridView
             channels={filteredChannels}
             programmesByChannel={activeSchedulesByChannel}
@@ -3240,6 +3559,8 @@ export function App() {
             allowedCategoryCodes={visibleCategoryOptions.map((c) => c.code)}
             allowedGroupOptions={visibleGroupOptions}
             language={activeLang}
+            reminders={reminders}
+            onToggleReminder={handleToggleReminder}
           />
         ) : filteredChannels.length === 0 ? (
           <div className="rounded-lg border border-dashed border-[#1a202c] bg-[#141a26] p-10 text-center max-w-lg mx-auto my-8">
@@ -3323,6 +3644,8 @@ export function App() {
                   activeSatellite={selectedSatellite}
                   activeBouquet={selectedBouquet}
                   selectedBouquets={settings.selectedBouquets}
+                  reminders={reminders}
+                  onToggleReminder={handleToggleReminder}
                 />
               );
             })}
@@ -3415,6 +3738,19 @@ export function App() {
           selectedBouquets={settings.selectedBouquets}
         />
       )}
+
+      {/* Bandeau d'Alerte Visuel In-App (TV D-Pad & Tablette) : programmes commençant dans <= 5 min ou en cours */}
+      <InAppReminderBanner
+        reminders={reminders}
+        nowMs={nowMs}
+        dismissedIds={dismissedBannerIds}
+        recentlyAddedReminder={recentlyAddedReminder}
+        onSelectReminder={handleSelectReminderTarget}
+        onOpenRemindersTab={() => setViewMode('reminders')}
+        onDismissAlert={handleDismissBannerAlert}
+        language={activeLang}
+        isModalOpen={Boolean(selectedChannel) || isSettingsOpen}
+      />
 
       {/* Modal Paramètres & Sources XMLTV */}
       <SettingsModal

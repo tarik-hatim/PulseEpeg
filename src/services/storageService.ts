@@ -31,11 +31,12 @@ import { resolveOfficialChannelLogoUrl } from '../utils/channelLogoResolver';
 const DB_NAME = 'PulseEpgCacheDB';
 const DB_VERSION = 1;
 const SNAPSHOT_STORE = 'epg_snapshots';
-const SNAPSHOT_KEY = 'active_epg_whitelist_v18';
+const SNAPSHOT_KEY = 'active_epg_whitelist_v19';
 
-const LS_META_KEY = 'pulse_epg_meta_v18';
+const LS_META_KEY = 'pulse_epg_meta_v19';
 const LS_SETTINGS_KEY = 'pulse_epg_settings_v5';
 export const LS_TV_PROFILE_KEY = 'pulse_epg_tv_profile_v1';
+const LS_STRICT_PROFILE_V12_MIGRATED_KEY = 'pulse_epg_strict_2_3_sats_v12';
 const LS_TZ_CASA_MIGRATED_KEY = 'pulse_epg_tz_casablanca_utc0_v1';
 const LS_BOUQUETS_V8_MIGRATED_KEY = 'pulse_epg_bouquets_separated_v8';
 const LS_BOUQUETS_V10_MIGRATED_KEY = 'pulse_epg_bouquets_16e_52e_v10';
@@ -74,6 +75,9 @@ export const STRICT_SAT_FILTER_LIST: SatelliteFilter[] = [
   'Thor 0.8°W / Intelsat 10-02',
   'TurkmenÄlem 52°E',
   'MonacoSat 52°E',
+  'Star One D2 70°W',
+  'Amazonas 61°W',
+  'Intelsat 43.1°W / SES-6 40.5°W',
 ];
 
 export const SAT_TO_BOUQUETS_MAP: Record<string, BouquetFilter[]> = {
@@ -518,6 +522,34 @@ export function channelMatchesSatelliteFilter(
       ch.satellites?.some((s) => s.includes('MonacoSat') || s.includes('52°E')) ||
         ch.orbitalPosition === 'MonacoSat 52°E' ||
         ch.orbitalPosition === 'TurkmenÄlem 52°E'
+    );
+  }
+  if (satFilter === 'Star One D2 70°W' || satFilter === 'Star One 70°W') {
+    return Boolean(
+      ch.satellites?.some((s) => s.includes('Star One') || s.includes('70°W')) ||
+        ch.orbitalPosition?.includes('Star One') ||
+        ch.orbitalPosition?.includes('70°W')
+    );
+  }
+  if (satFilter === 'Amazonas 61°W') {
+    return Boolean(
+      ch.satellites?.some((s) => s.includes('Amazonas') || s.includes('61°W')) ||
+        ch.orbitalPosition?.includes('Amazonas') ||
+        ch.orbitalPosition?.includes('61°W')
+    );
+  }
+  if (
+    satFilter === 'Intelsat 43.1°W / SES-6 40.5°W' ||
+    satFilter === 'Intelsat 43.1°W & SES-6 40.5°W' ||
+    satFilter === 'SES-6 40.5°W'
+  ) {
+    return Boolean(
+      ch.satellites?.some(
+        (s) => s.includes('SES-6') || s.includes('40.5°W') || s.includes('43.1°W')
+      ) ||
+        ch.orbitalPosition?.includes('SES-6') ||
+        ch.orbitalPosition?.includes('40.5°W') ||
+        ch.orbitalPosition?.includes('43.1°W')
     );
   }
   return Boolean(ch.satellites?.includes(satFilter));
@@ -1095,22 +1127,17 @@ export const ALL_BOUQUET_IDS: EpgBouquetId[] = EPG_BOUQUET_CATALOG.map(
 );
 
 export const DEFAULT_ENABLED_BOUQUET_IDS: EpgBouquetId[] = [
-  'nilesat_osn_mbc',
-  'badr_bein_ssc',
   'astra_canal_fr',
   'astra_tnt_fr',
-  'movistar_es',
-  'sky_de',
-  'canal_pl',
   'hotbird_bis_fr',
-  'sky_it',
-  'hispasat_meo_nos',
-  'eutelsat_16e_digitalb',
-  'trt_network',
-  'thor_08w_focussat',
-  'turkmenalem_52e_alem',
-  'monacosat_52e_persiana',
 ];
+
+export interface TvProfileOptionalExtension {
+  id: string;
+  bouquetIds: EpgBouquetId[];
+  satellite: string;
+  label: string;
+}
 
 export interface TvProfileSpec {
   id: Exclude<TvProfileId, 'custom'>;
@@ -1118,64 +1145,121 @@ export interface TvProfileSpec {
   label: string;
   shortLabel: string;
   satellitesSummary: string;
+  satellitesList: string[];
   description: string;
   bouquets: EpgBouquetId[];
+  optionalExtensions?: TvProfileOptionalExtension[];
 }
+
+export const MAGHREB_OPTIONAL_EXTENSIONS: TvProfileOptionalExtension[] = [
+  {
+    id: 'ext_52e',
+    bouquetIds: ['turkmenalem_52e_alem', 'monacosat_52e_persiana'],
+    satellite: 'TurkmenÄlem / MonacoSAT 52°E',
+    label: 'TurkmenÄlem / MonacoSAT 52°E',
+  },
+  {
+    id: 'ext_16e',
+    bouquetIds: ['eutelsat_16e_digitalb'],
+    satellite: 'Eutelsat 16°E',
+    label: 'Eutelsat 16°E',
+  },
+  {
+    id: 'ext_30w',
+    bouquetIds: ['hispasat_meo_nos'],
+    satellite: 'Hispasat 30°W',
+    label: 'Hispasat 30°W',
+  },
+];
 
 export const TV_PROFILES_CATALOG: TvProfileSpec[] = [
   {
+    id: 'france_europe_fr',
+    flag: '🇫🇷',
+    label: 'France / Europe Francophone',
+    shortLabel: 'France / Europe FR',
+    satellitesSummary: 'Astra 19.2°E & Hotbird 13°E (2 satellites)',
+    satellitesList: ['Astra 19.2°E', 'Hotbird 13°E'],
+    description:
+      'Charge uniquement Astra 19.2°E (Canal+ France, TNT France) et Hotbird 13°E (Bis TV France).',
+    bouquets: ['astra_canal_fr', 'astra_tnt_fr', 'hotbird_bis_fr'],
+  },
+  {
+    id: 'moyen_orient_golfe',
+    flag: '🇸🇦/🇦🇪/🇶🇦',
+    label: 'Moyen-Orient / Golfe',
+    shortLabel: 'Moyen-Orient / Golfe',
+    satellitesSummary: 'Nilesat 7°W & Badr 26°E (2 satellites)',
+    satellitesList: ['Nilesat 7°W', 'Badr 26°E'],
+    description:
+      'Charge uniquement Nilesat 7°W (MBC, OSN, Rotana) et Badr 26°E (beIN Sports/Movies, SSC, Al Kass).',
+    bouquets: ['nilesat_osn_mbc', 'badr_bein_ssc'],
+  },
+  {
     id: 'maghreb_mena',
-    flag: '🇲🇦/🇩🇿/🇹🇳/🌍',
+    flag: '🇲🇦/🇩🇿/🇹🇳',
     label: 'Maghreb / MENA Multi-Sat',
     shortLabel: 'Maghreb / MENA',
     satellitesSummary:
-      'Nilesat 7°W, Astra 19.2°E, Hotbird 13°E, TurkmenÄlem/MonacoSAT 52°E, Eutelsat 16°E, Badr 26°E, Hispasat 30°W',
+      'Nilesat 7°W, Astra 19.2°E & Hotbird 13°E (3 satellites principaux)',
+    satellitesList: ['Nilesat 7°W', 'Astra 19.2°E', 'Hotbird 13°E'],
     description:
-      'Profil multi-satellites complet : Nilesat, Astra 19.2°E, Hotbird 13°E, TurkmenÄlem/MonacoSAT 52°E, Eutelsat 16°E, Badr 26°E & Hispasat 30°W.',
+      'Charge uniquement les 3 principaux au démarrage : Nilesat 7°W, Astra 19.2°E, Hotbird 13°E (avec possibilité d’activer TurkmenÄlem/MonacoSAT 52°E, Eutelsat 16°E et Hispasat 30°W dans les paramètres).',
     bouquets: [
       'nilesat_osn_mbc',
-      'badr_bein_ssc',
       'astra_canal_fr',
       'astra_tnt_fr',
-      'movistar_es',
-      'sky_de',
       'hotbird_bis_fr',
-      'sky_it',
-      'canal_pl',
-      'turkmenalem_52e_alem',
-      'monacosat_52e_persiana',
-      'eutelsat_16e_digitalb',
-      'hispasat_meo_nos',
     ],
+    optionalExtensions: MAGHREB_OPTIONAL_EXTENSIONS,
   },
   {
     id: 'espagne',
     flag: '🇪🇸',
-    label: 'Espagne (Movistar+, TNT Abertis)',
+    label: 'Espagne',
     shortLabel: 'Espagne',
-    satellitesSummary: 'Astra 19.2°E & Hispasat 30°W (Movistar+, TNT Abertis)',
+    satellitesSummary: 'Astra 19.2°E & Hispasat 30°W (2 satellites)',
+    satellitesList: ['Astra 19.2°E', 'Hispasat 30°W'],
     description:
-      'Profil dédié Espagne : Movistar Plus+, DAZN España (Astra 19.2°E) et TNT Abertis Espagne (Hispasat 30°W).',
+      'Charge uniquement Astra 19.2°E (Movistar Plus+, DAZN ES) et Hispasat 30°W (TNT Abertis / Movistar).',
     bouquets: ['movistar_es', 'hispasat_meo_nos'],
   },
   {
     id: 'italie',
     flag: '🇮🇹',
-    label: 'Italie (Tivùsat, Sky Italia)',
+    label: 'Italie',
     shortLabel: 'Italie',
-    satellitesSummary: 'Hotbird 13°E (Tivùsat, Sky Italia)',
+    satellitesSummary: 'Hotbird 13°E uniquement (1 satellite)',
+    satellitesList: ['Hotbird 13°E'],
     description:
-      'Profil dédié Italie : Tivùsat (Rai 1–4, Rai Movie, Mediaset Canale 5, Italia 1, Rete 4) & Sky Italia / DAZN IT.',
+      'Charge uniquement Hotbird 13°E (Tivùsat Rai 1–4, Mediaset & Sky Italia / DAZN IT).',
     bouquets: ['sky_it'],
+  },
+  {
+    id: 'amerique_sud_latam',
+    flag: '🇧🇷/🇦🇷/🌎',
+    label: 'Amérique du Sud / LATAM',
+    shortLabel: 'Amérique du Sud / LATAM',
+    satellitesSummary:
+      'Star One 70°W, Amazonas 61°W & SES-6 40.5°W (3 satellites)',
+    satellitesList: ['Star One 70°W', 'Amazonas 61°W', 'SES-6 40.5°W'],
+    description:
+      'Charge uniquement Star One 70°W (Claro TV Brasil), Amazonas 61°W (Vivo / Movistar LATAM) et SES-6 40.5°W (DirecTV / Sky).',
+    bouquets: [
+      'starone_70w_claro_br',
+      'amazonas_61w_latam',
+      'intelsat_43w_directv',
+    ],
   },
   {
     id: 'europe_standard',
     flag: '🇪🇺',
-    label: 'Europe Standard (Astra 19.2°E, Hotbird 13°E)',
+    label: 'Europe Standard',
     shortLabel: 'Europe Standard',
-    satellitesSummary: 'Astra 19.2°E & Hotbird 13°E',
+    satellitesSummary: 'Astra 19.2°E & Hotbird 13°E (2 satellites)',
+    satellitesList: ['Astra 19.2°E', 'Hotbird 13°E'],
     description:
-      'Profil Europe Standard : Astra 19.2°E (Canal+ FR, TNT FR, Movistar+, Sky DE) & Hotbird 13°E (Bis TV, Tivùsat/Sky IT, Polsat/Canal+ PL).',
+      'Charge uniquement Astra 19.2°E (Canal+ FR, TNT FR, Movistar+, Sky DE) et Hotbird 13°E (Bis TV, Sky IT, Polsat/Canal+ PL).',
     bouquets: [
       'astra_canal_fr',
       'astra_tnt_fr',
@@ -1193,6 +1277,18 @@ export const TV_PROFILES_CATALOG: TvProfileSpec[] = [
     shortLabel: 'Tous les satellites',
     satellitesSummary:
       'Nilesat, Badr, Astra 19.2°E, Hotbird 13°E, Hispasat 30°W, Eutelsat 16°E, Türksat 42°E, Thor 0.8°W, 52°E & LATAM',
+    satellitesList: [
+      'Nilesat 7°W',
+      'Badr 26°E',
+      'Astra 19.2°E',
+      'Hotbird 13°E',
+      'Hispasat 30°W',
+      'Eutelsat 16°E',
+      'Türksat 42°E',
+      'Thor 0.8°W',
+      'TurkmenÄlem / MonacoSAT 52°E',
+      'Star One 70°W / Amazonas 61°W / SES-6 40.5°W',
+    ],
     description:
       'Active tous les satellites et bouquets disponibles sans restriction de zone.',
     bouquets: [...ALL_BOUQUET_IDS],
@@ -1211,6 +1307,8 @@ export function inferTvProfileFromBouquets(
   bouquets: EpgBouquetId[],
   explicitProfile?: TvProfileId
 ): TvProfileId {
+  const normalizedSet = new Set(bouquets);
+
   if (
     explicitProfile &&
     explicitProfile !== 'custom' &&
@@ -1218,13 +1316,32 @@ export function inferTvProfileFromBouquets(
   ) {
     const expected = getBouquetsForTvProfile(explicitProfile);
     if (
-      expected.length === bouquets.length &&
-      expected.every((b) => bouquets.includes(b))
+      expected.length === normalizedSet.size &&
+      expected.every((b) => normalizedSet.has(b))
     ) {
       return explicitProfile;
     }
+    // Conserver le profil "maghreb_mena" si les 3 satellites principaux sont actifs + extensions Maghreb optionnelles (52°E, 16°E, 30°W)
+    if (explicitProfile === 'maghreb_mena') {
+      const maghrebCore = getBouquetsForTvProfile('maghreb_mena');
+      const maghrebAllowed = new Set<EpgBouquetId>([
+        ...maghrebCore,
+        'turkmenalem_52e_alem',
+        'monacosat_52e_persiana',
+        'eutelsat_16e_digitalb',
+        'hispasat_meo_nos',
+        'badr_bein_ssc',
+      ]);
+      const hasAllCore = maghrebCore.every((b) => normalizedSet.has(b));
+      const onlyMaghrebAllowed = Array.from(normalizedSet).every((b) =>
+        maghrebAllowed.has(b)
+      );
+      if (hasAllCore && onlyMaghrebAllowed) {
+        return 'maghreb_mena';
+      }
+    }
   }
-  const normalizedSet = new Set(bouquets);
+
   for (const profile of TV_PROFILES_CATALOG) {
     if (
       profile.bouquets.length === normalizedSet.size &&
@@ -1233,18 +1350,46 @@ export function inferTvProfileFromBouquets(
       return profile.id;
     }
   }
-  if (normalizedSet.size >= DEFAULT_ENABLED_BOUQUET_IDS.length) {
+  if (normalizedSet.size >= ALL_BOUQUET_IDS.length - 1) {
     return 'all_satellites';
   }
   return 'custom';
 }
 
+const MAGHREB_COUNTRY_CODES = new Set(['MA', 'DZ', 'TN', 'LY', 'MR']);
+const LATAM_COUNTRY_CODES = new Set([
+  '419',
+  'AR',
+  'BO',
+  'BR',
+  'CL',
+  'CO',
+  'CR',
+  'CU',
+  'DO',
+  'EC',
+  'GT',
+  'HN',
+  'MX',
+  'NI',
+  'PA',
+  'PE',
+  'PR',
+  'PY',
+  'SV',
+  'UY',
+  'VE',
+]);
+
 /**
- * Détection automatique intelligente du profil d'affichage au tout premier lancement
- * basée sur la langue du système (`navigator.language`) :
- * - 'es' (Espagnol) -> Profil "Espagne" (Movistar+, TNT Abertis)
- * - 'it' (Italien) -> Profil "Italie" (Tivùsat, Sky Italia)
- * - 'ar' (Arabe) ou 'fr' (Français) -> Profil "Maghreb / MENA Multi-Sat"
+ * Détection automatique stricte du profil au démarrage (2 à 3 satellites max)
+ * basée sur `navigator.language` et la région système :
+ * - Profil "France / Europe Francophone" (Langue 'fr' hors Maghreb) -> UNIQUEMENT Astra 19.2°E et Hotbird 13°E
+ * - Profil "Moyen-Orient / Golfe" (Langue 'ar' hors Maghreb) -> UNIQUEMENT Nilesat 7°W et Badr 26°E
+ * - Profil "Maghreb / MENA Multi-Sat" (Région Maghreb détectée) -> UNIQUEMENT les 3 principaux : Nilesat 7°W, Astra 19.2°E, Hotbird 13°E
+ * - Profil "Espagne" (Langue 'es' Espagne) -> UNIQUEMENT Astra 19.2°E et Hispasat 30°W
+ * - Profil "Italie" (Langue 'it') -> UNIQUEMENT Hotbird 13°E
+ * - Profil "Amérique du Sud / LATAM" (Langues 'es' LATAM / 'pt') -> UNIQUEMENT Star One 70°W, Amazonas 61°W, SES-6 40.5°W
  * - Autres langues -> Profil "Europe Standard" (Astra 19.2°E, Hotbird 13°E)
  */
 export function detectInitialTvProfileFromSystemLanguage(
@@ -1254,15 +1399,111 @@ export function detectInitialTvProfileFromSystemLanguage(
   language: AppLanguage;
   selectedBouquets: EpgBouquetId[];
 } {
-  const rawSysLang =
-    sysLangOverride ??
-    (typeof navigator !== 'undefined'
-      ? navigator.language ||
-        (Array.isArray(navigator.languages) ? navigator.languages[0] : '') ||
-        ''
-      : '');
-  const langLower = rawSysLang.trim().toLowerCase();
+  const browserLanguages: string[] =
+    sysLangOverride !== undefined
+      ? [sysLangOverride]
+      : typeof navigator !== 'undefined'
+      ? [
+          ...(navigator.language ? [navigator.language] : []),
+          ...(Array.isArray(navigator.languages) ? navigator.languages : []),
+        ]
+      : [];
 
+  const primaryRaw = (browserLanguages[0] || 'fr').trim();
+  const langLower = primaryRaw.toLowerCase();
+  const parts = primaryRaw.split(/[-_]/);
+  const langPrefix = (parts[0] || 'fr').toLowerCase();
+  let regionSubtag = (parts[1] || '').toUpperCase();
+
+  if (!regionSubtag && browserLanguages.length > 1) {
+    for (const candidate of browserLanguages) {
+      const cParts = candidate.trim().split(/[-_]/);
+      if (
+        cParts[0]?.toLowerCase() === langPrefix &&
+        cParts[1] &&
+        cParts[1].length >= 2
+      ) {
+        regionSubtag = cParts[1].toUpperCase();
+        break;
+      }
+    }
+  }
+
+  let sysTimeZone = '';
+  try {
+    sysTimeZone =
+      Intl.DateTimeFormat().resolvedOptions().timeZone?.toLowerCase() || '';
+  } catch {
+    sysTimeZone = '';
+  }
+
+  const isMaghrebTimezone =
+    sysTimeZone.includes('casablanca') ||
+    sysTimeZone.includes('algiers') ||
+    sysTimeZone.includes('tunis') ||
+    sysTimeZone.includes('tripoli') ||
+    sysTimeZone.includes('nouakchott');
+
+  const isMaghrebRegion =
+    MAGHREB_COUNTRY_CODES.has(regionSubtag) || isMaghrebTimezone;
+
+  const isLatamTimezone =
+    sysTimeZone.startsWith('america/') &&
+    !sysTimeZone.includes('new_york') &&
+    !sysTimeZone.includes('chicago') &&
+    !sysTimeZone.includes('denver') &&
+    !sysTimeZone.includes('los_angeles') &&
+    !sysTimeZone.includes('toronto') &&
+    !sysTimeZone.includes('vancouver') &&
+    !sysTimeZone.includes('montreal');
+
+  // 1. Profil "Maghreb / MENA Multi-Sat" (si région Maghreb détectée avec langue 'ar' ou 'fr')
+  // Charge UNIQUEMENT les 3 principaux : Nilesat 7°W, Astra 19.2°E, Hotbird 13°E
+  if ((langPrefix === 'ar' || langPrefix === 'fr') && isMaghrebRegion) {
+    return {
+      tvProfile: 'maghreb_mena',
+      language: langPrefix === 'ar' ? 'ar' : 'fr',
+      selectedBouquets: getBouquetsForTvProfile('maghreb_mena'),
+    };
+  }
+
+  // 2. Profil "France / Europe Francophone" (Langue 'fr')
+  // Charge UNIQUEMENT : Astra 19.2°E et Hotbird 13°E
+  if (langPrefix === 'fr') {
+    return {
+      tvProfile: 'france_europe_fr',
+      language: 'fr',
+      selectedBouquets: getBouquetsForTvProfile('france_europe_fr'),
+    };
+  }
+
+  // 3. Profil "Moyen-Orient / Golfe" (Langue 'ar' hors Maghreb)
+  // Charge UNIQUEMENT : Nilesat 7°W et Badr 26°E
+  if (langPrefix === 'ar') {
+    return {
+      tvProfile: 'moyen_orient_golfe',
+      language: 'ar',
+      selectedBouquets: getBouquetsForTvProfile('moyen_orient_golfe'),
+    };
+  }
+
+  // 4. Profil "Amérique du Sud / LATAM" (Langues 'es' LATAM / 'pt')
+  // Charge UNIQUEMENT : Star One 70°W, Amazonas 61°W, SES-6 40.5°W
+  if (
+    langPrefix === 'pt' ||
+    (langPrefix === 'es' &&
+      (LATAM_COUNTRY_CODES.has(regionSubtag) ||
+        (regionSubtag !== 'ES' && isLatamTimezone)))
+  ) {
+    return {
+      tvProfile: 'amerique_sud_latam',
+      language: langPrefix === 'pt' ? 'pt' : 'es',
+      selectedBouquets: getBouquetsForTvProfile('amerique_sud_latam'),
+    };
+  }
+
+  // 5. Profil "Espagne" (Langue 'es')
+  // Charge UNIQUEMENT : Astra 19.2°E et Hispasat 30°W
   if (langLower.startsWith('es')) {
     return {
       tvProfile: 'espagne',
@@ -1271,6 +1512,8 @@ export function detectInitialTvProfileFromSystemLanguage(
     };
   }
 
+  // 6. Profil "Italie" (Langue 'it')
+  // Charge UNIQUEMENT : Hotbird 13°E
   if (langLower.startsWith('it')) {
     return {
       tvProfile: 'italie',
@@ -1279,18 +1522,9 @@ export function detectInitialTvProfileFromSystemLanguage(
     };
   }
 
-  if (langLower.startsWith('ar') || langLower.startsWith('fr')) {
-    return {
-      tvProfile: 'maghreb_mena',
-      language: langLower.startsWith('ar') ? 'ar' : 'fr',
-      selectedBouquets: getBouquetsForTvProfile('maghreb_mena'),
-    };
-  }
-
+  // 7. Autres langues -> Profil "Europe Standard" (Astra 19.2°E, Hotbird 13°E)
   const uiLang: AppLanguage = langLower.startsWith('de')
     ? 'de'
-    : langLower.startsWith('pt')
-    ? 'pt'
     : langLower.startsWith('en')
     ? 'en'
     : 'en';
@@ -1856,7 +2090,7 @@ export function isSatelliteFilterAllowedBySettings(
   if (sat === 'MonacoSat 52°E') {
     return active.includes('monacosat_52e_persiana');
   }
-  if (sat === 'Star One D2 70°W') {
+  if (sat === 'Star One D2 70°W' || sat === 'Star One 70°W') {
     return active.includes('starone_70w_claro_br');
   }
   if (sat === 'Amazonas 61°W') {
@@ -1864,7 +2098,8 @@ export function isSatelliteFilterAllowedBySettings(
   }
   if (
     sat === 'Intelsat 43.1°W / SES-6 40.5°W' ||
-    sat === 'Intelsat 43.1°W & SES-6 40.5°W'
+    sat === 'Intelsat 43.1°W & SES-6 40.5°W' ||
+    sat === 'SES-6 40.5°W'
   ) {
     return active.includes('intelsat_43w_directv');
   }
@@ -1966,6 +2201,17 @@ export function isChannelAllowedBySettings(
     settings.enabledCategories && settings.enabledCategories.length > 0
       ? settings.enabledCategories
       : ALL_THEMATIC_CATEGORIES;
+
+  // Vérification stricte que la chaîne appartient à au moins un satellite actif du profil
+  if (
+    ch.satellites &&
+    ch.satellites.length > 0 &&
+    !ch.satellites.some((s) =>
+      isSatelliteFilterAllowedBySettings(s, activeBouquets)
+    )
+  ) {
+    return false;
+  }
 
   const chBouquetId = resolveChannelBouquetId(ch);
   let bouquetAllowed = activeBouquets.includes(chBouquetId);
@@ -2221,16 +2467,31 @@ export function syncSourcesWithSelectedBouquets(
           ? false
           : selectedBouquets.includes('hispasat_meo_nos');
     }
-    // AE1, SA1, SA2, BEIN1 fournissent les chaînes MENA pour Nilesat 7°W et Badr / Es'hailSat 26°E
-    else if (
-      u.includes('_sa1') ||
-      u.includes('_sa2') ||
-      u.includes('_ae1') ||
-      u.includes('_bein1')
-    ) {
+    // BEIN1 fournit exclusivement Badr / Es'hailSat 26°E
+    else if (u.includes('_bein1')) {
+      enabled = selectedBouquets.includes('badr_bein_ssc');
+    }
+    // AE1 & SA1 fournissent Nilesat 7°W (MBC, OSN, Rotana)
+    else if (u.includes('_ae1') || u.includes('_sa1')) {
+      enabled = selectedBouquets.includes('nilesat_osn_mbc');
+    }
+    // SA2 fournit SSC Sports (Badr 26°E) et MBC Max / OSN Action (Nilesat 7°W)
+    else if (u.includes('_sa2')) {
       enabled =
         selectedBouquets.includes('nilesat_osn_mbc') ||
         selectedBouquets.includes('badr_bein_ssc');
+    }
+    // BR1 fournit Star One 70°W (Claro TV Brasil)
+    else if (u.includes('_br1')) {
+      enabled = selectedBouquets.includes('starone_70w_claro_br');
+    }
+    // CL1 fournit Amazonas 61°W (Vivo TV & Movistar LATAM)
+    else if (u.includes('_cl1')) {
+      enabled = selectedBouquets.includes('amazonas_61w_latam');
+    }
+    // CO1 fournit SES-6 40.5°W / Intelsat 43.1°W (DirecTV LATAM, Sky Brasil, Oi TV)
+    else if (u.includes('_co1')) {
+      enabled = selectedBouquets.includes('intelsat_43w_directv');
     }
 
     // TR1 fournit le bouquet TRT Network (Türksat 42°E / Eutelsat 7°E)
@@ -2328,7 +2589,7 @@ export function buildSourcesSignature(
         .join(',')}`;
 
   return (
-    `whitelist_v18|p:${profilePart}|` +
+    `whitelist_v19|p:${profilePart}|` +
     sources
       .filter((s) => s.enabled && s.url.trim().length > 0)
       .map((s) => `${s.country}:${s.url.trim()}`)
@@ -2873,10 +3134,12 @@ export function loadAppSettings(): AppSettings {
     const storedProfileRaw = localStorage.getItem(LS_TV_PROFILE_KEY) as
       | TvProfileId
       | null;
+    const strictV12Migrated =
+      localStorage.getItem(LS_STRICT_PROFILE_V12_MIGRATED_KEY) === '1';
 
-    // 1. Tout premier lancement (ou absence de profil initialisé) :
+    // 1. Tout premier lancement (ou migration vers le filtrage strict à 2-3 satellites max au démarrage) :
     // Détection automatique basée sur navigator.language et sauvegarde immédiate
-    if (!raw || !storedProfileRaw) {
+    if (!raw || !storedProfileRaw || !strictV12Migrated) {
       const detected = detectInitialTvProfileFromSystemLanguage();
       const existingParsed: Partial<AppSettings> = raw
         ? (JSON.parse(raw) as Partial<AppSettings>)
@@ -2897,6 +3160,7 @@ export function loadAppSettings(): AppSettings {
       };
 
       localStorage.setItem(LS_TV_PROFILE_KEY, detected.tvProfile);
+      localStorage.setItem(LS_STRICT_PROFILE_V12_MIGRATED_KEY, '1');
       localStorage.setItem(LS_TZ_CASA_MIGRATED_KEY, '1');
       localStorage.setItem(LS_BOUQUETS_V8_MIGRATED_KEY, '1');
       localStorage.setItem(LS_BOUQUETS_V10_MIGRATED_KEY, '1');
@@ -3191,18 +3455,33 @@ export function loadReminders(): ProgrammeReminder[] {
     const raw = localStorage.getItem(LS_REMINDERS_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    return (parsed as ProgrammeReminder[]).sort((a, b) => a.startMs - b.startMs);
   } catch {
     return [];
   }
 }
 
 export function saveReminders(reminders: ProgrammeReminder[]): void {
+  const sorted = [...reminders].sort((a, b) => a.startMs - b.startMs);
   try {
-    localStorage.setItem(LS_REMINDERS_KEY, JSON.stringify(reminders));
+    localStorage.setItem(LS_REMINDERS_KEY, JSON.stringify(sorted));
   } catch {
     // Ignore
   }
+  void (async () => {
+    try {
+      const cap = getCapacitorPreferencesPlugin();
+      if (cap?.set) {
+        await cap.set({
+          key: LS_REMINDERS_KEY,
+          value: JSON.stringify(sorted),
+        });
+      }
+    } catch {
+      // Ignore Capacitor bridge error
+    }
+  })();
 }
 
 export function loadRecentSearches(): string[] {

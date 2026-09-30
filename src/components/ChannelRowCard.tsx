@@ -1,5 +1,7 @@
 import React from 'react';
 import {
+  Bell,
+  BellRing,
   ChevronRight,
   Clock,
   Heart,
@@ -15,6 +17,7 @@ import {
   EpgBouquetId,
   EpgChannel,
   EpgProgramme,
+  ProgrammeReminder,
   SatelliteFilter,
 } from '../types/epg';
 import {
@@ -59,6 +62,8 @@ interface ChannelRowCardProps {
   activeSatellite?: SatelliteFilter;
   activeBouquet?: BouquetFilter;
   selectedBouquets?: EpgBouquetId[];
+  reminders?: ProgrammeReminder[];
+  onToggleReminder?: (prog: EpgProgramme, channel: EpgChannel) => void;
 }
 
 const COUNTRY_ACCENTS: Record<
@@ -134,9 +139,21 @@ export const ChannelRowCard: React.FC<ChannelRowCardProps> = ({
   activeSatellite,
   activeBouquet,
   selectedBouquets,
+  reminders = [],
+  onToggleReminder,
 }) => {
   const activeLang = language || getActiveLanguage();
   const tr = getTranslations(activeLang);
+  const reminderIdSet = React.useMemo(
+    () => new Set(reminders.map((r) => r.id)),
+    [reminders]
+  );
+  const hasCurrentReminder = currentProgramme
+    ? reminderIdSet.has(currentProgramme.id)
+    : false;
+  const hasNextReminder = nextProgramme
+    ? reminderIdSet.has(nextProgramme.id)
+    : false;
   const singleSatBadge = getSingleSatelliteBadgeForChannel(
     channel,
     activeSatellite,
@@ -371,17 +388,53 @@ export const ChannelRowCard: React.FC<ChannelRowCardProps> = ({
                       )}
                     </span>
                   )}
+
+                  {hasCurrentReminder && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider bg-gradient-to-r from-[#0055ff] to-[#ec4899] text-[#ffffff] border border-[#ec4899]/80 shadow-[0_0_10px_rgba(236,72,153,0.4)]">
+                      <BellRing className="w-2.5 h-2.5 text-[#ffffff] animate-bounce" />
+                      {tr.reminderActive}
+                    </span>
+                  )}
                 </div>
 
-                {isActualLive && (
-                  <span className="text-[11px] font-medium text-[#cbd5e1] shrink-0">
-                    {formatRemainingTime(
-                      currentProgramme.stopMs,
-                      nowMs,
-                      activeLang
-                    )}
-                  </span>
-                )}
+                <div className="flex items-center gap-2 shrink-0">
+                  {isActualLive && (
+                    <span className="text-[11px] font-medium text-[#cbd5e1] shrink-0">
+                      {formatRemainingTime(
+                        currentProgramme.stopMs,
+                        nowMs,
+                        activeLang
+                      )}
+                    </span>
+                  )}
+                  {onToggleReminder && currentProgramme.startMs > Date.now() && (
+                    <button
+                      type="button"
+                      data-channel-reminder="true"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onToggleReminder(currentProgramme, channel);
+                      }}
+                      className={`tv-focusable inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold transition-all cursor-pointer ${
+                        hasCurrentReminder
+                          ? 'bg-gradient-to-r from-[#0055ff] to-[#ec4899] text-[#ffffff] border border-[#ec4899] shadow-[0_0_10px_rgba(236,72,153,0.45)]'
+                          : 'bg-[#0a0e17] border border-[#0055ff]/50 text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#ec4899]'
+                      }`}
+                      title={
+                        hasCurrentReminder ? tr.cancelReminder : tr.remindProgram
+                      }
+                    >
+                      {hasCurrentReminder ? (
+                        <BellRing className="w-3 h-3 text-[#ffffff]" />
+                      ) : (
+                        <Bell className="w-3 h-3 text-[#60a5fa]" />
+                      )}
+                      <span className="hidden xl:inline">
+                        {hasCurrentReminder ? tr.reminderActive : tr.reminderBtn}
+                      </span>
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="mt-1 flex items-baseline gap-2">
@@ -422,16 +475,28 @@ export const ChannelRowCard: React.FC<ChannelRowCardProps> = ({
           )}
         </div>
 
-        {/* Programme Suivant */}
-        <div className="lg:w-64 2xl:w-72 shrink-0 lg:border-s lg:border-[#1a202c] lg:ps-4 flex items-center justify-between gap-3 pt-2 lg:pt-0 border-t border-[#1a202c] lg:border-t-0">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5 text-[11px] text-[#cbd5e1] font-medium">
+        {/* Programme Suivant (À Venir) + Action Rappel Cloche & Badge Bleu/Rose */}
+        <div className="lg:w-72 2xl:w-80 shrink-0 lg:border-s lg:border-[#1a202c] lg:ps-4 flex items-center justify-between gap-2.5 pt-2 lg:pt-0 border-t border-[#1a202c] lg:border-t-0">
+          <div
+            className={`min-w-0 flex-1 rounded-lg p-1.5 -m-1.5 transition-all ${
+              hasNextReminder
+                ? 'bg-gradient-to-r from-[#0055ff]/15 to-[#ec4899]/15 border border-[#ec4899]/50'
+                : ''
+            }`}
+          >
+            <div className="flex items-center gap-1.5 text-[11px] text-[#cbd5e1] font-medium flex-wrap">
               <span className="uppercase tracking-wider text-[10px] text-[#60a5fa] font-semibold">
                 {tr.upNext}
               </span>
               {nextProgramme && (
                 <span className="font-mono text-[#cbd5e1]">
                   {formatTimeShort(nextProgramme.startMs)}
+                </span>
+              )}
+              {hasNextReminder && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-extrabold uppercase tracking-wider bg-gradient-to-r from-[#0055ff] to-[#ec4899] text-[#ffffff] border border-[#ec4899]/80 shadow-[0_0_8px_rgba(236,72,153,0.4)]">
+                  <BellRing className="w-2.5 h-2.5 text-[#ffffff]" />
+                  {activeLang === 'fr' ? 'Rappel' : tr.reminderBtn}
                 </span>
               )}
             </div>
@@ -449,6 +514,53 @@ export const ChannelRowCard: React.FC<ChannelRowCardProps> = ({
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
+            {nextProgramme && onToggleReminder && (
+              <button
+                type="button"
+                data-channel-reminder="true"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleReminder(nextProgramme, channel);
+                }}
+                onKeyDown={(e) => {
+                  if (
+                    e.key === 'Enter' ||
+                    e.key === ' ' ||
+                    e.key === 'Select' ||
+                    e.keyCode === 23 ||
+                    e.keyCode === 66
+                  ) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    onToggleReminder(nextProgramme, channel);
+                  }
+                }}
+                className={`tv-focusable p-2 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
+                  hasNextReminder
+                    ? 'bg-gradient-to-r from-[#0055ff] to-[#ec4899] border-[1.5px] border-[#ec4899] text-[#ffffff] shadow-[0_0_12px_rgba(236,72,153,0.5)]'
+                    : 'bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#ec4899]/70'
+                }`}
+                title={
+                  hasNextReminder
+                    ? tr.cancelReminder
+                    : `${tr.remindProgram} : ${
+                        activeLang === 'fr'
+                          ? translateEpgTextToFrenchSync(nextProgramme.title)
+                          : nextProgramme.title
+                      }`
+                }
+                aria-label={
+                  hasNextReminder ? tr.cancelReminder : tr.remindProgram
+                }
+              >
+                {hasNextReminder ? (
+                  <BellRing className="w-4 h-4 text-[#ffffff]" />
+                ) : (
+                  <Bell className="w-4 h-4 text-[#60a5fa]" />
+                )}
+              </button>
+            )}
+
             <button
               type="button"
               data-channel-fav="true"

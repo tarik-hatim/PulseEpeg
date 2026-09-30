@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Baby,
+  Bell,
+  BellRing,
   ChevronLeft,
   ChevronRight,
   Clock,
@@ -28,6 +30,7 @@ import {
   ContentCategoryFilter,
   EpgChannel,
   EpgProgramme,
+  ProgrammeReminder,
   SatelliteFilter,
 } from '../types/epg';
 import {
@@ -116,6 +119,8 @@ interface TimeGridViewProps {
   allowedCategoryCodes?: ContentCategoryFilter[];
   allowedGroupOptions?: ChannelGroup[];
   language?: AppLanguage;
+  reminders?: ProgrammeReminder[];
+  onToggleReminder?: (prog: EpgProgramme, channel: EpgChannel) => void;
 }
 
 const PIXELS_PER_MINUTE = 4.6;
@@ -200,10 +205,16 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
   allowedCategoryCodes,
   allowedGroupOptions,
   language,
+  reminders = [],
+  onToggleReminder,
 }) => {
   const activeLang = language || getActiveLanguage();
   const tr = getTranslations(activeLang);
   const baseRealNowMs = realNowMs ?? nowMs;
+  const reminderIdSet = useMemo(
+    () => new Set(reminders.map((r) => r.id)),
+    [reminders]
+  );
 
   const [windowStartMs, setWindowStartMs] = useState<number>(() =>
     activeTimePreset === 'prime'
@@ -1202,6 +1213,7 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
                       );
                       const isLive =
                         prog.startMs <= nowMs && prog.stopMs > nowMs;
+                      const hasReminder = reminderIdSet.has(prog.id);
 
                       const allowGridSE = isProgrammeSeriesOrDocumentary({
                         category: prog.category,
@@ -1254,7 +1266,9 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
                             width: `${widthPx}px`,
                           }}
                           className={`tv-focusable absolute top-1 bottom-1 rounded-lg px-2.5 py-1.5 border overflow-hidden cursor-pointer flex flex-col justify-between transition-all ${
-                            isLive
+                            hasReminder
+                              ? 'bg-gradient-to-r from-[#0055ff]/25 via-[#141a26] to-[#ec4899]/25 border-[1.5px] border-[#ec4899] shadow-[0_0_12px_rgba(236,72,153,0.4)] z-15'
+                              : isLive
                               ? 'bg-[#141a26] border-[#e11d48] shadow-[0_0_10px_rgba(225,29,72,0.3)] z-10'
                               : 'bg-[#141a26] hover:bg-[#1a202c] border-[#1a202c] hover:border-[#0055ff]/60'
                           }`}
@@ -1267,15 +1281,51 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
                           )})`}
                         >
                           <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              {isLive && (
-                                <span className="w-1.5 h-1.5 rounded-full bg-[#e11d48] animate-pulse shadow-[0_0_6px_#e11d48] shrink-0" />
-                              )}
-                              <p className="text-xs font-bold text-[#ffffff] truncate">
-                                {activeLang === 'fr'
-                                  ? translateEpgTextToFrenchSync(prog.title)
-                                  : prog.title}
-                              </p>
+                            <div className="flex items-center justify-between gap-1">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                {isLive && (
+                                  <span className="w-1.5 h-1.5 rounded-full bg-[#e11d48] animate-pulse shadow-[0_0_6px_#e11d48] shrink-0" />
+                                )}
+                                {hasReminder && (
+                                  <span className="inline-flex items-center gap-0.5 px-1 py-0.2 rounded text-[9px] font-extrabold uppercase bg-gradient-to-r from-[#0055ff] to-[#ec4899] text-[#ffffff] shrink-0">
+                                    <BellRing className="w-2.5 h-2.5 text-[#ffffff]" />
+                                  </span>
+                                )}
+                                <p className="text-xs font-bold text-[#ffffff] truncate">
+                                  {activeLang === 'fr'
+                                    ? translateEpgTextToFrenchSync(prog.title)
+                                    : prog.title}
+                                </p>
+                              </div>
+
+                              {onToggleReminder &&
+                                prog.stopMs > baseRealNowMs &&
+                                widthPx >= 95 && (
+                                  <button
+                                    type="button"
+                                    tabIndex={-1}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onToggleReminder(prog, ch);
+                                    }}
+                                    className={`p-1 rounded-md transition-all shrink-0 cursor-pointer ${
+                                      hasReminder
+                                        ? 'bg-gradient-to-r from-[#0055ff] to-[#ec4899] text-[#ffffff] shadow-[0_0_8px_rgba(236,72,153,0.5)]'
+                                        : 'bg-[#0a0e17]/80 text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#ec4899]'
+                                    }`}
+                                    title={
+                                      hasReminder
+                                        ? tr.cancelReminder
+                                        : tr.remindProgram
+                                    }
+                                  >
+                                    {hasReminder ? (
+                                      <BellRing className="w-2.5 h-2.5" />
+                                    ) : (
+                                      <Bell className="w-2.5 h-2.5 text-[#60a5fa]" />
+                                    )}
+                                  </button>
+                                )}
                             </div>
                             {prog.subTitle && allowGridSE && widthPx > 130 && (
                               <p className="text-[10px] text-[#cbd5e1] truncate">

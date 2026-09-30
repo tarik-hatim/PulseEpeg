@@ -1,11 +1,21 @@
-const CACHE_NAME = 'pulse-epg-shell-v5';
+const CACHE_NAME = 'pulse-epg-shell-v6';
 const STATIC_ASSETS = [
   '/manifest.json',
   '/icon.svg',
+  '/icon-maskable.svg',
+  '/tv-banner.svg',
+  '/pwa-72x72.png',
+  '/pwa-96x96.png',
+  '/pwa-128x128.png',
+  '/pwa-144x144.png',
+  '/pwa-152x152.png',
   '/pwa-192x192.png',
+  '/pwa-384x384.png',
   '/pwa-512x512.png',
+  '/pwa-maskable-192x192.png',
   '/pwa-maskable-512x512.png',
   '/apple-touch-icon.png',
+  '/tv-banner-320x180.png',
 ];
 
 self.addEventListener('install', (event) => {

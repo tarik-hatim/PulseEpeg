@@ -460,16 +460,23 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                     <Sparkles className="w-3 h-3 text-[#60a5fa]" />
                     {tr.officialSheet} {langOpt.shortLabel}
                   </span>
+
+                  {reminderIds.has(displayProg.id) && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider bg-gradient-to-r from-[#0055ff] to-[#ec4899] text-[#ffffff] border border-[#ec4899] shadow-[0_0_10px_rgba(236,72,153,0.45)]">
+                      <BellRing className="w-3 h-3 text-[#ffffff]" />
+                      {tr.reminderActive}
+                    </span>
+                  )}
                 </div>
 
-                {displayProg.startMs > nowMs && (
+                {displayProg.stopMs > nowMs && (
                   <button
                     type="button"
                     onClick={() => onToggleReminder(displayProg, channel)}
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-all cursor-pointer shrink-0 ${
+                    className={`tv-focusable inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer shrink-0 ${
                       reminderIds.has(displayProg.id)
-                        ? 'bg-[#e11d48] border-[1.5px] border-[#ff0033] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(225,29,72,0.45)]'
-                        : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#e11d48]/60 font-medium'
+                        ? 'bg-gradient-to-r from-[#0055ff] to-[#ec4899] border-[1.5px] border-[#ec4899] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(236,72,153,0.5)]'
+                        : 'bg-[#141a26] border border-[#0055ff]/60 text-[#ffffff] hover:border-[#ec4899] font-semibold'
                     }`}
                   >
                     {reminderIds.has(displayProg.id) ? (
@@ -479,7 +486,7 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                       </>
                     ) : (
                       <>
-                        <Bell className="w-3.5 h-3.5" />
+                        <Bell className="w-3.5 h-3.5 text-[#60a5fa]" />
                         {tr.reminderBtn}
                       </>
                     )}
@@ -773,6 +780,8 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                     className={`tv-card-focusable group rounded-lg p-3 transition-all cursor-pointer ${
                       isSelected
                         ? 'bg-[#1a202c] border-[1.5px] border-[#e11d48] shadow-[0_0_12px_rgba(225,29,72,0.35)]'
+                        : hasReminder
+                        ? 'bg-gradient-to-r from-[#0055ff]/12 via-[#0a0e17] to-[#ec4899]/12 border-[1.5px] border-[#ec4899]/80 shadow-[0_0_12px_rgba(236,72,153,0.25)]'
                         : isLive
                         ? 'bg-[#0a0e17] border border-[#e11d48]/60'
                         : isPast
@@ -822,6 +831,12 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                                 )}
                               </span>
                             )}
+                            {hasReminder && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded bg-gradient-to-r from-[#0055ff] to-[#ec4899] text-[#ffffff] border border-[#ec4899] shadow-[0_0_10px_rgba(236,72,153,0.4)]">
+                                <BellRing className="w-2.5 h-2.5 text-[#ffffff]" />
+                                {tr.reminderActive}
+                              </span>
+                            )}
                           </div>
 
                           {prog.originalTitle &&
@@ -860,26 +875,49 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                         <span className="text-[11px] font-mono text-[#cbd5e1]">
                           {formatDurationMinutes(prog.startMs, prog.stopMs)}
                         </span>
-                        {prog.startMs > nowMs && (
+                        {prog.stopMs > nowMs && (
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               onToggleReminder(prog, channel);
                             }}
-                            className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                            onKeyDown={(e) => {
+                              if (
+                                e.key === 'Enter' ||
+                                e.key === ' ' ||
+                                e.key === 'Select' ||
+                                e.keyCode === 23 ||
+                                e.keyCode === 66
+                              ) {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                onToggleReminder(prog, channel);
+                              }
+                            }}
+                            className={`tv-focusable inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
                               hasReminder
-                                ? 'bg-[#e11d48] border-[1.5px] border-[#ff0033] text-[#ffffff] shadow-[0_0_10px_rgba(225,29,72,0.45)]'
-                                : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60'
+                                ? 'bg-gradient-to-r from-[#0055ff] to-[#ec4899] border-[1.5px] border-[#ec4899] text-[#ffffff] shadow-[0_0_12px_rgba(236,72,153,0.5)]'
+                                : 'bg-[#141a26] border border-[#0055ff]/45 text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#ec4899]'
                             }`}
                             title={
                               hasReminder ? tr.cancelReminder : tr.remindProgram
                             }
                           >
                             {hasReminder ? (
-                              <BellRing className="w-3.5 h-3.5 text-[#ffffff]" />
+                              <>
+                                <BellRing className="w-3.5 h-3.5 text-[#ffffff]" />
+                                <span className="hidden sm:inline">
+                                  {tr.reminderActive}
+                                </span>
+                              </>
                             ) : (
-                              <Bell className="w-3.5 h-3.5" />
+                              <>
+                                <Bell className="w-3.5 h-3.5 text-[#60a5fa]" />
+                                <span className="hidden sm:inline">
+                                  {tr.reminderBtn}
+                                </span>
+                              </>
                             )}
                           </button>
                         )}

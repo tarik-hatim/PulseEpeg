@@ -1,9 +1,12 @@
 export type AppLanguage = 'fr' | 'en' | 'ar' | 'es' | 'de' | 'pt';
 
 export type TvProfileId =
+  | 'france_europe_fr'
+  | 'moyen_orient_golfe'
   | 'maghreb_mena'
   | 'espagne'
   | 'italie'
+  | 'amerique_sud_latam'
   | 'europe_standard'
   | 'all_satellites'
   | 'custom';
@@ -313,7 +316,12 @@ export interface ProgrammeReminder {
   id: string;
   channelId: string;
   channelName: string;
+  channelIcon?: string;
+  orbitalPosition?: string;
   title: string;
+  subTitle?: string;
+  description?: string;
+  icon?: string;
   startMs: number;
   stopMs: number;
   category: string;

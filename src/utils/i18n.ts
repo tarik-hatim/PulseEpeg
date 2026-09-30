@@ -1348,6 +1348,16 @@ export function translateSatelliteFilter(
   if (sat === "Badr / Es'hailSat 26°E" || sat === 'Badr 26°E') {
     return 'Badr 26°E';
   }
+  if (sat === 'Star One D2 70°W' || sat === 'Star One 70°W') {
+    return 'Star One 70°W';
+  }
+  if (
+    sat === 'Intelsat 43.1°W / SES-6 40.5°W' ||
+    sat === 'Intelsat 43.1°W & SES-6 40.5°W' ||
+    sat === 'SES-6 40.5°W'
+  ) {
+    return 'SES-6 40.5°W';
+  }
   return sat;
 }
 

@@ -12,6 +12,7 @@ import {
 import {
   cleanXmltvChannelId,
   ensureHttpsUrl,
+  getAllowedSatellitesForBouquets,
   isPlaceholderProgrammeTitle,
   parseChannelBlock,
   parseProgrammeBlock,
@@ -1256,13 +1257,21 @@ async function processMultiSourceEpgSync(
     },
   });
 
-  // Ne conserver que les chaînes ayant des programmes sur la fenêtre active (-6h à +24h)
+  // Ne conserver que les chaînes appartenant strictement aux satellites du profil actif et ayant des programmes sur la fenêtre active (-6h à +24h)
+  const allowedSats = getAllowedSatellitesForBouquets(
+    filterOptions?.selectedBouquets
+  );
   const finalChannels: EpgChannel[] = [];
   const prunedSchedulesByChannel: Record<string, EpgProgramme[]> = {};
   let retainedProgrammesCount = 0;
 
   for (let i = 0; i < channels.length; i++) {
     const ch = channels[i];
+    if (allowedSats && ch.satellites && ch.satellites.length > 0) {
+      const validSats = ch.satellites.filter((s) => allowedSats.has(s));
+      if (validSats.length === 0) continue;
+      ch.satellites = validSats;
+    }
     const cleanId = cleanXmltvChannelId(ch.id);
     ch.id = cleanId;
     const rawList = (
@@ -1315,7 +1324,7 @@ async function processMultiSourceEpgSync(
     ? [...filterOptions.enabledCategories].sort().join(',')
     : 'all';
   const sourcesSignature =
-    `whitelist_v18|p:${profileSig}|` +
+    `whitelist_v19|p:${profileSig}|` +
     activeSources.map((s) => `${s.country}:${s.url.trim()}`).join('|') +
     `|b:${bouquetsSig}|lektor:${Boolean(
       filterOptions?.excludePolishLektor !== false

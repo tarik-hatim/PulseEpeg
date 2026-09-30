@@ -44,6 +44,7 @@ import {
   EPG_THEMATIC_CATEGORIES,
   getBouquetsForTvProfile,
   inferTvProfileFromBouquets,
+  MAGHREB_OPTIONAL_EXTENSIONS,
   MAX_ACTIVE_BOUQUETS,
   MAX_ACTIVE_SATELLITES,
   RAM_LIMIT_WARNING_MESSAGE,
@@ -51,6 +52,7 @@ import {
   syncSourcesWithSelectedBouquets,
   TV_PROFILES_CATALOG,
 } from '../services/storageService';
+import { LauncherIconsPreviewCard } from './PulseEpgLogo';
 import {
   getActiveLanguage,
   getBouquetLocalizedText,
@@ -179,7 +181,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           nextBouquets.length > 0
             ? nextBouquets
             : ([bouquetId] as EpgBouquetId[]);
-        const nextProfile = inferTvProfileFromBouquets(finalBouquets);
+        const nextProfile = inferTvProfileFromBouquets(
+          finalBouquets,
+          prev.tvProfile
+        );
         setLimitWarning(null);
         return {
           ...prev,
@@ -200,7 +205,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       ) {
         setLimitWarning(RAM_LIMIT_WARNING_MESSAGE);
         const capped = candidate.slice(-MAX_ACTIVE_BOUQUETS);
-        const nextProfile = inferTvProfileFromBouquets(capped);
+        const nextProfile = inferTvProfileFromBouquets(capped, prev.tvProfile);
         return {
           ...prev,
           tvProfile: nextProfile,
@@ -213,7 +218,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         };
       }
 
-      const nextProfile = inferTvProfileFromBouquets(candidate);
+      const nextProfile = inferTvProfileFromBouquets(
+        candidate,
+        prev.tvProfile
+      );
       setLimitWarning(null);
       return {
         ...prev,
@@ -254,7 +262,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         );
         const nextBouquets =
           remaining.length > 0 ? remaining : ([groupIds[0]] as EpgBouquetId[]);
-        const nextProfile = inferTvProfileFromBouquets(nextBouquets);
+        const nextProfile = inferTvProfileFromBouquets(
+          nextBouquets,
+          prev.tvProfile
+        );
         setLimitWarning(null);
         return {
           ...prev,
@@ -277,7 +288,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       ) {
         setLimitWarning(RAM_LIMIT_WARNING_MESSAGE);
         const capped = groupIds.slice(0, MAX_ACTIVE_BOUQUETS);
-        const nextProfile = inferTvProfileFromBouquets(capped);
+        const nextProfile = inferTvProfileFromBouquets(capped, prev.tvProfile);
         return {
           ...prev,
           tvProfile: nextProfile,
@@ -290,7 +301,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         };
       }
 
-      const nextProfile = inferTvProfileFromBouquets(merged);
+      const nextProfile = inferTvProfileFromBouquets(merged, prev.tvProfile);
       setLimitWarning(null);
       return {
         ...prev,
@@ -564,6 +575,47 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     );
                   })}
                 </div>
+
+                {/* Extensions optionnelles pour le profil Maghreb / MENA Multi-Sat */}
+                {activeProfileId === 'maghreb_mena' && (
+                  <div className="mt-2 p-3 rounded-lg bg-[#141a26] border border-[#0055ff]/40 space-y-2">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <span className="text-xs font-bold text-[#ffffff] flex items-center gap-1.5">
+                        <Satellite className="w-3.5 h-3.5 text-[#ec4899]" />
+                        Satellites complémentaires Maghreb / MENA (Optionnels) :
+                      </span>
+                      <span className="text-[10px] font-mono text-[#cbd5e1]">
+                        3 satellites principaux chargés par défaut (Nilesat 7°W, Astra 19.2°E, Hotbird 13°E)
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {MAGHREB_OPTIONAL_EXTENSIONS.map((ext) => {
+                        const isExtActive = ext.bouquetIds.every((id) =>
+                          draft.selectedBouquets.includes(id)
+                        );
+                        return (
+                          <button
+                            key={ext.id}
+                            type="button"
+                            onClick={() => toggleSatelliteGroup(ext.bouquetIds)}
+                            className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${
+                              isExtActive
+                                ? 'bg-[#1d4ed8]/30 border-[#ec4899] text-[#ffffff] shadow-[0_0_10px_rgba(236,72,153,0.3)]'
+                                : 'bg-[#0a0e17] border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]'
+                            }`}
+                          >
+                            {isExtActive ? (
+                              <CheckSquare className="w-3.5 h-3.5 text-[#ec4899]" />
+                            ) : (
+                              <Square className="w-3.5 h-3.5 text-[#cbd5e1]/60" />
+                            )}
+                            <span>{ext.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Section 1 : Couverture Globale des Satellites & Bouquets */}
@@ -901,6 +953,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                 </div>
               </div>
+
+              {/* Aperçu & Formats de l'Icône de Lancement Multi-Terminaux (Smartphone, Tablette, Android TV, TV Box) */}
+              <LauncherIconsPreviewCard language={draft.language} />
             </>
           )}
 

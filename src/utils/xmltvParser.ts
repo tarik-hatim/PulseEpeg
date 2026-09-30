@@ -5308,11 +5308,87 @@ function mapCanonicalSatelliteAndBouquets(
   };
 }
 
+export function getAllowedSatellitesForBouquets(
+  selectedBouquets?: EpgBouquetId[]
+): Set<Exclude<SatelliteFilter, 'Tous'>> | null {
+  if (!selectedBouquets || selectedBouquets.length === 0) return null;
+  const allowed = new Set<Exclude<SatelliteFilter, 'Tous'>>();
+  for (const bId of selectedBouquets) {
+    if (bId === 'nilesat_osn_mbc') {
+      allowed.add('Nilesat 7°W');
+    } else if (bId === 'badr_bein_ssc') {
+      allowed.add("Badr / Es'hailSat 26°E");
+      allowed.add('Badr 26°E');
+    } else if (
+      bId === 'astra_canal_fr' ||
+      bId === 'astra_tnt_fr' ||
+      bId === 'tnt_fr' ||
+      bId === 'movistar_es' ||
+      bId === 'sky_de'
+    ) {
+      allowed.add('Astra 19.2°E');
+    } else if (
+      bId === 'hotbird_bis_fr' ||
+      bId === 'sky_it' ||
+      bId === 'canal_pl'
+    ) {
+      allowed.add('Hotbird 13°E');
+    } else if (bId === 'hispasat_meo_nos') {
+      allowed.add('Hispasat 30°W');
+    } else if (bId === 'eutelsat_16e_digitalb') {
+      allowed.add('Eutelsat 16°E');
+    } else if (bId === 'trt_network') {
+      allowed.add('Türksat 42°E');
+      allowed.add('Türksat 42°E / Eutelsat 7°E');
+    } else if (bId === 'thor_08w_focussat') {
+      allowed.add('Thor 0.8°W / Intelsat 10-02');
+      allowed.add('Thor 0.8°W');
+    } else if (bId === 'eutelsat_16e_thor') {
+      allowed.add('Eutelsat 16°E');
+      allowed.add('Thor 0.8°W / Intelsat 10-02');
+      allowed.add('Thor 0.8°W');
+    } else if (bId === 'turkmenalem_52e_alem') {
+      allowed.add('TurkmenÄlem 52°E');
+      allowed.add('MonacoSat 52°E');
+    } else if (bId === 'monacosat_52e_persiana') {
+      allowed.add('MonacoSat 52°E');
+      allowed.add('TurkmenÄlem 52°E');
+    } else if (bId === 'starone_70w_claro_br') {
+      allowed.add('Star One D2 70°W');
+      allowed.add('Star One 70°W');
+    } else if (bId === 'amazonas_61w_latam') {
+      allowed.add('Amazonas 61°W');
+    } else if (bId === 'intelsat_43w_directv') {
+      allowed.add('Intelsat 43.1°W / SES-6 40.5°W');
+      allowed.add('Intelsat 43.1°W & SES-6 40.5°W');
+      allowed.add('SES-6 40.5°W');
+    }
+  }
+  return allowed;
+}
+
 export function matchesChannelFilterOptions(
   spec: WhitelistedChannelSpec,
   filterOptions?: EpgParseFilterOptions
 ): boolean {
   if (!filterOptions) return !spec.hasPolishLektor && spec.hasSubtitles !== false;
+
+  if (
+    filterOptions.selectedBouquets &&
+    filterOptions.selectedBouquets.length > 0
+  ) {
+    const allowedSats = getAllowedSatellitesForBouquets(
+      filterOptions.selectedBouquets
+    );
+    if (
+      allowedSats &&
+      spec.satellites &&
+      spec.satellites.length > 0 &&
+      !spec.satellites.some((s) => allowedSats.has(s))
+    ) {
+      return false;
+    }
+  }
 
   if (
     filterOptions.selectedBouquets &&
@@ -5462,18 +5538,28 @@ export function resolveWhitelistedChannelSpec(
   if (!key || isAdultChannel(key)) return null;
   const rawTrimmedLower = rawId.trim().toLowerCase();
 
+  const allowedSats = getAllowedSatellitesForBouquets(
+    filterOptions?.selectedBouquets
+  );
+
   const sportSpec =
     SPORT_FOOTBALL_WHITELIST[rawTrimmedLower] || SPORT_FOOTBALL_WHITELIST[key];
   if (sportSpec) {
     const mapped = mapCanonicalSatelliteAndBouquets(sportSpec);
+    const activeSatellites = allowedSats
+      ? mapped.satellites.filter((s) => allowedSats.has(s))
+      : mapped.satellites;
+    if (allowedSats && activeSatellites.length === 0) {
+      return null;
+    }
     const fullSportSpec: WhitelistedChannelSpec = {
       ...sportSpec,
       canonicalId: cleanXmltvChannelId(sportSpec.canonicalId),
       displayName: cleanOfficialChannelName(sportSpec.displayName),
-      satellites: mapped.satellites,
+      satellites: activeSatellites,
       orbitalPosition: normalizeSingleOrbitalPosition(
         mapped.orbitalPosition,
-        mapped.satellites
+        activeSatellites
       ),
       bouquets: mapped.bouquets,
       bouquetId: mapped.bouquetId,
@@ -5493,6 +5579,12 @@ export function resolveWhitelistedChannelSpec(
   const mapped = mapCanonicalSatelliteAndBouquets(
     cinemaSpec as WhitelistedChannelSpec
   );
+  const activeSatellites = allowedSats
+    ? mapped.satellites.filter((s) => allowedSats.has(s))
+    : mapped.satellites;
+  if (allowedSats && activeSatellites.length === 0) {
+    return null;
+  }
 
   const fullCinemaSpec: WhitelistedChannelSpec = {
     ...cinemaSpec,
@@ -5512,10 +5604,10 @@ export function resolveWhitelistedChannelSpec(
         : cinemaSpec.group === 'Musique & Divertissement'
         ? 'Musique & Divertissement'
         : 'Films & Séries'),
-    satellites: mapped.satellites,
+    satellites: activeSatellites,
     orbitalPosition: normalizeSingleOrbitalPosition(
       mapped.orbitalPosition,
-      mapped.satellites
+      activeSatellites
     ),
     bouquets: mapped.bouquets,
     hasPolishLektor: cinemaSpec.hasPolishLektor ?? false,
@@ -8358,6 +8450,271 @@ const SUPPLEMENTAL_SATELLITE_BOUQUET_CHANNELS: SupplementalChannelTemplate[] = [
       },
     ],
   },
+
+  // =========================================================================
+  // 10. AMÉRIQUE DU SUD / LATAM — STAR ONE 70°W, AMAZONAS 61°W, SES-6 40.5°W
+  // =========================================================================
+  {
+    id: 'Telecine.Premium.br',
+    displayName: 'Telecine Premium HD',
+    contentCategory: 'Films & Séries',
+    group: 'Cinéma Premières',
+    country: 'BR',
+    satellite: 'Star One D2 70°W',
+    orbitalPosition: 'Star One 70°W',
+    bouquets: ['Claro TV Brasil'],
+    bouquetId: 'starone_70w_claro_br',
+    audioTrackLabel: 'Dual Audio PT-BR / VO Anglais Dolby',
+    subtitleTrackLabel: 'Legendas DVB PT-BR · Star One 70°W',
+    scheduleTemplates: [
+      {
+        title: 'Superestreia Telecine : Dune - Parte Dois',
+        subTitle: 'Estreia Exclusiva em HD · Dual Audio + Legendas',
+        description: 'Os maiores sucessos do cinema mundial em primeira mão no Telecine Premium HD (Star One 70°W · Claro TV).',
+        category: 'Cinéma / Science-Fiction',
+        durationMins: 135,
+      },
+      {
+        title: 'Sessão Blockbuster : Oppenheimer',
+        subTitle: 'Cinema Premiado em VO + Legendas PT-BR',
+        description: 'Superprodução internacional transmitida em alta definição no Star One D2 70°W.',
+        category: 'Cinéma / Biopic',
+        durationMins: 135,
+      },
+    ],
+  },
+  {
+    id: 'SporTV.1.br',
+    displayName: 'SporTV 1 HD',
+    contentCategory: 'Sport / Football',
+    group: 'Sport / Football',
+    country: 'BR',
+    satellite: 'Star One D2 70°W',
+    orbitalPosition: 'Star One 70°W',
+    bouquets: ['Claro TV Brasil'],
+    bouquetId: 'starone_70w_claro_br',
+    audioTrackLabel: 'Audio PT-BR / Estádio Ao Vivo HD',
+    subtitleTrackLabel: 'Closed Captions · Star One 70°W',
+    scheduleTemplates: [
+      {
+        title: 'Brasileirão Série A & Copa do Brasil : Jogo Ao Vivo',
+        subTitle: 'Futebol Ao Vivo no SporTV 1 HD (Star One 70°W)',
+        description: 'Transmissão exclusiva ao vivo dos grandes clássicos do futebol brasileiro no Star One 70°W.',
+        category: 'Football / Brasileirão',
+        durationMins: 120,
+      },
+      {
+        title: 'Troca de Passes & Seleção SporTV',
+        subTitle: 'Debate Esportivo & Gols da Rodada',
+        description: 'Análise completa da rodada do Brasileirão e CONMEBOL Libertadores.',
+        category: 'Football',
+        durationMins: 90,
+      },
+    ],
+  },
+  {
+    id: 'Globo.HD.br',
+    displayName: 'TV Globo HD',
+    contentCategory: 'Films & Séries',
+    group: 'Séries TV & US',
+    country: 'BR',
+    satellite: 'Star One D2 70°W',
+    orbitalPosition: 'Star One 70°W',
+    bouquets: ['Claro TV Brasil'],
+    bouquetId: 'starone_70w_claro_br',
+    audioTrackLabel: 'Audio Original PT-BR / SAP VO',
+    subtitleTrackLabel: 'Closed Captions · Star One 70°W',
+    scheduleTemplates: [
+      {
+        title: 'Novela das Nove & Cinema Especial',
+        subTitle: 'Horário Nobre em Alta Definição',
+        description: 'Grandes produções teledramatúrgicas, jornalismo e futebol ao vivo na TV Globo HD (Star One 70°W).',
+        category: 'Série TV',
+        durationMins: 105,
+      },
+      {
+        title: 'Tela Quente : Grande Estreia da Semana',
+        subTitle: 'Cinema Internacional Dual Audio',
+        description: 'Sucesso de bilheteria exibido em alta definição via satélite Star One 70°W.',
+        category: 'Cinéma',
+        durationMins: 120,
+      },
+    ],
+  },
+  {
+    id: 'TNT.Series.latam',
+    displayName: 'TNT Series HD LATAM',
+    contentCategory: 'Films & Séries',
+    group: 'Action & Thriller',
+    country: 'LATAM',
+    satellite: 'Amazonas 61°W',
+    orbitalPosition: 'Amazonas 61°W',
+    bouquets: ['Vivo TV / Movistar LATAM'],
+    bouquetId: 'amazonas_61w_latam',
+    audioTrackLabel: 'Dual Audio ES / PT + VO Inglés',
+    subtitleTrackLabel: 'Subtítulos DVB ES/PT · Amazonas 61°W',
+    scheduleTemplates: [
+      {
+        title: 'The Rookie & CSI: Vegas — Maratón Estelar',
+        subTitle: 'Series Policiales en Vivo · Audio Original + Sub',
+        description: 'Las mejores series de acción, suspenso y drama en TNT Series HD (Amazonas 61°W · Movistar / Vivo TV).',
+        category: 'Série TV / Policier',
+        durationMins: 100,
+      },
+      {
+        title: 'Hollywood Action Night : Misión Imposible',
+        subTitle: 'Cine Taquillero en Alta Definición',
+        description: 'Películas de acción y suspenso con audio original e idioma dual en Amazonas 61°W.',
+        category: 'Cinéma / Action',
+        durationMins: 125,
+      },
+    ],
+  },
+  {
+    id: 'ESPN.Latam.ar',
+    displayName: 'ESPN HD Sur / LATAM',
+    contentCategory: 'Sport / Football',
+    group: 'Sport / Football',
+    country: 'LATAM',
+    satellite: 'Amazonas 61°W',
+    orbitalPosition: 'Amazonas 61°W',
+    bouquets: ['Vivo TV / Movistar LATAM'],
+    bouquetId: 'amazonas_61w_latam',
+    audioTrackLabel: 'Audio ES / PT / Ambiente Estadio',
+    subtitleTrackLabel: 'Amazonas 61°W · Movistar / Vivo LATAM',
+    scheduleTemplates: [
+      {
+        title: 'CONMEBOL Libertadores & UEFA Champions League En Vivo',
+        subTitle: 'Transmisión Oficial en Directo por ESPN HD',
+        description: 'Los partidos más vibrantes de la Copa Libertadores y Champions League en vivo por Amazonas 61°W.',
+        category: 'Football / Libertadores',
+        durationMins: 120,
+      },
+      {
+        title: 'SportsCenter & ESPN F90 en Vivo',
+        subTitle: 'Debate y Resumen Deportivo Internacional',
+        description: 'Toda la actualidad del fútbol sudamericano y europeo en alta definición.',
+        category: 'Football',
+        durationMins: 90,
+      },
+    ],
+  },
+  {
+    id: 'HBO.Mundi.latam',
+    displayName: 'HBO HD LATAM',
+    contentCategory: 'Films & Séries',
+    group: 'Cinéma Premières',
+    country: 'LATAM',
+    satellite: 'Amazonas 61°W',
+    orbitalPosition: 'Amazonas 61°W',
+    bouquets: ['Vivo TV / Movistar LATAM'],
+    bouquetId: 'amazonas_61w_latam',
+    audioTrackLabel: 'VO Inglés Dolby 5.1 + Dual ES/PT',
+    subtitleTrackLabel: 'Subtítulos DVB ES/PT · Amazonas 61°W',
+    scheduleTemplates: [
+      {
+        title: 'House of the Dragon & The Last of Us',
+        subTitle: 'Serie Original HBO en Vivo · VO+SUB',
+        description: 'Estrenos mundiales de series originales y películas taquilleras en HBO HD LATAM (Amazonas 61°W).',
+        category: 'Série TV / Fantastique',
+        durationMins: 110,
+      },
+      {
+        title: 'Estreno HBO : Batman & Universo DC',
+        subTitle: 'Película Estelar en Alta Definición',
+        description: 'Cine de estreno con audio original en inglés y subtítulos en español y portugués.',
+        category: 'Cinéma / Action',
+        durationMins: 130,
+      },
+    ],
+  },
+  {
+    id: 'DSports.1.latam',
+    displayName: 'DSports 1 HD (DirecTV Sports)',
+    contentCategory: 'Sport / Football',
+    group: 'Sport / Football',
+    country: 'LATAM',
+    satellite: 'Intelsat 43.1°W / SES-6 40.5°W',
+    orbitalPosition: 'SES-6 40.5°W',
+    bouquets: ['DirecTV LATAM / Sky Brasil'],
+    bouquetId: 'intelsat_43w_directv',
+    audioTrackLabel: 'Multi-Audio ES / Stadium Live HD',
+    subtitleTrackLabel: 'SES-6 40.5°W · DirecTV / Sky LATAM',
+    scheduleTemplates: [
+      {
+        title: 'LaLiga EA Sports & Copa Sudamericana : Partido En Vivo',
+        subTitle: 'Exclusivo en Directo por DSports 1 HD (SES-6 40.5°W)',
+        description: 'Cobertura exclusiva de LaLiga española, Copa Sudamericana y Eliminatorias en SES-6 40.5°W.',
+        category: 'Football / LaLiga',
+        durationMins: 120,
+      },
+      {
+        title: 'Fútbol Total : Análisis de la Jornada Sudamericana',
+        subTitle: 'Debate en Vivo desde Buenos Aires & Bogotá',
+        description: 'El programa líder de debate futbolístico de Sudamérica en DSports HD.',
+        category: 'Football',
+        durationMins: 90,
+      },
+    ],
+  },
+  {
+    id: 'TNT.Sports.ar',
+    displayName: 'TNT Sports HD Argentina / Chile',
+    contentCategory: 'Sport / Football',
+    group: 'Sport / Football',
+    country: 'LATAM',
+    satellite: 'Intelsat 43.1°W / SES-6 40.5°W',
+    orbitalPosition: 'SES-6 40.5°W',
+    bouquets: ['DirecTV LATAM / Sky Brasil'],
+    bouquetId: 'intelsat_43w_directv',
+    audioTrackLabel: 'Audio Estadio / Relato Oficial HD',
+    subtitleTrackLabel: 'SES-6 40.5°W · Pack Fútbol',
+    scheduleTemplates: [
+      {
+        title: 'Liga Profesional de Fútbol Argentino : Superclásico Live',
+        subTitle: 'Fútbol En Vivo por TNT Sports HD (SES-6 40.5°W)',
+        description: 'Transmisión en directo del Torneo de la Liga Profesional Argentina y Campeonato Chileno en SES-6 40.5°W.',
+        category: 'Football',
+        durationMins: 120,
+      },
+      {
+        title: 'Todos Somos Técnicos & TNT Data Sports',
+        subTitle: 'Resumen y Goles de la Fecha',
+        description: 'Análisis táctico y todos los goles del fútbol sudamericano en alta definición.',
+        category: 'Football',
+        durationMins: 90,
+      },
+    ],
+  },
+  {
+    id: 'Universal.Premiere.latam',
+    displayName: 'Universal Premiere HD',
+    contentCategory: 'Films & Séries',
+    group: 'Séries TV & US',
+    country: 'LATAM',
+    satellite: 'Intelsat 43.1°W / SES-6 40.5°W',
+    orbitalPosition: 'SES-6 40.5°W',
+    bouquets: ['DirecTV LATAM / Sky Brasil'],
+    bouquetId: 'intelsat_43w_directv',
+    audioTrackLabel: 'VO Inglés + Audio Dual ES/PT',
+    subtitleTrackLabel: 'Subtítulos DVB · SES-6 40.5°W',
+    scheduleTemplates: [
+      {
+        title: 'Chicago Fire, FBI & Law & Order — Noche de Estrenos',
+        subTitle: 'Series Norteamericanas en VO + Subtítulos',
+        description: 'Estrenos exclusivos de las franquicias más exitosas en Universal Premiere HD (SES-6 40.5°W · Sky / DirecTV).',
+        category: 'Série TV',
+        durationMins: 105,
+      },
+      {
+        title: 'Cine Universal : Jurassic World Dominion',
+        subTitle: 'Blockbuster en Alta Definición',
+        description: 'Grandes éxitos de Universal Pictures en versión original subtitulada.',
+        category: 'Cinéma / Aventure',
+        durationMins: 125,
+      },
+    ],
+  },
 ];
 
 /**
@@ -8458,7 +8815,10 @@ export function supplementSatelliteBouquetsCoverage(
           ...tpl.bouquets,
         ])
       );
-      const mergedSats = isTrt
+      const allowedSats = getAllowedSatellitesForBouquets(
+        activeBouquetIds || filterOptions?.selectedBouquets
+      );
+      const rawMergedSats = isTrt
         ? channelSatellites
         : Array.from(
             new Set<Exclude<SatelliteFilter, 'Tous'>>([
@@ -8466,11 +8826,14 @@ export function supplementSatelliteBouquetsCoverage(
               ...channelSatellites,
             ])
           );
+      const mergedSats = allowedSats
+        ? rawMergedSats.filter((s) => allowedSats.has(s))
+        : rawMergedSats;
       channelsMap.set(tpl.id, {
         ...existingCh,
         displayName: tpl.displayName,
         icon: resolvedIcon,
-        satellites: mergedSats,
+        satellites: mergedSats.length > 0 ? mergedSats : channelSatellites,
         orbitalPosition: tpl.orbitalPosition,
         bouquets: mergedBouquets,
         bouquetId: tpl.bouquetId,
