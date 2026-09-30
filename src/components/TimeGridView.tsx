@@ -602,9 +602,9 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
   };
 
   return (
-    <div className="rounded-lg border border-[#1a202c] bg-[#0a0e17] overflow-hidden shadow-2xl">
-      {/* Barre de Filtres en rubans horizontaux défilables [CATÉGORIE] -> [SATELLITE / BOUQUET] -> [ZONE] -> [GENRE] dédiée à la Grille TV */}
-      <div className="p-3 sm:p-4 bg-[#141a26] border-b border-[#1a202c] space-y-2.5 select-none">
+    <div className="w-full">
+      {/* 1. Bloc Isolé : Zone des Filtres (CATÉGORIE, SATELLITE, BOUQUET, ZONE, GENRE) */}
+      <div className="p-3 sm:p-4 rounded-xl bg-[#141a26] border border-[#1a202c] space-y-3 select-none">
         {/* Ligne 1 : [CATÉGORIE] */}
         <div
           data-tv-row="grid-categories"
@@ -893,9 +893,18 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
         )}
       </div>
 
-      {/* Contrôles Temporels de la Grille */}
-      <div className="p-3 sm:p-4 bg-[#141a26] border-b border-[#1a202c] flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
+      {/* 2. Bloc Isolé : Ligne de Navigation Temporelle sous la zone des filtres (margin-top: 16px; display: flex; align-items: center; gap: 12px;) */}
+      <div
+        style={{
+          marginTop: '16px',
+          marginBottom: '16px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+        }}
+        className="grid-timeline-nav-block p-3 sm:p-4 rounded-xl bg-[#141a26] border border-[#1a202c]"
+      >
+        <div className="flex items-center gap-2.5 flex-wrap">
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0a0e17] border border-[#1a202c] text-xs font-semibold text-[#ffffff]">
             <Clock className="w-3.5 h-3.5 text-[#cbd5e1]" />
             <span>{formatDayLabel(windowStartMs, activeLang)}</span>
@@ -916,7 +925,8 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
 
         <div
           data-tv-row="grid-time-controls"
-          className="flex flex-wrap items-center gap-1.5"
+          style={{ display: 'flex', alignItems: 'center', gap: '12px' }}
+          className="flex flex-wrap items-center gap-3"
         >
           <input
             type="date"
@@ -941,7 +951,7 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
           <button
             type="button"
             onClick={() => shiftWindow(-2)}
-            className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer ${
+            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer shrink-0 ${
               activeTimeBtn === 'minus'
                 ? 'bg-[#e11d48] border-[1.5px] border-[#ff0033] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(225,29,72,0.45)]'
                 : 'bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#e11d48]/60 font-medium'
@@ -954,7 +964,7 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
           <button
             type="button"
             onClick={resetToNow}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer ${
+            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer shrink-0 ${
               activeTimeBtn === 'now'
                 ? 'bg-[#e11d48] border-[1.5px] border-[#ff0033] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(225,29,72,0.45)]'
                 : 'bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#e11d48]/60 font-medium'
@@ -973,7 +983,7 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
           <button
             type="button"
             onClick={jumpToPrimeTime}
-            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer ${
+            className={`inline-flex items-center gap-1 px-3.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer shrink-0 ${
               activeTimeBtn === 'prime'
                 ? 'bg-[#e11d48] border-[1.5px] border-[#ff0033] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(225,29,72,0.45)]'
                 : 'bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#e11d48]/60 font-medium'
@@ -986,7 +996,7 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
           <button
             type="button"
             onClick={() => shiftWindow(2)}
-            className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer ${
+            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer shrink-0 ${
               activeTimeBtn === 'plus'
                 ? 'bg-[#e11d48] border-[1.5px] border-[#ff0033] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(225,29,72,0.45)]'
                 : 'bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#e11d48]/60 font-medium'
@@ -998,15 +1008,16 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
         </div>
       </div>
 
-      {/* Corps de la Grille multi-colonnes synchronisée verticalement et horizontalement (Navigation D-Pad TV fluide) */}
-      <div
-        dir="ltr"
-        ref={scrollContainerRef}
-        tabIndex={0}
-        onKeyDown={handleGridKeyDown}
-        aria-label="TV Programme Grid"
-        className="relative overflow-x-auto overflow-y-auto max-h-[70vh] 2xl:max-h-[74vh] focus:outline-none"
-      >
+      {/* 3. Bloc Isolé : Corps de la Grille multi-colonnes synchronisée verticalement et horizontalement (Navigation D-Pad TV fluide) */}
+      <div className="rounded-xl border border-[#1a202c] bg-[#0a0e17] overflow-hidden shadow-2xl">
+        <div
+          dir="ltr"
+          ref={scrollContainerRef}
+          tabIndex={0}
+          onKeyDown={handleGridKeyDown}
+          aria-label="TV Programme Grid"
+          className="relative overflow-x-auto overflow-y-auto max-h-[70vh] 2xl:max-h-[74vh] focus:outline-none"
+        >
         <div
           style={{ minWidth: `calc(13rem + ${TOTAL_TIMELINE_WIDTH}px)` }}
           className="relative"
@@ -1340,6 +1351,7 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
             })}
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

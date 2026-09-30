@@ -58,7 +58,10 @@ body {
 
 @media (min-width: 768px) {
   body {
-    padding: 24px 32px !important;
+    padding-top: 32px !important;
+    padding-left: 32px !important;
+    padding-right: 32px !important;
+    padding-bottom: 24px !important;
   }
 }
 
@@ -142,9 +145,17 @@ input[type="url"] {
 }
 
 /* ==========================================================================
-   EN-TÊTE DÉCOMPRESSÉ (FLEXBOX AÉRÉ ANDROID TV)
+   EN-TÊTE DÉCOMPRESSÉ (FLEXBOX AÉRÉ ANDROID TV & POSITION RELATIVE ANTI-MASQUAGE)
    ========================================================================== */
+header[data-tv-zone="header"] {
+  position: relative !important;
+  top: auto !important;
+  z-index: 20;
+  margin-bottom: 20px !important;
+}
+
 .tv-decompressed-header {
+  position: relative !important;
   display: -webkit-box;
   display: -webkit-flex;
   display: flex;
@@ -160,6 +171,96 @@ input[type="url"] {
   margin-bottom: 20px;
   width: 100%;
   box-sizing: border-box;
+}
+
+/* Séparation stricte du Logo PulseEPG et du badge Audio "VO + SUB" */
+.header-brand-wrapper {
+  display: -webkit-inline-box;
+  display: -webkit-inline-flex;
+  display: inline-flex;
+  -webkit-box-align: center;
+  -webkit-align-items: center;
+  align-items: center;
+  gap: 12px;
+  -webkit-flex-shrink: 0;
+  flex-shrink: 0;
+}
+
+.pulse-logo-container {
+  display: -webkit-inline-box;
+  display: -webkit-inline-flex;
+  display: inline-flex;
+  -webkit-box-align: center;
+  -webkit-align-items: center;
+  align-items: center;
+  gap: 12px;
+  -webkit-flex-shrink: 0;
+  flex-shrink: 0;
+}
+
+.pulse-logo-icon-wrapper {
+  display: -webkit-inline-box;
+  display: -webkit-inline-flex;
+  display: inline-flex;
+  -webkit-box-align: center;
+  -webkit-align-items: center;
+  align-items: center;
+  -webkit-box-pack: center;
+  -webkit-justify-content: center;
+  justify-content: center;
+  -webkit-flex-shrink: 0;
+  flex-shrink: 0;
+}
+
+.pulse-logo-title-box {
+  margin-left: 10px;
+  -webkit-flex-shrink: 0;
+  flex-shrink: 0;
+}
+
+.header-audio-badge-container {
+  margin-left: 12px !important;
+  display: -webkit-inline-box;
+  display: -webkit-inline-flex;
+  display: inline-flex;
+  -webkit-box-align: center;
+  -webkit-align-items: center;
+  align-items: center;
+  -webkit-flex-shrink: 0;
+  flex-shrink: 0;
+}
+
+.header-audio-badge {
+  display: -webkit-inline-box;
+  display: -webkit-inline-flex;
+  display: inline-flex;
+  -webkit-box-align: center;
+  -webkit-align-items: center;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  -webkit-flex-shrink: 0;
+  flex-shrink: 0;
+}
+
+/* ==========================================================================
+   VUE "EN DIRECT" : BARRE DE PROGRESSION TEMPORELLE COLORÉE
+   ========================================================================== */
+.live-progress-rail {
+  background: rgba(255, 255, 255, 0.1) !important;
+  height: 6px !important;
+  border-radius: 4px !important;
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+.live-progress-fill {
+  background: linear-gradient(90deg, #ec4899, #8b5cf6) !important;
+  height: 100% !important;
+  border-radius: 4px !important;
+  box-shadow: 0 0 10px rgba(236, 72, 153, 0.45);
+  transition: width 0.35s ease;
 }
 
 /* ==========================================================================
@@ -206,19 +307,13 @@ input[type="url"] {
   padding-bottom: 4px;
 }
 
-/* Garantie anti-collage pour anciennes WebView Android 8/9 (Chromium < 84) */
+/* Garantie anti-collage pour toutes les WebView Android 7, 8/9, 12, 14+ */
 .filter-ribbon > * {
   margin-right: 8px;
 }
 
 .filter-ribbon > *:last-child {
   margin-right: 0;
-}
-
-@supports (gap: 8px) {
-  .filter-ribbon > * {
-    margin-right: 0;
-  }
 }
 
 .filter-badge {
@@ -272,14 +367,8 @@ input[type="url"] {
   padding: 2px 7px;
   border-radius: 9999px;
   line-height: 1.2;
-  margin-left: 8px;
+  margin-left: 8px !important;
   display: inline-block;
-}
-
-@supports (gap: 8px) {
-  .filter-badge .filter-count {
-    margin-left: 0;
-  }
 }
 
 /* Filtre Sélectionné (ex: Monde Arabe, Tous les genres, Bouquet) */
@@ -343,8 +432,60 @@ input[type="url"] {
   -webkit-box-align: center;
   -webkit-align-items: center;
   align-items: center;
-  gap: 12px;
+  gap: 12px !important;
+  padding: 4px;
   overflow-x: auto;
+  box-sizing: border-box;
+}
+
+.tv-overscan-tabs-row > * {
+  margin-right: 6px;
+}
+
+.tv-overscan-tabs-row > *:last-child {
+  margin-right: 0;
+}
+
+.tv-nav-tab-btn {
+  padding: 8px 16px !important;
+  border-radius: 20px !important;
+  display: -webkit-inline-box;
+  display: -webkit-inline-flex;
+  display: inline-flex;
+  -webkit-box-align: center;
+  -webkit-align-items: center;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  -webkit-flex-shrink: 0;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.tv-nav-tab-btn:focus,
+.tv-nav-tab-btn:focus-visible {
+  border-radius: 20px !important;
+}
+
+/* Bloc isolé de la ligne de navigation temporelle dans la vue Grille TV */
+.grid-timeline-nav-block {
+  position: relative !important;
+  margin-top: 16px !important;
+  margin-bottom: 16px !important;
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-box-align: center;
+  -webkit-align-items: center;
+  align-items: center;
+  -webkit-box-pack: justify;
+  -webkit-justify-content: space-between;
+  justify-content: space-between;
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+  gap: 12px !important;
+  width: 100%;
   box-sizing: border-box;
 }
 

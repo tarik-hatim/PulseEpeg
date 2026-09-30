@@ -494,12 +494,12 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                 )}
               </div>
 
-              {/* Barre de progression compacte si en direct (Rouge / Crimson Sky Sport) */}
+              {/* Barre de progression temporelle colorée En Direct (#ec4899 -> #8b5cf6 sur rail rgba(255,255,255,0.1)) */}
               {isLiveActiveProg && (
                 <div className="mb-3.5">
-                  <div className="h-1.5 w-full bg-[#141a26] border border-[#1a202c] rounded-full overflow-hidden">
+                  <div className="live-progress-rail w-full overflow-hidden">
                     <div
-                      className="h-full bg-gradient-to-r from-[#e11d48] to-[#ff0033] shadow-[0_0_10px_#e11d48] rounded-full transition-all duration-500"
+                      className="live-progress-fill h-full transition-all duration-500"
                       style={{ width: `${activeProgress}%` }}
                     />
                   </div>

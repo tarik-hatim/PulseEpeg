@@ -3739,25 +3739,30 @@ export function App() {
       <header
         data-tv-zone="header"
         data-dpad-active={activeDpadZone === 'header' ? 'true' : undefined}
-        className="sticky top-0 z-30 w-full bg-[#0a0e17] border-b border-[#1a202c] pt-safe overflow-x-hidden mb-5"
+        className="relative z-20 w-full bg-[#0a0e17] border-b border-[#1a202c] pt-safe mb-5"
       >
         <div className="tv-decompressed-header max-w-[1600px] w-full mx-auto py-2.5">
-          {/* 1. Gauche : Logo PulseEPG */}
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink-0">
-            <PulseEpgLogo adaptiveTerminalSize={true} />
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
+          {/* 1. Gauche : Logo PulseEPG (dans son conteneur propre) + Badge Audio "VO + SUB" désolidarisé */}
+          <div className="header-brand-wrapper flex items-center gap-3 min-w-0 shrink-0">
+            <div className="pulse-logo-container flex items-center gap-3 min-w-0 shrink-0">
+              <div className="pulse-logo-icon-wrapper shrink-0 flex items-center justify-center">
+                <PulseEpgLogo adaptiveTerminalSize={true} />
+              </div>
+              <div className="pulse-logo-title-box min-w-0 shrink-0">
                 <h1 className="text-sm sm:text-base 2xl:text-lg font-bold tracking-tight text-[#ffffff] truncate">
                   PulseEPG
                 </h1>
-                <span className="hidden lg:inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider bg-[#1d4ed8]/25 text-[#ffffff] border border-[#0055ff]/60 shrink-0">
-                  <Volume2 className="w-3 h-3 text-[#60a5fa]" />
-                  VO + SUB
-                </span>
+                <p className="hidden sm:block text-[10px] font-normal text-[#cbd5e1] tracking-wide leading-tight truncate">
+                  Your Ultimate TV Guide
+                </p>
               </div>
-              <p className="hidden sm:block text-[10px] font-normal text-[#cbd5e1] tracking-wide leading-tight truncate">
-                Your Ultimate TV Guide
-              </p>
+            </div>
+
+            <div className="header-audio-badge-container hidden sm:inline-flex items-center shrink-0">
+              <span className="header-audio-badge inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-semibold uppercase tracking-wider bg-[#1d4ed8]/25 text-[#ffffff] border border-[#0055ff]/60 shrink-0">
+                <Volume2 className="w-3.5 h-3.5 text-[#60a5fa] shrink-0" />
+                <span>VO + SUB</span>
+              </span>
             </div>
           </div>
 
@@ -3765,7 +3770,7 @@ export function App() {
           <nav
             data-tv-row="header-tabs"
             aria-label="Navigation principale"
-            className="tv-overscan-tabs-row flex items-center gap-2 sm:gap-3 overflow-x-auto no-scrollbar order-3 lg:order-2 w-full lg:w-auto pt-2 lg:pt-0 border-t lg:border-t-0 border-[#1a202c]"
+            className="tv-overscan-tabs-row flex items-center gap-3 overflow-x-auto no-scrollbar order-3 lg:order-2 w-full lg:w-auto pt-2 lg:pt-0 border-t lg:border-t-0 border-[#1a202c]"
           >
             <button
               type="button"
@@ -3775,7 +3780,7 @@ export function App() {
                 setActiveTimePreset('now');
                 setViewMode('live');
               }}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer shrink-0 ${
+              className={`tv-nav-tab-btn text-xs transition-all cursor-pointer shrink-0 ${
                 viewMode === 'live'
                   ? 'bg-[#e11d48] border border-[#ff0033] text-[#ffffff] font-bold shadow-[0_0_14px_rgba(225,29,72,0.5)]'
                   : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60 font-medium'
@@ -3794,7 +3799,7 @@ export function App() {
             <button
               type="button"
               onClick={() => setViewMode('grid')}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer shrink-0 ${
+              className={`tv-nav-tab-btn text-xs transition-all cursor-pointer shrink-0 ${
                 viewMode === 'grid'
                   ? 'bg-[#e11d48] border border-[#ff0033] text-[#ffffff] font-bold shadow-[0_0_14px_rgba(225,29,72,0.5)]'
                   : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60 font-medium'
@@ -3815,7 +3820,7 @@ export function App() {
                 setSelectedGroup('Tous');
                 setViewMode('favorites');
               }}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer shrink-0 ${
+              className={`tv-nav-tab-btn text-xs transition-all cursor-pointer shrink-0 ${
                 viewMode === 'favorites'
                   ? 'bg-[#e11d48] border border-[#ff0033] text-[#ffffff] font-bold shadow-[0_0_14px_rgba(225,29,72,0.5)]'
                   : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60 font-medium'
@@ -3833,7 +3838,7 @@ export function App() {
               <span>{tr.favoritesTab}</span>
               {favorites.length > 0 && (
                 <span
-                  className={`px-1.5 py-0.2 rounded text-[10px] font-mono ${
+                  className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
                     viewMode === 'favorites'
                       ? 'bg-[#0a0e17] text-[#ffffff] border border-[#ff0033]/60 font-bold'
                       : 'bg-[#1d4ed8]/25 text-[#ffffff] border border-[#0055ff]/50'
@@ -3847,7 +3852,7 @@ export function App() {
             <button
               type="button"
               onClick={() => setViewMode('reminders')}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer shrink-0 ${
+              className={`tv-nav-tab-btn text-xs transition-all cursor-pointer shrink-0 ${
                 viewMode === 'reminders'
                   ? 'bg-gradient-to-r from-[#0055ff] to-[#ec4899] border border-[#ec4899] text-[#ffffff] font-bold shadow-[0_0_14px_rgba(236,72,153,0.55)]'
                   : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#ec4899]/70 font-medium'
@@ -4156,118 +4161,18 @@ export function App() {
                 )}
             </div>
 
-            {/* Horodateur Temps Réel (Live Now) vs Barre de Contrôle Temporel (EXCLUSIVEMENT en vue TV Grid) */}
-            {viewMode === 'grid' ? (
-              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0">
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#0a0e17] border border-[#1a202c] text-xs font-mono text-[#cbd5e1] shrink-0">
-                  <Clock className="w-3.5 h-3.5 text-[#cbd5e1]" />
-                  <span>{formatDayLabel(effectiveTimeMs, activeLang)}</span>
-                  <span className="font-bold text-[#ffffff]">
-                    {formatTimeShort(effectiveTimeMs)}
-                  </span>
-                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#1d4ed8]/25 text-[#ffffff] border border-[#0055ff]/50 font-sans font-medium">
-                    {APP_TIMEZONE_LABEL}
-                  </span>
-                </div>
-
-                <input
-                  type="date"
-                  value={formatDateInputValue(effectiveTimeMs)}
-                  onChange={(e) => {
-                    const parsed = parseDateInputWithCurrentTime(
-                      e.target.value,
-                      effectiveTimeMs
-                    );
-                    if (parsed !== null) {
-                      handleSelectCustomDateTime(parsed);
-                    }
-                  }}
-                  aria-label={
-                    activeLang === 'fr' ? 'Sélecteur de date' : 'Date selector'
-                  }
-                  className="px-2.5 py-1.5 rounded-lg bg-[#0a0e17] border border-[#1a202c] text-xs font-mono text-[#ffffff] focus:outline-none focus:border-[#0055ff] transition-colors cursor-pointer shrink-0"
-                />
-
-                <input
-                  type="time"
-                  value={formatTimeInputValue(effectiveTimeMs)}
-                  onChange={(e) => {
-                    const parsed = parseTimeInputWithCurrentDate(
-                      e.target.value,
-                      effectiveTimeMs
-                    );
-                    if (parsed !== null) {
-                      handleSelectCustomDateTime(parsed);
-                    }
-                  }}
-                  aria-label={
-                    activeLang === 'fr' ? "Sélecteur d'heure" : 'Time selector'
-                  }
-                  className="px-2.5 py-1.5 rounded-lg bg-[#0a0e17] border border-[#1a202c] text-xs font-mono text-[#ffffff] focus:outline-none focus:border-[#0055ff] transition-colors cursor-pointer shrink-0"
-                />
-
-                <button
-                  type="button"
-                  onClick={() => shiftTimeOffsetMinutes(-120)}
-                  className={`px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer shrink-0 ${
-                    activeTimePreset === 'minus'
-                      ? 'bg-[#e11d48] border border-[#ff0033] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(225,29,72,0.45)]'
-                      : 'bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] font-medium'
-                  }`}
-                >
-                  -2h
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleSyncToLive}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer shrink-0 ${
-                    activeTimePreset === 'now'
-                      ? 'bg-[#e11d48] border border-[#ff0033] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(225,29,72,0.45)]'
-                      : 'bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] font-medium'
-                  }`}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#ffffff] shadow-[0_0_8px_#ffffff] shrink-0 animate-pulse" />
-                  <span>{tr.presetNow}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={jumpToPrimeTimeTonight}
-                  className={`px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer shrink-0 ${
-                    activeTimePreset === 'prime'
-                      ? 'bg-[#e11d48] border border-[#ff0033] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(225,29,72,0.45)]'
-                      : 'bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] font-medium'
-                  }`}
-                >
-                  {tr.presetPrime}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => shiftTimeOffsetMinutes(120)}
-                  className={`px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer shrink-0 ${
-                    activeTimePreset === 'plus'
-                      ? 'bg-[#e11d48] border border-[#ff0033] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(225,29,72,0.45)]'
-                      : 'bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] font-medium'
-                  }`}
-                >
-                  +2h
-                </button>
-              </div>
-            ) : (
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#0a0e17] border border-[#1a202c] text-xs font-mono text-[#cbd5e1] shrink-0 select-none">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#e11d48] shadow-[0_0_8px_#e11d48] shrink-0 animate-pulse" />
-                <Clock className="w-3.5 h-3.5 text-[#cbd5e1]" />
-                <span>{formatDayLabel(nowMs, activeLang)}</span>
-                <span className="font-bold text-[#ffffff]">
-                  {formatTimeShort(nowMs)}
-                </span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#1d4ed8]/25 text-[#ffffff] border border-[#0055ff]/50 font-sans font-medium">
-                  {APP_TIMEZONE_LABEL}
-                </span>
-              </div>
-            )}
+            {/* Horodateur Temps Réel (la barre de navigation temporelle de la Grille TV est isolée dans son propre bloc sous les filtres) */}
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#0a0e17] border border-[#1a202c] text-xs font-mono text-[#cbd5e1] shrink-0 select-none">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#e11d48] shadow-[0_0_8px_#e11d48] shrink-0 animate-pulse" />
+              <Clock className="w-3.5 h-3.5 text-[#cbd5e1]" />
+              <span>{formatDayLabel(nowMs, activeLang)}</span>
+              <span className="font-bold text-[#ffffff]">
+                {formatTimeShort(nowMs)}
+              </span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#1d4ed8]/25 text-[#ffffff] border border-[#0055ff]/50 font-sans font-medium">
+                {APP_TIMEZONE_LABEL}
+              </span>
+            </div>
           </div>
 
           {/* Barres de filtres rapides en rubans horizontaux défilables [CATÉGORIE] -> [SATELLITE / BOUQUET] -> [ZONE] -> [GENRE] */}

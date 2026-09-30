@@ -480,9 +480,9 @@ export const RemindersChronologicalView: React.FC<
                     )}
 
                     {isLive && (
-                      <div className="mt-2 h-1.5 w-full bg-[#0a0e17] rounded-full overflow-hidden">
+                      <div className="live-progress-rail mt-2 w-full overflow-hidden">
                         <div
-                          className="h-full bg-gradient-to-r from-[#0055ff] via-[#ec4899] to-[#e11d48] rounded-full"
+                          className="live-progress-fill h-full"
                           style={{ width: `${progress}%` }}
                         />
                       </div>

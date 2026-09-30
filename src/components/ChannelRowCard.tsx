@@ -535,7 +535,7 @@ const ChannelRowCardInner: React.FC<ChannelRowCardProps> = ({
               </span>
             </div>
 
-            <div className="min-w-0">
+            <div className="min-w-0 ms-3">
               <h3 className="font-bold text-[#ffffff] text-sm sm:text-base 2xl:text-lg truncate">
                 {cleanOfficialChannelName(channel.displayName)}
               </h3>
@@ -554,27 +554,27 @@ const ChannelRowCardInner: React.FC<ChannelRowCardProps> = ({
                 )}
               </div>
 
-              {/* Badges techniques Audio & Sous-titres (Bleu Royal Sky Sport) */}
-              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+              {/* Badges techniques Audio & Sous-titres désolidarisés du logo */}
+              <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                 {channel.contentCategory === 'Sport / Football' ? (
                   <>
-                    <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#1d4ed8]/15 text-[#ffffff] border border-[#0055ff]/45">
-                      <Volume2 className="w-2.5 h-2.5 text-[#60a5fa]" />
-                      {channel.audioTrackLabel || tr.badgeAudioStadium}
+                    <span className="inline-flex items-center gap-1.5 text-[10px] font-medium px-2 py-0.5 rounded bg-[#1d4ed8]/15 text-[#ffffff] border border-[#0055ff]/45 shrink-0">
+                      <Volume2 className="w-3 h-3 text-[#60a5fa] shrink-0" />
+                      <span>{channel.audioTrackLabel || tr.badgeAudioStadium}</span>
                     </span>
-                    <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#1d4ed8]/15 text-[#ffffff] border border-[#0055ff]/45">
-                      ⚽ {channel.subtitleTrackLabel || tr.badgeFootballLive}
+                    <span className="inline-flex items-center gap-1.5 text-[10px] font-medium px-2 py-0.5 rounded bg-[#1d4ed8]/15 text-[#ffffff] border border-[#0055ff]/45 shrink-0">
+                      <span>⚽ {channel.subtitleTrackLabel || tr.badgeFootballLive}</span>
                     </span>
                   </>
                 ) : (
                   <>
-                    <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#1d4ed8]/15 text-[#ffffff] border border-[#0055ff]/45">
-                      <Volume2 className="w-2.5 h-2.5 text-[#60a5fa]" />
-                      {channel.audioTrackLabel || tr.badgeVoEnglish}
+                    <span className="inline-flex items-center gap-1.5 text-[10px] font-medium px-2 py-0.5 rounded bg-[#1d4ed8]/15 text-[#ffffff] border border-[#0055ff]/45 shrink-0">
+                      <Volume2 className="w-3 h-3 text-[#60a5fa] shrink-0" />
+                      <span>{channel.audioTrackLabel || tr.badgeVoEnglish}</span>
                     </span>
-                    <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#1d4ed8]/15 text-[#ffffff] border border-[#0055ff]/45">
-                      <Subtitles className="w-2.5 h-2.5 text-[#60a5fa]" />
-                      {channel.subtitleTrackLabel || tr.badgeSubDvb}
+                    <span className="inline-flex items-center gap-1.5 text-[10px] font-medium px-2 py-0.5 rounded bg-[#1d4ed8]/15 text-[#ffffff] border border-[#0055ff]/45 shrink-0">
+                      <Subtitles className="w-3 h-3 text-[#60a5fa] shrink-0" />
+                      <span>{channel.subtitleTrackLabel || tr.badgeSubDvb}</span>
                     </span>
                   </>
                 )}
@@ -714,10 +714,10 @@ const ChannelRowCardInner: React.FC<ChannelRowCardProps> = ({
                 </p>
               )}
 
-              {/* Barre de progression dynamique Rouge / Crimson Sky Sport */}
-              <div className="mt-2.5 h-1.5 w-full bg-[#0a0e17] rounded-full overflow-hidden">
+              {/* Barre de progression temporelle colorée En Direct (#ec4899 -> #8b5cf6 sur rail rgba(255,255,255,0.1)) */}
+              <div className="live-progress-rail mt-2.5 w-full overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-[#e11d48] to-[#ff0033] shadow-[0_0_10px_#e11d48] rounded-full"
+                  className="live-progress-fill h-full"
                   style={{ width: `${isActualLive ? progress : 100}%` }}
                 />
               </div>
