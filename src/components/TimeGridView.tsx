@@ -121,6 +121,12 @@ interface TimeGridViewProps {
   language?: AppLanguage;
   reminders?: ProgrammeReminder[];
   onToggleReminder?: (prog: EpgProgramme, channel: EpgChannel) => void;
+  channelLcnMap?: Map<string, number>;
+  onQuickJumpStep?: (
+    delta: number,
+    targetChannel?: EpgChannel,
+    targetLcn?: number
+  ) => void;
 }
 
 const PIXELS_PER_MINUTE = 4.6;
@@ -207,6 +213,8 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
   language,
   reminders = [],
   onToggleReminder,
+  channelLcnMap,
+  onQuickJumpStep,
 }) => {
   const activeLang = language || getActiveLanguage();
   const tr = getTranslations(activeLang);
@@ -450,11 +458,26 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
     const container = scrollContainerRef.current;
     if (!container) return;
 
+    const isPageUpKey =
+      e.key === 'PageUp' ||
+      e.key === 'ChannelUp' ||
+      e.key === 'MediaTrackPrevious' ||
+      e.keyCode === 33 ||
+      e.keyCode === 166;
+    const isPageDownKey =
+      e.key === 'PageDown' ||
+      e.key === 'ChannelDown' ||
+      e.key === 'MediaTrackNext' ||
+      e.keyCode === 34 ||
+      e.keyCode === 167;
+
     if (
       e.key === 'ArrowRight' ||
       e.key === 'ArrowLeft' ||
       e.key === 'ArrowDown' ||
-      e.key === 'ArrowUp'
+      e.key === 'ArrowUp' ||
+      isPageUpKey ||
+      isPageDownKey
     ) {
       const focusables = Array.from(
         container.querySelectorAll<HTMLElement>('[data-grid-focusable="true"]')
@@ -499,7 +522,6 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
 
         if (e.key === 'ArrowRight') {
           if (currentCol === 'channel') {
-            // Focus first programme in current window (or live programme)
             targetEl =
               rowProgs.find((el) => {
                 const s = Number(el.getAttribute('data-start-ms') || '0');
@@ -528,13 +550,35 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
               targetEl = rowChannelEl;
             }
           }
-        } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-          const nextRow =
-            e.key === 'ArrowDown' ? currentRow + 1 : currentRow - 1;
-          if (nextRow < 0) {
+        } else if (
+          e.key === 'ArrowDown' ||
+          e.key === 'ArrowUp' ||
+          isPageUpKey ||
+          isPageDownKey
+        ) {
+          const isTvViewport =
+            typeof window !== 'undefined' && window.innerWidth >= 768;
+          const isFastJump =
+            isTvViewport && (isPageUpKey || isPageDownKey || e.repeat);
+          const isDownward = e.key === 'ArrowDown' || isPageDownKey;
+          const stepDelta = isFastJump
+            ? isDownward
+              ? 10
+              : -10
+            : isDownward
+            ? 1
+            : -1;
+          const maxRowIdx = Math.max(0, gridVisibleChannels.length - 1);
+
+          if (!isFastJump && currentRow === 0 && !isDownward) {
             // Let global D-Pad handler move focus up to the Time Controls / Filters above the grid
             return;
           }
+
+          const nextRow = Math.max(
+            0,
+            Math.min(maxRowIdx, currentRow + stepDelta)
+          );
           const nextRowElements = focusables.filter(
             (el) => Number(el.getAttribute('data-grid-row') || '-1') === nextRow
           );
@@ -548,7 +592,6 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
               const nextRowProgs = nextRowElements.filter(
                 (el) => el.getAttribute('data-grid-col') !== 'channel'
               );
-              // Find programme in nextRow that overlaps currentMidMs or is closest in time
               let bestProg: HTMLElement | null = null;
               let bestTimeDist = Infinity;
               for (const el of nextRowProgs) {
@@ -567,6 +610,14 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
               }
               targetEl = bestProg || nextRowElements[0];
             }
+          }
+
+          if (targetEl && isFastJump && onQuickJumpStep) {
+            const jumpedCh = gridVisibleChannels[nextRow];
+            const jumpedLcn = jumpedCh
+              ? channelLcnMap?.get(jumpedCh.id) || nextRow + 1
+              : nextRow + 1;
+            onQuickJumpStep(stepDelta, jumpedCh, jumpedLcn);
           }
         }
 
@@ -1074,6 +1125,7 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
                     data-grid-focusable="true"
                     data-grid-row={rowIdx}
                     data-grid-col="channel"
+                    data-channel-id={ch.id}
                     onClick={() => onSelectChannel(ch)}
                     onKeyDown={(e) => {
                       if (
@@ -1129,8 +1181,11 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
                         />
                       </div>
                       <div className="min-w-0">
-                        <div className="flex items-center gap-1">
-                          <span className="text-[10px]">{flag}</span>
+                        <div className="flex items-center gap-1 min-w-0">
+                          <span className="tv-lcn-badge hidden md:inline-flex items-center px-1 py-0.2 rounded bg-[#141a26] text-[#38bdf8] border border-[#334155] font-mono text-[9px] font-bold shrink-0">
+                            #{channelLcnMap?.get(ch.id) || rowIdx + 1}
+                          </span>
+                          <span className="text-[10px] shrink-0">{flag}</span>
                           <p className="text-xs font-bold text-[#ffffff] truncate">
                             {cleanOfficialChannelName(ch.displayName)}
                           </p>

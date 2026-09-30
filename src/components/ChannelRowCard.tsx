@@ -70,6 +70,7 @@ interface ChannelRowCardProps {
   hasNextReminder?: boolean;
   onToggleReminder?: (prog: EpgProgramme, channel: EpgChannel) => void;
   dataIndex?: number;
+  lcnNumber?: number;
   measureRef?: (el: HTMLDivElement | null) => void;
   isMemorizedTarget?: boolean;
 }
@@ -353,6 +354,7 @@ const ChannelRowCardInner: React.FC<ChannelRowCardProps> = ({
   hasNextReminder: propHasNextReminder,
   onToggleReminder,
   dataIndex,
+  lcnNumber,
   measureRef,
   isMemorizedTarget = false,
 }) => {
@@ -536,9 +538,16 @@ const ChannelRowCardInner: React.FC<ChannelRowCardProps> = ({
             </div>
 
             <div className="min-w-0 ms-3">
-              <h3 className="font-bold text-[#ffffff] text-sm sm:text-base 2xl:text-lg truncate">
-                {cleanOfficialChannelName(channel.displayName)}
-              </h3>
+              <div className="flex items-center gap-2 min-w-0">
+                {typeof lcnNumber === 'number' && lcnNumber > 0 && (
+                  <span className="tv-lcn-badge hidden md:inline-flex items-center px-1.5 py-0.5 rounded bg-[#0a0e17] text-[#38bdf8] border border-[#334155] font-mono text-[11px] font-bold shrink-0">
+                    #{lcnNumber}
+                  </span>
+                )}
+                <h3 className="font-bold text-[#ffffff] text-sm sm:text-base 2xl:text-lg truncate">
+                  {cleanOfficialChannelName(channel.displayName)}
+                </h3>
+              </div>
 
               <div className="flex items-center gap-1.5 flex-wrap mt-1">
                 <span

@@ -1,15 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
+  ArrowUpDown,
   Baby,
   Bell,
   BellRing,
+  Check,
   ChevronDown,
   ChevronUp,
   Clock,
   Compass,
   Film,
   Globe,
+  Hash,
   Heart,
   Languages,
   LayoutGrid,
@@ -29,6 +32,7 @@ import {
   Tv,
   Volume2,
   X,
+  Zap,
 } from 'lucide-react';
 import {
   AppLanguage,
@@ -136,6 +140,7 @@ import {
   translateSubGenreGroup,
 } from './utils/i18n';
 import {
+  cleanOfficialChannelName,
   cleanXmltvChannelId,
   isExclusivelySportChannel,
   isPlaceholderProgrammeTitle,
@@ -1902,21 +1907,116 @@ export function App() {
     [groupCounts]
   );
 
-  // Filtrage final dynamique des chaînes :
-  // - En vue "Favorites", affiche TOUTES les chaînes favorites peu importe leur satellite ou bouquet d'origine
-  // - En vue "En Direct" / "Grille TV", applique les filtres CATÉGORIE, SAT, BOUQUET, COUNTRY et GENRE
-  const filteredChannels = useMemo(() => {
-    if (viewMode === 'favorites') {
-      return baseViewChannels;
-    }
-    return baseViewChannels.filter((ch) => {
-      if (!matchesCategory(ch, selectedCategory)) return false;
-      if (!matchesSatellite(ch, selectedSatellite)) return false;
-      if (!matchesBouquet(ch, selectedBouquet)) return false;
-      if (!matchesCountry(ch, selectedCountry)) return false;
-      if (!matchesGroup(ch, selectedGroup)) return false;
-      return true;
+  // Filtrage final dynamique des chaînes + Options de Tri TV (LCN, Alphabétique A-Z / Z-A, Genre / Thématique) :
+  const [tvSortMode, setTvSortMode] = useState<
+    'lcn' | 'alpha_asc' | 'alpha_desc' | 'genre'
+  >('lcn');
+  const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
+  const [isQuickJumpDrawerOpen, setIsQuickJumpDrawerOpen] = useState(false);
+  const [quickJumpTab, setQuickJumpTab] = useState<'ranges' | 'alpha'>('ranges');
+  const [quickJumpKeypadValue, setQuickJumpKeypadValue] = useState('');
+  const [quickJumpOsd, setQuickJumpOsd] = useState<{
+    digits: string;
+    label: string;
+    channel?: EpgChannel;
+    lcn?: number;
+  } | null>(null);
+
+  const sortTriggerBtnRef = useRef<HTMLButtonElement | null>(null);
+  const sortMenuContainerRef = useRef<HTMLDivElement | null>(null);
+  const quickJumpTriggerBtnRef = useRef<HTMLButtonElement | null>(null);
+  const quickJumpDigitsBufferRef = useRef<string>('');
+  const quickJumpDigitsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+  const quickJumpOsdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+  const pendingSortedChannelIdRef = useRef<string | null>(null);
+
+  // Numérotation officielle LCN (Logical Channel Number) du bouquet/satellite
+  const channelLcnMap = useMemo(() => {
+    const map = new Map<string, number>();
+    settingsAllowedChannels.forEach((ch, idx) => {
+      map.set(ch.id, idx + 1);
     });
+    channels.forEach((ch, idx) => {
+      if (!map.has(ch.id)) {
+        map.set(ch.id, map.size + idx + 1);
+      }
+    });
+    return map;
+  }, [settingsAllowedChannels, channels]);
+
+  const filteredChannels = useMemo(() => {
+    const rawList =
+      viewMode === 'favorites'
+        ? baseViewChannels
+        : baseViewChannels.filter((ch) => {
+            if (!matchesCategory(ch, selectedCategory)) return false;
+            if (!matchesSatellite(ch, selectedSatellite)) return false;
+            if (!matchesBouquet(ch, selectedBouquet)) return false;
+            if (!matchesCountry(ch, selectedCountry)) return false;
+            if (!matchesGroup(ch, selectedGroup)) return false;
+            return true;
+          });
+
+    if (tvSortMode === 'lcn') {
+      return [...rawList].sort(
+        (a, b) =>
+          (channelLcnMap.get(a.id) ?? 9999) - (channelLcnMap.get(b.id) ?? 9999)
+      );
+    }
+
+    if (tvSortMode === 'alpha_asc') {
+      return [...rawList].sort((a, b) =>
+        cleanOfficialChannelName(a.displayName).localeCompare(
+          cleanOfficialChannelName(b.displayName),
+          'fr',
+          { sensitivity: 'base', numeric: true }
+        )
+      );
+    }
+
+    if (tvSortMode === 'alpha_desc') {
+      return [...rawList].sort((a, b) =>
+        cleanOfficialChannelName(b.displayName).localeCompare(
+          cleanOfficialChannelName(a.displayName),
+          'fr',
+          { sensitivity: 'base', numeric: true }
+        )
+      );
+    }
+
+    if (tvSortMode === 'genre') {
+      const getGenreRank = (ch: EpgChannel): number => {
+        const cat = ch.contentCategory || '';
+        if (cat === 'Sport / Football' || isExclusivelySportChannel(ch)) return 1;
+        if (cat === 'Films & Séries') return 2;
+        if (cat === 'Documentaires') return 3;
+        if (cat === 'Jeunesse / Enfants') return 4;
+        if (cat === 'Actualités / News') return 5;
+        if (cat === 'Musique & Divertissement') return 6;
+        return 7;
+      };
+      return [...rawList].sort((a, b) => {
+        const rankDiff = getGenreRank(a) - getGenreRank(b);
+        if (rankDiff !== 0) return rankDiff;
+        const currA =
+          currentAndNextByChannel[a.id]?.current?.category || a.group || '';
+        const currB =
+          currentAndNextByChannel[b.id]?.current?.category || b.group || '';
+        const grpCompare = currA.localeCompare(currB, 'fr', {
+          sensitivity: 'base',
+        });
+        if (grpCompare !== 0) return grpCompare;
+        return (
+          (channelLcnMap.get(a.id) ?? 9999) - (channelLcnMap.get(b.id) ?? 9999)
+        );
+      });
+    }
+
+    return rawList;
   }, [
     viewMode,
     baseViewChannels,
@@ -1929,7 +2029,22 @@ export function App() {
     matchesBouquet,
     matchesCountry,
     matchesGroup,
+    tvSortMode,
+    channelLcnMap,
+    currentAndNextByChannel,
   ]);
+
+  // Conserve l'index de la chaîne sélectionnée après un changement dynamique de tri TV
+  useEffect(() => {
+    if (!pendingSortedChannelIdRef.current) return;
+    const targetId = pendingSortedChannelIdRef.current;
+    pendingSortedChannelIdRef.current = null;
+    const newIdx = filteredChannels.findIndex((c) => c.id === targetId);
+    if (newIdx !== -1) {
+      lastFocusedChannelIndexRef.current = newIdx;
+      setLastFocusedChannelIndex(newIdx);
+    }
+  }, [tvSortMode, filteredChannels]);
 
   useEffect(() => {
     const maxIdx = Math.max(0, filteredChannels.length - 1);
@@ -2791,21 +2906,40 @@ export function App() {
     };
   }, [visibleChannels, viewMode, currentAndNextByChannel, activeLang]);
 
-  // Auto-focus du premier élément interactif à l'ouverture d'un modal (Android TV D-Pad)
+  // Auto-focus du premier élément interactif à l'ouverture d'un modal ou sous-menu TV (Android TV D-Pad)
   useEffect(() => {
-    if (!selectedChannel && !isSettingsOpen) return;
+    if (
+      !selectedChannel &&
+      !isSettingsOpen &&
+      !isSortMenuOpen &&
+      !isQuickJumpDrawerOpen
+    ) {
+      return;
+    }
     const timer = setTimeout(() => {
       const modalEl = document.querySelector<HTMLElement>(
         '[data-tv-modal="true"]'
       );
       if (!modalEl) return;
+      const activeOption = modalEl.querySelector<HTMLElement>(
+        '[data-sort-active="true"]'
+      );
+      if (activeOption) {
+        activeOption.focus({ preventScroll: true });
+        return;
+      }
       const firstFocusable = modalEl.querySelector<HTMLElement>(
-        '[data-programme-card="true"], button:not([disabled]), [role="button"], select:not([disabled]), input:not([disabled])'
+        '[data-programme-card="true"], button:not([disabled]), [role="button"]:not([tabindex="-1"]), select:not([disabled]), input:not([disabled])'
       );
       firstFocusable?.focus({ preventScroll: true });
-    }, 60);
+    }, 50);
     return () => clearTimeout(timer);
-  }, [selectedChannel, isSettingsOpen]);
+  }, [
+    selectedChannel,
+    isSettingsOpen,
+    isSortMenuOpen,
+    isQuickJumpDrawerOpen,
+  ]);
 
   // Déclencheur d'animation de transition inter-zones dans la machine à états D-Pad
   const triggerZoneTransition = useCallback(
@@ -3026,6 +3160,215 @@ export function App() {
     [triggerZoneTransition]
   );
 
+  // ==========================================================================
+  // FONCTIONNALITÉS EXCLUSIVES ANDROID TV : CHANNEL QUICK-JUMP & OPTIONS DE TRI
+  // ==========================================================================
+  const showQuickJumpOsdBadge = useCallback(
+    (payload: {
+      digits: string;
+      label: string;
+      channel?: EpgChannel;
+      lcn?: number;
+    }) => {
+      if (typeof window !== 'undefined' && window.innerWidth < 768) return;
+      setQuickJumpOsd(payload);
+      if (quickJumpOsdTimerRef.current) {
+        clearTimeout(quickJumpOsdTimerRef.current);
+      }
+      quickJumpOsdTimerRef.current = setTimeout(() => {
+        setQuickJumpOsd(null);
+      }, 2600);
+    },
+    []
+  );
+
+  const jumpToChannelAtIndex = useCallback(
+    (targetIdx: number, customLabel?: string, customDigits?: string) => {
+      if (filteredChannels.length === 0) return;
+      const clampedIdx = Math.max(
+        0,
+        Math.min(filteredChannels.length - 1, targetIdx)
+      );
+      const targetChannel = filteredChannels[clampedIdx];
+      const lcn =
+        (targetChannel && channelLcnMap.get(targetChannel.id)) ||
+        clampedIdx + 1;
+
+      showQuickJumpOsdBadge({
+        digits: customDigits || String(lcn),
+        label:
+          customLabel ||
+          (activeLang === 'fr'
+            ? `Aller à la chaîne ${lcn}`
+            : `Go to channel ${lcn}`),
+        channel: targetChannel,
+        lcn,
+      });
+
+      lastFocusedChannelIndexRef.current = clampedIdx;
+      setLastFocusedChannelIndex(clampedIdx);
+      setFocusedChannelIndex(clampedIdx);
+
+      if (viewMode === 'grid') {
+        window.requestAnimationFrame(() => {
+          const gridTarget =
+            (targetChannel &&
+              document.querySelector<HTMLElement>(
+                `[data-grid-focusable="true"][data-channel-id="${targetChannel.id}"]`
+              )) ||
+            document.querySelector<HTMLElement>(
+              `[data-grid-focusable="true"][data-grid-row="${clampedIdx}"][data-grid-col="channel"]`
+            ) ||
+            document.querySelector<HTMLElement>(
+              `[data-grid-focusable="true"][data-grid-row="${clampedIdx}"]`
+            );
+          if (gridTarget) {
+            gridTarget.focus({ preventScroll: true });
+            gridTarget.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        });
+      } else {
+        focusChannelAtIndex(clampedIdx, 0, 'jump');
+      }
+    },
+    [
+      filteredChannels,
+      channelLcnMap,
+      activeLang,
+      viewMode,
+      showQuickJumpOsdBadge,
+      focusChannelAtIndex,
+    ]
+  );
+
+  const jumpToChannelByNumber = useCallback(
+    (channelNumber: number, rawDigitsStr?: string) => {
+      if (filteredChannels.length === 0 || channelNumber <= 0) return;
+      const exactLcnIdx = filteredChannels.findIndex(
+        (ch) => channelLcnMap.get(ch.id) === channelNumber
+      );
+      const resolvedIdx =
+        exactLcnIdx !== -1
+          ? exactLcnIdx
+          : Math.max(
+              0,
+              Math.min(filteredChannels.length - 1, channelNumber - 1)
+            );
+      const targetCh = filteredChannels[resolvedIdx];
+      const badgeText =
+        activeLang === 'fr'
+          ? `Aller à la chaîne ${channelNumber}`
+          : `Go to channel ${channelNumber}`;
+      jumpToChannelAtIndex(
+        resolvedIdx,
+        badgeText,
+        rawDigitsStr || String(channelNumber)
+      );
+      if (targetCh) {
+        showQuickJumpOsdBadge({
+          digits: rawDigitsStr || String(channelNumber),
+          label: badgeText,
+          channel: targetCh,
+          lcn: channelNumber,
+        });
+      }
+    },
+    [
+      filteredChannels,
+      channelLcnMap,
+      activeLang,
+      jumpToChannelAtIndex,
+      showQuickJumpOsdBadge,
+    ]
+  );
+
+  const handleGridQuickJumpStep = useCallback(
+    (delta: number, targetChannel?: EpgChannel, targetLcn?: number) => {
+      const lcn = targetLcn || 1;
+      const sign = delta > 0 ? `+${delta}` : `${delta}`;
+      showQuickJumpOsdBadge({
+        digits: String(lcn),
+        label:
+          activeLang === 'fr'
+            ? `Aller à la chaîne ${lcn} (Saut ${sign})`
+            : `Go to channel ${lcn} (Jump ${sign})`,
+        channel: targetChannel,
+        lcn,
+      });
+    },
+    [activeLang, showQuickJumpOsdBadge]
+  );
+
+  const handleSelectTvSortMode = useCallback(
+    (
+      nextMode: 'lcn' | 'alpha_asc' | 'alpha_desc' | 'genre',
+      optionBtnEl?: HTMLElement | null
+    ) => {
+      const currentFocusedCh =
+        filteredChannels[lastFocusedChannelIndexRef.current];
+      if (currentFocusedCh) {
+        pendingSortedChannelIdRef.current = currentFocusedCh.id;
+      }
+      setTvSortMode(nextMode);
+      if (optionBtnEl) {
+        window.requestAnimationFrame(() => {
+          optionBtnEl.focus({ preventScroll: true });
+        });
+      }
+    },
+    [filteredChannels]
+  );
+
+  // Tranches de 10 chaînes pour la sous-fenêtre latérale Quick-Jump (ex: 1-10, 11-20, 21-30...)
+  const quickJumpRanges = useMemo(() => {
+    const slices: {
+      startIdx: number;
+      endIdx: number;
+      label: string;
+      firstChannel: EpgChannel;
+      lastChannel: EpgChannel;
+    }[] = [];
+    for (let i = 0; i < filteredChannels.length; i += 10) {
+      const endIdx = Math.min(filteredChannels.length - 1, i + 9);
+      const firstChannel = filteredChannels[i];
+      const lastChannel = filteredChannels[endIdx];
+      if (firstChannel) {
+        slices.push({
+          startIdx: i,
+          endIdx,
+          label: `${i + 1} – ${endIdx + 1}`,
+          firstChannel,
+          lastChannel: lastChannel || firstChannel,
+        });
+      }
+    }
+    return slices;
+  }, [filteredChannels]);
+
+  // Index alphabétique (A-Z) pour la sous-fenêtre latérale Quick-Jump
+  const quickJumpAlphabetMap = useMemo(() => {
+    const map = new Map<
+      string,
+      { firstIdx: number; count: number; sampleName: string }
+    >();
+    filteredChannels.forEach((ch, idx) => {
+      const cleanName = cleanOfficialChannelName(ch.displayName).trim();
+      const firstChar = (cleanName.charAt(0) || '').toUpperCase();
+      const normalizedLetter = /^[A-Z]$/.test(firstChar) ? firstChar : '#';
+      const existing = map.get(normalizedLetter);
+      if (!existing) {
+        map.set(normalizedLetter, {
+          firstIdx: idx,
+          count: 1,
+          sampleName: cleanName,
+        });
+      } else {
+        existing.count += 1;
+      }
+    });
+    return map;
+  }, [filteredChannels]);
+
   // Suivi en temps réel de la machine à états de focus D-Pad (En-tête, Lignes de Filtres, Liste des Chaînes)
   useEffect(() => {
     const selector =
@@ -3141,6 +3484,22 @@ export function App() {
         e.key === 'GoBack' ||
         (e.key === 'Backspace' && !isTextInput)
       ) {
+        if (isSortMenuOpen) {
+          e.preventDefault();
+          setIsSortMenuOpen(false);
+          window.requestAnimationFrame(() => {
+            sortTriggerBtnRef.current?.focus({ preventScroll: true });
+          });
+          return;
+        }
+        if (isQuickJumpDrawerOpen) {
+          e.preventDefault();
+          setIsQuickJumpDrawerOpen(false);
+          window.requestAnimationFrame(() => {
+            quickJumpTriggerBtnRef.current?.focus({ preventScroll: true });
+          });
+          return;
+        }
         if (isSearchDropdownOpen) {
           e.preventDefault();
           setIsSearchDropdownOpen(false);
@@ -3159,19 +3518,86 @@ export function App() {
         }
       }
 
-      // Raccourci PageUp / PageDown pour basculer instantanément entre Lignes de Filtres et Liste des Chaînes (sur le dernier index focalisé)
-      if (!modalScopeExists() && !isTextInput) {
-        if (e.key === 'PageUp' && activeDpadZoneRef.current === 'channels') {
+      const isTvScreen =
+        typeof window !== 'undefined' && window.innerWidth >= 768;
+
+      // Saisie directe d'un numéro de chaîne au pavé numérique de la télécommande sur TV ("Channel Quick-Jump")
+      if (isTvScreen && !isTextInput && !isSettingsOpen && !selectedChannel) {
+        const digitMatch =
+          /^[0-9]$/.test(e.key)
+            ? e.key
+            : /^Digit([0-9])$/.test(e.code || '')
+            ? e.code.replace('Digit', '')
+            : /^Numpad([0-9])$/.test(e.code || '')
+            ? e.code.replace('Numpad', '')
+            : null;
+
+        if (digitMatch !== null) {
           e.preventDefault();
-          focusFilterGridRow('last', {
-            preferRememberedCol: true,
-            direction: 'up',
-          });
+          const nextDigits = (
+            quickJumpDigitsBufferRef.current + digitMatch
+          ).slice(0, 4);
+          quickJumpDigitsBufferRef.current = nextDigits;
+          setQuickJumpKeypadValue(nextDigits);
+
+          if (quickJumpDigitsTimerRef.current) {
+            clearTimeout(quickJumpDigitsTimerRef.current);
+          }
+          quickJumpDigitsTimerRef.current = setTimeout(() => {
+            quickJumpDigitsBufferRef.current = '';
+          }, 1250);
+
+          const parsedNum = parseInt(nextDigits, 10);
+          if (!Number.isNaN(parsedNum) && parsedNum >= 1) {
+            jumpToChannelByNumber(parsedNum, nextDigits);
+          }
           return;
         }
-        if (e.key === 'PageDown' && activeDpadZoneRef.current === 'filters') {
+      }
+
+      // Touches de saut rapide sur la télécommande : 'Page Up' / 'Page Down' / 'ChannelUp' / 'ChannelDown' -> Saute de 10 chaînes vers le haut ou vers le bas
+      const isPageUpKey =
+        e.key === 'PageUp' ||
+        e.key === 'ChannelUp' ||
+        e.key === 'MediaTrackPrevious' ||
+        e.keyCode === 33 ||
+        e.keyCode === 166;
+      const isPageDownKey =
+        e.key === 'PageDown' ||
+        e.key === 'ChannelDown' ||
+        e.key === 'MediaTrackNext' ||
+        e.keyCode === 34 ||
+        e.keyCode === 167;
+
+      if (
+        isTvScreen &&
+        !modalScopeExists() &&
+        !isTextInput &&
+        (isPageUpKey || isPageDownKey)
+      ) {
+        if (activeEl?.getAttribute('data-grid-focusable') === 'true') {
+          // Déjà géré par TimeGridView (±10 lignes)
+          return;
+        }
+        if (filteredChannels.length > 0) {
           e.preventDefault();
-          focusChannelAtIndex(lastFocusedChannelIndexRef.current, 0, 'down');
+          const step = isPageDownKey ? 10 : -10;
+          const nextIdx = Math.max(
+            0,
+            Math.min(
+              filteredChannels.length - 1,
+              lastFocusedChannelIndexRef.current + step
+            )
+          );
+          const targetCh = filteredChannels[nextIdx];
+          const lcn =
+            (targetCh && channelLcnMap.get(targetCh.id)) || nextIdx + 1;
+          jumpToChannelAtIndex(
+            nextIdx,
+            activeLang === 'fr'
+              ? `Aller à la chaîne ${lcn} (Saut ${step > 0 ? '+10' : '-10'})`
+              : `Go to channel ${lcn} (Jump ${step > 0 ? '+10' : '-10'})`
+          );
           return;
         }
       }
@@ -3283,16 +3709,50 @@ export function App() {
           const totalCount = virtualWindowRef.current.totalCount;
 
           if (virtualIdx >= 0 && totalCount > 0) {
+            const isLongPressJump = isTvScreen && e.repeat;
+            const stepSize = isLongPressJump ? 10 : 1;
+
             if (e.key === 'ArrowDown') {
               if (virtualIdx < totalCount - 1) {
                 e.preventDefault();
-                focusChannelAtIndex(virtualIdx + 1, 0, 'down');
+                const targetIdx = Math.min(
+                  totalCount - 1,
+                  virtualIdx + stepSize
+                );
+                if (isLongPressJump) {
+                  const targetCh = filteredChannels[targetIdx];
+                  const lcn =
+                    (targetCh && channelLcnMap.get(targetCh.id)) ||
+                    targetIdx + 1;
+                  jumpToChannelAtIndex(
+                    targetIdx,
+                    activeLang === 'fr'
+                      ? `Aller à la chaîne ${lcn} (Saut +10)`
+                      : `Go to channel ${lcn} (Jump +10)`
+                  );
+                } else {
+                  focusChannelAtIndex(targetIdx, 0, 'down');
+                }
                 return;
               }
             } else if (e.key === 'ArrowUp') {
               if (virtualIdx > 0) {
                 e.preventDefault();
-                focusChannelAtIndex(virtualIdx - 1, 0, 'up');
+                const targetIdx = Math.max(0, virtualIdx - stepSize);
+                if (isLongPressJump) {
+                  const targetCh = filteredChannels[targetIdx];
+                  const lcn =
+                    (targetCh && channelLcnMap.get(targetCh.id)) ||
+                    targetIdx + 1;
+                  jumpToChannelAtIndex(
+                    targetIdx,
+                    activeLang === 'fr'
+                      ? `Aller à la chaîne ${lcn} (Saut -10)`
+                      : `Go to channel ${lcn} (Jump -10)`
+                  );
+                } else {
+                  focusChannelAtIndex(targetIdx, 0, 'up');
+                }
                 return;
               } else {
                 // virtualIdx === 0 : transition vers la dernière ligne de filtres (lastFocusedChannelIndex reste mémorisé à 0)
@@ -3724,10 +4184,17 @@ export function App() {
     selectedChannel,
     isSettingsOpen,
     isSearchDropdownOpen,
+    isSortMenuOpen,
+    isQuickJumpDrawerOpen,
     viewMode,
+    filteredChannels,
+    channelLcnMap,
+    activeLang,
     focusChannelAtIndex,
     focusFilterGridRow,
     triggerZoneTransition,
+    jumpToChannelAtIndex,
+    jumpToChannelByNumber,
   ]);
 
   return (
@@ -4161,17 +4628,202 @@ export function App() {
                 )}
             </div>
 
-            {/* Horodateur Temps Réel (la barre de navigation temporelle de la Grille TV est isolée dans son propre bloc sous les filtres) */}
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#0a0e17] border border-[#1a202c] text-xs font-mono text-[#cbd5e1] shrink-0 select-none">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#e11d48] shadow-[0_0_8px_#e11d48] shrink-0 animate-pulse" />
-              <Clock className="w-3.5 h-3.5 text-[#cbd5e1]" />
-              <span>{formatDayLabel(nowMs, activeLang)}</span>
-              <span className="font-bold text-[#ffffff]">
-                {formatTimeShort(nowMs)}
-              </span>
-              <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#1d4ed8]/25 text-[#ffffff] border border-[#0055ff]/50 font-sans font-medium">
-                {APP_TIMEZONE_LABEL}
-              </span>
+            {/* Outils Exclusifs Android TV / TV Box (Masqués sur Smartphone max-width: 767px) : Options de Tri & Channel Quick-Jump */}
+            <div className="tv-only-feature hidden md:flex items-center gap-2.5 shrink-0">
+              {/* 1. Bouton "Add Sorting Options" avec Sous-Menu Contextuel D-Pad */}
+              <div ref={sortMenuContainerRef} className="relative">
+                <button
+                  ref={sortTriggerBtnRef}
+                  type="button"
+                  onClick={() => {
+                    setIsQuickJumpDrawerOpen(false);
+                    setIsSortMenuOpen((prev) => !prev);
+                  }}
+                  aria-expanded={isSortMenuOpen}
+                  aria-haspopup="menu"
+                  title="Options de tri des chaînes (TV D-Pad)"
+                  className={`tv-sort-btn tv-dpad-btn inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer shrink-0 ${
+                    isSortMenuOpen || tvSortMode !== 'lcn'
+                      ? 'bg-[#1d4ed8]/30 text-[#ffffff] border border-[#60a5fa]'
+                      : 'bg-[#0a0e17] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c]'
+                  }`}
+                >
+                  <ArrowUpDown className="w-3.5 h-3.5 text-[#38bdf8] shrink-0" />
+                  <span>
+                    {tvSortMode === 'lcn'
+                      ? activeLang === 'fr'
+                        ? 'Tri : N° LCN'
+                        : 'Sort: LCN'
+                      : tvSortMode === 'alpha_asc'
+                      ? activeLang === 'fr'
+                        ? 'Tri : A → Z'
+                        : 'Sort: A → Z'
+                      : tvSortMode === 'alpha_desc'
+                      ? activeLang === 'fr'
+                        ? 'Tri : Z → A'
+                        : 'Sort: Z → A'
+                      : activeLang === 'fr'
+                      ? 'Tri : Genre'
+                      : 'Sort: Genre'}
+                  </span>
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 text-[#cbd5e1] transition-transform ${
+                      isSortMenuOpen ? 'rotate-180' : ''
+                    }`}
+                  />
+                </button>
+
+                {isSortMenuOpen && (
+                  <div
+                    role="menu"
+                    data-tv-modal="true"
+                    aria-label="Options de tri TV"
+                    className="tv-sort-dropdown space-y-1.5"
+                  >
+                    <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-[#334155] mb-1">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-[#38bdf8]">
+                        {activeLang === 'fr'
+                          ? 'Trier les chaînes (TV)'
+                          : 'Sort Channels (TV)'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsSortMenuOpen(false);
+                          window.requestAnimationFrame(() => {
+                            sortTriggerBtnRef.current?.focus({
+                              preventScroll: true,
+                            });
+                          });
+                        }}
+                        className="tv-dpad-btn p-1 rounded text-[#cbd5e1] hover:text-[#ffffff] cursor-pointer"
+                        title="Fermer (Retour)"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    {(
+                      [
+                        {
+                          id: 'lcn' as const,
+                          label:
+                            activeLang === 'fr'
+                              ? 'Numéro LCN (Ordre officiel)'
+                              : 'LCN Number (Official Order)',
+                          desc:
+                            activeLang === 'fr'
+                              ? 'Ordre officiel du bouquet / satellite'
+                              : 'Official satellite / bouquet order',
+                        },
+                        {
+                          id: 'alpha_asc' as const,
+                          label:
+                            activeLang === 'fr'
+                              ? 'Alphabétique (A → Z)'
+                              : 'Alphabetical (A → Z)',
+                          desc:
+                            activeLang === 'fr'
+                              ? 'De A à Z par nom de chaîne'
+                              : 'A to Z by channel name',
+                        },
+                        {
+                          id: 'alpha_desc' as const,
+                          label:
+                            activeLang === 'fr'
+                              ? 'Alphabétique (Z → A)'
+                              : 'Alphabetical (Z → A)',
+                          desc:
+                            activeLang === 'fr'
+                              ? 'De Z à A par nom de chaîne'
+                              : 'Z to A by channel name',
+                        },
+                        {
+                          id: 'genre' as const,
+                          label:
+                            activeLang === 'fr'
+                              ? 'Genre / Thématique'
+                              : 'Genre / Thematic',
+                          desc:
+                            activeLang === 'fr'
+                              ? 'Sport, Cinéma, Séries, Docs, Jeunesse'
+                              : 'Sports, Movies, Series, Docs, Kids',
+                        },
+                      ]
+                    ).map((opt) => {
+                      const active = tvSortMode === opt.id;
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          role="menuitemradio"
+                          aria-checked={active}
+                          data-sort-active={active ? 'true' : undefined}
+                          onClick={(e) =>
+                            handleSelectTvSortMode(opt.id, e.currentTarget)
+                          }
+                          className={`tv-dpad-btn w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-start transition-all cursor-pointer ${
+                            active
+                              ? 'bg-[#2563eb]/25 border border-[#60a5fa] text-[#ffffff]'
+                              : 'bg-[#0a0e17]/70 border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff]'
+                          }`}
+                        >
+                          <div className="min-w-0">
+                            <div className="text-xs font-bold text-[#ffffff]">
+                              {opt.label}
+                            </div>
+                            <div className="text-[10px] text-[#cbd5e1] truncate">
+                              {opt.desc}
+                            </div>
+                          </div>
+                          {active && (
+                            <span className="w-5 h-5 rounded-full bg-[#2563eb] text-[#ffffff] flex items-center justify-center shrink-0">
+                              <Check className="w-3 h-3" />
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* 2. Bouton "Channel Quick-Jump" (Ouvre la sous-fenêtre latérale concise Tranches / A-Z / N°) */}
+              <button
+                ref={quickJumpTriggerBtnRef}
+                type="button"
+                onClick={() => {
+                  setIsSortMenuOpen(false);
+                  setIsQuickJumpDrawerOpen((prev) => !prev);
+                }}
+                title="Channel Quick-Jump : Saut rapide par N° de chaîne, Tranche (1-10...) ou Lettre A-Z"
+                className={`tv-quick-jump-btn tv-dpad-btn inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer shrink-0 ${
+                  isQuickJumpDrawerOpen
+                    ? 'bg-[#ec4899]/25 text-[#ffffff] border border-[#ec4899]'
+                    : 'bg-[#0a0e17] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c]'
+                }`}
+              >
+                <Zap className="w-3.5 h-3.5 text-[#ec4899] shrink-0" />
+                <span>
+                  {activeLang === 'fr' ? 'Quick-Jump' : 'Quick-Jump'}
+                </span>
+                <span className="px-1.5 py-0.2 rounded bg-[#141a26] text-[#38bdf8] border border-[#334155] font-mono text-[10px] font-bold">
+                  1–{Math.max(1, filteredChannels.length)}
+                </span>
+              </button>
+
+              {/* Horodateur Temps Réel */}
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-[#0a0e17] border border-[#1a202c] text-xs font-mono text-[#cbd5e1] shrink-0 select-none">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#e11d48] shadow-[0_0_8px_#e11d48] shrink-0 animate-pulse" />
+                <Clock className="w-3.5 h-3.5 text-[#cbd5e1]" />
+                <span>{formatDayLabel(nowMs, activeLang)}</span>
+                <span className="font-bold text-[#ffffff]">
+                  {formatTimeShort(nowMs)}
+                </span>
+                <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#1d4ed8]/25 text-[#ffffff] border border-[#0055ff]/50 font-sans font-medium">
+                  {APP_TIMEZONE_LABEL}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -4662,6 +5314,8 @@ export function App() {
             language={activeLang}
             reminders={reminders}
             onToggleReminder={handleToggleReminder}
+            channelLcnMap={channelLcnMap}
+            onQuickJumpStep={handleGridQuickJumpStep}
           />
         ) : filteredChannels.length === 0 ? (
           <div className="rounded-lg border border-dashed border-[#1a202c] bg-[#141a26] p-10 text-center max-w-lg mx-auto my-8">
@@ -4769,6 +5423,7 @@ export function App() {
                   <ChannelRowCard
                     key={ch.id}
                     dataIndex={virtualIndex}
+                    lcnNumber={channelLcnMap.get(ch.id) || virtualIndex + 1}
                     isMemorizedTarget={
                       activeDpadZone === 'filters' &&
                       virtualIndex === lastFocusedChannelIndex
@@ -4900,6 +5555,336 @@ export function App() {
             {ramWarningMessage}
           </span>
         </div>
+      )}
+
+      {/* Badge Discret OSD "Channel Quick-Jump" sur TV (Saisie pavé numérique ex: "12" ou Saut ±10 PageUp/PageDown) */}
+      {quickJumpOsd && (
+        <div
+          role="status"
+          aria-live="polite"
+          onClick={() => setIsQuickJumpDrawerOpen(true)}
+          className="tv-quick-jump-osd tv-only-feature cursor-pointer"
+        >
+          <div className="px-3 py-1.5 rounded-lg bg-gradient-to-br from-[#ec4899] to-[#8b5cf6] text-[#ffffff] font-mono text-base font-extrabold shadow-[0_0_12px_rgba(236,72,153,0.5)] shrink-0">
+            #{quickJumpOsd.digits}
+          </div>
+          <div className="min-w-0">
+            <div className="text-xs font-extrabold uppercase tracking-wider text-[#38bdf8]">
+              {quickJumpOsd.label}
+            </div>
+            {quickJumpOsd.channel && (
+              <div className="text-sm font-bold text-[#ffffff] truncate max-w-[240px]">
+                {cleanOfficialChannelName(quickJumpOsd.channel.displayName)}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Sous-fenêtre latérale concise "Channel Quick-Jump" (Exclusivement sur TV min-width: 768px) */}
+      {isQuickJumpDrawerOpen && (
+        <>
+          <div
+            onClick={() => setIsQuickJumpDrawerOpen(false)}
+            className="tv-quick-jump-backdrop tv-only-feature fixed inset-0 z-[9997] bg-[#0a0e17]/65 backdrop-blur-xs"
+          />
+          <aside
+            data-tv-modal="true"
+            aria-label="Channel Quick-Jump"
+            className="tv-quick-jump-drawer tv-only-feature"
+          >
+            {/* En-tête de la sous-fenêtre latérale */}
+            <div className="px-4 py-3.5 bg-[#0a0e17] border-b border-[#334155] flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-[#ec4899]/20 border border-[#ec4899] flex items-center justify-center shrink-0">
+                  <Zap className="w-4 h-4 text-[#ec4899]" />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-sm font-extrabold text-[#ffffff] truncate">
+                    Channel Quick-Jump
+                  </h2>
+                  <p className="text-[10px] text-[#cbd5e1] truncate">
+                    {activeLang === 'fr'
+                      ? 'Tranches de chaînes, Lettre A-Z ou N° direct'
+                      : 'Channel ranges, A-Z letter or direct number'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsQuickJumpDrawerOpen(false);
+                  window.requestAnimationFrame(() => {
+                    quickJumpTriggerBtnRef.current?.focus({
+                      preventScroll: true,
+                    });
+                  });
+                }}
+                className="tv-dpad-btn p-2 rounded-lg bg-[#141a26] border border-[#334155] text-[#cbd5e1] hover:text-[#ffffff] cursor-pointer shrink-0"
+                title="Fermer (Retour)"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Pavé numérique rapide (Saisie de chaîne directe à la télécommande) */}
+            <div className="px-4 py-3 bg-[#0a0e17]/60 border-b border-[#1a202c] space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#cbd5e1]">
+                  <Hash className="w-3.5 h-3.5 text-[#38bdf8]" />
+                  <span>
+                    {activeLang === 'fr'
+                      ? 'Aller à la chaîne N° :'
+                      : 'Go to channel #:'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="px-2.5 py-0.5 rounded bg-[#0a0e17] border border-[#334155] font-mono text-xs font-extrabold text-[#38bdf8] min-w-[48px] text-center">
+                    {quickJumpKeypadValue ? `#${quickJumpKeypadValue}` : '—'}
+                  </span>
+                  {quickJumpKeypadValue && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const num = parseInt(quickJumpKeypadValue, 10);
+                        if (!Number.isNaN(num) && num >= 1) {
+                          setIsQuickJumpDrawerOpen(false);
+                          jumpToChannelByNumber(num, quickJumpKeypadValue);
+                        }
+                      }}
+                      className="tv-dpad-btn px-2.5 py-1 rounded-md bg-[#ec4899] text-[#ffffff] text-[11px] font-bold cursor-pointer"
+                    >
+                      OK
+                    </button>
+                  )}
+                  {quickJumpKeypadValue && (
+                    <button
+                      type="button"
+                      onClick={() => setQuickJumpKeypadValue('')}
+                      className="tv-dpad-btn px-2 py-1 rounded-md bg-[#141a26] border border-[#334155] text-[#cbd5e1] text-[10px] cursor-pointer"
+                    >
+                      C
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div
+                data-tv-row="qj-numpad"
+                className="grid grid-cols-5 gap-1.5"
+              >
+                {['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'].map(
+                  (digit) => (
+                    <button
+                      key={digit}
+                      type="button"
+                      onClick={() => {
+                        const nextVal = (quickJumpKeypadValue + digit).slice(
+                          0,
+                          4
+                        );
+                        setQuickJumpKeypadValue(nextVal);
+                        const num = parseInt(nextVal, 10);
+                        if (!Number.isNaN(num) && num >= 1) {
+                          jumpToChannelByNumber(num, nextVal);
+                        }
+                      }}
+                      className="tv-dpad-btn py-1.5 rounded-lg bg-[#0a0e17] border border-[#1a202c] text-xs font-mono font-bold text-[#ffffff] hover:border-[#60a5fa] cursor-pointer"
+                    >
+                      {digit}
+                    </button>
+                  )
+                )}
+              </div>
+
+              {/* Saut rapide ±10 chaînes */}
+              <div
+                data-tv-row="qj-step10"
+                className="grid grid-cols-2 gap-2 pt-1"
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextIdx = Math.max(
+                      0,
+                      lastFocusedChannelIndexRef.current - 10
+                    );
+                    const ch = filteredChannels[nextIdx];
+                    const lcn = (ch && channelLcnMap.get(ch.id)) || nextIdx + 1;
+                    jumpToChannelAtIndex(
+                      nextIdx,
+                      `Aller à la chaîne ${lcn} (Saut -10)`
+                    );
+                  }}
+                  className="tv-dpad-btn flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-lg bg-[#0a0e17] border border-[#334155] text-[11px] font-bold text-[#cbd5e1] hover:text-[#ffffff] cursor-pointer"
+                >
+                  <ChevronUp className="w-3.5 h-3.5 text-[#38bdf8]" />
+                  <span>-10 Chaînes (PageUp)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextIdx = Math.min(
+                      Math.max(0, filteredChannels.length - 1),
+                      lastFocusedChannelIndexRef.current + 10
+                    );
+                    const ch = filteredChannels[nextIdx];
+                    const lcn = (ch && channelLcnMap.get(ch.id)) || nextIdx + 1;
+                    jumpToChannelAtIndex(
+                      nextIdx,
+                      `Aller à la chaîne ${lcn} (Saut +10)`
+                    );
+                  }}
+                  className="tv-dpad-btn flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-lg bg-[#0a0e17] border border-[#334155] text-[11px] font-bold text-[#cbd5e1] hover:text-[#ffffff] cursor-pointer"
+                >
+                  <ChevronDown className="w-3.5 h-3.5 text-[#38bdf8]" />
+                  <span>+10 Chaînes (PageDown)</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Sélecteur de Mode : Tranches de chaînes vs Lettre Alphabétique A-Z */}
+            <div
+              data-tv-row="qj-tabs"
+              className="grid grid-cols-2 gap-2 px-4 pt-3 pb-2"
+            >
+              <button
+                type="button"
+                onClick={() => setQuickJumpTab('ranges')}
+                className={`tv-dpad-btn py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  quickJumpTab === 'ranges'
+                    ? 'bg-gradient-to-r from-[#2563eb] to-[#1d4ed8] text-[#ffffff] border border-[#60a5fa]'
+                    : 'bg-[#0a0e17] text-[#cbd5e1] border border-[#1a202c]'
+                }`}
+              >
+                {activeLang === 'fr'
+                  ? 'Tranches (10 par 10)'
+                  : 'Channel Ranges'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setQuickJumpTab('alpha')}
+                className={`tv-dpad-btn py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  quickJumpTab === 'alpha'
+                    ? 'bg-gradient-to-r from-[#2563eb] to-[#1d4ed8] text-[#ffffff] border border-[#60a5fa]'
+                    : 'bg-[#0a0e17] text-[#cbd5e1] border border-[#1a202c]'
+                }`}
+              >
+                {activeLang === 'fr' ? 'Lettres (A – Z)' : 'Alphabet (A – Z)'}
+              </button>
+            </div>
+
+            {/* Contenu Défilable : Tranches de chaînes OU Grille Alphabétique */}
+            <div className="flex-1 overflow-y-auto px-4 py-2 space-y-2">
+              {quickJumpTab === 'ranges' ? (
+                <div className="grid grid-cols-2 gap-2">
+                  {quickJumpRanges.map((slice) => {
+                    const isCurrentSlice =
+                      lastFocusedChannelIndex >= slice.startIdx &&
+                      lastFocusedChannelIndex <= slice.endIdx;
+                    return (
+                      <button
+                        key={slice.label}
+                        type="button"
+                        onClick={() => {
+                          setIsQuickJumpDrawerOpen(false);
+                          jumpToChannelAtIndex(
+                            slice.startIdx,
+                            activeLang === 'fr'
+                              ? `Aller à la chaîne ${slice.startIdx + 1}`
+                              : `Go to channel ${slice.startIdx + 1}`
+                          );
+                        }}
+                        className={`tv-dpad-btn p-2.5 rounded-lg text-start border transition-all cursor-pointer ${
+                          isCurrentSlice
+                            ? 'bg-[#2563eb]/25 border-[#60a5fa] text-[#ffffff]'
+                            : 'bg-[#0a0e17] border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff]'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="font-mono text-xs font-extrabold text-[#38bdf8]">
+                            #{slice.label}
+                          </span>
+                          <span className="text-[10px] text-[#cbd5e1]">
+                            {slice.endIdx - slice.startIdx + 1} ch.
+                          </span>
+                        </div>
+                        <div className="text-[11px] font-semibold text-[#ffffff] truncate mt-1">
+                          {cleanOfficialChannelName(
+                            slice.firstChannel.displayName
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="grid grid-cols-4 gap-2">
+                  {[
+                    'A',
+                    'B',
+                    'C',
+                    'D',
+                    'E',
+                    'F',
+                    'G',
+                    'H',
+                    'I',
+                    'J',
+                    'K',
+                    'L',
+                    'M',
+                    'N',
+                    'O',
+                    'P',
+                    'Q',
+                    'R',
+                    'S',
+                    'T',
+                    'U',
+                    'V',
+                    'W',
+                    'X',
+                    'Y',
+                    'Z',
+                    '#',
+                  ].map((letter) => {
+                    const info = quickJumpAlphabetMap.get(letter);
+                    const hasChannels = Boolean(info && info.count > 0);
+                    return (
+                      <button
+                        key={letter}
+                        type="button"
+                        disabled={!hasChannels}
+                        onClick={() => {
+                          if (!info) return;
+                          setIsQuickJumpDrawerOpen(false);
+                          jumpToChannelAtIndex(
+                            info.firstIdx,
+                            activeLang === 'fr'
+                              ? `Lettre ${letter} · ${info.sampleName}`
+                              : `Letter ${letter} · ${info.sampleName}`,
+                            letter
+                          );
+                        }}
+                        className={`tv-dpad-btn py-2.5 px-2 rounded-lg border flex flex-col items-center justify-center transition-all ${
+                          hasChannels
+                            ? 'bg-[#0a0e17] border-[#334155] text-[#ffffff] cursor-pointer hover:border-[#60a5fa]'
+                            : 'bg-[#0a0e17]/35 border-[#1a202c]/50 text-[#cbd5e1]/30 opacity-40 cursor-not-allowed'
+                        }`}
+                      >
+                        <span className="text-sm font-extrabold">{letter}</span>
+                        <span className="text-[9px] font-mono text-[#38bdf8]">
+                          {info ? info.count : 0}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </aside>
+        </>
       )}
 
       {/* Modal Paramètres & Sources XMLTV */}

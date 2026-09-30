@@ -562,6 +562,89 @@ input[type="search"]:focus-visible {
 }
 
 /* ==========================================================================
+   FONCTIONNALITÉS EXCLUSIVES ANDROID TV / TV BOX (CIBLAGE TV >= 768PX)
+   Strictement masquées sur Smartphone (max-width: 767px)
+   ========================================================================== */
+@media (max-width: 767px) {
+  .tv-only-feature,
+  .tv-quick-jump-btn,
+  .tv-sort-btn,
+  .tv-sort-dropdown,
+  .tv-quick-jump-drawer,
+  .tv-quick-jump-backdrop,
+  .tv-quick-jump-osd,
+  .tv-lcn-badge {
+    display: none !important;
+  }
+}
+
+.tv-sort-dropdown {
+  position: absolute !important;
+  top: calc(100% + 8px) !important;
+  right: 0 !important;
+  z-index: 999 !important;
+  min-width: 270px;
+  background: #1b2436 !important;
+  border: 1px solid #334155 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.85) !important;
+  padding: 10px !important;
+}
+
+.tv-quick-jump-osd {
+  position: fixed !important;
+  top: 28px !important;
+  right: 36px !important;
+  z-index: 9999 !important;
+  background: #141a26 !important;
+  color: #ffffff !important;
+  border: 2px solid #ec4899 !important;
+  border-radius: 14px !important;
+  padding: 12px 20px !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.85), 0 0 20px rgba(236, 72, 153, 0.4) !important;
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-box-align: center;
+  -webkit-align-items: center;
+  align-items: center;
+  gap: 14px;
+}
+
+.tv-quick-jump-drawer {
+  position: fixed !important;
+  top: 24px !important;
+  right: 24px !important;
+  bottom: 24px !important;
+  width: 390px !important;
+  max-width: calc(100vw - 48px) !important;
+  z-index: 9998 !important;
+  background: #141a26 !important;
+  border: 1px solid #334155 !important;
+  border-radius: 16px !important;
+  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.88), 0 0 24px rgba(0, 85, 255, 0.22) !important;
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tv-dpad-btn:focus,
+.tv-dpad-btn:focus-visible {
+  outline: none !important;
+  border: 2px solid #ec4899 !important;
+  background: rgba(236, 72, 153, 0.15) !important;
+  box-shadow: 0 0 15px rgba(236, 72, 153, 0.4) !important;
+  -webkit-transform: scale(1.01);
+  transform: scale(1.01);
+  transition: all 0.2s ease;
+}
+
+/* ==========================================================================
    BANDEAU / TOAST DE NOTIFICATION IN-APP ("RAPPEL ENREGISTRÉ")
    ========================================================================== */
 .toast-notification,
