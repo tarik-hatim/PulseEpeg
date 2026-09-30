@@ -1,5 +1,13 @@
 export type AppLanguage = 'fr' | 'en' | 'ar' | 'es' | 'de' | 'pt';
 
+export type TvProfileId =
+  | 'maghreb_mena'
+  | 'espagne'
+  | 'italie'
+  | 'europe_standard'
+  | 'all_satellites'
+  | 'custom';
+
 export type ContentCategoryFilter =
   | 'Tous'
   | 'Films & Séries'
@@ -313,6 +321,7 @@ export interface ProgrammeReminder {
 
 export interface AppSettings {
   language: AppLanguage;
+  tvProfile?: TvProfileId;
   sourceUrl: string;
   sources: EpgSourceItem[];
   cacheTtlHours: number;
@@ -334,6 +343,7 @@ export interface WorkerStartSyncMessage {
     windowHours: number;
     cacheTtlHours: number;
     isNativeCapacitor: boolean;
+    tvProfile?: TvProfileId;
     selectedBouquets?: EpgBouquetId[];
     excludePolishLektor?: boolean;
     excludeNoSubtitles?: boolean;

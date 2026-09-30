@@ -1307,6 +1307,7 @@ async function processMultiSourceEpgSync(
   }
 
   const now = Date.now();
+  const profileSig = filterOptions?.tvProfile || 'auto';
   const bouquetsSig = filterOptions?.selectedBouquets
     ? [...filterOptions.selectedBouquets].sort().join(',')
     : 'all';
@@ -1314,7 +1315,7 @@ async function processMultiSourceEpgSync(
     ? [...filterOptions.enabledCategories].sort().join(',')
     : 'all';
   const sourcesSignature =
-    'whitelist_v12|' +
+    `whitelist_v18|p:${profileSig}|` +
     activeSources.map((s) => `${s.country}:${s.url.trim()}`).join('|') +
     `|b:${bouquetsSig}|lektor:${Boolean(
       filterOptions?.excludePolishLektor !== false
@@ -1376,6 +1377,7 @@ self.onmessage = async (event: MessageEvent<WorkerRequestMessage>) => {
         payload.cacheTtlHours,
         payload.isNativeCapacitor,
         {
+          tvProfile: payload.tvProfile,
           selectedBouquets: payload.selectedBouquets,
           excludePolishLektor: payload.excludePolishLektor,
           excludeNoSubtitles: payload.excludeNoSubtitles,

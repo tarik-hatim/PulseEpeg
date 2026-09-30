@@ -8,6 +8,7 @@ import {
   EpgProgramme,
   SatelliteFilter,
   ThematicCategoryId,
+  TvProfileId,
 } from '../types/epg';
 import {
   SPORT_FOOTBALL_WHITELIST,
@@ -25,6 +26,7 @@ import { resolveOfficialChannelLogoUrl } from './channelLogoResolver';
 export type { WhitelistedChannelSpec };
 
 export interface EpgParseFilterOptions {
+  tvProfile?: TvProfileId;
   selectedBouquets?: EpgBouquetId[];
   excludePolishLektor?: boolean;
   excludeNoSubtitles?: boolean;
@@ -5312,6 +5314,62 @@ export function matchesChannelFilterOptions(
 ): boolean {
   if (!filterOptions) return !spec.hasPolishLektor && spec.hasSubtitles !== false;
 
+  if (
+    filterOptions.selectedBouquets &&
+    filterOptions.selectedBouquets.length > 0 &&
+    spec.bouquetId
+  ) {
+    const activeSet = new Set<EpgBouquetId>(filterOptions.selectedBouquets);
+    const bId = spec.bouquetId;
+    let bouquetAllowed = activeSet.has(bId);
+
+    if (
+      !bouquetAllowed &&
+      (bId === 'tnt_fr' || bId === 'astra_tnt_fr') &&
+      (activeSet.has('astra_tnt_fr') || activeSet.has('tnt_fr'))
+    ) {
+      bouquetAllowed = true;
+    }
+    if (
+      !bouquetAllowed &&
+      (bId === 'turkmenalem_52e_alem' || bId === 'monacosat_52e_persiana') &&
+      (activeSet.has('turkmenalem_52e_alem') ||
+        activeSet.has('monacosat_52e_persiana'))
+    ) {
+      bouquetAllowed = true;
+    }
+    if (
+      !bouquetAllowed &&
+      (bId === 'eutelsat_16e_digitalb' || bId === 'eutelsat_16e_thor') &&
+      (activeSet.has('eutelsat_16e_digitalb') ||
+        activeSet.has('eutelsat_16e_thor'))
+    ) {
+      bouquetAllowed = true;
+    }
+
+    if (!bouquetAllowed) {
+      return false;
+    }
+  }
+
+  if (filterOptions.tvProfile === 'espagne') {
+    const combined = `${spec.canonicalId || ''} ${spec.displayName || ''}`.toLowerCase();
+    const isPortugalOnly =
+      combined.endsWith('.pt') ||
+      /\b(sport\s*tv|tvcine|rtp\s*[1-3]|sic\b|tvi\b|benfica\s*tv|porto\s*canal)\b/i.test(
+        combined
+      );
+    if (isPortugalOnly) {
+      return false;
+    }
+  }
+
+  if (filterOptions.tvProfile === 'italie') {
+    if (spec.bouquetId && spec.bouquetId !== 'sky_it' && spec.country !== 'IT') {
+      return false;
+    }
+  }
+
   const excludeLektor = filterOptions.excludePolishLektor !== false;
   if (excludeLektor && spec.hasPolishLektor) {
     return false;
@@ -7386,6 +7444,238 @@ const SUPPLEMENTAL_SATELLITE_BOUQUET_CHANNELS: SupplementalChannelTemplate[] = [
     ],
   },
   {
+    id: 'Movistar.Estrenos.es',
+    displayName: 'M+ Estrenos HD',
+    contentCategory: 'Films & Séries',
+    group: 'Cinéma Premières',
+    country: 'ES',
+    satellite: 'Astra 19.2°E',
+    orbitalPosition: 'Astra 19.2°E',
+    bouquets: ['Astra Movistar+ España'],
+    bouquetId: 'movistar_es',
+    audioTrackLabel: 'Dual Audio VO Anglais / ES Dolby',
+    subtitleTrackLabel: 'DVB-Sub ES / EN · Movistar+ 19.2°E',
+    scheduleTemplates: [
+      {
+        title: 'Estreno Exclusivo : Oppenheimer (VOSE)',
+        subTitle: 'Cinéma Première Movistar+ Estrenos HD',
+        description: 'Les plus grands films du box-office international diffusés en version originale sous-titrée.',
+        category: 'Cinéma / Biopic',
+        durationMins: 135,
+      },
+      {
+        title: 'Noche de Acción : Top Gun Maverick',
+        subTitle: 'Blockbuster US en Dual Audio VO+SUB',
+        description: 'Soirée grand spectacle sur M+ Estrenos HD (Astra 19.2°E).',
+        category: 'Cinéma / Action',
+        durationMins: 125,
+      },
+    ],
+  },
+  {
+    id: 'Movistar.LigaCampeones.es',
+    displayName: 'M+ Liga de Campeones HD',
+    contentCategory: 'Sport / Football',
+    group: 'Sport / Football',
+    country: 'ES',
+    satellite: 'Astra 19.2°E',
+    orbitalPosition: 'Astra 19.2°E',
+    bouquets: ['Astra Movistar+ España'],
+    bouquetId: 'movistar_es',
+    audioTrackLabel: 'Multi-Audio ES / Stadium Live',
+    subtitleTrackLabel: 'Movistar+ · Astra 19.2°E',
+    scheduleTemplates: [
+      {
+        title: 'UEFA Champions League : Noche de Champions Live',
+        subTitle: 'Direct & Multiplex sur M+ Liga de Campeones HD',
+        description: 'Retransmission intégrale de l’UEFA Champions League, Europa League et Conference League.',
+        category: 'Football / UEFA Champions League',
+        durationMins: 120,
+      },
+      {
+        title: 'Champions Total : Résumés & Analyses',
+        subTitle: 'Plateau Spécial Coupes d’Europe HD',
+        description: 'Tous les buts et analyses des rencontres européennes.',
+        category: 'Football',
+        durationMins: 90,
+      },
+    ],
+  },
+  {
+    id: 'DAZN.1.es',
+    displayName: 'DAZN 1 España HD',
+    contentCategory: 'Sport / Football',
+    group: 'Sport / Football',
+    country: 'ES',
+    satellite: 'Astra 19.2°E',
+    orbitalPosition: 'Astra 19.2°E',
+    bouquets: ['Astra Movistar+ España'],
+    bouquetId: 'movistar_es',
+    audioTrackLabel: 'Audio ES / Stadium Feed HD',
+    subtitleTrackLabel: 'Movistar+ / DAZN · Astra 19.2°E',
+    scheduleTemplates: [
+      {
+        title: 'LaLiga EA Sports & Premier League Live',
+        subTitle: 'Direct sur DAZN 1 España HD (Astra 19.2°E)',
+        description: 'Les grandes affiches de LaLiga EA Sports, Premier League, F1 et MotoGP en direct.',
+        category: 'Football / LaLiga & Premier League',
+        durationMins: 120,
+      },
+      {
+        title: 'DAZN Super8 & Premier League Highlights',
+        subTitle: 'Magazine Sport & Football HD',
+        description: 'Décryptage, coulisses et résumés exclusifs sur DAZN España.',
+        category: 'Sport / Football',
+        durationMins: 90,
+      },
+    ],
+  },
+  {
+    id: 'La1.TVE.es',
+    displayName: 'La 1 HD (TVE · TNT Abertis)',
+    contentCategory: 'Films & Séries',
+    group: 'Cinéma Premières',
+    country: 'ES',
+    satellite: 'Hispasat 30°W',
+    orbitalPosition: 'Hispasat 30°W',
+    bouquets: ['Hispasat Meo/NOS/Movistar', 'Astra Movistar+ España'],
+    bouquetId: 'hispasat_meo_nos',
+    audioTrackLabel: 'Dual Audio ES / VO Original',
+    subtitleTrackLabel: 'DVB-Sub ES · TNT Abertis 30°W',
+    scheduleTemplates: [
+      {
+        title: 'La Película de la Semana : El Reino (VOSE)',
+        subTitle: 'Grand Cinéma Prime Time sur La 1 HD (TNT Abertis)',
+        description: 'Le grand rendez-vous cinéma et fiction de RTVE diffusé sur TNT Abertis (Hispasat 30°W).',
+        category: 'Cinéma / Thriller',
+        durationMins: 125,
+      },
+      {
+        title: 'Telediario & Informe Semanal',
+        subTitle: 'Information & Grands Reportages RTVE HD',
+        description: 'Actualité nationale et internationale en haute définition sur La 1 HD.',
+        category: 'Actualités / Magazine',
+        durationMins: 90,
+      },
+    ],
+  },
+  {
+    id: 'Antena3.es',
+    displayName: 'Antena 3 HD (TNT Abertis)',
+    contentCategory: 'Films & Séries',
+    group: 'Séries TV & US',
+    country: 'ES',
+    satellite: 'Hispasat 30°W',
+    orbitalPosition: 'Hispasat 30°W',
+    bouquets: ['Hispasat Meo/NOS/Movistar', 'Astra Movistar+ España'],
+    bouquetId: 'hispasat_meo_nos',
+    audioTrackLabel: 'Dual Audio ES / VO Dolby',
+    subtitleTrackLabel: 'DVB-Sub ES · TNT Abertis 30°W',
+    scheduleTemplates: [
+      {
+        title: 'El Peliculón : Sin Tiempo para Morir (007)',
+        subTitle: 'Cinéma Blockbuster sur Antena 3 HD (TNT Abertis)',
+        description: 'Les plus grands succès du box-office en haute définition sur le réseau TNT Abertis Espagne.',
+        category: 'Cinéma / Action',
+        durationMins: 135,
+      },
+      {
+        title: 'El Hormiguero & Series Atresmedia',
+        subTitle: 'Prime Time Divertissement & Fiction HD',
+        description: 'Soirée événement en direct et séries inédites sur Antena 3 HD.',
+        category: 'Série TV / Divertissement',
+        durationMins: 105,
+      },
+    ],
+  },
+  {
+    id: 'Telecinco.es',
+    displayName: 'Telecinco HD (TNT Abertis)',
+    contentCategory: 'Films & Séries',
+    group: 'Cinéma Premières',
+    country: 'ES',
+    satellite: 'Hispasat 30°W',
+    orbitalPosition: 'Hispasat 30°W',
+    bouquets: ['Hispasat Meo/NOS/Movistar', 'Astra Movistar+ España'],
+    bouquetId: 'hispasat_meo_nos',
+    audioTrackLabel: 'Dual Audio ES / VO Original',
+    subtitleTrackLabel: 'DVB-Sub ES · TNT Abertis 30°W',
+    scheduleTemplates: [
+      {
+        title: 'Cine 5 Estrellas : Jurassic World Dominion',
+        subTitle: 'Soirée Grand Spectacle sur Telecinco HD (TNT Abertis)',
+        description: 'Blockbuster américain en version duale (Espagnol / Version Originale) avec sous-titres.',
+        category: 'Cinéma / Aventure',
+        durationMins: 130,
+      },
+      {
+        title: 'Entrevías & Fiction Mediaset España',
+        subTitle: 'Série Dramatique Espagnole en HD',
+        description: 'Diffusion prime time sur Telecinco HD (TNT Abertis Hispasat 30°W).',
+        category: 'Série TV / Drame',
+        durationMins: 110,
+      },
+    ],
+  },
+  {
+    id: 'LaSexta.es',
+    displayName: 'laSexta HD (TNT Abertis)',
+    contentCategory: 'Actualités / News',
+    group: 'Actualités / News',
+    country: 'ES',
+    satellite: 'Hispasat 30°W',
+    orbitalPosition: 'Hispasat 30°W',
+    bouquets: ['Hispasat Meo/NOS/Movistar', 'Astra Movistar+ España'],
+    bouquetId: 'hispasat_meo_nos',
+    audioTrackLabel: 'Dual Audio ES / VO',
+    subtitleTrackLabel: 'DVB-Sub ES · TNT Abertis 30°W',
+    scheduleTemplates: [
+      {
+        title: 'Al Rojo Vivo & laSexta Columna',
+        subTitle: 'Information, Débats & Investigation HD',
+        description: 'Analyses politiques, reportages d’investigation et cinéma sur laSexta HD (TNT Abertis).',
+        category: 'Actualités / Investigation',
+        durationMins: 105,
+      },
+      {
+        title: 'El Taquillazo : Mad Max Fury Road',
+        subTitle: 'Cinéma Action US en Dual VO+SUB',
+        description: 'Grand film d’action en première partie de soirée sur laSexta HD.',
+        category: 'Cinéma / Action',
+        durationMins: 120,
+      },
+    ],
+  },
+  {
+    id: 'Teledeporte.es',
+    displayName: 'Teledeporte HD (TNT Abertis)',
+    contentCategory: 'Sport / Football',
+    group: 'Sport / Football',
+    country: 'ES',
+    satellite: 'Hispasat 30°W',
+    orbitalPosition: 'Hispasat 30°W',
+    bouquets: ['Hispasat Meo/NOS/Movistar', 'Astra Movistar+ España'],
+    bouquetId: 'hispasat_meo_nos',
+    audioTrackLabel: 'Audio Direct ES / Stadium HD',
+    subtitleTrackLabel: 'DVB-Sub ES · TNT Abertis 30°W',
+    scheduleTemplates: [
+      {
+        title: 'Estudio Estadio & Copa del Rey Live',
+        subTitle: 'Direct Sport & Football sur Teledeporte HD',
+        description: 'Toute l’actualité sportive espagnole, football, tennis ATP et cyclisme sur TNT Abertis (30°W).',
+        category: 'Sport / Football',
+        durationMins: 120,
+      },
+      {
+        title: 'Conexión TDP : Grands Événements Sportifs',
+        subTitle: 'Retransmission Officielle RTVE Sport HD',
+        description: 'Directs et résumés complets sur Teledeporte HD.',
+        category: 'Sport',
+        durationMins: 90,
+      },
+    ],
+  },
+  {
     id: 'Sky.Cinema.Premiere.de',
     displayName: 'Sky Cinema Premiere HD',
     contentCategory: 'Films & Séries',
@@ -7502,6 +7792,209 @@ const SUPPLEMENTAL_SATELLITE_BOUQUET_CHANNELS: SupplementalChannelTemplate[] = [
         description: 'Voyage au cœur des merveilles de l’Italie et des découvertes scientifiques.',
         category: 'Documentaire',
         durationMins: 100,
+      },
+    ],
+  },
+  {
+    id: 'Rai.2.it',
+    displayName: 'Rai 2 HD (Tivùsat)',
+    contentCategory: 'Films & Séries',
+    group: 'Action & Thriller',
+    country: 'IT',
+    satellite: 'Hotbird 13°E',
+    orbitalPosition: 'Hotbird 13°E',
+    bouquets: ['Hotbird Bis TV/Rai'],
+    bouquetId: 'sky_it',
+    audioTrackLabel: 'Dual Audio IT / VO Anglais',
+    subtitleTrackLabel: 'DVB-Sub IT / EN · Tivùsat 13°E',
+    scheduleTemplates: [
+      {
+        title: 'NCIS & FBI : Serata Crime USA (Dual VO+SUB)',
+        subTitle: 'Séries Policières US sur Rai 2 HD (Tivùsat)',
+        description: 'Diffusion en haute définition avec double piste audio Italien / Version Originale Anglaise.',
+        category: 'Série TV / Thriller',
+        durationMins: 110,
+      },
+      {
+        title: 'La Domenica Sportiva : Serie A Live',
+        subTitle: 'Magazine Officiel du Football Italien HD',
+        description: 'Tous les buts, analyses et débats de la Serie A sur Rai 2 HD.',
+        category: 'Sport / Football',
+        durationMins: 110,
+      },
+    ],
+  },
+  {
+    id: 'Rai.Movie.it',
+    displayName: 'Rai Movie HD (Tivùsat)',
+    contentCategory: 'Films & Séries',
+    group: 'Cinéma Premières',
+    country: 'IT',
+    satellite: 'Hotbird 13°E',
+    orbitalPosition: 'Hotbird 13°E',
+    bouquets: ['Hotbird Bis TV/Rai'],
+    bouquetId: 'sky_it',
+    audioTrackLabel: 'Dual Audio IT / VO Original',
+    subtitleTrackLabel: 'DVB-Sub IT · Tivùsat 13°E',
+    scheduleTemplates: [
+      {
+        title: 'Grande Cinema : C’era una volta in America',
+        subTitle: 'Cinéma 24/7 en Version Originale & Italienne',
+        description: 'Les chefs-d’œuvre du cinéma mondial et hollywoodien sur Rai Movie HD (Tivùsat Hotbird 13°E).',
+        category: 'Cinéma / Classique',
+        durationMins: 135,
+      },
+      {
+        title: 'Hollywood Première : The Irishman',
+        subTitle: 'Film Thriller & Drame en HD',
+        description: 'Diffusion intégrale avec piste audio originale et sous-titres DVB.',
+        category: 'Cinéma / Drame',
+        durationMins: 130,
+      },
+    ],
+  },
+  {
+    id: 'Canale5.it',
+    displayName: 'Canale 5 HD (Tivùsat)',
+    contentCategory: 'Films & Séries',
+    group: 'Cinéma Premières',
+    country: 'IT',
+    satellite: 'Hotbird 13°E',
+    orbitalPosition: 'Hotbird 13°E',
+    bouquets: ['Hotbird Bis TV/Rai'],
+    bouquetId: 'sky_it',
+    audioTrackLabel: 'Dual Audio IT / VO Dolby',
+    subtitleTrackLabel: 'DVB-Sub IT · Tivùsat Mediaset 13°E',
+    scheduleTemplates: [
+      {
+        title: 'Supercinema : Interstellar (Dual Audio)',
+        subTitle: 'Prime Time Mediaset sur Canale 5 HD (Tivùsat)',
+        description: 'Grand film de première partie de soirée et soirées Coppa Italia sur Canale 5 HD.',
+        category: 'Cinéma / Science-Fiction',
+        durationMins: 135,
+      },
+      {
+        title: 'Coppa Italia & Serata Eventi Live',
+        subTitle: 'Direct & Grands Événements sur Canale 5 HD',
+        description: 'Diffusion haute définition sur le bouquet Tivùsat (Hotbird 13°E).',
+        category: 'Sport / Football',
+        durationMins: 120,
+      },
+    ],
+  },
+  {
+    id: 'Italia1.it',
+    displayName: 'Italia 1 HD (Tivùsat)',
+    contentCategory: 'Films & Séries',
+    group: 'Action & Thriller',
+    country: 'IT',
+    satellite: 'Hotbird 13°E',
+    orbitalPosition: 'Hotbird 13°E',
+    bouquets: ['Hotbird Bis TV/Rai'],
+    bouquetId: 'sky_it',
+    audioTrackLabel: 'Dual Audio IT / VO Anglais',
+    subtitleTrackLabel: 'DVB-Sub IT · Tivùsat Mediaset 13°E',
+    scheduleTemplates: [
+      {
+        title: 'Italia 1 Action : Mission Impossible – Fallout',
+        subTitle: 'Blockbuster US en Dual Audio VO+SUB',
+        description: 'Les plus grands films d’action américains et séries US sur Italia 1 HD (Tivùsat 13°E).',
+        category: 'Cinéma / Action',
+        durationMins: 130,
+      },
+      {
+        title: 'Pressing Serie A & Sport Mediaset',
+        subTitle: 'Magazine Football & Résumés HD',
+        description: 'Analyses et temps forts du championnat italien sur Italia 1 HD.',
+        category: 'Sport / Football',
+        durationMins: 100,
+      },
+    ],
+  },
+  {
+    id: 'Sky.Cinema.Uno.it',
+    displayName: 'Sky Cinema Uno HD (Sky Italia)',
+    contentCategory: 'Films & Séries',
+    group: 'Cinéma Premières',
+    country: 'IT',
+    satellite: 'Hotbird 13°E',
+    orbitalPosition: 'Hotbird 13°E',
+    bouquets: ['Hotbird Bis TV/Rai'],
+    bouquetId: 'sky_it',
+    audioTrackLabel: 'Doppio Audio VO Anglais / IT Dolby',
+    subtitleTrackLabel: 'DVB-Sub IT / EN · Sky Italia 13°E',
+    scheduleTemplates: [
+      {
+        title: 'Prima TV Sky : Dune – Parte Due (VO+SUB)',
+        subTitle: 'Exclusivité Sky Cinema Uno HD · Hotbird 13°E',
+        description: 'Première cinéma exclusive sur Sky Italia avec double piste audio originale anglaise et sous-titres.',
+        category: 'Cinéma / Science-Fiction',
+        durationMins: 135,
+      },
+      {
+        title: 'Sky Original : Gomorra / Romanzo Criminale',
+        subTitle: 'Série Événement Sky Italia HD',
+        description: 'Production originale Sky en haute définition sur Hotbird 13°E.',
+        category: 'Série TV / Thriller',
+        durationMins: 110,
+      },
+    ],
+  },
+  {
+    id: 'Sky.Sport.Calcio.it',
+    displayName: 'Sky Sport Calcio HD (Sky Italia)',
+    contentCategory: 'Sport / Football',
+    group: 'Sport / Football',
+    country: 'IT',
+    satellite: 'Hotbird 13°E',
+    orbitalPosition: 'Hotbird 13°E',
+    bouquets: ['Hotbird Bis TV/Rai'],
+    bouquetId: 'sky_it',
+    audioTrackLabel: 'Audio IT / Stadium Live Dolby',
+    subtitleTrackLabel: 'Sky Italia · Hotbird 13°E',
+    scheduleTemplates: [
+      {
+        title: 'Serie A Enilive : Inter vs AC Milan (Diretta)',
+        subTitle: 'Grand Match Serie A sur Sky Sport Calcio HD',
+        description: 'Retransmission en direct de la Serie A italienne avec Sky Calcio Club sur Hotbird 13°E.',
+        category: 'Football / Serie A',
+        durationMins: 120,
+      },
+      {
+        title: 'Sky Calcio Club & UEFA Champions League Studio',
+        subTitle: 'Débrief Tactique & Tous les Buts HD',
+        description: 'Le grand plateau football de Sky Sport Italia en direct.',
+        category: 'Football / Serie A',
+        durationMins: 105,
+      },
+    ],
+  },
+  {
+    id: 'Sky.TG24.it',
+    displayName: 'Sky TG24 HD (Sky Italia)',
+    contentCategory: 'Actualités / News',
+    group: 'Actualités / News',
+    country: 'IT',
+    satellite: 'Hotbird 13°E',
+    orbitalPosition: 'Hotbird 13°E',
+    bouquets: ['Hotbird Bis TV/Rai'],
+    bouquetId: 'sky_it',
+    audioTrackLabel: 'Audio Direct IT HD',
+    subtitleTrackLabel: 'Sky Italia / Tivùsat · 13°E',
+    scheduleTemplates: [
+      {
+        title: 'Sky TG24 Diretta : Edizione Giorno & Sera',
+        subTitle: 'Information Continue 24/7 sur Hotbird 13°E',
+        description: 'Toute l’actualité italienne, européenne et internationale en direct sur Sky TG24 HD.',
+        category: 'Actualités / News',
+        durationMins: 90,
+      },
+      {
+        title: 'Sky TG24 Mondo & Approfondimento',
+        subTitle: 'Débats & Dossiers Internationaux HD',
+        description: 'Décryptage politique et économique en direct.',
+        category: 'Actualités / Débat',
+        durationMins: 90,
       },
     ],
   },

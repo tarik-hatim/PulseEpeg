@@ -35,15 +35,21 @@ import {
   EpgCacheMetadata,
   EpgSourceItem,
   ThematicCategoryId,
+  TvProfileId,
 } from '../types/epg';
 import {
+  ALL_BOUQUET_IDS,
+  detectInitialTvProfileFromSystemLanguage,
   EPG_BOUQUET_CATALOG,
   EPG_THEMATIC_CATEGORIES,
+  getBouquetsForTvProfile,
+  inferTvProfileFromBouquets,
   MAX_ACTIVE_BOUQUETS,
   MAX_ACTIVE_SATELLITES,
   RAM_LIMIT_WARNING_MESSAGE,
   SATELLITE_GROUPS_CATALOG,
   syncSourcesWithSelectedBouquets,
+  TV_PROFILES_CATALOG,
 } from '../services/storageService';
 import {
   getActiveLanguage,
@@ -105,6 +111,47 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const tr = getTranslations(activeLang);
   const langOpt = getLanguageOption(activeLang);
 
+  const activeProfileId: TvProfileId =
+    draft.tvProfile ||
+    inferTvProfileFromBouquets(draft.selectedBouquets, draft.tvProfile);
+
+  const systemLocaleLabel =
+    typeof navigator !== 'undefined' && navigator.language
+      ? navigator.language
+      : 'fr-FR';
+
+  const handleSelectTvProfile = (
+    profileId: Exclude<TvProfileId, 'custom'>
+  ) => {
+    const nextBouquets = getBouquetsForTvProfile(profileId);
+    setLimitWarning(null);
+    setDraft((prev) => ({
+      ...prev,
+      tvProfile: profileId,
+      selectedBouquets: nextBouquets,
+      sources: syncSourcesWithSelectedBouquets(
+        nextBouquets,
+        prev.sources,
+        profileId
+      ),
+    }));
+  };
+
+  const handleAutoDetectTvProfile = () => {
+    const detected = detectInitialTvProfileFromSystemLanguage();
+    setLimitWarning(null);
+    setDraft((prev) => ({
+      ...prev,
+      tvProfile: detected.tvProfile,
+      selectedBouquets: [...detected.selectedBouquets],
+      sources: syncSourcesWithSelectedBouquets(
+        detected.selectedBouquets,
+        prev.sources,
+        detected.tvProfile
+      ),
+    }));
+  };
+
   const handleSelectLanguage = (lang: AppLanguage) => {
     setDraft((prev) => ({
       ...prev,
@@ -132,11 +179,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           nextBouquets.length > 0
             ? nextBouquets
             : ([bouquetId] as EpgBouquetId[]);
+        const nextProfile = inferTvProfileFromBouquets(finalBouquets);
         setLimitWarning(null);
         return {
           ...prev,
+          tvProfile: nextProfile,
           selectedBouquets: finalBouquets,
-          sources: syncSourcesWithSelectedBouquets(finalBouquets, prev.sources),
+          sources: syncSourcesWithSelectedBouquets(
+            finalBouquets,
+            prev.sources,
+            nextProfile
+          ),
         };
       }
 
@@ -147,31 +200,46 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       ) {
         setLimitWarning(RAM_LIMIT_WARNING_MESSAGE);
         const capped = candidate.slice(-MAX_ACTIVE_BOUQUETS);
+        const nextProfile = inferTvProfileFromBouquets(capped);
         return {
           ...prev,
+          tvProfile: nextProfile,
           selectedBouquets: capped,
-          sources: syncSourcesWithSelectedBouquets(capped, prev.sources),
+          sources: syncSourcesWithSelectedBouquets(
+            capped,
+            prev.sources,
+            nextProfile
+          ),
         };
       }
 
+      const nextProfile = inferTvProfileFromBouquets(candidate);
       setLimitWarning(null);
       return {
         ...prev,
+        tvProfile: nextProfile,
         selectedBouquets: candidate,
-        sources: syncSourcesWithSelectedBouquets(candidate, prev.sources),
+        sources: syncSourcesWithSelectedBouquets(
+          candidate,
+          prev.sources,
+          nextProfile
+        ),
       };
     });
   };
 
   const selectAllBouquets = () => {
-    const topThree = EPG_BOUQUET_CATALOG.slice(0, MAX_ACTIVE_BOUQUETS).map(
-      (b) => b.id
-    );
-    setLimitWarning(RAM_LIMIT_WARNING_MESSAGE);
+    const allIds = [...ALL_BOUQUET_IDS];
+    setLimitWarning(null);
     setDraft((prev) => ({
       ...prev,
-      selectedBouquets: topThree,
-      sources: syncSourcesWithSelectedBouquets(topThree, prev.sources),
+      tvProfile: 'all_satellites',
+      selectedBouquets: allIds,
+      sources: syncSourcesWithSelectedBouquets(
+        allIds,
+        prev.sources,
+        'all_satellites'
+      ),
     }));
   };
 
@@ -186,11 +254,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         );
         const nextBouquets =
           remaining.length > 0 ? remaining : ([groupIds[0]] as EpgBouquetId[]);
+        const nextProfile = inferTvProfileFromBouquets(nextBouquets);
         setLimitWarning(null);
         return {
           ...prev,
+          tvProfile: nextProfile,
           selectedBouquets: nextBouquets,
-          sources: syncSourcesWithSelectedBouquets(nextBouquets, prev.sources),
+          sources: syncSourcesWithSelectedBouquets(
+            nextBouquets,
+            prev.sources,
+            nextProfile
+          ),
         };
       }
 
@@ -203,18 +277,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       ) {
         setLimitWarning(RAM_LIMIT_WARNING_MESSAGE);
         const capped = groupIds.slice(0, MAX_ACTIVE_BOUQUETS);
+        const nextProfile = inferTvProfileFromBouquets(capped);
         return {
           ...prev,
+          tvProfile: nextProfile,
           selectedBouquets: capped,
-          sources: syncSourcesWithSelectedBouquets(capped, prev.sources),
+          sources: syncSourcesWithSelectedBouquets(
+            capped,
+            prev.sources,
+            nextProfile
+          ),
         };
       }
 
+      const nextProfile = inferTvProfileFromBouquets(merged);
       setLimitWarning(null);
       return {
         ...prev,
+        tvProfile: nextProfile,
         selectedBouquets: merged,
-        sources: syncSourcesWithSelectedBouquets(merged, prev.sources),
+        sources: syncSourcesWithSelectedBouquets(
+          merged,
+          prev.sources,
+          nextProfile
+        ),
       };
     });
   };
@@ -401,6 +487,81 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
           {activeTab === 'filters' && (
             <>
+              {/* Sélecteur manuel de Zone / Profil TV (avec détection intelligente au 1er lancement) */}
+              <div className="p-4 rounded-lg bg-[#0a0e17] border border-[#1a202c] space-y-3">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div>
+                    <h3 className="text-sm font-bold text-[#ffffff] flex items-center gap-2">
+                      <Globe className="w-4 h-4 text-[#0055ff]" />
+                      Zone / Profil TV
+                    </h3>
+                    <p className="text-xs text-[#cbd5e1] mt-0.5">
+                      Filtre la base EPG dès l&apos;initialisation pour ne charger en mémoire que les chaînes du profil sélectionné (détection auto selon <code className="text-[#ffffff] font-mono">navigator.language</code> : <span className="text-[#ffffff] font-semibold">{systemLocaleLabel}</span>).
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={handleAutoDetectTvProfile}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#141a26] hover:bg-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#0055ff]/60 text-xs font-medium transition-colors cursor-pointer"
+                      title="Réappliquer la détection automatique selon la langue du système"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5 text-[#0055ff]" />
+                      <span>Auto ({systemLocaleLabel})</span>
+                    </button>
+                    {activeProfileId === 'custom' && (
+                      <span className="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50 font-semibold">
+                        ⚙️ Profil personnalisé ({draft.selectedBouquets.length} bouquets)
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                  {TV_PROFILES_CATALOG.map((profile) => {
+                    const isSelected = activeProfileId === profile.id;
+                    const isAllSats = profile.id === 'all_satellites';
+                    return (
+                      <button
+                        key={profile.id}
+                        type="button"
+                        onClick={() => handleSelectTvProfile(profile.id)}
+                        className={`flex flex-col items-start justify-between gap-1.5 p-3 rounded-lg text-start transition-all cursor-pointer ${
+                          isSelected
+                            ? isAllSats
+                              ? 'bg-[#e11d48]/20 border-[1.5px] border-[#ff0033] text-[#ffffff] shadow-[0_0_12px_rgba(225,29,72,0.35)]'
+                              : 'bg-[#1d4ed8]/25 border-[1.5px] border-[#0055ff] text-[#ffffff] shadow-[0_0_12px_rgba(0,85,255,0.35)]'
+                            : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60'
+                        }`}
+                      >
+                        <div className="w-full flex items-center justify-between gap-2">
+                          <span className="flex items-center gap-2 font-bold text-xs sm:text-sm text-[#ffffff] truncate">
+                            <span className="text-base leading-none shrink-0">
+                              {profile.flag}
+                            </span>
+                            <span className="truncate">{profile.label}</span>
+                          </span>
+                          {isSelected && (
+                            <span
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider shrink-0 ${
+                                isAllSats
+                                  ? 'bg-[#e11d48] text-[#ffffff]'
+                                  : 'bg-[#1d4ed8] text-[#ffffff]'
+                              }`}
+                            >
+                              Actif
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-[#cbd5e1] line-clamp-2 leading-snug">
+                          {profile.satellitesSummary}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               {/* Section 1 : Couverture Globale des Satellites & Bouquets */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -415,15 +576,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="px-2.5 py-1 rounded-lg bg-[#0a0e17] text-[#cbd5e1] border border-[#1a202c] text-xs font-mono font-medium">
-                      RAM &lt; 50 Mo · Max {MAX_ACTIVE_BOUQUETS} Bouquets /{' '}
-                      {MAX_ACTIVE_SATELLITES} Satellites
+                      RAM &lt; 50 Mo · {draft.selectedBouquets.length}/
+                      {ALL_BOUQUET_IDS.length} Bouquets actifs
                     </span>
                     <button
                       type="button"
                       onClick={selectAllBouquets}
                       className="px-2.5 py-1 rounded-lg bg-[#e11d48] hover:bg-[#ff0033] text-[#ffffff] border border-[#ff0033] text-xs font-semibold shadow-[0_0_10px_rgba(225,29,72,0.35)] cursor-pointer"
                     >
-                      Top {MAX_ACTIVE_BOUQUETS} Bouquets
+                      Tous les satellites
                     </button>
                   </div>
                 </div>

@@ -13,6 +13,7 @@ import {
   ProgrammeReminder,
   SatelliteFilter,
   ThematicCategoryId,
+  TvProfileId,
 } from '../types/epg';
 import { applyDocumentLanguageDir, SUPPORTED_LANGUAGES } from '../utils/i18n';
 import { configureActiveTimezone } from '../utils/timeFormat';
@@ -34,6 +35,7 @@ const SNAPSHOT_KEY = 'active_epg_whitelist_v18';
 
 const LS_META_KEY = 'pulse_epg_meta_v18';
 const LS_SETTINGS_KEY = 'pulse_epg_settings_v5';
+export const LS_TV_PROFILE_KEY = 'pulse_epg_tv_profile_v1';
 const LS_TZ_CASA_MIGRATED_KEY = 'pulse_epg_tz_casablanca_utc0_v1';
 const LS_BOUQUETS_V8_MIGRATED_KEY = 'pulse_epg_bouquets_separated_v8';
 const LS_BOUQUETS_V10_MIGRATED_KEY = 'pulse_epg_bouquets_16e_52e_v10';
@@ -55,10 +57,10 @@ export const EUTELSAT_16E_AFRICA_TRANSPONDERS = [
 
 export const MAX_RECENT_SEARCHES = 5;
 
-export const MAX_ACTIVE_BOUQUETS = 3;
-export const MAX_ACTIVE_SATELLITES = 2;
+export const MAX_ACTIVE_BOUQUETS = 20;
+export const MAX_ACTIVE_SATELLITES = 12;
 export const RAM_LIMIT_WARNING_MESSAGE =
-  "Maximum 3 bouquets actifs simultanément pour garantir la fluidité de l'application";
+  "Sélection personnalisée de bouquets active";
 
 export const STRICT_SAT_FILTER_LIST: SatelliteFilter[] = [
   'Tous',
@@ -1110,6 +1112,196 @@ export const DEFAULT_ENABLED_BOUQUET_IDS: EpgBouquetId[] = [
   'monacosat_52e_persiana',
 ];
 
+export interface TvProfileSpec {
+  id: Exclude<TvProfileId, 'custom'>;
+  flag: string;
+  label: string;
+  shortLabel: string;
+  satellitesSummary: string;
+  description: string;
+  bouquets: EpgBouquetId[];
+}
+
+export const TV_PROFILES_CATALOG: TvProfileSpec[] = [
+  {
+    id: 'maghreb_mena',
+    flag: '🇲🇦/🇩🇿/🇹🇳/🌍',
+    label: 'Maghreb / MENA Multi-Sat',
+    shortLabel: 'Maghreb / MENA',
+    satellitesSummary:
+      'Nilesat 7°W, Astra 19.2°E, Hotbird 13°E, TurkmenÄlem/MonacoSAT 52°E, Eutelsat 16°E, Badr 26°E, Hispasat 30°W',
+    description:
+      'Profil multi-satellites complet : Nilesat, Astra 19.2°E, Hotbird 13°E, TurkmenÄlem/MonacoSAT 52°E, Eutelsat 16°E, Badr 26°E & Hispasat 30°W.',
+    bouquets: [
+      'nilesat_osn_mbc',
+      'badr_bein_ssc',
+      'astra_canal_fr',
+      'astra_tnt_fr',
+      'movistar_es',
+      'sky_de',
+      'hotbird_bis_fr',
+      'sky_it',
+      'canal_pl',
+      'turkmenalem_52e_alem',
+      'monacosat_52e_persiana',
+      'eutelsat_16e_digitalb',
+      'hispasat_meo_nos',
+    ],
+  },
+  {
+    id: 'espagne',
+    flag: '🇪🇸',
+    label: 'Espagne (Movistar+, TNT Abertis)',
+    shortLabel: 'Espagne',
+    satellitesSummary: 'Astra 19.2°E & Hispasat 30°W (Movistar+, TNT Abertis)',
+    description:
+      'Profil dédié Espagne : Movistar Plus+, DAZN España (Astra 19.2°E) et TNT Abertis Espagne (Hispasat 30°W).',
+    bouquets: ['movistar_es', 'hispasat_meo_nos'],
+  },
+  {
+    id: 'italie',
+    flag: '🇮🇹',
+    label: 'Italie (Tivùsat, Sky Italia)',
+    shortLabel: 'Italie',
+    satellitesSummary: 'Hotbird 13°E (Tivùsat, Sky Italia)',
+    description:
+      'Profil dédié Italie : Tivùsat (Rai 1–4, Rai Movie, Mediaset Canale 5, Italia 1, Rete 4) & Sky Italia / DAZN IT.',
+    bouquets: ['sky_it'],
+  },
+  {
+    id: 'europe_standard',
+    flag: '🇪🇺',
+    label: 'Europe Standard (Astra 19.2°E, Hotbird 13°E)',
+    shortLabel: 'Europe Standard',
+    satellitesSummary: 'Astra 19.2°E & Hotbird 13°E',
+    description:
+      'Profil Europe Standard : Astra 19.2°E (Canal+ FR, TNT FR, Movistar+, Sky DE) & Hotbird 13°E (Bis TV, Tivùsat/Sky IT, Polsat/Canal+ PL).',
+    bouquets: [
+      'astra_canal_fr',
+      'astra_tnt_fr',
+      'movistar_es',
+      'sky_de',
+      'hotbird_bis_fr',
+      'sky_it',
+      'canal_pl',
+    ],
+  },
+  {
+    id: 'all_satellites',
+    flag: '🛰️',
+    label: 'Tous les satellites',
+    shortLabel: 'Tous les satellites',
+    satellitesSummary:
+      'Nilesat, Badr, Astra 19.2°E, Hotbird 13°E, Hispasat 30°W, Eutelsat 16°E, Türksat 42°E, Thor 0.8°W, 52°E & LATAM',
+    description:
+      'Active tous les satellites et bouquets disponibles sans restriction de zone.',
+    bouquets: [...ALL_BOUQUET_IDS],
+  },
+];
+
+export function getBouquetsForTvProfile(profileId: TvProfileId): EpgBouquetId[] {
+  const found = TV_PROFILES_CATALOG.find((p) => p.id === profileId);
+  if (found) {
+    return [...found.bouquets];
+  }
+  return [...DEFAULT_ENABLED_BOUQUET_IDS];
+}
+
+export function inferTvProfileFromBouquets(
+  bouquets: EpgBouquetId[],
+  explicitProfile?: TvProfileId
+): TvProfileId {
+  if (
+    explicitProfile &&
+    explicitProfile !== 'custom' &&
+    TV_PROFILES_CATALOG.some((p) => p.id === explicitProfile)
+  ) {
+    const expected = getBouquetsForTvProfile(explicitProfile);
+    if (
+      expected.length === bouquets.length &&
+      expected.every((b) => bouquets.includes(b))
+    ) {
+      return explicitProfile;
+    }
+  }
+  const normalizedSet = new Set(bouquets);
+  for (const profile of TV_PROFILES_CATALOG) {
+    if (
+      profile.bouquets.length === normalizedSet.size &&
+      profile.bouquets.every((b) => normalizedSet.has(b))
+    ) {
+      return profile.id;
+    }
+  }
+  if (normalizedSet.size >= DEFAULT_ENABLED_BOUQUET_IDS.length) {
+    return 'all_satellites';
+  }
+  return 'custom';
+}
+
+/**
+ * Détection automatique intelligente du profil d'affichage au tout premier lancement
+ * basée sur la langue du système (`navigator.language`) :
+ * - 'es' (Espagnol) -> Profil "Espagne" (Movistar+, TNT Abertis)
+ * - 'it' (Italien) -> Profil "Italie" (Tivùsat, Sky Italia)
+ * - 'ar' (Arabe) ou 'fr' (Français) -> Profil "Maghreb / MENA Multi-Sat"
+ * - Autres langues -> Profil "Europe Standard" (Astra 19.2°E, Hotbird 13°E)
+ */
+export function detectInitialTvProfileFromSystemLanguage(
+  sysLangOverride?: string
+): {
+  tvProfile: Exclude<TvProfileId, 'custom' | 'all_satellites'>;
+  language: AppLanguage;
+  selectedBouquets: EpgBouquetId[];
+} {
+  const rawSysLang =
+    sysLangOverride ??
+    (typeof navigator !== 'undefined'
+      ? navigator.language ||
+        (Array.isArray(navigator.languages) ? navigator.languages[0] : '') ||
+        ''
+      : '');
+  const langLower = rawSysLang.trim().toLowerCase();
+
+  if (langLower.startsWith('es')) {
+    return {
+      tvProfile: 'espagne',
+      language: 'es',
+      selectedBouquets: getBouquetsForTvProfile('espagne'),
+    };
+  }
+
+  if (langLower.startsWith('it')) {
+    return {
+      tvProfile: 'italie',
+      language: 'fr',
+      selectedBouquets: getBouquetsForTvProfile('italie'),
+    };
+  }
+
+  if (langLower.startsWith('ar') || langLower.startsWith('fr')) {
+    return {
+      tvProfile: 'maghreb_mena',
+      language: langLower.startsWith('ar') ? 'ar' : 'fr',
+      selectedBouquets: getBouquetsForTvProfile('maghreb_mena'),
+    };
+  }
+
+  const uiLang: AppLanguage = langLower.startsWith('de')
+    ? 'de'
+    : langLower.startsWith('pt')
+    ? 'pt'
+    : langLower.startsWith('en')
+    ? 'en'
+    : 'en';
+
+  return {
+    tvProfile: 'europe_standard',
+    language: uiLang,
+    selectedBouquets: getBouquetsForTvProfile('europe_standard'),
+  };
+}
+
 export const THEMATIC_CATEGORIES_CATALOG: {
   id: ThematicCategoryId;
   label: string;
@@ -1778,15 +1970,6 @@ export function isChannelAllowedBySettings(
   const chBouquetId = resolveChannelBouquetId(ch);
   let bouquetAllowed = activeBouquets.includes(chBouquetId);
 
-  // Autoriser toute chaîne associée à un satellite actif sans restreindre aux seuls bouquets nommés
-  if (!bouquetAllowed && ch.satellites?.length) {
-    for (const sat of ch.satellites) {
-      if (isSatelliteFilterAllowedBySettings(sat, activeBouquets)) {
-        bouquetAllowed = true;
-        break;
-      }
-    }
-  }
   if (
     !bouquetAllowed &&
     (chBouquetId === 'trt_network' || ch.bouquets?.includes('TRT Network'))
@@ -1794,7 +1977,7 @@ export function isChannelAllowedBySettings(
     bouquetAllowed = activeBouquets.includes('trt_network');
   }
 
-  // Autoriser les chaînes diffusées sur Nilesat 7°W ou Badr 26°E dès lors que l'un des deux satellites correspondants est activé
+  // Autoriser les chaînes diffusées sur Nilesat 7°W ou Badr 26°E dès lors que le satellite correspondant est activé
   if (!bouquetAllowed) {
     if (
       ch.satellites?.includes('Nilesat 7°W') &&
@@ -1810,24 +1993,32 @@ export function isChannelAllowedBySettings(
     }
   }
 
-  // Si la chaîne est une chaîne de la TNT Française / Bis TV, elle est autorisée
-  // dès que l'utilisateur a coché "TNT France", "Canal+ France" (Astra 19.2°E) ou "Bis TV (Hotbird)"
+  // Si la chaîne est une chaîne de la TNT Française, elle est autorisée si astra_tnt_fr ou tnt_fr est actif
   if (
     !bouquetAllowed &&
     (chBouquetId === 'astra_tnt_fr' || chBouquetId === 'tnt_fr')
   ) {
     bouquetAllowed =
       activeBouquets.includes('astra_tnt_fr') ||
-      activeBouquets.includes('tnt_fr') ||
-      activeBouquets.includes('astra_canal_fr') ||
-      activeBouquets.includes('hotbird_bis_fr');
-  }
-  if (!bouquetAllowed && chBouquetId === 'hotbird_bis_fr') {
-    bouquetAllowed =
-      activeBouquets.includes('hotbird_bis_fr') ||
-      activeBouquets.includes('astra_canal_fr') ||
-      activeBouquets.includes('astra_tnt_fr') ||
       activeBouquets.includes('tnt_fr');
+  }
+  if (
+    !bouquetAllowed &&
+    (chBouquetId === 'turkmenalem_52e_alem' ||
+      chBouquetId === 'monacosat_52e_persiana')
+  ) {
+    bouquetAllowed =
+      activeBouquets.includes('turkmenalem_52e_alem') ||
+      activeBouquets.includes('monacosat_52e_persiana');
+  }
+  if (
+    !bouquetAllowed &&
+    (chBouquetId === 'eutelsat_16e_digitalb' ||
+      chBouquetId === 'eutelsat_16e_thor')
+  ) {
+    bouquetAllowed =
+      activeBouquets.includes('eutelsat_16e_digitalb') ||
+      activeBouquets.includes('eutelsat_16e_thor');
   }
   if (
     !bouquetAllowed &&
@@ -1849,6 +2040,21 @@ export function isChannelAllowedBySettings(
 
   if (!bouquetAllowed) {
     return false;
+  }
+
+  // Filtrage strict par profil TV ("Espagne" = Movistar+ & TNT Abertis uniquement, sans chaînes portugaises MEO/NOS)
+  if (settings.tvProfile === 'espagne') {
+    const chCountries = extractChannelCountries(ch);
+    if (chCountries.includes('PT') && !chCountries.includes('ES')) {
+      return false;
+    }
+  }
+
+  // Filtrage strict par profil TV ("Italie" = Tivùsat & Sky Italia uniquement)
+  if (settings.tvProfile === 'italie') {
+    if (chBouquetId !== 'sky_it' && ch.country !== 'IT') {
+      return false;
+    }
   }
 
   if (settings.excludePolishLektor && ch.hasPolishLektor) {
@@ -1921,7 +2127,8 @@ export function isChannelAllowedBySettings(
 
 export function syncSourcesWithSelectedBouquets(
   firstArg: EpgSourceItem[] | EpgBouquetId[],
-  secondArg?: EpgBouquetId[] | EpgSourceItem[]
+  secondArg?: EpgBouquetId[] | EpgSourceItem[],
+  tvProfile?: TvProfileId
 ): EpgSourceItem[] {
   const isFirstBouquets =
     Array.isArray(firstArg) &&
@@ -2001,15 +2208,18 @@ export function syncSourcesWithSelectedBouquets(
         selectedBouquets.includes('astra_tnt_fr') ||
         selectedBouquets.includes('hotbird_bis_fr');
     }
-    // ES1 fournit Movistar+ (Astra 19.2°E & Hispasat 30°W)
+    // ES1 fournit Movistar+ (Astra 19.2°E) et TNT Abertis (Hispasat 30°W)
     else if (u.includes('_es1')) {
       enabled =
         selectedBouquets.includes('movistar_es') ||
         selectedBouquets.includes('hispasat_meo_nos');
     }
-    // PT1 fournit MEO & NOS sur Hispasat 30°W
+    // PT1 fournit MEO & NOS sur Hispasat 30°W (désactivé si le profil est strictement "Espagne")
     else if (u.includes('_pt1')) {
-      enabled = selectedBouquets.includes('hispasat_meo_nos');
+      enabled =
+        tvProfile === 'espagne'
+          ? false
+          : selectedBouquets.includes('hispasat_meo_nos');
     }
     // AE1, SA1, SA2, BEIN1 fournissent les chaînes MENA pour Nilesat 7°W et Badr / Es'hailSat 26°E
     else if (
@@ -2031,11 +2241,9 @@ export function syncSourcesWithSelectedBouquets(
     else if (u.includes('_rs1') || u.includes('_hr1') || u.includes('_al1') || u.includes('_bg1')) {
       enabled = activeBouquetsIncludes(selectedBouquets, 'eutelsat_16e_digitalb');
     }
-    // RO1 / HU1 fournissent Thor 0.8°W / Intelsat 10-02 (Focus Sat, Direct One, Digi TV) et TVR sur Eutelsat 16°E
+    // RO1 / HU1 fournissent Thor 0.8°W / Intelsat 10-02 (Focus Sat, Direct One, Digi TV)
     else if (u.includes('_ro1') || u.includes('_hu1')) {
-      enabled =
-        activeBouquetsIncludes(selectedBouquets, 'thor_08w_focussat') ||
-        activeBouquetsIncludes(selectedBouquets, 'eutelsat_16e_digitalb');
+      enabled = activeBouquetsIncludes(selectedBouquets, 'thor_08w_focussat');
     }
     // UZ1 / TM1 fournissent TurkmenÄlem 52°E (Alem TV & Turkmenistan National TV)
     else if (u.includes('_uz1') || u.includes('_tm1')) {
@@ -2073,17 +2281,24 @@ export const PRESET_EPG_CATALOG: Omit<EpgSourceItem, 'id' | 'enabled'>[] = [
   })),
 ];
 
+const INITIAL_DETECTED_PROFILE = detectInitialTvProfileFromSystemLanguage();
+
 export const DEFAULT_SETTINGS: AppSettings = {
-  language: 'fr',
+  language: INITIAL_DETECTED_PROFILE.language,
+  tvProfile: INITIAL_DETECTED_PROFILE.tvProfile,
   sourceUrl: DEFAULT_EPG_SOURCE_URL,
-  sources: DEFAULT_EPG_SOURCES,
+  sources: syncSourcesWithSelectedBouquets(
+    INITIAL_DETECTED_PROFILE.selectedBouquets,
+    DEFAULT_EPG_SOURCES,
+    INITIAL_DETECTED_PROFILE.tvProfile
+  ),
   cacheTtlHours: 12,
   autoRefreshHours: 12,
   windowHours: 48,
   theme: 'dark',
   autoTimezone: true,
   manualTimezone: 'Africa/Casablanca',
-  selectedBouquets: [...DEFAULT_ENABLED_BOUQUET_IDS],
+  selectedBouquets: [...INITIAL_DETECTED_PROFILE.selectedBouquets],
   excludePolishLektor: true,
   excludeNoSubtitles: true,
   enabledCategories: [...ALL_THEMATIC_CATEGORIES],
@@ -2095,6 +2310,9 @@ export function buildSourcesSignature(
   const sources = Array.isArray(sourcesOrSettings)
     ? sourcesOrSettings
     : sourcesOrSettings.sources;
+  const profilePart = Array.isArray(sourcesOrSettings)
+    ? 'auto'
+    : sourcesOrSettings.tvProfile || 'auto';
   const bouquetsPart = Array.isArray(sourcesOrSettings)
     ? ''
     : `|b:${(sourcesOrSettings.selectedBouquets || DEFAULT_ENABLED_BOUQUET_IDS)
@@ -2110,7 +2328,7 @@ export function buildSourcesSignature(
         .join(',')}`;
 
   return (
-    'whitelist_v18|' +
+    `whitelist_v18|p:${profilePart}|` +
     sources
       .filter((s) => s.enabled && s.url.trim().length > 0)
       .map((s) => `${s.country}:${s.url.trim()}`)
@@ -2383,8 +2601,11 @@ export async function saveEpgToCache(
   });
 }
 
-export async function loadEpgFromCache(): Promise<StoredEpgSnapshot | null> {
+export async function loadEpgFromCache(
+  settings?: AppSettings
+): Promise<StoredEpgSnapshot | null> {
   try {
+    const effectiveSettings = settings || loadAppSettings();
     const db = await openDatabase();
     return await new Promise<StoredEpgSnapshot | null>((resolve, reject) => {
       const tx = db.transaction(SNAPSHOT_STORE, 'readonly');
@@ -2428,12 +2649,42 @@ export async function loadEpgFromCache(): Promise<StoredEpgSnapshot | null> {
                       ch.satellites
                     ),
               };
-            });
+            })
+            .filter((ch) => isChannelAllowedBySettings(ch, effectiveSettings));
+
           const chMap = new Map<string, EpgChannel>();
           for (const ch of sanitizedChannels) {
             chMap.set(ch.id, ch);
           }
-          supplementSatelliteBouquetsCoverage(chMap, prunedSchedules);
+          supplementSatelliteBouquetsCoverage(
+            chMap,
+            prunedSchedules,
+            {
+              tvProfile: effectiveSettings.tvProfile,
+              selectedBouquets: effectiveSettings.selectedBouquets,
+              excludePolishLektor: effectiveSettings.excludePolishLektor,
+              excludeNoSubtitles: effectiveSettings.excludeNoSubtitles,
+              enabledCategories: effectiveSettings.enabledCategories,
+            },
+            effectiveSettings.selectedBouquets
+          );
+
+          const filteredProfileChannels = Array.from(chMap.values()).filter(
+            (ch) => isChannelAllowedBySettings(ch, effectiveSettings)
+          );
+          const allowedIds = new Set(
+            filteredProfileChannels.flatMap((ch) => [
+              ch.id,
+              cleanXmltvChannelId(ch.id),
+            ])
+          );
+          const profileSchedules: Record<string, EpgProgramme[]> = {};
+          for (const chId of Object.keys(prunedSchedules)) {
+            if (allowedIds.has(chId) || allowedIds.has(cleanXmltvChannelId(chId))) {
+              profileSchedules[chId] = prunedSchedules[chId];
+            }
+          }
+
           resolve({
             ...result,
             metadata: {
@@ -2441,9 +2692,10 @@ export async function loadEpgFromCache(): Promise<StoredEpgSnapshot | null> {
               sourceUrl:
                 ensureHttpsUrl(result.metadata.sourceUrl) ||
                 result.metadata.sourceUrl,
+              channelCount: filteredProfileChannels.length,
             },
-            channels: Array.from(chMap.values()),
-            schedulesByChannel: prunedSchedules,
+            channels: filteredProfileChannels,
+            schedulesByChannel: profileSchedules,
           });
         } else {
           resolve(null);
@@ -2464,11 +2716,12 @@ export function buildOfflineFallbackEpgSnapshot(
   settings: AppSettings
 ): StoredEpgSnapshot {
   const chMap = new Map<string, EpgChannel>();
-  const schedulesByChannel: Record<string, EpgProgramme[]> = {};
+  const rawSchedulesByChannel: Record<string, EpgProgramme[]> = {};
   supplementSatelliteBouquetsCoverage(
     chMap,
-    schedulesByChannel,
+    rawSchedulesByChannel,
     {
+      tvProfile: settings.tvProfile,
       selectedBouquets: settings.selectedBouquets,
       excludePolishLektor: settings.excludePolishLektor,
       excludeNoSubtitles: settings.excludeNoSubtitles,
@@ -2476,13 +2729,24 @@ export function buildOfflineFallbackEpgSnapshot(
     },
     settings.selectedBouquets
   );
-  const channels = Array.from(chMap.values()).map((ch, idx) => ({
-    ...ch,
-    icon: ensureHttpsUrl(ch.icon),
-    url: ensureHttpsUrl(ch.url),
-    channelNumber: idx + 1,
-    programmeCount: (schedulesByChannel[ch.id] || []).length,
-  }));
+  const channels = Array.from(chMap.values())
+    .filter((ch) => isChannelAllowedBySettings(ch, settings))
+    .map((ch, idx) => ({
+      ...ch,
+      icon: ensureHttpsUrl(ch.icon),
+      url: ensureHttpsUrl(ch.url),
+      channelNumber: idx + 1,
+      programmeCount: (rawSchedulesByChannel[ch.id] || []).length,
+    }));
+  const schedulesByChannel: Record<string, EpgProgramme[]> = {};
+  for (const ch of channels) {
+    const cleanId = cleanXmltvChannelId(ch.id);
+    const list = rawSchedulesByChannel[cleanId] || rawSchedulesByChannel[ch.id] || [];
+    schedulesByChannel[cleanId] = list;
+    if (ch.id !== cleanId) {
+      schedulesByChannel[ch.id] = list;
+    }
+  }
   const programmeCount = Object.values(schedulesByChannel).reduce(
     (sum, list) => sum + list.length,
     0
@@ -2538,22 +2802,117 @@ export async function clearEpgCache(): Promise<void> {
   }
 }
 
+type CapacitorPreferencesPlugin = {
+  get?: (opts: { key: string }) => Promise<{ value: string | null }>;
+  set?: (opts: { key: string; value: string }) => Promise<void>;
+};
+
+function getCapacitorPreferencesPlugin(): CapacitorPreferencesPlugin | null {
+  if (typeof window === 'undefined') return null;
+  const cap = (
+    window as unknown as {
+      Capacitor?: {
+        Plugins?: {
+          Preferences?: CapacitorPreferencesPlugin;
+          Storage?: CapacitorPreferencesPlugin;
+        };
+      };
+    }
+  ).Capacitor;
+  return cap?.Plugins?.Preferences || cap?.Plugins?.Storage || null;
+}
+
+export function persistSettingsToCapacitorPreferences(
+  settings: AppSettings
+): void {
+  const prefs = getCapacitorPreferencesPlugin();
+  if (!prefs?.set) return;
+  const profileId =
+    settings.tvProfile ||
+    inferTvProfileFromBouquets(settings.selectedBouquets);
+  void prefs
+    .set({ key: LS_TV_PROFILE_KEY, value: profileId })
+    .catch(() => undefined);
+  void prefs
+    .set({ key: LS_SETTINGS_KEY, value: JSON.stringify(settings) })
+    .catch(() => undefined);
+}
+
+export async function syncAppSettingsFromCapacitorPreferences(): Promise<AppSettings | null> {
+  const prefs = getCapacitorPreferencesPlugin();
+  if (!prefs?.get) return null;
+  try {
+    const [profileRes, settingsRes] = await Promise.all([
+      prefs.get({ key: LS_TV_PROFILE_KEY }),
+      prefs.get({ key: LS_SETTINGS_KEY }),
+    ]);
+    if (settingsRes?.value) {
+      const parsed = JSON.parse(settingsRes.value) as Partial<AppSettings>;
+      if (parsed && Array.isArray(parsed.selectedBouquets)) {
+        const storedLocal = localStorage.getItem(LS_TV_PROFILE_KEY);
+        if (!storedLocal && profileRes?.value) {
+          localStorage.setItem(LS_TV_PROFILE_KEY, profileRes.value);
+          localStorage.setItem(LS_SETTINGS_KEY, settingsRes.value);
+          return loadAppSettings();
+        }
+      }
+    } else {
+      // Sauvegarder la configuration initiale détectée dans Capacitor Preferences
+      const current = loadAppSettings();
+      persistSettingsToCapacitorPreferences(current);
+    }
+  } catch {
+    // Ignore Capacitor bridge error
+  }
+  return null;
+}
+
 export function loadAppSettings(): AppSettings {
   try {
     const raw = localStorage.getItem(LS_SETTINGS_KEY);
-    if (!raw) {
+    const storedProfileRaw = localStorage.getItem(LS_TV_PROFILE_KEY) as
+      | TvProfileId
+      | null;
+
+    // 1. Tout premier lancement (ou absence de profil initialisé) :
+    // Détection automatique basée sur navigator.language et sauvegarde immédiate
+    if (!raw || !storedProfileRaw) {
+      const detected = detectInitialTvProfileFromSystemLanguage();
+      const existingParsed: Partial<AppSettings> = raw
+        ? (JSON.parse(raw) as Partial<AppSettings>)
+        : {};
+
+      const initialSettings: AppSettings = {
+        ...DEFAULT_SETTINGS,
+        ...existingParsed,
+        language: detected.language,
+        tvProfile: detected.tvProfile,
+        selectedBouquets: [...detected.selectedBouquets],
+        sources: syncSourcesWithSelectedBouquets(
+          detected.selectedBouquets,
+          DEFAULT_EPG_SOURCES,
+          detected.tvProfile
+        ),
+        enabledCategories: [...ALL_THEMATIC_CATEGORIES],
+      };
+
+      localStorage.setItem(LS_TV_PROFILE_KEY, detected.tvProfile);
       localStorage.setItem(LS_TZ_CASA_MIGRATED_KEY, '1');
       localStorage.setItem(LS_BOUQUETS_V8_MIGRATED_KEY, '1');
       localStorage.setItem(LS_BOUQUETS_V10_MIGRATED_KEY, '1');
       localStorage.setItem(LS_BOUQUETS_V11_MIGRATED_KEY, '1');
       localStorage.setItem(LS_CATEGORIES_V9_MIGRATED_KEY, '1');
+      localStorage.setItem(LS_SETTINGS_KEY, JSON.stringify(initialSettings));
+      persistSettingsToCapacitorPreferences(initialSettings);
+
       configureActiveTimezone(
-        DEFAULT_SETTINGS.autoTimezone,
-        DEFAULT_SETTINGS.manualTimezone
+        initialSettings.autoTimezone,
+        initialSettings.manualTimezone
       );
-      applyDocumentLanguageDir(DEFAULT_SETTINGS.language);
-      return DEFAULT_SETTINGS;
+      applyDocumentLanguageDir(initialSettings.language);
+      return initialSettings;
     }
+
     const parsed = JSON.parse(raw) as Partial<AppSettings>;
     const tzMigrated = localStorage.getItem(LS_TZ_CASA_MIGRATED_KEY) === '1';
     if (!tzMigrated) {
@@ -2562,11 +2921,6 @@ export function loadAppSettings(): AppSettings {
       localStorage.setItem(LS_TZ_CASA_MIGRATED_KEY, '1');
     }
 
-    const v8Migrated = localStorage.getItem(LS_BOUQUETS_V8_MIGRATED_KEY) === '1';
-    const v10Migrated =
-      localStorage.getItem(LS_BOUQUETS_V10_MIGRATED_KEY) === '1';
-    const v11Migrated =
-      localStorage.getItem(LS_BOUQUETS_V11_MIGRATED_KEY) === '1';
     const v9CatsMigrated =
       localStorage.getItem(LS_CATEGORIES_V9_MIGRATED_KEY) === '1';
 
@@ -2578,6 +2932,9 @@ export function loadAppSettings(): AppSettings {
         )
       : [];
 
+    const activeProfile: TvProfileId =
+      parsed.tvProfile || storedProfileRaw || 'maghreb_mena';
+
     const rawSelectedBouquets = Array.isArray(parsed.selectedBouquets)
       ? parsed.selectedBouquets.flatMap((b): EpgBouquetId[] =>
           b === 'eutelsat_16e_thor'
@@ -2586,85 +2943,30 @@ export function loadAppSettings(): AppSettings {
         )
       : [];
 
-    let selectedBouquets =
+    const validSelectedBouquets =
       rawSelectedBouquets.length > 0
         ? Array.from(
             new Set(
               rawSelectedBouquets.filter((b) => ALL_BOUQUET_IDS.includes(b))
             )
           )
-        : [...DEFAULT_SETTINGS.selectedBouquets];
+        : getBouquetsForTvProfile(activeProfile);
 
-    // Migration automatique v8 : séparation Nilesat 7°W / Badr 26°E + ajout TNT France, Bis TV et Hispasat Meo/NOS
-    if (!v8Migrated) {
-      if (
-        selectedBouquets.includes('nilesat_osn_mbc') &&
-        !selectedBouquets.includes('badr_bein_ssc')
-      ) {
-        selectedBouquets.push('badr_bein_ssc');
-      }
-      if (
-        selectedBouquets.includes('astra_canal_fr') &&
-        !selectedBouquets.includes('astra_tnt_fr')
-      ) {
-        selectedBouquets.push('astra_tnt_fr');
-      }
-      if (
-        selectedBouquets.includes('canal_pl') &&
-        !selectedBouquets.includes('hotbird_bis_fr')
-      ) {
-        selectedBouquets.push('hotbird_bis_fr');
-      }
-      if (
-        selectedBouquets.includes('movistar_es') &&
-        !selectedBouquets.includes('hispasat_meo_nos')
-      ) {
-        selectedBouquets.push('hispasat_meo_nos');
-      }
-      localStorage.setItem(LS_BOUQUETS_V8_MIGRATED_KEY, '1');
-    }
-
-    // Migration automatique v10 : activation d'Eutelsat 16°E, Thor 0.8°W, TurkmenÄlem 52°E et MonacoSat 52°E
-    if (!v10Migrated) {
-      const toEnsure: EpgBouquetId[] = [
-        'eutelsat_16e_digitalb',
-        'thor_08w_focussat',
-        'turkmenalem_52e_alem',
-        'monacosat_52e_persiana',
-      ];
-      for (const bId of toEnsure) {
-        if (!selectedBouquets.includes(bId)) {
-          selectedBouquets.push(bId);
-        }
-      }
-      localStorage.setItem(LS_BOUQUETS_V10_MIGRATED_KEY, '1');
-    }
-
-    // Migration automatique v11 : activation de TRT Network & Eutelsat 16°E
-    if (!v11Migrated) {
-      if (!selectedBouquets.includes('trt_network')) {
-        selectedBouquets.push('trt_network');
-      }
-      if (!selectedBouquets.includes('eutelsat_16e_digitalb')) {
-        selectedBouquets.push('eutelsat_16e_digitalb');
-      }
-      localStorage.setItem(LS_BOUQUETS_V11_MIGRATED_KEY, '1');
-    }
-
-    const validSelectedBouquets =
-      selectedBouquets.length > 0
-        ? selectedBouquets
-        : DEFAULT_SETTINGS.selectedBouquets;
+    const resolvedProfile = inferTvProfileFromBouquets(
+      validSelectedBouquets,
+      activeProfile
+    );
 
     const baseSources =
       sanitizedSources.length > 0 ? sanitizedSources : DEFAULT_EPG_SOURCES;
 
     const sources = syncSourcesWithSelectedBouquets(
       baseSources,
-      validSelectedBouquets
+      validSelectedBouquets,
+      resolvedProfile
     );
 
-    let enabledCategories =
+    const enabledCategories =
       Array.isArray(parsed.enabledCategories) &&
       parsed.enabledCategories.length > 0
         ? [...parsed.enabledCategories]
@@ -2683,11 +2985,12 @@ export function loadAppSettings(): AppSettings {
       (l) => l.code === parsed.language
     )
       ? (parsed.language as AppLanguage)
-      : 'fr';
+      : DEFAULT_SETTINGS.language;
 
     const loaded: AppSettings = {
       ...DEFAULT_SETTINGS,
       ...parsed,
+      tvProfile: resolvedProfile,
       sourceUrl:
         ensureHttpsUrl(parsed.sourceUrl) || DEFAULT_SETTINGS.sourceUrl,
       language: validLang,
@@ -2712,10 +3015,6 @@ export function loadAppSettings(): AppSettings {
           : DEFAULT_SETTINGS.excludeNoSubtitles,
     };
 
-    if (!tzMigrated || !v8Migrated || !v10Migrated || !v9CatsMigrated) {
-      localStorage.setItem(LS_SETTINGS_KEY, JSON.stringify(loaded));
-    }
-
     configureActiveTimezone(loaded.autoTimezone, loaded.manualTimezone);
     applyDocumentLanguageDir(loaded.language);
     return loaded;
@@ -2731,8 +3030,12 @@ export function loadAppSettings(): AppSettings {
 
 export function saveAppSettings(settings: AppSettings): void {
   try {
+    const resolvedProfile =
+      settings.tvProfile ||
+      inferTvProfileFromBouquets(settings.selectedBouquets);
     const sanitized: AppSettings = {
       ...settings,
+      tvProfile: resolvedProfile,
       sourceUrl:
         ensureHttpsUrl(settings.sourceUrl) || DEFAULT_SETTINGS.sourceUrl,
       sources: settings.sources.map((s) => ({
@@ -2742,7 +3045,9 @@ export function saveAppSettings(settings: AppSettings): void {
     };
     configureActiveTimezone(sanitized.autoTimezone, sanitized.manualTimezone);
     applyDocumentLanguageDir(sanitized.language || 'fr');
+    localStorage.setItem(LS_TV_PROFILE_KEY, resolvedProfile);
     localStorage.setItem(LS_SETTINGS_KEY, JSON.stringify(sanitized));
+    persistSettingsToCapacitorPreferences(sanitized);
   } catch {
     // Ignore
   }

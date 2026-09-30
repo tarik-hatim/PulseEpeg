@@ -53,9 +53,11 @@ import {
   clearRecentSearches,
   DEFAULT_EPG_SOURCES,
   DEFAULT_SETTINGS,
+  detectInitialTvProfileFromSystemLanguage,
   ensureSchedulesCoverTargetTime,
   extractChannelCountries,
   getBouquetsForSatellite,
+  inferTvProfileFromBouquets,
   isBouquetFilterAllowedBySettings,
   isCategoryFilterAllowedBySettings,
   isChannelAllowedBySettings,
@@ -76,8 +78,10 @@ import {
   saveFavoriteChannels,
   saveReminders,
   STRICT_SAT_FILTER_LIST,
+  syncAppSettingsFromCapacitorPreferences,
   syncGlobalFavoritesFromDb,
   syncSourcesWithSelectedBouquets,
+  TV_PROFILES_CATALOG,
 } from './services/storageService';
 import {
   APP_TIMEZONE_LABEL,
@@ -496,16 +500,25 @@ export function App() {
           (window.location.hostname === 'localhost' && !window.location.port)
       );
 
+    const resolvedTvProfile =
+      currentSettings.tvProfile ||
+      inferTvProfileFromBouquets(
+        currentSettings.selectedBouquets,
+        currentSettings.tvProfile
+      );
+
     const req: WorkerRequestMessage = {
       type: 'START_EPG_SYNC',
       payload: {
         sources: syncSourcesWithSelectedBouquets(
           currentSettings.selectedBouquets,
-          currentSettings.sources
+          currentSettings.sources,
+          resolvedTvProfile
         ),
         windowHours: currentSettings.windowHours,
         cacheTtlHours: currentSettings.cacheTtlHours,
         isNativeCapacitor,
+        tvProfile: resolvedTvProfile,
         selectedBouquets: currentSettings.selectedBouquets,
         excludePolishLektor: currentSettings.excludePolishLektor,
         excludeNoSubtitles: currentSettings.excludeNoSubtitles,
@@ -515,45 +528,71 @@ export function App() {
     worker.postMessage(req);
   }, []);
 
-  // Chargement initial : lecture instantanée du cache IndexedDB (TTL 12h) ou affichage immédiat + lancement du Worker
+  // Chargement initial : synchronisation Capacitor Preferences + filtrage strict selon le profil TV détecté/sauvegardé
   useEffect(() => {
     let mounted = true;
     (async () => {
-      const cached = await loadEpgFromCache();
+      const capSyncedSettings = await syncAppSettingsFromCapacitorPreferences();
+      const effectiveSettings = capSyncedSettings || settings;
+      if (capSyncedSettings && mounted) {
+        setSettings(capSyncedSettings);
+      }
+
+      const expectedSignature = buildSourcesSignature(effectiveSettings);
+      const cached = await loadEpgFromCache(effectiveSettings);
 
       if (cached && cached.channels.length > 0) {
         if (!mounted) return;
         const allowedCachedChannels = cached.channels.filter((ch) =>
-          isChannelAllowedBySettings(ch, settings)
+          isChannelAllowedBySettings(ch, effectiveSettings)
         );
-        const prunedSchedules = pruneSchedulesToActiveWindow(
-          cached.schedulesByChannel,
-          Date.now()
-        );
-        setChannels(
-          allowedCachedChannels.length > 0
-            ? allowedCachedChannels
-            : cached.channels
-        );
-        setSchedulesByChannel(prunedSchedules);
-        setCacheMeta(cached.metadata);
+        const signatureMatches =
+          cached.metadata.sourcesSignature === expectedSignature;
 
-        const cacheAgeMs =
-          Date.now() - (cached.metadata.lastUpdatedMs || 0);
-        const isOlderThan12Hours = cacheAgeMs > 12 * 3600 * 1000;
-        if (isOlderThan12Hours && settings.autoRefreshHours > 0) {
-          triggerEpgSync(settings);
+        if (allowedCachedChannels.length > 0 && signatureMatches) {
+          const allowedIds = new Set(
+            allowedCachedChannels.flatMap((ch) => [
+              ch.id,
+              cleanXmltvChannelId(ch.id),
+            ])
+          );
+          const prunedAll = pruneSchedulesToActiveWindow(
+            cached.schedulesByChannel,
+            Date.now()
+          );
+          const filteredSchedules: Record<string, EpgProgramme[]> = {};
+          for (const chId of Object.keys(prunedAll)) {
+            if (
+              allowedIds.has(chId) ||
+              allowedIds.has(cleanXmltvChannelId(chId))
+            ) {
+              filteredSchedules[chId] = prunedAll[chId];
+            }
+          }
+
+          setChannels(allowedCachedChannels);
+          setSchedulesByChannel(filteredSchedules);
+          setCacheMeta(cached.metadata);
+
+          const cacheAgeMs =
+            Date.now() - (cached.metadata.lastUpdatedMs || 0);
+          const isOlderThan12Hours = cacheAgeMs > 12 * 3600 * 1000;
+          if (isOlderThan12Hours && effectiveSettings.autoRefreshHours > 0) {
+            triggerEpgSync(effectiveSettings);
+          }
+          return;
         }
-      } else {
-        if (!mounted) return;
-        const initialSnapshot = buildOfflineFallbackEpgSnapshot(settings);
-        if (initialSnapshot.channels.length > 0) {
-          setChannels(initialSnapshot.channels);
-          setSchedulesByChannel(initialSnapshot.schedulesByChannel);
-          setCacheMeta(initialSnapshot.metadata);
-        }
-        triggerEpgSync(settings);
       }
+
+      if (!mounted) return;
+      const initialSnapshot =
+        buildOfflineFallbackEpgSnapshot(effectiveSettings);
+      if (initialSnapshot.channels.length > 0) {
+        setChannels(initialSnapshot.channels);
+        setSchedulesByChannel(initialSnapshot.schedulesByChannel);
+        setCacheMeta(initialSnapshot.metadata);
+      }
+      triggerEpgSync(effectiveSettings);
     })();
 
     return () => {
@@ -1666,21 +1705,57 @@ export function App() {
 
   const handleSaveSettings = useCallback(
     async (newSettings: AppSettings, forceReload: boolean) => {
+      const resolvedProfile =
+        newSettings.tvProfile ||
+        inferTvProfileFromBouquets(
+          newSettings.selectedBouquets,
+          newSettings.tvProfile
+        );
       const syncedSources = syncSourcesWithSelectedBouquets(
         newSettings.selectedBouquets,
-        newSettings.sources
+        newSettings.sources,
+        resolvedProfile
       );
       const finalizedSettings: AppSettings = {
         ...newSettings,
+        tvProfile: resolvedProfile,
         sources: syncedSources,
       };
+
+      const prevSignature = buildSourcesSignature(settings);
+      const nextSignature = buildSourcesSignature(finalizedSettings);
+      const signatureChanged = prevSignature !== nextSignature;
 
       setSettings(finalizedSettings);
       saveAppSettings(finalizedSettings);
 
-      // Purge stricte et immédiate des bouquets désactivés du State et du Cache IndexedDB/LocalStorage
-      // tout en préservant les chaînes présentes dans les favoris globaux
-      const allowedFromSettings = channels.filter((ch) =>
+      if (
+        selectedSatellite !== 'Tous' &&
+        !isSatelliteFilterAllowedBySettings(
+          selectedSatellite,
+          finalizedSettings.selectedBouquets
+        )
+      ) {
+        setSelectedSatellite('Tous');
+        setSelectedBouquet('Tous');
+        setSelectedBouquetsList([]);
+      } else if (
+        selectedBouquet !== 'Tous' &&
+        !isBouquetFilterAllowedBySettings(
+          selectedBouquet,
+          finalizedSettings.selectedBouquets
+        )
+      ) {
+        setSelectedBouquet('Tous');
+        setSelectedBouquetsList([]);
+      }
+
+      // Construit un snapshot de base filtré pour le nouveau profil afin que les chaînes
+      // d'un nouveau profil activé soient immédiatement disponibles en mémoire
+      const profileFallback =
+        buildOfflineFallbackEpgSnapshot(finalizedSettings);
+
+      const allowedFromExisting = channels.filter((ch) =>
         isChannelAllowedBySettings(ch, finalizedSettings)
       );
       const { favoriteChannels: favResolved } = resolveGlobalFavoriteChannels(
@@ -1688,18 +1763,43 @@ export function App() {
         schedulesByChannel,
         favorites
       );
+
       const mergedMap = new Map<string, EpgChannel>();
-      for (const ch of allowedFromSettings) mergedMap.set(ch.id, ch);
+      for (const ch of allowedFromExisting) mergedMap.set(ch.id, ch);
+      for (const ch of profileFallback.channels) {
+        if (!mergedMap.has(ch.id)) {
+          mergedMap.set(ch.id, ch);
+        }
+      }
       for (const ch of favResolved) mergedMap.set(ch.id, ch);
+
       const purgedChannels = Array.from(mergedMap.values());
-      const allowedChannelIds = new Set(purgedChannels.map((c: EpgChannel) => c.id));
+      const allowedChannelIds = new Set(
+        purgedChannels.flatMap((c: EpgChannel) => [
+          c.id,
+          cleanXmltvChannelId(c.id),
+        ])
+      );
       const purgedSchedules: Record<string, EpgProgramme[]> = {};
       let remainingProgCount = 0;
 
       for (const chId of Object.keys(schedulesByChannel)) {
-        if (allowedChannelIds.has(chId)) {
+        if (
+          allowedChannelIds.has(chId) ||
+          allowedChannelIds.has(cleanXmltvChannelId(chId))
+        ) {
           purgedSchedules[chId] = schedulesByChannel[chId];
           remainingProgCount += schedulesByChannel[chId].length;
+        }
+      }
+      for (const chId of Object.keys(profileFallback.schedulesByChannel)) {
+        if (
+          !purgedSchedules[chId] &&
+          (allowedChannelIds.has(chId) ||
+            allowedChannelIds.has(cleanXmltvChannelId(chId)))
+        ) {
+          purgedSchedules[chId] = profileFallback.schedulesByChannel[chId];
+          remainingProgCount += profileFallback.schedulesByChannel[chId].length;
         }
       }
 
@@ -1711,29 +1811,30 @@ export function App() {
         setSelectedModalProgramme(null);
       }
 
-      if (cacheMeta) {
-        const updatedMeta: EpgCacheMetadata = {
-          ...cacheMeta,
-          sourcesSignature: buildSourcesSignature(finalizedSettings),
-          channelCount: purgedChannels.length,
-          programmeCount: remainingProgCount,
-        };
-        setCacheMeta(updatedMeta);
-        try {
-          await saveEpgToCache(updatedMeta, purgedChannels, purgedSchedules);
-        } catch {
-          // Ignore quota error
-        }
+      const updatedMeta: EpgCacheMetadata = {
+        ...(cacheMeta || profileFallback.metadata),
+        sourcesSignature: nextSignature,
+        channelCount: purgedChannels.length,
+        programmeCount: remainingProgCount,
+      };
+      setCacheMeta(updatedMeta);
+      try {
+        await saveEpgToCache(updatedMeta, purgedChannels, purgedSchedules);
+      } catch {
+        // Ignore quota error
       }
 
-      if (forceReload) {
+      if (forceReload || signatureChanged) {
         triggerEpgSync(finalizedSettings);
       }
     },
     [
+      settings,
       channels,
       schedulesByChannel,
       selectedChannel,
+      selectedSatellite,
+      selectedBouquet,
       cacheMeta,
       favorites,
       triggerEpgSync,
@@ -1741,18 +1842,26 @@ export function App() {
   );
 
   const handleResetDefaults = useCallback(() => {
+    const detected = detectInitialTvProfileFromSystemLanguage();
     const reset: AppSettings = {
       ...DEFAULT_SETTINGS,
-      language: settings.language,
+      language: detected.language,
+      tvProfile: detected.tvProfile,
+      selectedBouquets: [...detected.selectedBouquets],
       sources: syncSourcesWithSelectedBouquets(
-        DEFAULT_SETTINGS.selectedBouquets,
-        DEFAULT_EPG_SOURCES
+        detected.selectedBouquets,
+        DEFAULT_EPG_SOURCES,
+        detected.tvProfile
       ),
     };
     setSettings(reset);
     saveAppSettings(reset);
+    const fallback = buildOfflineFallbackEpgSnapshot(reset);
+    setChannels(fallback.channels);
+    setSchedulesByChannel(fallback.schedulesByChannel);
+    setCacheMeta(fallback.metadata);
     triggerEpgSync(reset);
-  }, [triggerEpgSync, settings.language]);
+  }, [triggerEpgSync]);
 
   const handleClearCache = useCallback(async () => {
     await clearEpgCache();
@@ -2127,8 +2236,38 @@ export function App() {
             </button>
           </div>
 
-          {/* Right Actions : Sélecteur de Langue + PWA + Sync + Settings */}
+          {/* Right Actions : Badge Zone/Profil TV + Sélecteur de Langue + PWA + Sync + Settings */}
           <div className="flex items-center gap-2">
+            {/* Bouton d'accès rapide au sélecteur "Zone / Profil TV" */}
+            {(() => {
+              const currentProfileId =
+                settings.tvProfile ||
+                inferTvProfileFromBouquets(
+                  settings.selectedBouquets,
+                  settings.tvProfile
+                );
+              const matchedSpec = TV_PROFILES_CATALOG.find(
+                (p) => p.id === currentProfileId
+              );
+              const badgeFlag = matchedSpec?.flag || '⚙️';
+              const badgeLabel = matchedSpec?.shortLabel || 'Profil perso';
+              return (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSettingsInitialTab('filters');
+                    setIsSettingsOpen(true);
+                  }}
+                  title="Changer de Zone / Profil TV (Paramètres)"
+                  className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#1d4ed8]/20 hover:bg-[#1d4ed8]/35 text-xs font-semibold text-[#ffffff] border border-[#0055ff]/60 transition-colors cursor-pointer"
+                >
+                  <Globe className="w-3.5 h-3.5 text-[#60a5fa] shrink-0" />
+                  <span>{badgeFlag}</span>
+                  <span className="truncate max-w-[130px]">{badgeLabel}</span>
+                </button>
+              );
+            })()}
+
             {/* Sélecteur de Langue Fluide dans le Header (Badge Langue Bleu Royal) */}
             <div className="relative flex items-center">
               <Languages className="w-3.5 h-3.5 text-[#60a5fa] absolute start-2.5 pointer-events-none" />
