@@ -2,9 +2,7 @@ name: Build Android APK (Capacitor)
 
 on:
   push:
-    branches: [ "main", "master" ]
-  pull_request:
-    branches: [ "main", "master" ]
+    branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
@@ -12,213 +10,36 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Setup Bun
-      uses: oven-sh/setup-bun@v2
-      with:
-        bun-version: latest
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
-    - name: Set up JDK 21
-      uses: actions/setup-java@v4
-      with:
-        java-version: '21'
-        distribution: 'temurin'
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'zulu'
+          java-version: '17'
 
-    # 1. Acceptation non-interactive des licences Android SDK
-    - name: Accept Android SDK Licenses
-      run: |
-        mkdir -p $ANDROID_HOME/licenses
-        printf "243337023502608728d1238450e34161d6b7c08f\n84831b9409646a918e30573bab4c9c91346d8abd\n504667f4c05b40f59d77d92e145b240a4696ec77\n7855a9a97d89980d2822077142b6006b00f5a03a\n" > $ANDROID_HOME/licenses/android-sdk-license
+      - name: Install dependencies
+        run: npm ci
 
-    # 2. Installation des dépendances JavaScript & Capacitor
-    - name: Install Dependencies
-      run: |
-        bun install
-        bun add @capacitor/core @capacitor/cli @capacitor/android
+      - name: Build Web Assets
+        run: npm run build
 
-    # 3. Build de l'application Web (Vite)
-    - name: Build Web App
-      run: bun run build
+      - name: Sync Capacitor Android
+        run: npx cap sync android
 
-    # 4. Génération et synchronisation du projet Android via Bun + Icônes multi-terminaux (Smartphone, Tablette, Android TV, TV Box)
-    - name: Add and Sync Android Platform
-      run: |
-        if [ ! -f android/gradlew ]; then
-          rm -rf android
-          bunx cap add android
-        fi
-        bunx cap sync android
-        node scripts/generate-icons.mjs
+      - name: Build Android APK
+        run: |
+          cd android
+          ./gradlew assembleDebug
 
-    # 4B. Configuration native Android & Android TV Leanback (AndroidManifest.xml + Proxy EPG Streaming + Focus D-Pad Télécommande)
-    - name: Configure Android TV Leanback Manifest & Native EPG Proxy
-      run: |
-        cat << 'EOF' > android/app/src/main/AndroidManifest.xml
-        <?xml version="1.0" encoding="utf-8"?>
-        <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-
-            <!-- Déclaration des features TV & Touchscreen comme non obligatoires pour conserver la compatibilité Mobile & Android TV -->
-            <uses-feature android:name="android.hardware.type.television" android:required="false" />
-            <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
-            <uses-feature android:name="android.software.leanback" android:required="false" />
-
-            <uses-permission android:name="android.permission.INTERNET" />
-            <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-
-            <application
-                android:allowBackup="true"
-                android:icon="@mipmap/ic_launcher"
-                android:label="@string/app_name"
-                android:roundIcon="@mipmap/ic_launcher_round"
-                android:banner="@drawable/tv_banner"
-                android:supportsRtl="true"
-                android:usesCleartextTraffic="true"
-                android:theme="@style/AppTheme">
-
-                <activity
-                    android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation"
-                    android:name=".MainActivity"
-                    android:label="@string/title_activity_main"
-                    android:theme="@style/AppTheme.NoActionBarLaunch"
-                    android:launchMode="singleTask"
-                    android:banner="@drawable/tv_banner"
-                    android:exported="true">
-
-                    <intent-filter>
-                        <action android:name="android.intent.action.MAIN" />
-                        <category android:name="android.intent.category.LAUNCHER" />
-                        <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
-                    </intent-filter>
-
-                </activity>
-
-                <provider
-                    android:name="androidx.core.content.FileProvider"
-                    android:authorities="${applicationId}.fileprovider"
-                    android:exported="false"
-                    android:grantUriPermissions="true">
-                    <meta-data
-                        android:name="android.support.FILE_PROVIDER_PATHS"
-                        android:resource="@xml/file_paths" />
-                </provider>
-            </application>
-
-        </manifest>
-        EOF
-
-        cat << 'EOF' > android/app/src/main/java/com/pulseepg/tvguide/MainActivity.java
-        package com.pulseepg.tvguide;
-
-        import android.graphics.Color;
-        import android.net.Uri;
-        import android.os.Bundle;
-        import android.view.Window;
-        import android.webkit.WebResourceRequest;
-        import android.webkit.WebResourceResponse;
-        import android.webkit.WebSettings;
-        import android.webkit.WebView;
-        import androidx.core.view.WindowCompat;
-        import com.getcapacitor.BridgeActivity;
-        import com.getcapacitor.BridgeWebViewClient;
-        import java.net.HttpURLConnection;
-        import java.net.URL;
-        import java.util.HashMap;
-        import java.util.Map;
-
-        public class MainActivity extends BridgeActivity {
-            @Override
-            public void onCreate(Bundle savedInstanceState) {
-                super.onCreate(savedInstanceState);
-
-                Window window = getWindow();
-                if (window != null) {
-                    WindowCompat.setDecorFitsSystemWindows(window, true);
-                    window.setStatusBarColor(Color.parseColor("#0A0E17"));
-                    window.setNavigationBarColor(Color.parseColor("#0A0E17"));
-                }
-
-                if (this.bridge != null && this.bridge.getWebView() != null) {
-                    WebView webView = this.bridge.getWebView();
-                    webView.setBackgroundColor(Color.parseColor("#0A0E17"));
-                    webView.setFocusable(true);
-                    webView.setFocusableInTouchMode(true);
-                    webView.requestFocus();
-
-                    WebSettings settings = webView.getSettings();
-                    settings.setDomStorageEnabled(true);
-                    settings.setAllowFileAccess(true);
-                    settings.setAllowContentAccess(true);
-                    settings.setAllowUniversalAccessFromFileURLs(true);
-                    settings.setAllowFileAccessFromFileURLs(true);
-                    settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
-
-                    webView.setWebViewClient(new BridgeWebViewClient(this.bridge) {
-                        @Override
-                        public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
-                            Uri uri = request.getUrl();
-                            if (uri != null && "/api/epg-proxy".equals(uri.getPath())) {
-                                String targetUrl = uri.getQueryParameter("url");
-                                if (targetUrl != null && (targetUrl.startsWith("https://") || targetUrl.startsWith("http://"))) {
-                                    try {
-                                        String secureUrl = targetUrl.replaceFirst("^http://", "https://");
-                                        URL url = new URL(secureUrl);
-                                        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                                        conn.setRequestMethod("GET");
-                                        conn.setConnectTimeout(20000);
-                                        conn.setReadTimeout(30000);
-                                        conn.setRequestProperty("Accept-Encoding", "identity");
-                                        conn.setRequestProperty("User-Agent", "PulseEPG-Android/1.0");
-                                        conn.connect();
-                                        int status = conn.getResponseCode();
-                                        if (status >= 200 && status < 300) {
-                                            Map<String, String> headers = new HashMap<>();
-                                            headers.put("Access-Control-Allow-Origin", "*");
-                                            headers.put("Cache-Control", "public, max-age=1800");
-                                            int len = conn.getContentLength();
-                                            if (len > 0) {
-                                                headers.put("Content-Length", String.valueOf(len));
-                                                headers.put("X-EPG-Total-Bytes", String.valueOf(len));
-                                            }
-                                            return new WebResourceResponse(
-                                                "application/octet-stream",
-                                                null,
-                                                status,
-                                                "OK",
-                                                headers,
-                                                conn.getInputStream()
-                                            );
-                                        }
-                                    } catch (Exception ignored) {
-                                    }
-                                }
-                            }
-                            return super.shouldInterceptRequest(view, request);
-                        }
-                    });
-                }
-            }
-        }
-        EOF
-
-    # 5. Octroi des permissions d'exécution à Gradle
-    - name: Grant execute permission for gradlew
-      run: chmod +x android/gradlew
-
-    # 6. Compilation de l'APK Debug
-    - name: Build Debug APK
-      env:
-        ANDROID_HOME: /usr/local/lib/android/sdk
-      run: |
-        cd android
-        ./gradlew assembleDebug --no-daemon
-
-    # 7. Génération de l'Artifact (Téléchargement de l'APK)
-    - name: Upload APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: PulseEPG-Debug-APK
-        path: android/app/build/outputs/apk/debug/app-debug.apk
-        retention-days: 7
-        
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PulseEPG-app-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
