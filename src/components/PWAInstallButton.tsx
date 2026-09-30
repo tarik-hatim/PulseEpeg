@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Check, Download, Share, X } from 'lucide-react';
+import { Download, Share, X } from 'lucide-react';
 import { AppLanguage } from '../types/epg';
 import { getActiveLanguage, getTranslations } from '../utils/i18n';
 import { PulseEpgLogo } from './PulseEpgLogo';
@@ -17,6 +17,49 @@ interface PWAInstallButtonProps {
   language?: AppLanguage;
 }
 
+/**
+ * Détecte si l'application tourne dans un conteneur natif Capacitor / Android APK (Capacitor.isNativePlatform()).
+ */
+function isCapacitorNativePlatform(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const cap = (
+      window as Window & {
+        Capacitor?: {
+          isNativePlatform?: () => boolean;
+          isNative?: boolean;
+          getPlatform?: () => string;
+        };
+      }
+    ).Capacitor;
+
+    if (cap) {
+      if (typeof cap.isNativePlatform === 'function' && cap.isNativePlatform()) {
+        return true;
+      }
+      if (cap.isNative === true) {
+        return true;
+      }
+      if (typeof cap.getPlatform === 'function') {
+        const platform = cap.getPlatform();
+        if (platform && platform !== 'web') {
+          return true;
+        }
+      }
+    }
+
+    if (
+      window.location.protocol === 'capacitor:' ||
+      window.location.protocol === 'file:'
+    ) {
+      return true;
+    }
+  } catch {
+    // Ignorer les erreurs d'accès WebView
+  }
+  return false;
+}
+
 export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
   language,
 }) => {
@@ -25,16 +68,20 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
 
   const [deferredPrompt, setDeferredPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
-  const [isInstalled, setIsInstalled] = useState(false);
+  const [isNativeOrInstalled, setIsNativeOrInstalled] = useState<boolean>(() =>
+    isCapacitorNativePlatform()
+  );
   const [showHelperModal, setShowHelperModal] = useState(false);
 
   useEffect(() => {
     if (
+      isCapacitorNativePlatform() ||
       window.matchMedia('(display-mode: standalone)').matches ||
       (window.navigator as Navigator & { standalone?: boolean }).standalone ===
         true
     ) {
-      setIsInstalled(true);
+      setIsNativeOrInstalled(true);
+      return;
     }
 
     const handleBeforeInstallPrompt = (e: Event) => {
@@ -43,7 +90,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
     };
 
     const handleAppInstalled = () => {
-      setIsInstalled(true);
+      setIsNativeOrInstalled(true);
       setDeferredPrompt(null);
       setShowHelperModal(false);
     };
@@ -60,13 +107,9 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
     };
   }, []);
 
-  if (isInstalled) {
-    return (
-      <div className="hidden xl:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] text-xs font-medium">
-        <Check className="w-3.5 h-3.5 text-emerald-400" />
-        <span>{tr.pwaActive}</span>
-      </div>
-    );
+  // Masquer complètement le bouton d'installation en mode Capacitor / Android APK ou PWA déjà installée
+  if (isNativeOrInstalled) {
+    return null;
   }
 
   const handleInstallClick = async () => {
@@ -84,13 +127,14 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
   return (
     <>
       <button
+        type="button"
         onClick={handleInstallClick}
         data-tv-focusable="true"
-        className="tv-focusable inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#e11d48] to-[#be123c] hover:from-[#ff0033] hover:to-[#e11d48] text-[#ffffff] border border-[#ff0033] shadow-[0_0_12px_rgba(225,29,72,0.4)] text-xs font-bold transition-all cursor-pointer shrink-0"
+        className="tv-focusable inline-flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg bg-gradient-to-r from-[#e11d48] to-[#be123c] hover:from-[#ff0033] hover:to-[#e11d48] text-[#ffffff] border border-[#ff0033] shadow-[0_0_12px_rgba(225,29,72,0.4)] text-xs font-bold transition-all cursor-pointer shrink-0"
         title={tr.installApp}
       >
-        <Download className="w-3.5 h-3.5 text-[#ffffff]" />
-        <span className="inline">{tr.installApp}</span>
+        <Download className="w-3.5 h-3.5 text-[#ffffff] shrink-0" />
+        <span className="hidden md:inline">{tr.installApp}</span>
       </button>
 
       {showHelperModal && (
@@ -115,6 +159,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setShowHelperModal(false)}
                 data-tv-focusable="true"
                 className="tv-focusable p-1.5 rounded-lg text-[#cbd5e1] hover:text-[#ffffff] hover:bg-[#1a202c] cursor-pointer"
@@ -146,6 +191,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
             </div>
 
             <button
+              type="button"
               onClick={() => setShowHelperModal(false)}
               data-tv-focusable="true"
               className="tv-focusable mt-4 w-full py-2.5 rounded-lg bg-[#e11d48] hover:bg-[#ff0033] border border-[#ff0033] text-[#ffffff] font-bold text-xs shadow-[0_0_12px_rgba(225,29,72,0.45)] transition-colors cursor-pointer"

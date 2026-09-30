@@ -3382,18 +3382,87 @@ export function App() {
       }
 
       // ========================================================================
-      // ÉTAT 2B : TRANSITION EN-TÊTE (HEADER) -> LIGNES DE FILTRES
+      // ÉTAT 2B : NAVIGATION VERTICALE INTERNE AU HEADER & TRANSITION -> FILTRES
       // ========================================================================
       const parentHeaderZone = activeEl?.closest<HTMLElement>('header');
-      if (parentHeaderZone && !modalScope && e.key === 'ArrowDown') {
-        if (
-          focusFilterGridRow('first', {
-            preferRememberedCol: true,
-            direction: 'down',
-          })
+      if (
+        parentHeaderZone &&
+        !modalScope &&
+        (e.key === 'ArrowDown' || e.key === 'ArrowUp')
+      ) {
+        const currentHeaderRowName =
+          activeRow?.getAttribute('data-tv-row') || '';
+
+        if (e.key === 'ArrowDown') {
+          if (currentHeaderRowName === 'header-top') {
+            const tabsRow = parentHeaderZone.querySelector<HTMLElement>(
+              '[data-tv-row="header-tabs"]'
+            );
+            if (tabsRow) {
+              const tabBtns = Array.from(
+                tabsRow.querySelectorAll<HTMLElement>(selector)
+              ).filter((el) => {
+                const r = el.getBoundingClientRect();
+                return r.width > 0 && r.height > 0;
+              });
+              if (tabBtns.length > 0) {
+                e.preventDefault();
+                const rememberedTabIdx =
+                  filterRowColMemoryRef.current['header-tabs'] ?? 0;
+                const targetTab =
+                  tabBtns[
+                    Math.max(0, Math.min(tabBtns.length - 1, rememberedTabIdx))
+                  ] || tabBtns[0];
+                targetTab.focus({ preventScroll: true });
+                targetTab.scrollIntoView({
+                  behavior: 'smooth',
+                  block: 'nearest',
+                });
+                return;
+              }
+            }
+          }
+
+          if (
+            focusFilterGridRow('first', {
+              preferRememberedCol: true,
+              direction: 'down',
+            })
+          ) {
+            e.preventDefault();
+            return;
+          }
+        } else if (
+          e.key === 'ArrowUp' &&
+          currentHeaderRowName === 'header-tabs'
         ) {
-          e.preventDefault();
-          return;
+          const topRow = parentHeaderZone.querySelector<HTMLElement>(
+            '[data-tv-row="header-top"]'
+          );
+          if (topRow) {
+            const topBtns = Array.from(
+              topRow.querySelectorAll<HTMLElement>(selector)
+            ).filter((el) => {
+              const r = el.getBoundingClientRect();
+              return r.width > 0 && r.height > 0;
+            });
+            if (topBtns.length > 0) {
+              e.preventDefault();
+              const rememberedTopIdx =
+                filterRowColMemoryRef.current['header-top'] ??
+                topBtns.length - 1;
+              const targetTop =
+                topBtns[
+                  Math.max(0, Math.min(topBtns.length - 1, rememberedTopIdx))
+                ] || topBtns[topBtns.length - 1];
+              targetTop.focus({ preventScroll: true });
+              targetTop.scrollIntoView({
+                behavior: 'smooth',
+                block: 'nearest',
+              });
+              return;
+            }
+          }
         }
       }
 
@@ -3623,34 +3692,131 @@ export function App() {
       dir={langOpt.dir}
       className="min-h-screen bg-[#0a0e17] text-[#ffffff] flex flex-col selection:bg-[#e11d48] selection:text-[#ffffff]"
     >
-      {/* Top Navigation Bar */}
+      {/* Top Navigation Bar — Layout Fixe sans défilement horizontal */}
       <header
         data-tv-zone="header"
         data-dpad-active={activeDpadZone === 'header' ? 'true' : undefined}
-        className="sticky top-0 z-30 bg-[#0a0e17]/95 backdrop-blur-xl border-b border-[#1a202c] pt-safe"
+        className="sticky top-0 z-30 w-full bg-[#0a0e17]/95 backdrop-blur-xl border-b border-[#1a202c] pt-safe overflow-x-clip"
       >
-        <div className="max-w-[1600px] mx-auto px-3 sm:px-6 2xl:px-10 py-3 flex flex-wrap items-center justify-between gap-3">
-          {/* Brand Logo & Launcher Icon Adaptatif (Smartphone, Tablette, Android TV, TV Box — Charte #0a0e17, #0055ff, #e11d48) */}
-          <div className="flex items-center gap-3">
-            <PulseEpgLogo adaptiveTerminalSize={true} />
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-base sm:text-lg 2xl:text-xl font-bold tracking-tight text-[#ffffff]">
-                  PulseEPG
-                </h1>
-                <span className="hidden md:inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider bg-[#1d4ed8]/25 text-[#ffffff] border border-[#0055ff]/60">
-                  <Volume2 className="w-3 h-3 text-[#60a5fa]" />
-                  VO + SUB
-                </span>
+        <div className="max-w-[1600px] w-full mx-auto">
+          {/* Ligne supérieure fixe : justify-between (Logo + Langue à gauche, Actions compactes Rafraîchir + Paramètres à droite avec pr-[12px]) */}
+          <div
+            data-tv-row="header-top"
+            className="w-full flex flex-nowrap items-center justify-between gap-2 py-2.5 pl-3 sm:pl-6 2xl:pl-10 pr-[12px]"
+          >
+            {/* Gauche : Logo + Sélecteur de Langue + Badge Zone/Profil TV */}
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              <div className="flex items-center gap-2 min-w-0 shrink-0">
+                <PulseEpgLogo adaptiveTerminalSize={true} />
+                <div className="hidden xs:block sm:block min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <h1 className="text-sm sm:text-base 2xl:text-lg font-bold tracking-tight text-[#ffffff] truncate">
+                      PulseEPG
+                    </h1>
+                    <span className="hidden lg:inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider bg-[#1d4ed8]/25 text-[#ffffff] border border-[#0055ff]/60 shrink-0">
+                      <Volume2 className="w-3 h-3 text-[#60a5fa]" />
+                      VO + SUB
+                    </span>
+                  </div>
+                  <p className="hidden sm:block text-[10px] font-normal text-[#cbd5e1] tracking-wide leading-tight truncate">
+                    Your Ultimate TV Guide
+                  </p>
+                </div>
               </div>
-              <p className="text-[11px] font-normal text-[#cbd5e1] tracking-wide leading-tight mt-0.5">
-                Your Ultimate TV Guide
-              </p>
+
+              {/* Sélecteur de Langue calé à gauche */}
+              <div className="relative flex items-center shrink-0">
+                <Languages className="w-3.5 h-3.5 text-[#60a5fa] absolute start-2.5 pointer-events-none" />
+                <select
+                  value={activeLang}
+                  onChange={(e) =>
+                    handleChangeLanguage(e.target.value as AppLanguage)
+                  }
+                  aria-label={tr.languageSectionTitle}
+                  className="ps-7 pe-5 py-1.5 rounded-lg bg-[#1d4ed8]/20 hover:bg-[#1d4ed8]/30 text-xs font-medium text-[#ffffff] border border-[#0055ff]/50 focus:outline-none focus:border-[#e11d48] transition-colors cursor-pointer"
+                >
+                  {LANGUAGE_OPTIONS.map((opt) => (
+                    <option
+                      key={opt.code}
+                      value={opt.code}
+                      className="bg-[#141a26] text-[#ffffff]"
+                    >
+                      {opt.flag} {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Bouton d'accès rapide au sélecteur "Zone / Profil TV" (écrans md+) */}
+              {(() => {
+                const currentProfileId =
+                  settings.tvProfile ||
+                  inferTvProfileFromBouquets(
+                    settings.selectedBouquets,
+                    settings.tvProfile
+                  );
+                const matchedSpec = TV_PROFILES_CATALOG.find(
+                  (p) => p.id === currentProfileId
+                );
+                const badgeFlag = matchedSpec?.flag || '⚙️';
+                const badgeLabel = matchedSpec?.shortLabel || 'Profil perso';
+                return (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSettingsInitialTab('filters');
+                      setIsSettingsOpen(true);
+                    }}
+                    title="Changer de Zone / Profil TV (Paramètres)"
+                    className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#1d4ed8]/20 hover:bg-[#1d4ed8]/35 text-xs font-semibold text-[#ffffff] border border-[#0055ff]/60 transition-colors cursor-pointer shrink-0"
+                  >
+                    <Globe className="w-3.5 h-3.5 text-[#60a5fa] shrink-0" />
+                    <span>{badgeFlag}</span>
+                    <span className="truncate max-w-[120px]">{badgeLabel}</span>
+                  </button>
+                );
+              })()}
+            </div>
+
+            {/* Droite : Boutons d'actions compacts (PWA masqué sur APK, Icône Rafraîchir compacte & Icône Paramètres fixe shrink-0) */}
+            <div className="flex items-center justify-end gap-2 shrink-0">
+              <PWAInstallButton language={activeLang} />
+
+              <button
+                type="button"
+                onClick={() => triggerEpgSync(settings)}
+                disabled={isSyncing}
+                className="shrink-0 w-9 h-9 inline-flex items-center justify-center rounded-lg bg-[#141a26] hover:bg-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#0055ff]/60 transition-colors cursor-pointer disabled:opacity-50"
+                title={isSyncing ? tr.refreshingBtn : tr.refreshBtn}
+                aria-label={isSyncing ? tr.refreshingBtn : tr.refreshBtn}
+              >
+                <RefreshCw
+                  className={`w-4 h-4 shrink-0 text-[#cbd5e1] ${
+                    isSyncing ? 'animate-spin text-[#e11d48]' : ''
+                  }`}
+                />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSettingsInitialTab('filters');
+                  setIsSettingsOpen(true);
+                }}
+                className="shrink-0 w-9 h-9 inline-flex items-center justify-center rounded-lg bg-[#141a26] hover:bg-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#0055ff]/60 transition-colors cursor-pointer"
+                title={tr.settingsTitle}
+                aria-label={tr.settingsTitle}
+              >
+                <Settings className="w-4 h-4 shrink-0" />
+              </button>
             </div>
           </div>
 
-          {/* Mode Switcher (En Direct / Grille TV / Favoris) — Rouge Crimson (#e11d48 / #ff0033) pour les boutons d'action principaux */}
-          <div data-tv-row="header-tabs" className="flex items-center gap-1.5">
+          {/* Ligne de navigation des vues (En Direct / Grille TV / Favoris / Mes Rappels) */}
+          <div
+            data-tv-row="header-tabs"
+            className="w-full flex items-center gap-1.5 overflow-x-auto no-scrollbar py-2 pl-3 sm:pl-6 2xl:pl-10 pr-[12px] border-t border-[#1a202c]/80"
+          >
             <button
               type="button"
               onClick={() => {
@@ -3659,7 +3825,7 @@ export function App() {
                 setActiveTimePreset('now');
                 setViewMode('live');
               }}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer ${
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer shrink-0 ${
                 viewMode === 'live'
                   ? 'bg-[#e11d48] border border-[#ff0033] text-[#ffffff] font-bold shadow-[0_0_14px_rgba(225,29,72,0.5)]'
                   : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60 font-medium'
@@ -3678,13 +3844,13 @@ export function App() {
             <button
               type="button"
               onClick={() => setViewMode('grid')}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer ${
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer shrink-0 ${
                 viewMode === 'grid'
                   ? 'bg-[#e11d48] border border-[#ff0033] text-[#ffffff] font-bold shadow-[0_0_14px_rgba(225,29,72,0.5)]'
                   : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60 font-medium'
               }`}
             >
-              <LayoutGrid className="w-3.5 h-3.5" />
+              <LayoutGrid className="w-3.5 h-3.5 shrink-0" />
               <span>{tr.gridTab}</span>
             </button>
 
@@ -3699,14 +3865,14 @@ export function App() {
                 setSelectedGroup('Tous');
                 setViewMode('favorites');
               }}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer ${
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer shrink-0 ${
                 viewMode === 'favorites'
                   ? 'bg-[#e11d48] border border-[#ff0033] text-[#ffffff] font-bold shadow-[0_0_14px_rgba(225,29,72,0.5)]'
                   : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60 font-medium'
               }`}
             >
               <Heart
-                className={`w-3.5 h-3.5 ${
+                className={`w-3.5 h-3.5 shrink-0 ${
                   viewMode === 'favorites'
                     ? 'text-[#ffffff] fill-[#ffffff]'
                     : favorites.length > 0
@@ -3731,17 +3897,17 @@ export function App() {
             <button
               type="button"
               onClick={() => setViewMode('reminders')}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer ${
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer shrink-0 ${
                 viewMode === 'reminders'
                   ? 'bg-gradient-to-r from-[#0055ff] to-[#ec4899] border border-[#ec4899] text-[#ffffff] font-bold shadow-[0_0_14px_rgba(236,72,153,0.55)]'
                   : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#ec4899]/70 font-medium'
               }`}
             >
               {hasImminentOrLiveReminder ? (
-                <BellRing className="w-3.5 h-3.5 text-[#ec4899] animate-bounce" />
+                <BellRing className="w-3.5 h-3.5 text-[#ec4899] animate-bounce shrink-0" />
               ) : (
                 <Bell
-                  className={`w-3.5 h-3.5 ${
+                  className={`w-3.5 h-3.5 shrink-0 ${
                     viewMode === 'reminders'
                       ? 'text-[#ffffff]'
                       : activeRemindersCount > 0
@@ -3770,93 +3936,6 @@ export function App() {
                   {activeRemindersCount || reminders.length}
                 </span>
               )}
-            </button>
-          </div>
-
-          {/* Right Actions : Badge Zone/Profil TV + Sélecteur de Langue + PWA + Sync + Settings */}
-          <div data-tv-row="header-actions" className="flex items-center gap-2">
-            {/* Bouton d'accès rapide au sélecteur "Zone / Profil TV" */}
-            {(() => {
-              const currentProfileId =
-                settings.tvProfile ||
-                inferTvProfileFromBouquets(
-                  settings.selectedBouquets,
-                  settings.tvProfile
-                );
-              const matchedSpec = TV_PROFILES_CATALOG.find(
-                (p) => p.id === currentProfileId
-              );
-              const badgeFlag = matchedSpec?.flag || '⚙️';
-              const badgeLabel = matchedSpec?.shortLabel || 'Profil perso';
-              return (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSettingsInitialTab('filters');
-                    setIsSettingsOpen(true);
-                  }}
-                  title="Changer de Zone / Profil TV (Paramètres)"
-                  className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#1d4ed8]/20 hover:bg-[#1d4ed8]/35 text-xs font-semibold text-[#ffffff] border border-[#0055ff]/60 transition-colors cursor-pointer"
-                >
-                  <Globe className="w-3.5 h-3.5 text-[#60a5fa] shrink-0" />
-                  <span>{badgeFlag}</span>
-                  <span className="truncate max-w-[130px]">{badgeLabel}</span>
-                </button>
-              );
-            })()}
-
-            {/* Sélecteur de Langue Fluide dans le Header (Badge Langue Bleu Royal) */}
-            <div className="relative flex items-center">
-              <Languages className="w-3.5 h-3.5 text-[#60a5fa] absolute start-2.5 pointer-events-none" />
-              <select
-                value={activeLang}
-                onChange={(e) =>
-                  handleChangeLanguage(e.target.value as AppLanguage)
-                }
-                aria-label={tr.languageSectionTitle}
-                className="ps-7 pe-6 py-1.5 rounded-lg bg-[#1d4ed8]/20 hover:bg-[#1d4ed8]/30 text-xs font-medium text-[#ffffff] border border-[#0055ff]/50 focus:outline-none focus:border-[#e11d48] transition-colors cursor-pointer"
-              >
-                {LANGUAGE_OPTIONS.map((opt) => (
-                  <option
-                    key={opt.code}
-                    value={opt.code}
-                    className="bg-[#141a26] text-[#ffffff]"
-                  >
-                    {opt.flag} {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <PWAInstallButton language={activeLang} />
-
-            <button
-              type="button"
-              onClick={() => triggerEpgSync(settings)}
-              disabled={isSyncing}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#141a26] hover:bg-[#1a202c] text-xs font-medium text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#0055ff]/60 transition-colors cursor-pointer disabled:opacity-50"
-              title={tr.refreshBtn}
-            >
-              <RefreshCw
-                className={`w-3.5 h-3.5 text-[#cbd5e1] ${
-                  isSyncing ? 'animate-spin text-[#e11d48]' : ''
-                }`}
-              />
-              <span className="hidden lg:inline">
-                {isSyncing ? tr.refreshingBtn : tr.refreshBtn}
-              </span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setSettingsInitialTab('filters');
-                setIsSettingsOpen(true);
-              }}
-              className="p-2 rounded-lg bg-[#141a26] hover:bg-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#0055ff]/60 transition-colors cursor-pointer"
-              title={tr.settingsTitle}
-            >
-              <Settings className="w-4 h-4" />
             </button>
           </div>
         </div>
