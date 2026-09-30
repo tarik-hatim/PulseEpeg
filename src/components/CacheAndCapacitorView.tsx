@@ -186,6 +186,7 @@ export const CacheAndCapacitorView: React.FC<CacheAndCapacitorViewProps> = ({
   const buildCommands = `npm run build
 npx cap add android
 npx cap sync android
+npm run icons
 cd android && ./gradlew bundleRelease`;
 
   const copyCommands = () => {

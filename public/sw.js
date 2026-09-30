@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pulse-epg-shell-v7';
+const CACHE_NAME = 'pulse-epg-shell-v8';
 const STATIC_ASSETS = [
   '/manifest.json',
   '/icon.svg',

@@ -5,7 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "vite build",
+    "icons": "node scripts/generate-icons.mjs",
+    "build": "node scripts/generate-icons.mjs && vite build",
+    "capacitor:sync:after": "node scripts/generate-icons.mjs",
+    "capacitor:copy:after": "node scripts/generate-icons.mjs",
+    "capacitor:update:after": "node scripts/generate-icons.mjs",
     "start": "NODE_ENV=production tsx server.ts",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",

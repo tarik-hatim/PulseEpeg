@@ -146,8 +146,8 @@ export const PulseEpgLogo: React.FC<PulseEpgLogoProps> = ({
       <path
         d="M 248 386 H 284 L 302 346 L 326 420 L 348 366 L 362 386 H 398"
         fill="none"
-        stroke={`url(#pulse-${uid})`}
-        strokeWidth="13"
+        stroke="#e11d48"
+        strokeWidth="14"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -158,10 +158,7 @@ export const PulseEpgLogo: React.FC<PulseEpgLogoProps> = ({
         strokeWidth="4"
         strokeLinecap="round"
         strokeLinejoin="round"
-        strokeOpacity="0.92"
       />
-      <circle cx="248" cy="386" r="6.5" fill="#38bdf8" />
-      <circle cx="398" cy="386" r="6.5" fill="#ff0033" />
     </svg>
   );
 };

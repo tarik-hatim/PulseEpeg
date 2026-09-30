@@ -4,12 +4,11 @@ import { Resvg } from '@resvg/resvg-js';
 
 const ROOT_DIR = process.cwd();
 const PUBLIC_DIR = path.join(ROOT_DIR, 'public');
-const ANDROID_RES_DIR = path.join(ROOT_DIR, 'android', 'app', 'src', 'main', 'res');
+const ANDROID_MAIN_DIR = path.join(ROOT_DIR, 'android', 'app', 'src', 'main');
+const ANDROID_RES_DIR = path.join(ANDROID_MAIN_DIR, 'res');
 
 /**
- * Geometric vector paths for "PULSE EPG" (used exclusivamente on the 16:9 Android TV Leanback horizontal banner).
- * The square/round/adaptive phone & tablet launcher icon uses a pure, bold Netflix-style 3D folded ribbon monogram
- * with zero small text for maximum legibility on mobile home screens.
+ * Geometric vector paths for "PULSE EPG" (used on the 16:9 Android TV Leanback horizontal banner).
  */
 export const PULSE_TEXT_PATHS = [
   // P (x: 84..116, y: 392..436)
@@ -31,12 +30,10 @@ export const PULSE_TEXT_PATHS = [
 ].join(' ');
 
 /**
- * Generates the Netflix-inspired ("Netfly") 3D Folded Ribbon Master SVG Launcher Icon
- * strictly respecting the PulseEPG color charter:
- * - Deep Studio Midnight Navy Canvas (#05070d -> #0a0e17 -> #101729)
- * - Hero Crimson Red 3D Ribbon Fold (#ff0033 -> #e11d48 -> #be123c)
- * - Royal Blue & Electric Cyan Structural Pillar & Under-Fold (#38bdf8 -> #0055ff -> #1d4ed8)
- * - Realistic 3D cast shadows at ribbon overlaps + dynamic Pulse accent in the lower-right counter.
+ * Generates the PulseEPG SplashScreen "P" App Icon SVG:
+ * - Dark studio background (#060911 -> #0a0e17)
+ * - 3D Folded "P" monogram with Blue/Red gradient (#38bdf8 -> #0055ff / #ff335c -> #ff0033 -> #e11d48)
+ * - Heartbeat wave (onde cardiaque) in the lower-right counter (#e11d48 + #ffffff core)
  */
 export function buildLauncherSvg({
   mode = 'any', // 'any' | 'maskable' | 'round' | 'foreground'
@@ -45,104 +42,83 @@ export function buildLauncherSvg({
   const isRound = mode === 'round';
   const isForegroundOnly = mode === 'foreground';
 
-  // For Android Adaptive / Maskable icons, scale around (256, 256) so 100% of the 3D ribbon
-  // sits comfortably inside the 66dp/108dp circle/squircle safe zone across all Android launchers.
-  const contentTransform =
-    isMaskable || isForegroundOnly
-      ? 'translate(256, 256) scale(0.76) translate(-256, -256)'
-      : isRound
-      ? 'translate(256, 256) scale(0.86) translate(-256, -256)'
-      : 'translate(0, 0)';
+  // For Android Adaptive Icon foreground (108dp canvas with 66dp safe zone) and PWA maskable icons,
+  // scale around center (256, 256) so 100% of the "P" and heartbeat wave sit inside the safe zone
+  // on both square, squircle, and circular launchers.
+  const contentTransform = isForegroundOnly
+    ? 'translate(256, 256) scale(0.66) translate(-256, -256)'
+    : isMaskable
+    ? 'translate(256, 256) scale(0.74) translate(-256, -256)'
+    : isRound
+    ? 'translate(256, 256) scale(0.84) translate(-256, -256)'
+    : 'translate(0, 0)';
 
-  const outerRx = isMaskable ? 0 : isRound ? 256 : 114;
+  const outerRx = isMaskable ? 0 : isRound ? 256 : 112;
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
-    <!-- Deep Studio Matte-Dark Navy Background (#05070d -> #0a0e17 -> #111827) -->
+    <!-- SplashScreen Dark Studio Background (#060911 -> #0a0e17) -->
     <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#05070d" />
-      <stop offset="50%" stop-color="#0a0e17" />
+      <stop offset="0%" stop-color="#060911" />
+      <stop offset="55%" stop-color="#0a0e17" />
       <stop offset="100%" stop-color="#0f1524" />
     </linearGradient>
 
-    <!-- Subtle Netflix-style Center-Top Crimson Studio Spotlight (#e11d48 / #ff0033) -->
     <radialGradient id="crimsonSpotlight" cx="56%" cy="34%" r="54%">
-      <stop offset="0%" stop-color="#e11d48" stop-opacity="0.34" />
-      <stop offset="55%" stop-color="#e11d48" stop-opacity="0.10" />
+      <stop offset="0%" stop-color="#e11d48" stop-opacity="0.30" />
+      <stop offset="55%" stop-color="#e11d48" stop-opacity="0.08" />
       <stop offset="100%" stop-color="#e11d48" stop-opacity="0" />
     </radialGradient>
 
-    <!-- Subtle Bottom-Left Royal Blue Studio Backlight (#0055ff / #38bdf8) -->
     <radialGradient id="blueBacklight" cx="32%" cy="72%" r="54%">
-      <stop offset="0%" stop-color="#0055ff" stop-opacity="0.36" />
-      <stop offset="55%" stop-color="#0055ff" stop-opacity="0.10" />
+      <stop offset="0%" stop-color="#0055ff" stop-opacity="0.32" />
+      <stop offset="55%" stop-color="#0055ff" stop-opacity="0.08" />
       <stop offset="100%" stop-color="#0055ff" stop-opacity="0" />
     </radialGradient>
 
-    <!-- Ribbon 1 (Left Vertical Stem): Deep Royal Blue to Midnight Indigo (#38bdf8 -> #0055ff -> #1e3a8a) -->
-    <linearGradient id="stemBlueGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+    <!-- SplashScreen "bootStem": Left Vertical Pillar of "P" (#38bdf8 -> #0055ff -> #0f2361) -->
+    <linearGradient id="bootStem" x1="0%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" stop-color="#38bdf8" />
-      <stop offset="28%" stop-color="#0055ff" />
+      <stop offset="30%" stop-color="#0055ff" />
       <stop offset="72%" stop-color="#1d4ed8" />
       <stop offset="100%" stop-color="#0f2361" />
     </linearGradient>
 
-    <!-- Ribbon 2 (Under-Fold Return Loop): Crimson-Rose to Royal Blue Shadow (#e11d48 -> #ec4899 -> #0055ff -> #172554) -->
-    <linearGradient id="underLoopGrad" x1="100%" y1="0%" x2="0%" y2="100%">
+    <!-- SplashScreen "bootUnder": Lower Return Loop of "P" (#e11d48 -> #0055ff -> #172554) -->
+    <linearGradient id="bootUnder" x1="100%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" stop-color="#e11d48" />
-      <stop offset="32%" stop-color="#be123c" />
-      <stop offset="68%" stop-color="#0055ff" />
+      <stop offset="35%" stop-color="#be123c" />
+      <stop offset="65%" stop-color="#0055ff" />
       <stop offset="100%" stop-color="#172554" />
     </linearGradient>
 
-    <!-- Ribbon 3 (Hero Foreground Diagonal/Curved Fold): Netflix-Style Vivid Crimson (#ff2a55 -> #ff0033 -> #e11d48 -> #9f1239) -->
-    <linearGradient id="heroCrimsonGrad" x1="0%" y1="0%" x2="95%" y2="90%">
+    <!-- SplashScreen "bootHero": Upper-Right Folded Ribbon of "P" (#ff335c -> #ff0033 -> #e11d48 -> #9f1239) -->
+    <linearGradient id="bootHero" x1="0%" y1="0%" x2="95%" y2="90%">
       <stop offset="0%" stop-color="#ff335c" />
-      <stop offset="34%" stop-color="#ff0033" />
+      <stop offset="38%" stop-color="#ff0033" />
       <stop offset="72%" stop-color="#e11d48" />
       <stop offset="100%" stop-color="#9f1239" />
     </linearGradient>
 
-    <!-- Cast Shadow Gradient (Top-Left Stem Fold Shadow) -->
-    <linearGradient id="topFoldShadow" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#020409" stop-opacity="0.82" />
-      <stop offset="55%" stop-color="#020409" stop-opacity="0.38" />
-      <stop offset="100%" stop-color="#020409" stop-opacity="0" />
-    </linearGradient>
-
-    <!-- Cast Shadow Gradient (Waist Under-Fold Shadow) -->
-    <linearGradient id="waistFoldShadow" x1="0%" y1="50%" x2="100%" y2="50%">
-      <stop offset="0%" stop-color="#020409" stop-opacity="0.80" />
-      <stop offset="65%" stop-color="#020409" stop-opacity="0.42" />
-      <stop offset="100%" stop-color="#020409" stop-opacity="0" />
-    </linearGradient>
-
-    <!-- Specular Edge Highlight on Hero Ribbon -->
-    <linearGradient id="edgeHighlight" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.65" />
-      <stop offset="45%" stop-color="#ffe4e6" stop-opacity="0.25" />
-      <stop offset="100%" stop-color="#38bdf8" stop-opacity="0" />
-    </linearGradient>
-
-    <!-- Signature Pulse Wave Accent Gradient (#38bdf8 -> #0055ff -> #ec4899 -> #ff0033) -->
+    <!-- Heartbeat Wave (Onde Cardiaque) Gradient -->
     <linearGradient id="pulseWaveGrad" x1="0%" y1="50%" x2="100%" y2="50%">
       <stop offset="0%" stop-color="#38bdf8" />
       <stop offset="35%" stop-color="#0055ff" />
-      <stop offset="70%" stop-color="#ec4899" />
+      <stop offset="70%" stop-color="#e11d48" />
       <stop offset="100%" stop-color="#ff0033" />
     </linearGradient>
 
-    <!-- Outer Studio Bevel Rim -->
+    <!-- Subtle Rim Border matching SplashScreen .tv-boot-logo-box -->
     <linearGradient id="rimGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#ff0033" stop-opacity="0.55" />
-      <stop offset="50%" stop-color="#0055ff" stop-opacity="0.35" />
-      <stop offset="100%" stop-color="#e11d48" stop-opacity="0.55" />
+      <stop offset="0%" stop-color="#e11d48" stop-opacity="0.65" />
+      <stop offset="50%" stop-color="#0055ff" stop-opacity="0.45" />
+      <stop offset="100%" stop-color="#e11d48" stop-opacity="0.65" />
     </linearGradient>
   </defs>
 
   ${
     !isForegroundOnly
-      ? `<!-- Studio Dark Background -->
+      ? `<!-- Dark SplashScreen Background -->
   <rect width="512" height="512" rx="${outerRx}" fill="url(#bgGrad)" />
   <rect width="512" height="512" rx="${outerRx}" fill="url(#crimsonSpotlight)" />
   <rect width="512" height="512" rx="${outerRx}" fill="url(#blueBacklight)" />`
@@ -151,82 +127,45 @@ export function buildLauncherSvg({
 
   ${
     !isForegroundOnly && !isMaskable
-      ? `<!-- Subtle Studio Squircle Bevel Rim -->
-  <rect x="14" y="14" width="484" height="484" rx="${
-    isRound ? 242 : 102
-  }" fill="none" stroke="url(#rimGrad)" stroke-width="4" />`
+      ? `<!-- SplashScreen Logo Box Rim -->
+  <rect x="12" y="12" width="488" height="488" rx="${
+    isRound ? 244 : 102
+  }" fill="none" stroke="url(#rimGrad)" stroke-width="5" />`
       : ''
   }
 
   <g transform="${contentTransform}">
-    <!-- Soft Ambient Drop-Glow Behind the 3D Ribbon Monogram -->
-    <path
-      d="M 128 84 H 254 C 348 84, 404 134, 404 206 C 404 278, 344 330, 236 330 H 218 V 432 Q 173 424, 128 438 Z"
-      fill="#e11d48"
-      fill-opacity="0.12"
-      transform="translate(0, 8)"
-    />
-
-    <!-- =======================================================================
-         PLANE 1: LEFT VERTICAL RIBBON STEM (Royal Blue #38bdf8 -> #0055ff -> #1d4ed8)
-         With Netflix-style curved bottom baseline arch (Q 173 424, 218 430)
-         ======================================================================= -->
+    <!-- 1. Left Vertical Pillar of "P" (Blue Gradient) -->
     <path
       d="M 128 92 C 128 81, 136 74, 147 74 H 200 C 210 74, 218 81, 218 92 V 430 Q 173 422, 128 438 Z"
-      fill="url(#stemBlueGrad)"
+      fill="url(#bootStem)"
     />
 
-    <!-- =======================================================================
-         PLANE 2: LOWER RETURN RIBBON OF THE "P" BOWL (Under-Fold Ribbon)
-         Sweeps from the right outer loop (404, 204) back into the vertical stem (176, 330)
-         ======================================================================= -->
+    <!-- 2. Lower Return Loop of "P" (Red-to-Blue Gradient) -->
     <path
       d="M 314 184 H 404 C 404 274, 338 332, 232 332 H 176 V 248 H 232 C 284 248, 314 224, 314 196 Z"
-      fill="url(#underLoopGrad)"
+      fill="url(#bootUnder)"
     />
 
-    <!-- Cast Shadow where Under-Fold Tucks Behind/Into the Vertical Stem -->
-    <path
-      d="M 218 248 H 268 L 244 332 H 218 Z"
-      fill="url(#waistFoldShadow)"
-    />
-
-    <!-- Cast Shadow on Vertical Stem under the Top-Left Hero Fold -->
+    <!-- 3. 3D Fold Shadow on Vertical Stem -->
     <path
       d="M 128 148 L 218 112 V 224 L 128 246 Z"
-      fill="url(#topFoldShadow)"
+      fill="#020409"
+      fill-opacity="0.72"
     />
-
-    <!-- Cast Shadow on Right Loop under the Hero Foreground Fold -->
     <path
       d="M 312 194 L 404 218 C 401 242, 391 264, 375 282 L 298 232 Z"
       fill="#020409"
-      fill-opacity="0.58"
+      fill-opacity="0.55"
     />
 
-    <!-- =======================================================================
-         PLANE 3: HERO FOREGROUND 3D FOLDED RIBBON (Netflix Crimson #ff0033 -> #e11d48)
-         Folds diagonally from top-left (128, 74) across the upper arch to the right apex (404, 216)
-         ======================================================================= -->
+    <!-- 4. Upper-Right Hero Folded Ribbon of "P" (Crimson Red Gradient) -->
     <path
       d="M 128 92 C 128 81, 136 74, 147 74 H 242 C 344 74, 404 126, 404 202 C 404 214, 402 226, 397 238 L 308 198 C 312 191, 314 183, 314 174 C 314 149, 284 134, 232 134 H 206 L 128 168 Z"
-      fill="url(#heroCrimsonGrad)"
+      fill="url(#bootHero)"
     />
 
-    <!-- Crisp 3D Diagonal Fold Crease & Specular Edge on Hero Ribbon -->
-    <path
-      d="M 130 92 C 130 82, 137 76, 147 76 H 242 C 340 76, 399 125, 401 198"
-      fill="none"
-      stroke="url(#edgeHighlight)"
-      stroke-width="3.5"
-      stroke-linecap="round"
-    />
-
-    <!-- =======================================================================
-         PLANE 4: SIGNATURE "PULSE" ENERGY WAVE IN LOWER-RIGHT COUNTER
-         Balances the monumental "P" ribbon with our unmistakable EPG Pulse identity
-         ======================================================================= -->
-    <!-- Outer Neon Halo -->
+    <!-- 5. Heartbeat Wave / Onde Cardiaque (Crimson + White Core) -->
     <path
       d="M 248 386 H 284 L 302 346 L 326 420 L 348 366 L 362 386 H 398"
       fill="none"
@@ -236,16 +175,14 @@ export function buildLauncherSvg({
       stroke-linejoin="round"
       stroke-opacity="0.28"
     />
-    <!-- Main Pulse Gradient Ribbon Stroke -->
     <path
       d="M 248 386 H 284 L 302 346 L 326 420 L 348 366 L 362 386 H 398"
       fill="none"
-      stroke="url(#pulseWaveGrad)"
-      stroke-width="13"
+      stroke="#e11d48"
+      stroke-width="14"
       stroke-linecap="round"
       stroke-linejoin="round"
     />
-    <!-- Bright White-Hot Specular Core -->
     <path
       d="M 248 386 H 284 L 302 346 L 326 420 L 348 366 L 362 386 H 398"
       fill="none"
@@ -253,50 +190,44 @@ export function buildLauncherSvg({
       stroke-width="4"
       stroke-linecap="round"
       stroke-linejoin="round"
-      stroke-opacity="0.92"
     />
-    <circle cx="248" cy="386" r="6.5" fill="#38bdf8" />
-    <circle cx="398" cy="386" r="6.5" fill="#ff0033" />
   </g>
 </svg>`;
 }
 
 /**
  * Generates the 16:9 Android TV / Google TV / TV Box Leanback Banner (640x360 viewBox)
- * featuring the same Netflix-style 3D Folded Ribbon emblem on the left and bold "PULSE EPG" logotype on the right.
+ * featuring the SplashScreen "P" logo + heartbeat wave on the left and "PULSE EPG" on the right.
  */
 export function buildTvBannerSvg() {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" width="640" height="360">
   <defs>
     <linearGradient id="tvBgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#05070d" />
-      <stop offset="50%" stop-color="#0a0e17" />
+      <stop offset="0%" stop-color="#060911" />
+      <stop offset="55%" stop-color="#0a0e17" />
       <stop offset="100%" stop-color="#111827" />
     </linearGradient>
     <radialGradient id="tvCrimsonGlow" cx="28%" cy="42%" r="55%">
-      <stop offset="0%" stop-color="#e11d48" stop-opacity="0.36" />
+      <stop offset="0%" stop-color="#e11d48" stop-opacity="0.34" />
       <stop offset="100%" stop-color="#e11d48" stop-opacity="0" />
     </radialGradient>
     <radialGradient id="tvBlueGlow" cx="75%" cy="58%" r="55%">
-      <stop offset="0%" stop-color="#0055ff" stop-opacity="0.34" />
+      <stop offset="0%" stop-color="#0055ff" stop-opacity="0.32" />
       <stop offset="100%" stop-color="#0055ff" stop-opacity="0" />
     </radialGradient>
     <linearGradient id="tvStemBlue" x1="0%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" stop-color="#38bdf8" />
       <stop offset="30%" stop-color="#0055ff" />
-      <stop offset="75%" stop-color="#1d4ed8" />
       <stop offset="100%" stop-color="#0f2361" />
     </linearGradient>
     <linearGradient id="tvUnderLoop" x1="100%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" stop-color="#e11d48" />
-      <stop offset="35%" stop-color="#be123c" />
-      <stop offset="70%" stop-color="#0055ff" />
+      <stop offset="65%" stop-color="#0055ff" />
       <stop offset="100%" stop-color="#172554" />
     </linearGradient>
     <linearGradient id="tvHeroCrimson" x1="0%" y1="0%" x2="95%" y2="90%">
       <stop offset="0%" stop-color="#ff335c" />
-      <stop offset="35%" stop-color="#ff0033" />
-      <stop offset="72%" stop-color="#e11d48" />
+      <stop offset="38%" stop-color="#ff0033" />
       <stop offset="100%" stop-color="#9f1239" />
     </linearGradient>
     <linearGradient id="tvBrandGrad" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -307,13 +238,12 @@ export function buildTvBannerSvg() {
     </linearGradient>
   </defs>
 
-  <!-- 16:9 Studio Dark Background for Android TV / TV Box Leanback -->
   <rect width="640" height="360" rx="28" fill="url(#tvBgGrad)" />
   <rect width="640" height="360" rx="28" fill="url(#tvCrimsonGlow)" />
   <rect width="640" height="360" rx="28" fill="url(#tvBlueGlow)" />
   <rect x="8" y="8" width="624" height="344" rx="22" fill="none" stroke="url(#tvBrandGrad)" stroke-width="3" stroke-opacity="0.55" />
 
-  <!-- Left Side: Netflix-Style 3D Folded Ribbon "P" Emblem -->
+  <!-- Left Side: SplashScreen "P" Logo + Heartbeat Wave -->
   <g transform="translate(26, 8) scale(0.67)">
     <path
       d="M 128 92 C 128 81, 136 74, 147 74 H 200 C 210 74, 218 81, 218 92 V 430 Q 173 422, 128 438 Z"
@@ -326,7 +256,7 @@ export function buildTvBannerSvg() {
     <path
       d="M 128 148 L 218 112 V 224 L 128 246 Z"
       fill="#020409"
-      fill-opacity="0.68"
+      fill-opacity="0.7"
     />
     <path
       d="M 128 92 C 128 81, 136 74, 147 74 H 242 C 344 74, 404 126, 404 202 C 404 214, 402 226, 397 238 L 308 198 C 312 191, 314 183, 314 174 C 314 149, 284 134, 232 134 H 206 L 128 168 Z"
@@ -335,7 +265,7 @@ export function buildTvBannerSvg() {
     <path
       d="M 248 386 H 284 L 302 346 L 326 420 L 348 366 L 362 386 H 398"
       fill="none"
-      stroke="url(#tvBrandGrad)"
+      stroke="#e11d48"
       stroke-width="14"
       stroke-linecap="round"
       stroke-linejoin="round"
@@ -350,13 +280,12 @@ export function buildTvBannerSvg() {
     />
   </g>
 
-  <!-- Right Side: Bold "PULSE EPG" Vector Logotype + Netflix-Style Crimson Ribbon Bar -->
+  <!-- Right Side: Bold "PULSE EPG" Logotype -->
   <g transform="translate(238, -200) scale(0.90)">
     <path d="${PULSE_TEXT_PATHS}" fill="#e11d48" opacity="0.45" transform="translate(0, 4)" />
     <path d="${PULSE_TEXT_PATHS}" fill="#ffffff" />
   </g>
 
-  <!-- Crimson & Royal Blue Signature Ribbon Accent on Right Side -->
   <rect x="314" y="206" width="260" height="7" rx="3.5" fill="url(#tvBrandGrad)" />
   <circle cx="326" cy="242" r="6.5" fill="#ff0033" />
   <rect x="342" y="237" width="96" height="10" rx="5" fill="#e11d48" />
@@ -364,13 +293,6 @@ export function buildTvBannerSvg() {
 </svg>`;
 }
 
-/**
- * Generates Android Adaptive Icon VectorDrawables (API 26+)
- * - drawable/ic_launcher_background.xml (108dp x 108dp studio dark background with crimson/blue glow)
- * - drawable/ic_launcher_foreground.xml (108dp x 108dp Netflix-style 3D folded ribbon monogram)
- * - drawable/ic_launcher_monochrome.xml (108dp x 108dp Android 13+ Material You themed icon silhouette)
- * - drawable/tv_banner.xml (320dp x 180dp Leanback TV banner vector)
- */
 export function buildAndroidBackgroundVectorXml() {
   return `<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
@@ -387,8 +309,8 @@ export function buildAndroidBackgroundVectorXml() {
                 android:endX="512"
                 android:endY="512"
                 android:type="linear">
-                <item android:offset="0.0" android:color="#FF05070D" />
-                <item android:offset="0.5" android:color="#FF0A0E17" />
+                <item android:offset="0.0" android:color="#FF060911" />
+                <item android:offset="0.55" android:color="#FF0A0E17" />
                 <item android:offset="1.0" android:color="#FF0F1524" />
             </gradient>
         </aapt:attr>
@@ -400,7 +322,7 @@ export function buildAndroidBackgroundVectorXml() {
                 android:centerY="174"
                 android:gradientRadius="270"
                 android:type="radial">
-                <item android:offset="0.0" android:color="#55E11D48" />
+                <item android:offset="0.0" android:color="#4DE11D48" />
                 <item android:offset="1.0" android:color="#00E11D48" />
             </gradient>
         </aapt:attr>
@@ -412,7 +334,7 @@ export function buildAndroidBackgroundVectorXml() {
                 android:centerY="368"
                 android:gradientRadius="270"
                 android:type="radial">
-                <item android:offset="0.0" android:color="#550055FF" />
+                <item android:offset="0.0" android:color="#500055FF" />
                 <item android:offset="1.0" android:color="#000055FF" />
             </gradient>
         </aapt:attr>
@@ -429,14 +351,14 @@ export function buildAndroidForegroundVectorXml() {
     android:height="108dp"
     android:viewportWidth="512"
     android:viewportHeight="512">
-    <!-- Adaptive Icon Safe Zone Group (66dp / 108dp centered across all Android launchers) -->
+    <!-- Adaptive Icon Safe Zone Group (66dp / 108dp centered) -->
     <group
         android:pivotX="256"
         android:pivotY="256"
-        android:scaleX="0.68"
-        android:scaleY="0.68">
+        android:scaleX="0.66"
+        android:scaleY="0.66">
 
-        <!-- Plane 1: Left Vertical Stem (Royal Blue #38bdf8 -> #0055ff -> #1d4ed8) -->
+        <!-- 1. Left Vertical Pillar of "P" (Blue Gradient) -->
         <path
             android:pathData="M 128 92 C 128 81, 136 74, 147 74 H 200 C 210 74, 218 81, 218 92 V 430 Q 173 422, 128 438 Z">
             <aapt:attr name="android:fillColor">
@@ -447,14 +369,14 @@ export function buildAndroidForegroundVectorXml() {
                     android:endY="438"
                     android:type="linear">
                     <item android:offset="0.0" android:color="#FF38BDF8" />
-                    <item android:offset="0.28" android:color="#FF0055FF" />
+                    <item android:offset="0.30" android:color="#FF0055FF" />
                     <item android:offset="0.72" android:color="#FF1D4ED8" />
                     <item android:offset="1.0" android:color="#FF0F2361" />
                 </gradient>
             </aapt:attr>
         </path>
 
-        <!-- Plane 2: Lower Return Ribbon of the "P" Bowl -->
+        <!-- 2. Lower Return Loop of "P" (Red-to-Blue Gradient) -->
         <path
             android:pathData="M 314 184 H 404 C 404 274, 338 332, 232 332 H 176 V 248 H 232 C 284 248, 314 224, 314 196 Z">
             <aapt:attr name="android:fillColor">
@@ -465,24 +387,18 @@ export function buildAndroidForegroundVectorXml() {
                     android:endY="332"
                     android:type="linear">
                     <item android:offset="0.0" android:color="#FFE11D48" />
-                    <item android:offset="0.35" android:color="#FFBE123C" />
-                    <item android:offset="0.70" android:color="#FF0055FF" />
+                    <item android:offset="0.65" android:color="#FF0055FF" />
                     <item android:offset="1.0" android:color="#FF172554" />
                 </gradient>
             </aapt:attr>
         </path>
 
-        <!-- 3D Cast Shadow on Vertical Stem under Top-Left Fold -->
+        <!-- 3. 3D Fold Shadow on Vertical Stem -->
         <path
             android:pathData="M 128 148 L 218 112 V 224 L 128 246 Z"
-            android:fillColor="#B0020409" />
+            android:fillColor="#B3020409" />
 
-        <!-- 3D Cast Shadow on Right Loop under Hero Foreground Fold -->
-        <path
-            android:pathData="M 312 194 L 404 218 C 401 242, 391 264, 375 282 L 298 232 Z"
-            android:fillColor="#94020409" />
-
-        <!-- Plane 3: Hero Foreground 3D Folded Ribbon (Netflix-Style Vivid Crimson #ff0033 -> #e11d48) -->
+        <!-- 4. Upper-Right Hero Folded Ribbon of "P" (Crimson Red Gradient) -->
         <path
             android:pathData="M 128 92 C 128 81, 136 74, 147 74 H 242 C 344 74, 404 126, 404 202 C 404 214, 402 226, 397 238 L 308 198 C 312 191, 314 183, 314 174 C 314 149, 284 134, 232 134 H 206 L 128 168 Z">
             <aapt:attr name="android:fillColor">
@@ -493,36 +409,23 @@ export function buildAndroidForegroundVectorXml() {
                     android:endY="238"
                     android:type="linear">
                     <item android:offset="0.0" android:color="#FFFF335C" />
-                    <item android:offset="0.35" android:color="#FFFF0033" />
+                    <item android:offset="0.38" android:color="#FFFF0033" />
                     <item android:offset="0.72" android:color="#FFE11D48" />
                     <item android:offset="1.0" android:color="#FF9F1239" />
                 </gradient>
             </aapt:attr>
         </path>
 
-        <!-- Plane 4: Signature Pulse Energy Wave in Lower-Right Counter -->
+        <!-- 5. Heartbeat Wave / Onde Cardiaque -->
         <path
             android:pathData="M 248 386 H 284 L 302 346 L 326 420 L 348 366 L 362 386 H 398"
-            android:strokeWidth="15"
+            android:strokeWidth="14"
+            android:strokeColor="#FFE11D48"
             android:strokeLineCap="round"
-            android:strokeLineJoin="round">
-            <aapt:attr name="android:strokeColor">
-                <gradient
-                    android:startX="248"
-                    android:startY="386"
-                    android:endX="398"
-                    android:endY="386"
-                    android:type="linear">
-                    <item android:offset="0.0" android:color="#FF38BDF8" />
-                    <item android:offset="0.35" android:color="#FF0055FF" />
-                    <item android:offset="0.70" android:color="#FFEC4899" />
-                    <item android:offset="1.0" android:color="#FFFF0033" />
-                </gradient>
-            </aapt:attr>
-        </path>
+            android:strokeLineJoin="round" />
         <path
             android:pathData="M 248 386 H 284 L 302 346 L 326 420 L 348 366 L 362 386 H 398"
-            android:strokeWidth="4.5"
+            android:strokeWidth="4"
             android:strokeColor="#FFFFFFFF"
             android:strokeLineCap="round"
             android:strokeLineJoin="round" />
@@ -541,8 +444,8 @@ export function buildAndroidMonochromeVectorXml() {
     <group
         android:pivotX="256"
         android:pivotY="256"
-        android:scaleX="0.68"
-        android:scaleY="0.68">
+        android:scaleX="0.66"
+        android:scaleY="0.66">
         <path
             android:pathData="M 128 92 C 128 81, 136 74, 147 74 H 200 C 210 74, 218 81, 218 92 V 430 Q 173 422, 128 438 Z"
             android:fillColor="#FFFFFFFF"
@@ -556,7 +459,7 @@ export function buildAndroidMonochromeVectorXml() {
             android:fillColor="#FFFFFFFF" />
         <path
             android:pathData="M 248 386 H 284 L 302 346 L 326 420 L 348 366 L 362 386 H 398"
-            android:strokeWidth="15"
+            android:strokeWidth="14"
             android:strokeColor="#FFFFFFFF"
             android:strokeLineCap="round"
             android:strokeLineJoin="round" />
@@ -581,8 +484,8 @@ export function buildAndroidTvBannerVectorXml() {
                 android:endX="640"
                 android:endY="360"
                 android:type="linear">
-                <item android:offset="0.0" android:color="#FF05070D" />
-                <item android:offset="0.5" android:color="#FF0A0E17" />
+                <item android:offset="0.0" android:color="#FF060911" />
+                <item android:offset="0.55" android:color="#FF0A0E17" />
                 <item android:offset="1.0" android:color="#FF111827" />
             </gradient>
         </aapt:attr>
@@ -600,14 +503,20 @@ export function buildAndroidTvBannerVectorXml() {
             android:fillColor="#FF1D4ED8" />
         <path
             android:pathData="M 128 148 L 218 112 V 224 L 128 246 Z"
-            android:fillColor="#B0020409" />
+            android:fillColor="#B3020409" />
         <path
             android:pathData="M 128 92 C 128 81, 136 74, 147 74 H 242 C 344 74, 404 126, 404 202 C 404 214, 402 226, 397 238 L 308 198 C 312 191, 314 183, 314 174 C 314 149, 284 134, 232 134 H 206 L 128 168 Z"
             android:fillColor="#FFE11D48" />
         <path
             android:pathData="M 248 386 H 284 L 302 346 L 326 420 L 348 366 L 362 386 H 398"
             android:strokeWidth="14"
-            android:strokeColor="#FFFF0033"
+            android:strokeColor="#FFE11D48"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+        <path
+            android:pathData="M 248 386 H 284 L 302 346 L 326 420 L 348 366 L 362 386 H 398"
+            android:strokeWidth="4"
+            android:strokeColor="#FFFFFFFF"
             android:strokeLineCap="round"
             android:strokeLineJoin="round" />
     </group>
@@ -640,6 +549,94 @@ function rasterizeSvgToPng(svgContent, outputPath, width, _height) {
   fs.writeFileSync(outputPath, pngBuffer);
 }
 
+function ensureAndroidManifestAndStrings() {
+  fs.mkdirSync(ANDROID_MAIN_DIR, { recursive: true });
+  const manifestPath = path.join(ANDROID_MAIN_DIR, 'AndroidManifest.xml');
+
+  const manifestXml = `<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Déclaration des features TV & Touchscreen comme non obligatoires pour conserver la compatibilité hybride Mobile / Tablette / Android TV -->
+    <uses-feature android:name="android.hardware.type.television" android:required="false" />
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <uses-feature android:name="android.software.leanback" android:required="false" />
+
+    <!-- Permissions réseau pour les flux EPG (.xml.gz) et l'API TMDB -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <application
+        android:allowBackup="true"
+        android:hardwareAccelerated="true"
+        android:largeHeap="true"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:banner="@drawable/tv_banner"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:usesCleartextTraffic="true"
+        android:theme="@style/AppTheme">
+
+        <activity
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation"
+            android:name=".MainActivity"
+            android:label="@string/title_activity_main"
+            android:icon="@mipmap/ic_launcher"
+            android:roundIcon="@mipmap/ic_launcher_round"
+            android:banner="@drawable/tv_banner"
+            android:theme="@style/AppTheme.NoActionBarLaunch"
+            android:launchMode="singleTask"
+            android:hardwareAccelerated="true"
+            android:exported="true">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+
+        </activity>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="\${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+    </application>
+
+</manifest>
+`;
+  fs.writeFileSync(manifestPath, manifestXml, 'utf8');
+
+  const valuesDir = path.join(ANDROID_RES_DIR, 'values');
+  fs.mkdirSync(valuesDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(valuesDir, 'strings.xml'),
+    `<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">PulseEPG</string>
+    <string name="title_activity_main">PulseEPG</string>
+    <string name="package_name">com.pulseepg.tvguide</string>
+    <string name="custom_url_scheme">com.pulseepg.tvguide</string>
+</resources>
+`,
+    'utf8'
+  );
+  fs.writeFileSync(
+    path.join(valuesDir, 'ic_launcher_background.xml'),
+    `<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_launcher_background">#060911</color>
+</resources>
+`,
+    'utf8'
+  );
+}
+
 function main() {
   fs.mkdirSync(PUBLIC_DIR, { recursive: true });
 
@@ -655,8 +652,6 @@ function main() {
   fs.writeFileSync(path.join(PUBLIC_DIR, 'tv-banner.svg'), svgTvBanner, 'utf8');
 
   // 2. Generate PWA & Multi-Terminal PNG icons in /public
-  //    Covers Smartphone (72, 96, 144, 180, 192), Tablette (128, 152, 384, 512),
-  //    and Android TV / TV Box (tv-banner 320x180 & 640x360)
   const publicPngTargets = [
     { file: 'pwa-72x72.png', svg: svgAny, w: 72, h: 72 },
     { file: 'pwa-96x96.png', svg: svgAny, w: 96, h: 96 },
@@ -677,7 +672,8 @@ function main() {
     rasterizeSvgToPng(t.svg, path.join(PUBLIC_DIR, t.file), t.w, t.h);
   }
 
-  // 3. Generate Native Android Mipmap & Drawable resources for Smartphone, Tablette, Android TV & TV Box
+  // 3. Generate Native Android Mipmap & Drawable resources for all resolutions:
+  //    mipmap-mdpi, mipmap-hdpi, mipmap-xhdpi, mipmap-xxhdpi, mipmap-xxxhdpi
   const androidDensities = [
     { name: 'mdpi', launcher: 48, foreground: 108, bannerW: 160, bannerH: 90 },
     { name: 'hdpi', launcher: 72, foreground: 162, bannerW: 240, bannerH: 135 },
@@ -701,55 +697,57 @@ function main() {
     rasterizeSvgToPng(svgTvBanner, path.join(drawableDir, 'tv_banner.png'), d.bannerW, d.bannerH);
   }
 
-  // 4. Write Android Adaptive Icon XMLs (mipmap-anydpi-v26 & drawable vectors)
+  // Also generate drawable-tvdpi/tv_banner.png (320x180) for Android TV boxes using tvdpi (213dpi)
+  const tvDpiDir = path.join(ANDROID_RES_DIR, 'drawable-tvdpi');
+  rasterizeSvgToPng(svgTvBanner, path.join(tvDpiDir, 'tv_banner.png'), 320, 180);
+
+  // 4. Write Android Adaptive Icon XMLs (mipmap-anydpi-v26)
+  //    Pointing foreground to @mipmap/ic_launcher_foreground AND overwriting both drawable/ and drawable-v24/
+  //    so Capacitor's default Android robot icon in drawable-v24 can never override the "P" logo.
   const anyDpiDir = path.join(ANDROID_RES_DIR, 'mipmap-anydpi-v26');
   fs.mkdirSync(anyDpiDir, { recursive: true });
   const adaptiveLauncherXml = `<?xml version="1.0" encoding="utf-8"?>
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@drawable/ic_launcher_background" />
-    <foreground android:drawable="@drawable/ic_launcher_foreground" />
+    <foreground android:drawable="@mipmap/ic_launcher_foreground" />
     <monochrome android:drawable="@drawable/ic_launcher_monochrome" />
 </adaptive-icon>
 `;
   fs.writeFileSync(path.join(anyDpiDir, 'ic_launcher.xml'), adaptiveLauncherXml, 'utf8');
   fs.writeFileSync(path.join(anyDpiDir, 'ic_launcher_round.xml'), adaptiveLauncherXml, 'utf8');
 
+  // Write VectorDrawables into both drawable/ and drawable-v24/ (overwriting any default Capacitor robot icon)
+  for (const dirName of ['drawable', 'drawable-v24']) {
+    const targetDrawableDir = path.join(ANDROID_RES_DIR, dirName);
+    fs.mkdirSync(targetDrawableDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(targetDrawableDir, 'ic_launcher_background.xml'),
+      buildAndroidBackgroundVectorXml(),
+      'utf8'
+    );
+    fs.writeFileSync(
+      path.join(targetDrawableDir, 'ic_launcher_foreground.xml'),
+      buildAndroidForegroundVectorXml(),
+      'utf8'
+    );
+    fs.writeFileSync(
+      path.join(targetDrawableDir, 'ic_launcher_monochrome.xml'),
+      buildAndroidMonochromeVectorXml(),
+      'utf8'
+    );
+  }
+
   const drawableMainDir = path.join(ANDROID_RES_DIR, 'drawable');
-  fs.mkdirSync(drawableMainDir, { recursive: true });
-  fs.writeFileSync(
-    path.join(drawableMainDir, 'ic_launcher_background.xml'),
-    buildAndroidBackgroundVectorXml(),
-    'utf8'
-  );
-  fs.writeFileSync(
-    path.join(drawableMainDir, 'ic_launcher_foreground.xml'),
-    buildAndroidForegroundVectorXml(),
-    'utf8'
-  );
-  fs.writeFileSync(
-    path.join(drawableMainDir, 'ic_launcher_monochrome.xml'),
-    buildAndroidMonochromeVectorXml(),
-    'utf8'
-  );
   fs.writeFileSync(
     path.join(drawableMainDir, 'tv_banner.xml'),
     buildAndroidTvBannerVectorXml(),
     'utf8'
   );
 
-  const valuesDir = path.join(ANDROID_RES_DIR, 'values');
-  fs.mkdirSync(valuesDir, { recursive: true });
-  fs.writeFileSync(
-    path.join(valuesDir, 'ic_launcher_background.xml'),
-    `<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <color name="ic_launcher_background">#0A0E17</color>
-</resources>
-`,
-    'utf8'
-  );
+  // 5. Verify & synchronize AndroidManifest.xml and strings.xml ('PulseEPG', @mipmap/ic_launcher, @mipmap/ic_launcher_round, @drawable/tv_banner)
+  ensureAndroidManifestAndStrings();
 
-  console.log('Successfully generated Netflix-style PulseEPG launcher icons & TV banners for all Android devices.');
+  console.log('Successfully generated PulseEPG SplashScreen "P" App Icons for all Android resolutions & verified AndroidManifest.xml.');
 }
 
 main();
