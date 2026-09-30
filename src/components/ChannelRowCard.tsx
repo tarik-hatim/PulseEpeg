@@ -478,7 +478,7 @@ const ChannelRowCardInner: React.FC<ChannelRowCardProps> = ({
       }}
       className={`tv-card-focusable group relative rounded-lg border cursor-pointer overflow-hidden transition-all ${
         isSelected
-          ? 'bg-[#1a202c] border-[1.5px] border-[#e11d48] shadow-[0_0_16px_rgba(225,29,72,0.4)]'
+          ? 'selected-program bg-[#1a202c] border-2 border-[#ec4899] shadow-[0_0_15px_rgba(236,72,153,0.4)]'
           : `bg-[#141a26] border-[#1a202c] ${accent.border} hover:bg-[#1a202c]`
       }`}
     >

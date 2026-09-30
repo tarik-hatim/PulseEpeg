@@ -779,7 +779,7 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                     }}
                     className={`tv-card-focusable group rounded-lg p-3 transition-all cursor-pointer ${
                       isSelected
-                        ? 'bg-[#1a202c] border-[1.5px] border-[#e11d48] shadow-[0_0_12px_rgba(225,29,72,0.35)]'
+                        ? 'selected-program bg-[#1a202c] border-2 border-[#ec4899] shadow-[0_0_15px_rgba(236,72,153,0.4)]'
                         : hasReminder
                         ? 'bg-gradient-to-r from-[#0055ff]/12 via-[#0a0e17] to-[#ec4899]/12 border-[1.5px] border-[#ec4899]/80 shadow-[0_0_12px_rgba(236,72,153,0.25)]'
                         : isLive

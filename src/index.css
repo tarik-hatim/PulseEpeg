@@ -13,6 +13,12 @@
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
 }
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 html,
 body {
   background-color: #0a0e17 !important;
@@ -41,6 +47,7 @@ svg {
 .tv-boot-logo-box {
   max-width: 200px !important;
   max-height: 200px !important;
+  margin: auto;
   object-fit: contain !important;
 }
 
@@ -78,10 +85,97 @@ h2,
 }
 
 /* ==========================================================================
+   SUPPRESSION DES CURSEURS ET BARRES BLANCHES VERTICALES SUR FILTRES & BOUTONS
+   ========================================================================== */
+button,
+[role="button"],
+.filter-ribbon,
+.filter-ribbon *,
+.filter-badge,
+.filter-badge *,
+header,
+header * {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  caret-color: transparent !important;
+  outline: none !important;
+}
+
+/* ==========================================================================
+   RUBANS DE FILTRES HORIZONTAUX DÉFILABLES & BADGES DE FILTRES
+   ========================================================================== */
+.filter-ribbon {
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-box-orient: horizontal;
+  -webkit-box-direction: normal;
+  -webkit-flex-direction: row;
+  flex-direction: row;
+  -webkit-flex-wrap: nowrap;
+  flex-wrap: nowrap;
+  -webkit-box-align: center;
+  -webkit-align-items: center;
+  align-items: center;
+  overflow-x: auto;
+  gap: 8px;
+  padding: 4px 2px;
+}
+
+.filter-badge {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 6px 14px;
+  color: #cbd5e1;
+  font-size: 13px;
+  display: -webkit-inline-box;
+  display: -webkit-inline-flex;
+  display: inline-flex;
+  -webkit-box-align: center;
+  -webkit-align-items: center;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  -webkit-flex-shrink: 0;
+  flex-shrink: 0;
+  cursor: pointer;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  caret-color: transparent !important;
+  outline: none !important;
+  transition: all 0.2s ease;
+}
+
+.filter-badge:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+}
+
+/* Filtre Sélectionné (ex: Monde Arabe, Bouquet, Genre) */
+.filter-badge.active,
+.filter-badge[data-filter-active="true"],
+.selected-filter {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+  border: 1px solid #60a5fa !important;
+  border-radius: 20px !important;
+  outline: none !important;
+  caret-color: transparent !important;
+}
+
+/* ==========================================================================
    ADAPTABILITÉ ANDROID 12+ & TV 4K / OVERSCAN + HEADER FIXE
    Marges de sécurité de 16px à 24px pour éviter que les bords TV (Overscan)
    ne masquent le bouton Paramètres (⚙️) à droite
    ========================================================================== */
+.tv-overscan-container {
+  padding-left: 16px;
+  padding-right: 16px;
+  box-sizing: border-box;
+}
+
 .tv-overscan-header-row {
   display: -webkit-box;
   display: -webkit-flex;
@@ -121,6 +215,7 @@ h2,
 }
 
 @media (min-width: 640px) {
+  .tv-overscan-container,
   .tv-overscan-header-row,
   .tv-overscan-tabs-row,
   .tv-overscan-main {
@@ -130,6 +225,7 @@ h2,
 }
 
 @media (min-width: 1024px) {
+  .tv-overscan-container,
   .tv-overscan-header-row,
   .tv-overscan-tabs-row,
   .tv-overscan-main {
@@ -157,73 +253,68 @@ h2,
 }
 
 /* ==========================================================================
-   GESTION DU FOCUS TÉLÉCOMMANDE (D-PAD ANDROID TV / LEANBACK)
-   Séparation de :focus (Android 8/9 Chromium < 86) et :focus-visible
+   STYLE DE SÉLECTION / FOCUS TV DYNAMIQUE ET ÉLÉGANT (TÉLÉCOMMANDE D-PAD)
+   Élimine la grosse bordure cyan fluo rectangulaire par défaut
    ========================================================================== */
-button:focus,
-[role="button"]:focus,
-a:focus,
-select:focus,
-input[type="checkbox"]:focus,
-input[type="date"]:focus,
-input[type="time"]:focus,
-.tv-focusable:focus {
-  outline: 2px solid var(--text-color, #ffffff) !important;
-  outline-offset: 2px !important;
-}
-
-button:focus-visible,
-[role="button"]:focus-visible,
-a:focus-visible,
-select:focus-visible,
-input[type="checkbox"]:focus-visible,
-input[type="date"]:focus-visible,
-input[type="time"]:focus-visible,
-.tv-focusable:focus-visible {
-  outline: 2px solid var(--text-color, #ffffff) !important;
-  outline-offset: 2px !important;
-}
-
+:focus,
+.selected-program,
 .tv-card-focusable:focus,
-[data-channel-card="true"]:focus,
-[data-reminder-card="true"]:focus,
-[data-programme-card="true"]:focus {
-  border-color: var(--text-color, #ffffff) !important;
-  outline: 2px solid #38bdf8 !important;
-  outline-offset: 2px !important;
-}
-
 .tv-card-focusable:focus-visible,
+[data-channel-card="true"]:focus,
 [data-channel-card="true"]:focus-visible,
+[data-reminder-card="true"]:focus,
 [data-reminder-card="true"]:focus-visible,
-[data-programme-card="true"]:focus-visible {
-  border-color: var(--text-color, #ffffff) !important;
-  outline: 2px solid #38bdf8 !important;
-  outline-offset: 2px !important;
-}
-
-[data-grid-focusable="true"]:focus {
-  outline: 2px solid var(--text-color, #ffffff) !important;
-  outline-offset: -2px !important;
-}
-
+[data-programme-card="true"]:focus,
+[data-programme-card="true"]:focus-visible,
+[data-grid-focusable="true"]:focus,
 [data-grid-focusable="true"]:focus-visible {
-  outline: 2px solid var(--text-color, #ffffff) !important;
-  outline-offset: -2px !important;
+  outline: none !important;
+  border: 2px solid #ec4899 !important;
+  background: rgba(236, 72, 153, 0.15) !important;
+  box-shadow: 0 0 15px rgba(236, 72, 153, 0.4);
+  transform: scale(1.01);
+  transition: all 0.2s ease;
 }
 
 input[type="text"]:focus,
 input[type="url"]:focus,
-input[type="search"]:focus {
-  border-color: #38bdf8 !important;
-  outline: none !important;
-}
-
+input[type="search"]:focus,
 input[type="text"]:focus-visible,
 input[type="url"]:focus-visible,
 input[type="search"]:focus-visible {
-  border-color: #38bdf8 !important;
   outline: none !important;
+  border: 2px solid #ec4899 !important;
+  background: #0a0e17 !important;
+  box-shadow: 0 0 15px rgba(236, 72, 153, 0.4);
+  transform: none;
+}
+
+/* ==========================================================================
+   BANDEAU / TOAST DE NOTIFICATION IN-APP
+   ========================================================================== */
+.toast-notification,
+.in-app-toast-banner {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  -webkit-transform: translateX(-50%);
+  transform: translateX(-50%);
+  z-index: 9999;
+  background: rgba(15, 23, 42, 0.96);
+  background-color: #141a26;
+  color: #ffffff;
+  border: 1px solid #3b82f6;
+  border-radius: 12px;
+  padding: 12px 24px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.8);
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-box-align: center;
+  -webkit-align-items: center;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100vw - 32px);
 }
 
 .tabular-nums {

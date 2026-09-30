@@ -673,11 +673,13 @@ function ensureAndroidManifestAndStrings() {
 `;
   fs.writeFileSync(manifestPath, manifestXml, 'utf8');
 
-  // Génère le fichier audio notification_sound.wav dans res/raw/ (Android Natif) et dans public/ (Web)
+  // Génère les fichiers audio pulse_alert.wav et notification_sound.wav dans res/raw/ (Android Natif) et dans public/ (Web)
   const wavBuffer = buildNotificationWavBuffer();
   const rawDir = path.join(ANDROID_RES_DIR, 'raw');
   fs.mkdirSync(rawDir, { recursive: true });
+  fs.writeFileSync(path.join(rawDir, 'pulse_alert.wav'), wavBuffer);
   fs.writeFileSync(path.join(rawDir, 'notification_sound.wav'), wavBuffer);
+  fs.writeFileSync(path.join(PUBLIC_DIR, 'pulse_alert.wav'), wavBuffer);
   fs.writeFileSync(path.join(PUBLIC_DIR, 'notification_sound.wav'), wavBuffer);
 
   const valuesDir = path.join(ANDROID_RES_DIR, 'values');

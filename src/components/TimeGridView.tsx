@@ -603,14 +603,14 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
 
   return (
     <div className="rounded-lg border border-[#1a202c] bg-[#0a0e17] overflow-hidden shadow-2xl">
-      {/* Barre de Filtres [CATÉGORIE] -> [SATELLITE / BOUQUET] -> [GENRE] dédiée à la Grille TV */}
-      <div className="p-3 sm:p-4 bg-[#141a26] border-b border-[#1a202c] space-y-2.5">
+      {/* Barre de Filtres en rubans horizontaux défilables [CATÉGORIE] -> [SATELLITE / BOUQUET] -> [ZONE] -> [GENRE] dédiée à la Grille TV */}
+      <div className="p-3 sm:p-4 bg-[#141a26] border-b border-[#1a202c] space-y-2.5 select-none">
         {/* Ligne 1 : [CATÉGORIE] */}
         <div
           data-tv-row="grid-categories"
-          className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 px-0.5 border-b border-[#1a202c]"
+          className="filter-ribbon no-scrollbar border-b border-[#1a202c]"
         >
-          <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0">
+          <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0 select-none">
             <Film className="w-3.5 h-3.5 text-[#e11d48]" />
             {tr.filterCatLabel}
           </span>
@@ -619,14 +619,26 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
             const count = categoryCounts[cat.code] ?? 0;
             const label = translateCategoryFilter(cat.code, activeLang);
             return (
-              <button
+              <div
                 key={cat.code}
-                type="button"
+                role="button"
+                tabIndex={0}
+                data-filter-active={active ? 'true' : undefined}
                 onClick={() => onSelectCategory(cat.code)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all shrink-0 cursor-pointer ${
-                  active
-                    ? 'bg-[#e11d48] border-[1.5px] border-[#ff0033] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(225,29,72,0.45)]'
-                    : 'bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#e11d48]/60 font-medium'
+                onKeyDown={(e) => {
+                  if (
+                    e.key === 'Enter' ||
+                    e.key === ' ' ||
+                    e.key === 'Select' ||
+                    e.keyCode === 23 ||
+                    e.keyCode === 66
+                  ) {
+                    e.preventDefault();
+                    onSelectCategory(cat.code);
+                  }
+                }}
+                className={`filter-badge ${
+                  active ? 'active selected-filter' : ''
                 }`}
               >
                 {cat.icon === 'sport' ? (
@@ -674,105 +686,128 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
                 )}
                 <span>{label}</span>
                 <span
-                  className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
                     active
-                      ? 'bg-[#0a0e17]/80 text-[#ffffff] border border-[#ff0033]/50 font-bold'
-                      : 'bg-[#141a26] text-[#cbd5e1]'
+                      ? 'bg-[#0a0e17]/70 text-[#ffffff] font-bold'
+                      : 'bg-[#0a0e17]/60 text-[#cbd5e1]'
                   }`}
                 >
                   {count}
                 </span>
-              </button>
+              </div>
             );
           })}
         </div>
 
-        {/* Ligne 2 : [SATELLITE / BOUQUET] (Bleu Royal Sky Sport #1d4ed8 / #0055ff) */}
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          {visibleSatelliteOptions.length > 1 && (
-            <div
-              data-tv-row="grid-satellites"
-              className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 px-0.5"
-            >
-              <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0">
-                <Satellite className="w-3.5 h-3.5 text-[#0055ff]" />
-                {tr.filterSatLabel}
-              </span>
-              {visibleSatelliteOptions.map((sat) => {
-                const active = selectedSatellite === sat;
-                const count = satelliteCounts[sat] ?? 0;
-                const label = translateSatelliteFilter(sat, activeLang);
-                return (
-                  <button
-                    key={sat}
-                    type="button"
-                    onClick={() => onSelectSatellite(sat)}
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-all shrink-0 cursor-pointer ${
+        {/* Ligne 2 : [SATELLITE] */}
+        {visibleSatelliteOptions.length > 1 && (
+          <div
+            data-tv-row="grid-satellites"
+            className="filter-ribbon no-scrollbar"
+          >
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0 select-none">
+              <Satellite className="w-3.5 h-3.5 text-[#0055ff]" />
+              {tr.filterSatLabel}
+            </span>
+            {visibleSatelliteOptions.map((sat) => {
+              const active = selectedSatellite === sat;
+              const count = satelliteCounts[sat] ?? 0;
+              const label = translateSatelliteFilter(sat, activeLang);
+              return (
+                <div
+                  key={sat}
+                  role="button"
+                  tabIndex={0}
+                  data-filter-active={active ? 'true' : undefined}
+                  onClick={() => onSelectSatellite(sat)}
+                  onKeyDown={(e) => {
+                    if (
+                      e.key === 'Enter' ||
+                      e.key === ' ' ||
+                      e.key === 'Select' ||
+                      e.keyCode === 23 ||
+                      e.keyCode === 66
+                    ) {
+                      e.preventDefault();
+                      onSelectSatellite(sat);
+                    }
+                  }}
+                  className={`filter-badge ${
+                    active ? 'active selected-filter' : ''
+                  }`}
+                >
+                  <span>{label}</span>
+                  <span
+                    className={`text-[10px] px-1.5 rounded-full font-mono ${
                       active
-                        ? 'bg-[#1d4ed8] border-[1.5px] border-[#0055ff] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(0,85,255,0.45)]'
-                        : 'bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60 font-medium'
+                        ? 'bg-[#0a0e17]/70 text-[#ffffff] font-bold'
+                        : 'bg-[#0a0e17]/60 text-[#cbd5e1]'
                     }`}
                   >
-                    <span>{label}</span>
-                    <span
-                      className={`text-[10px] px-1.5 rounded font-mono ${
-                        active
-                          ? 'bg-[#0a0e17]/80 text-[#ffffff] border border-[#0055ff]/50 font-bold'
-                          : 'bg-[#141a26] text-[#cbd5e1]'
-                      }`}
-                    >
-                      {count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
+                    {count}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
-          {visibleBouquetOptions.length > 1 && (
-            <div
-              data-tv-row="grid-bouquets"
-              className="flex items-center gap-1 overflow-x-auto no-scrollbar py-1 px-0.5"
-            >
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0">
-                {tr.filterBouquetLabel}
-              </span>
-              {visibleBouquetOptions.map((bq) => {
-                const active =
-                  bq === 'Tous'
-                    ? selectedBouquet === 'Tous' &&
-                      selectedBouquetsList.length === 0
-                    : selectedBouquet === bq ||
-                      selectedBouquetsList.includes(bq);
-                const count = bouquetCounts[bq] ?? 0;
-                const label = translateBouquetFilter(bq, activeLang);
-                return (
-                  <button
-                    key={bq}
-                    type="button"
-                    onClick={() => onSelectBouquet(bq)}
-                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] transition-all shrink-0 cursor-pointer ${
+        {/* Ligne 2B : [BOUQUET] */}
+        {visibleBouquetOptions.length > 1 && (
+          <div
+            data-tv-row="grid-bouquets"
+            className="filter-ribbon no-scrollbar pt-1 border-t border-[#1a202c]"
+          >
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0 select-none">
+              {tr.filterBouquetLabel}
+            </span>
+            {visibleBouquetOptions.map((bq) => {
+              const active =
+                bq === 'Tous'
+                  ? selectedBouquet === 'Tous' &&
+                    selectedBouquetsList.length === 0
+                  : selectedBouquet === bq ||
+                    selectedBouquetsList.includes(bq);
+              const count = bouquetCounts[bq] ?? 0;
+              const label = translateBouquetFilter(bq, activeLang);
+              return (
+                <div
+                  key={bq}
+                  role="button"
+                  tabIndex={0}
+                  data-filter-active={active ? 'true' : undefined}
+                  onClick={() => onSelectBouquet(bq)}
+                  onKeyDown={(e) => {
+                    if (
+                      e.key === 'Enter' ||
+                      e.key === ' ' ||
+                      e.key === 'Select' ||
+                      e.keyCode === 23 ||
+                      e.keyCode === 66
+                    ) {
+                      e.preventDefault();
+                      onSelectBouquet(bq);
+                    }
+                  }}
+                  className={`filter-badge ${
+                    active ? 'active selected-filter' : ''
+                  }`}
+                >
+                  <span>{label}</span>
+                  <span
+                    className={`text-[10px] px-1.5 rounded-full font-mono ${
                       active
-                        ? 'bg-[#1d4ed8] border-[1.5px] border-[#0055ff] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(0,85,255,0.45)]'
-                        : 'bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60 font-medium'
+                        ? 'bg-[#0a0e17]/70 text-[#ffffff] font-bold'
+                        : 'bg-[#0a0e17]/60 text-[#cbd5e1]'
                     }`}
                   >
-                    <span>{label}</span>
-                    <span
-                      className={`text-[10px] px-1 rounded font-mono ${
-                        active
-                          ? 'bg-[#0a0e17]/80 text-[#ffffff] border border-[#0055ff]/50 font-bold'
-                          : 'bg-[#141a26] text-[#cbd5e1]'
-                      }`}
-                    >
-                      {count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
+                    {count}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {ramWarningMessage && (
           <div className="px-3 py-2 rounded-lg bg-[#0a0e17] border border-[#0055ff]/50 text-[#ffffff] text-xs font-medium flex items-center gap-2">
@@ -781,105 +816,68 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
           </div>
         )}
 
-        {/* Ligne 2.5 : [COUNTRY] (Menu déroulant compact sur Mobile / Puces sélectionnables au Pad/Télécommande sur Tablette & TV) */}
+        {/* Ligne 3 : [ZONE / PAYS] (Ruban horizontal défilable de badges <div> cliquables sur tous les écrans) */}
         {onSelectCountry && visibleCountryOptions.length > 1 && (
-          <div className="pt-1 border-t border-[#1a202c]">
-            {/* Mobile : Menu déroulant compact */}
-            <div className="flex md:hidden items-center justify-between gap-2">
-              <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] shrink-0">
-                <Globe className="w-3.5 h-3.5 text-[#0055ff]" />
-                {tr.filterCountryLabel || tr.filterZoneLabel}
-              </span>
-              <div className="flex items-center gap-1.5 flex-1 max-w-[260px]">
-                <select
-                  value={selectedCountry}
-                  onChange={(e) =>
-                    onSelectCountry(e.target.value as ChannelCountryFilter)
-                  }
-                  aria-label={tr.filterCountryLabel || tr.filterZoneLabel}
-                  className="w-full px-2.5 py-1.5 rounded-lg bg-[#0a0e17] border border-[#1a202c] text-xs font-medium text-[#ffffff] focus:outline-none focus:border-[#0055ff] transition-colors cursor-pointer"
+          <div
+            data-tv-row="grid-countries"
+            className="filter-ribbon no-scrollbar pt-1 border-t border-[#1a202c]"
+          >
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0 select-none">
+              <Globe className="w-3.5 h-3.5 text-[#0055ff]" />
+              {tr.filterCountryLabel || tr.filterZoneLabel}
+            </span>
+            {visibleCountryOptions.map((cCode) => {
+              const active = selectedCountry === cCode;
+              const count = countryCounts[cCode] ?? 0;
+              const label = translateChannelCountryFilter(cCode, activeLang);
+              const flag = CHANNEL_COUNTRY_FLAGS[cCode] || '🌍';
+              return (
+                <div
+                  key={cCode}
+                  role="button"
+                  tabIndex={0}
+                  data-filter-active={active ? 'true' : undefined}
+                  onClick={() => onSelectCountry(cCode)}
+                  onKeyDown={(e) => {
+                    if (
+                      e.key === 'Enter' ||
+                      e.key === ' ' ||
+                      e.key === 'Select' ||
+                      e.keyCode === 23 ||
+                      e.keyCode === 66
+                    ) {
+                      e.preventDefault();
+                      onSelectCountry(cCode);
+                    }
+                  }}
+                  className={`filter-badge ${
+                    active ? 'active selected-filter' : ''
+                  }`}
                 >
-                  {visibleCountryOptions.map((cCode) => {
-                    const count = countryCounts[cCode] ?? 0;
-                    const label = translateChannelCountryFilter(
-                      cCode,
-                      activeLang
-                    );
-                    const flag = CHANNEL_COUNTRY_FLAGS[cCode] || '🌍';
-                    return (
-                      <option
-                        key={cCode}
-                        value={cCode}
-                        className="bg-[#141a26] text-[#ffffff]"
-                      >
-                        {flag} {label} ({count})
-                      </option>
-                    );
-                  })}
-                </select>
-                {selectedCountry !== 'Tous' && (
-                  <button
-                    type="button"
-                    onClick={() => onSelectCountry('Tous')}
-                    className="p-1.5 rounded-lg bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] shrink-0 cursor-pointer"
-                    title={tr.resetFiltersBtn}
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Tablette & TV : Puces (chips) sélectionnables au pad/télécommande */}
-            <div
-              data-tv-row="grid-countries"
-              className="hidden md:flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 px-0.5"
-            >
-              <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0">
-                <Globe className="w-3.5 h-3.5 text-[#0055ff]" />
-                {tr.filterCountryLabel || tr.filterZoneLabel}
-              </span>
-              {visibleCountryOptions.map((cCode) => {
-                const active = selectedCountry === cCode;
-                const count = countryCounts[cCode] ?? 0;
-                const label = translateChannelCountryFilter(cCode, activeLang);
-                const flag = CHANNEL_COUNTRY_FLAGS[cCode] || '🌍';
-                return (
-                  <button
-                    key={cCode}
-                    type="button"
-                    onClick={() => onSelectCountry(cCode)}
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] transition-all shrink-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0055ff] ${
+                  <span>{flag}</span>
+                  <span>{label}</span>
+                  <span
+                    className={`text-[10px] px-1.5 rounded-full font-mono ${
                       active
-                        ? 'bg-[#1d4ed8] border-[1.5px] border-[#0055ff] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(0,85,255,0.45)]'
-                        : 'bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60 font-medium'
+                        ? 'bg-[#0a0e17]/70 text-[#ffffff] font-bold'
+                        : 'bg-[#0a0e17]/60 text-[#cbd5e1]'
                     }`}
                   >
-                    <span>{flag}</span>
-                    <span>{label}</span>
-                    <span
-                      className={`text-[10px] px-1 rounded font-mono ${
-                        active
-                          ? 'bg-[#0a0e17]/80 text-[#ffffff] border border-[#0055ff]/50 font-bold'
-                          : 'bg-[#141a26] text-[#cbd5e1]'
-                      }`}
-                    >
-                      {count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+                    {count}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         )}
 
-        {/* Ligne 3 : [GENRE] */}
+        {/* Ligne 4 : [GENRE] */}
         {visibleGroupOptions.length > 1 && (
           <div
             data-tv-row="grid-genres"
-            className="flex items-center gap-1 overflow-x-auto no-scrollbar pt-1.5 border-t border-[#1a202c] py-1 px-0.5"
+            className="filter-ribbon no-scrollbar pt-1.5 border-t border-[#1a202c]"
           >
-            <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0">
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0 select-none">
               <Sparkles className="w-3 h-3 text-[#e11d48]" />
               {tr.filterGenreLabel}
             </span>
@@ -892,27 +890,39 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
                 (grp === 'Tous' ? (groupCounts['Toutes'] ?? 0) : 0);
               const label = translateSubGenreGroup(grp, activeLang);
               return (
-                <button
+                <div
                   key={grp}
-                  type="button"
+                  role="button"
+                  tabIndex={0}
+                  data-filter-active={active ? 'true' : undefined}
                   onClick={() => onSelectGroup(grp)}
-                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] transition-all shrink-0 cursor-pointer ${
-                    active
-                      ? 'bg-[#e11d48] border-[1.5px] border-[#ff0033] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(225,29,72,0.45)]'
-                      : 'bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#e11d48]/60 font-medium'
+                  onKeyDown={(e) => {
+                    if (
+                      e.key === 'Enter' ||
+                      e.key === ' ' ||
+                      e.key === 'Select' ||
+                      e.keyCode === 23 ||
+                      e.keyCode === 66
+                    ) {
+                      e.preventDefault();
+                      onSelectGroup(grp);
+                    }
+                  }}
+                  className={`filter-badge ${
+                    active ? 'active selected-filter' : ''
                   }`}
                 >
                   <span>{label}</span>
                   <span
-                    className={`text-[10px] px-1 rounded font-mono ${
+                    className={`text-[10px] px-1.5 rounded-full font-mono ${
                       active
-                        ? 'bg-[#0a0e17]/80 text-[#ffffff] border border-[#ff0033]/50 font-bold'
-                        : 'bg-[#141a26] text-[#cbd5e1]'
+                        ? 'bg-[#0a0e17]/70 text-[#ffffff] font-bold'
+                        : 'bg-[#0a0e17]/60 text-[#cbd5e1]'
                     }`}
                   >
                     {count}
                   </span>
-                </button>
+                </div>
               );
             })}
           </div>

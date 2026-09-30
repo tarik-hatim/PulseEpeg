@@ -29,7 +29,7 @@ export function getUniqueProgramNotificationId(programId: string): number {
 export function playInAppNotificationSound(): void {
   if (typeof window === 'undefined') return;
   try {
-    const audio = new Audio('/notification_sound.wav');
+    const audio = new Audio('/pulse_alert.wav');
     audio.volume = 0.85;
     const playPromise = audio.play();
     if (playPromise && typeof playPromise.catch === 'function') {
@@ -80,12 +80,12 @@ export async function ensureEpgNotificationChannel(): Promise<void> {
   if (channelInitialized) return;
   try {
     await LocalNotifications.createChannel({
-      id: EPG_REMINDERS_CHANNEL_ID,
-      name: 'Rappels de Programmes TV',
-      description: 'Alertes pour vos matchs et films favoris',
-      importance: 5, // High Importance (Heads-up + Son)
+      id: 'epg_reminders',
+      name: 'Rappels PulseEPG',
+      description: 'Alertes pour vos programmes TV',
+      importance: 5,
       visibility: 1,
-      sound: 'notification_sound.wav',
+      sound: 'pulse_alert',
       vibration: true,
       lights: true,
       lightColor: '#E11D48',
@@ -178,9 +178,9 @@ export async function scheduleProgrammeNotification(
         at: new Date(startTime),
         allowWhileIdle: true,
       },
-      // Compatibilité stricte : utilise 'notification_sound.wav' (résolu dans res/raw/notification_sound.wav sur Android)
+      // Compatibilité stricte : utilise 'pulse_alert' (résolu dans res/raw/pulse_alert.wav sur Android)
       // tout en activant le son système
-      sound: 'notification_sound.wav',
+      sound: 'pulse_alert',
       channelId: EPG_REMINDERS_CHANNEL_ID,
       smallIcon: 'ic_launcher_foreground',
       iconColor: '#E11D48',
@@ -223,7 +223,7 @@ export async function scheduleProgrammeNotification(
           at: new Date(reminder.startMs),
           allowWhileIdle: true,
         },
-        sound: 'notification_sound.wav',
+        sound: 'pulse_alert',
         channelId: EPG_REMINDERS_CHANNEL_ID,
         smallIcon: 'ic_launcher_foreground',
         iconColor: '#E11D48',

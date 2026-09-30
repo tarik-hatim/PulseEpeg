@@ -4266,18 +4266,18 @@ export function App() {
             )}
           </div>
 
-          {/* Barres de filtres rapides [CATÉGORIE] -> [SATELLITE / BOUQUET] -> [GENRE] (Style Sky Sport : Rouge Crimson pour actions principales, Bleu Royal pour satellites/bouquets) */}
+          {/* Barres de filtres rapides en rubans horizontaux défilables [CATÉGORIE] -> [SATELLITE / BOUQUET] -> [ZONE] -> [GENRE] */}
           {viewMode !== 'grid' && (
-            <div className="pt-2.5 border-t border-[#1a202c] space-y-2">
+            <div className="pt-2.5 border-t border-[#1a202c] space-y-2 select-none">
               {/* Ligne 1 : [CATÉGORIE] */}
               <div
                 data-tv-row="live-categories"
                 data-row-active={
                   activeFilterRow === 'live-categories' ? 'true' : undefined
                 }
-                className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 px-0.5"
+                className="filter-ribbon no-scrollbar"
               >
-                <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0">
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0 select-none">
                   <Film className="w-3.5 h-3.5 text-[#e11d48]" />
                   {tr.filterCatLabel}
                 </span>
@@ -4286,15 +4286,26 @@ export function App() {
                   const count = categoryCounts[cat.code] ?? 0;
                   const label = translateCategoryFilter(cat.code, activeLang);
                   return (
-                    <button
+                    <div
                       key={cat.code}
-                      type="button"
+                      role="button"
+                      tabIndex={0}
                       data-filter-active={active ? 'true' : undefined}
                       onClick={() => setSelectedCategory(cat.code)}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all shrink-0 cursor-pointer ${
-                        active
-                          ? 'bg-[#e11d48] border border-[#ff0033] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(225,29,72,0.45)]'
-                          : 'bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#e11d48]/60 font-medium'
+                      onKeyDown={(e) => {
+                        if (
+                          e.key === 'Enter' ||
+                          e.key === ' ' ||
+                          e.key === 'Select' ||
+                          e.keyCode === 23 ||
+                          e.keyCode === 66
+                        ) {
+                          e.preventDefault();
+                          setSelectedCategory(cat.code);
+                        }
+                      }}
+                      className={`filter-badge ${
+                        active ? 'active selected-filter' : ''
                       }`}
                     >
                       {cat.icon === 'sport' ? (
@@ -4342,28 +4353,40 @@ export function App() {
                       )}
                       <span>{label}</span>
                       <span
-                        className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${
+                        className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
                           active
-                            ? 'bg-[#0a0e17] text-[#ffffff] border border-[#ff0033]/60 font-bold'
-                            : 'bg-[#141a26] text-[#cbd5e1]'
+                            ? 'bg-[#0a0e17]/70 text-[#ffffff] font-bold'
+                            : 'bg-[#0a0e17]/60 text-[#cbd5e1]'
                         }`}
                       >
                         {count}
                       </span>
-                    </button>
+                    </div>
                   );
                 })}
 
                 {/* Filtre Rapide "Mes Rappels" directement dans la barre des filtres */}
-                <button
-                  type="button"
+                <div
+                  role="button"
+                  tabIndex={0}
+                  data-filter-active={viewMode === 'reminders' ? 'true' : undefined}
                   onClick={() =>
                     setViewMode(viewMode === 'reminders' ? 'live' : 'reminders')
                   }
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all shrink-0 cursor-pointer ms-1 ${
-                    viewMode === 'reminders'
-                      ? 'bg-gradient-to-r from-[#0055ff] to-[#ec4899] border border-[#ec4899] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(236,72,153,0.5)]'
-                      : 'bg-[#0a0e17] border border-[#ec4899]/50 text-[#ffffff] hover:border-[#ec4899] font-semibold'
+                  onKeyDown={(e) => {
+                    if (
+                      e.key === 'Enter' ||
+                      e.key === ' ' ||
+                      e.key === 'Select' ||
+                      e.keyCode === 23 ||
+                      e.keyCode === 66
+                    ) {
+                      e.preventDefault();
+                      setViewMode(viewMode === 'reminders' ? 'live' : 'reminders');
+                    }
+                  }}
+                  className={`filter-badge ms-1 ${
+                    viewMode === 'reminders' ? 'active selected-filter' : ''
                   }`}
                 >
                   <BellRing className="w-3.5 h-3.5 text-[#ec4899]" />
@@ -4376,106 +4399,127 @@ export function App() {
                       ? 'تذكيراتي'
                       : 'My Reminders'}
                   </span>
-                  <span className="text-[10px] px-1.5 py-0.2 rounded font-mono bg-gradient-to-r from-[#0055ff] to-[#ec4899] text-[#ffffff] font-bold">
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-full font-mono bg-gradient-to-r from-[#0055ff] to-[#ec4899] text-[#ffffff] font-bold">
                     {activeRemindersCount || reminders.length}
                   </span>
-                </button>
+                </div>
               </div>
 
-              {/* Ligne 2 : [SATELLITE / BOUQUET] (Bleu Royal Sky Sport #1d4ed8 / #0055ff) */}
-              <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-[#1a202c]">
-                {visibleSatelliteOptions.length > 1 && (
-                  <div
-                    data-tv-row="live-satellites"
-                    data-row-active={
-                      activeFilterRow === 'live-satellites' ? 'true' : undefined
-                    }
-                    className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 px-0.5"
-                  >
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0">
-                      <Satellite className="w-3.5 h-3.5 text-[#0055ff]" />
-                      {tr.filterSatLabel}
-                    </span>
-                    {visibleSatelliteOptions.map((sat) => {
-                      const active = selectedSatellite === sat;
-                      const count = satelliteCounts[sat] ?? 0;
-                      const label = translateSatelliteFilter(sat, activeLang);
-                      return (
-                        <button
-                          key={sat}
-                          type="button"
-                          data-filter-active={active ? 'true' : undefined}
-                          onClick={() => handleSelectSatellite(sat)}
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-all shrink-0 cursor-pointer ${
+              {/* Ligne 2 : [SATELLITE] */}
+              {visibleSatelliteOptions.length > 1 && (
+                <div
+                  data-tv-row="live-satellites"
+                  data-row-active={
+                    activeFilterRow === 'live-satellites' ? 'true' : undefined
+                  }
+                  className="filter-ribbon no-scrollbar pt-1 border-t border-[#1a202c]"
+                >
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0 select-none">
+                    <Satellite className="w-3.5 h-3.5 text-[#0055ff]" />
+                    {tr.filterSatLabel}
+                  </span>
+                  {visibleSatelliteOptions.map((sat) => {
+                    const active = selectedSatellite === sat;
+                    const count = satelliteCounts[sat] ?? 0;
+                    const label = translateSatelliteFilter(sat, activeLang);
+                    return (
+                      <div
+                        key={sat}
+                        role="button"
+                        tabIndex={0}
+                        data-filter-active={active ? 'true' : undefined}
+                        onClick={() => handleSelectSatellite(sat)}
+                        onKeyDown={(e) => {
+                          if (
+                            e.key === 'Enter' ||
+                            e.key === ' ' ||
+                            e.key === 'Select' ||
+                            e.keyCode === 23 ||
+                            e.keyCode === 66
+                          ) {
+                            e.preventDefault();
+                            handleSelectSatellite(sat);
+                          }
+                        }}
+                        className={`filter-badge ${
+                          active ? 'active selected-filter' : ''
+                        }`}
+                      >
+                        <span>{label}</span>
+                        <span
+                          className={`text-[10px] px-1.5 rounded-full font-mono ${
                             active
-                              ? 'bg-[#1d4ed8] border border-[#0055ff] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(0,85,255,0.45)]'
-                              : 'bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60 font-medium'
+                              ? 'bg-[#0a0e17]/70 text-[#ffffff] font-bold'
+                              : 'bg-[#0a0e17]/60 text-[#cbd5e1]'
                           }`}
                         >
-                          <span>{label}</span>
-                          <span
-                            className={`text-[10px] px-1.5 rounded font-mono ${
-                              active
-                                ? 'bg-[#0a0e17] text-[#ffffff] border border-[#0055ff]/60 font-bold'
-                                : 'bg-[#141a26] text-[#cbd5e1]'
-                            }`}
-                          >
-                            {count}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
+                          {count}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
 
-                {visibleBouquetOptions.length > 1 && (
-                  <div
-                    data-tv-row="live-bouquets"
-                    data-row-active={
-                      activeFilterRow === 'live-bouquets' ? 'true' : undefined
-                    }
-                    className="flex items-center gap-1 overflow-x-auto no-scrollbar py-1 px-0.5"
-                  >
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0">
-                      {tr.filterBouquetLabel}
-                    </span>
-                    {visibleBouquetOptions.map((bq) => {
-                      const active =
-                        bq === 'Tous'
-                          ? selectedBouquet === 'Tous' &&
-                            selectedBouquetsList.length === 0
-                          : selectedBouquet === bq ||
-                            selectedBouquetsList.includes(bq);
-                      const count = bouquetCounts[bq] ?? 0;
-                      const label = translateBouquetFilter(bq, activeLang);
-                      return (
-                        <button
-                          key={bq}
-                          type="button"
-                          data-filter-active={active ? 'true' : undefined}
-                          onClick={() => handleSelectBouquet(bq)}
-                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] transition-all shrink-0 cursor-pointer ${
+              {/* Ligne 2B : [BOUQUET] */}
+              {visibleBouquetOptions.length > 1 && (
+                <div
+                  data-tv-row="live-bouquets"
+                  data-row-active={
+                    activeFilterRow === 'live-bouquets' ? 'true' : undefined
+                  }
+                  className="filter-ribbon no-scrollbar pt-1 border-t border-[#1a202c]"
+                >
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0 select-none">
+                    {tr.filterBouquetLabel}
+                  </span>
+                  {visibleBouquetOptions.map((bq) => {
+                    const active =
+                      bq === 'Tous'
+                        ? selectedBouquet === 'Tous' &&
+                          selectedBouquetsList.length === 0
+                        : selectedBouquet === bq ||
+                          selectedBouquetsList.includes(bq);
+                    const count = bouquetCounts[bq] ?? 0;
+                    const label = translateBouquetFilter(bq, activeLang);
+                    return (
+                      <div
+                        key={bq}
+                        role="button"
+                        tabIndex={0}
+                        data-filter-active={active ? 'true' : undefined}
+                        onClick={() => handleSelectBouquet(bq)}
+                        onKeyDown={(e) => {
+                          if (
+                            e.key === 'Enter' ||
+                            e.key === ' ' ||
+                            e.key === 'Select' ||
+                            e.keyCode === 23 ||
+                            e.keyCode === 66
+                          ) {
+                            e.preventDefault();
+                            handleSelectBouquet(bq);
+                          }
+                        }}
+                        className={`filter-badge ${
+                          active ? 'active selected-filter' : ''
+                        }`}
+                      >
+                        <span>{label}</span>
+                        <span
+                          className={`text-[10px] px-1.5 rounded-full font-mono ${
                             active
-                              ? 'bg-[#1d4ed8] border border-[#0055ff] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(0,85,255,0.45)]'
-                              : 'bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60 font-medium'
+                              ? 'bg-[#0a0e17]/70 text-[#ffffff] font-bold'
+                              : 'bg-[#0a0e17]/60 text-[#cbd5e1]'
                           }`}
                         >
-                          <span>{label}</span>
-                          <span
-                            className={`text-[10px] px-1 rounded font-mono ${
-                              active
-                                ? 'bg-[#0a0e17] text-[#ffffff] border border-[#0055ff]/60 font-bold'
-                                : 'bg-[#141a26] text-[#cbd5e1]'
-                            }`}
-                          >
-                            {count}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+                          {count}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
 
               {ramWarningMessage && (
                 <div className="px-3 py-2 rounded-lg bg-[#0a0e17] border border-[#0055ff]/60 text-[#ffffff] text-xs font-medium flex items-center gap-2">
@@ -4484,117 +4528,77 @@ export function App() {
                 </div>
               )}
 
-              {/* Ligne 2.5 : [COUNTRY] (Menu déroulant compact sur Mobile / Puces sélectionnables au Pad/Télécommande sur Tablette & TV) */}
+              {/* Ligne 3 : [ZONE / PAYS] (Ruban horizontal défilable de badges <div> cliquables sur tous les écrans) */}
               {visibleCountryOptions.length > 1 && (
-                <div className="pt-1 border-t border-[#1a202c]">
-                  {/* Mobile : Menu déroulant compact */}
-                  <div className="flex md:hidden items-center justify-between gap-2">
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] shrink-0">
-                      <Globe className="w-3.5 h-3.5 text-[#0055ff]" />
-                      {tr.filterCountryLabel || tr.filterZoneLabel}
-                    </span>
-                    <div className="flex items-center gap-1.5 flex-1 max-w-[260px]">
-                      <select
-                        value={selectedCountry}
-                        onChange={(e) =>
-                          setSelectedCountry(
-                            e.target.value as ChannelCountryFilter
-                          )
-                        }
-                        aria-label={tr.filterCountryLabel || tr.filterZoneLabel}
-                        className="w-full px-2.5 py-1.5 rounded-lg bg-[#0a0e17] border border-[#1a202c] text-xs font-medium text-[#ffffff] focus:outline-none focus:border-[#0055ff] transition-colors cursor-pointer"
+                <div
+                  data-tv-row="live-countries"
+                  data-row-active={
+                    activeFilterRow === 'live-countries' ? 'true' : undefined
+                  }
+                  className="filter-ribbon no-scrollbar pt-1 border-t border-[#1a202c]"
+                >
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0 select-none">
+                    <Globe className="w-3.5 h-3.5 text-[#0055ff]" />
+                    {tr.filterCountryLabel || tr.filterZoneLabel}
+                  </span>
+                  {visibleCountryOptions.map((cCode) => {
+                    const active = selectedCountry === cCode;
+                    const count = countryCounts[cCode] ?? 0;
+                    const label = translateChannelCountryFilter(
+                      cCode,
+                      activeLang
+                    );
+                    const flag = CHANNEL_COUNTRY_FLAGS[cCode] || '🌍';
+                    return (
+                      <div
+                        key={cCode}
+                        role="button"
+                        tabIndex={0}
+                        data-filter-active={active ? 'true' : undefined}
+                        onClick={() => setSelectedCountry(cCode)}
+                        onKeyDown={(e) => {
+                          if (
+                            e.key === 'Enter' ||
+                            e.key === ' ' ||
+                            e.key === 'Select' ||
+                            e.keyCode === 23 ||
+                            e.keyCode === 66
+                          ) {
+                            e.preventDefault();
+                            setSelectedCountry(cCode);
+                          }
+                        }}
+                        className={`filter-badge ${
+                          active ? 'active selected-filter' : ''
+                        }`}
                       >
-                        {visibleCountryOptions.map((cCode) => {
-                          const count = countryCounts[cCode] ?? 0;
-                          const label = translateChannelCountryFilter(
-                            cCode,
-                            activeLang
-                          );
-                          const flag = CHANNEL_COUNTRY_FLAGS[cCode] || '🌍';
-                          return (
-                            <option
-                              key={cCode}
-                              value={cCode}
-                              className="bg-[#141a26] text-[#ffffff]"
-                            >
-                              {flag} {label} ({count})
-                            </option>
-                          );
-                        })}
-                      </select>
-                      {selectedCountry !== 'Tous' && (
-                        <button
-                          type="button"
-                          onClick={() => setSelectedCountry('Tous')}
-                          className="p-1.5 rounded-lg bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] shrink-0 cursor-pointer"
-                          title={tr.resetFiltersBtn}
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Tablette & TV : Puces (chips) sélectionnables au pad/télécommande */}
-                  <div
-                    data-tv-row="live-countries"
-                    data-row-active={
-                      activeFilterRow === 'live-countries' ? 'true' : undefined
-                    }
-                    className="hidden md:flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 px-0.5"
-                  >
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0">
-                      <Globe className="w-3.5 h-3.5 text-[#0055ff]" />
-                      {tr.filterCountryLabel || tr.filterZoneLabel}
-                    </span>
-                    {visibleCountryOptions.map((cCode) => {
-                      const active = selectedCountry === cCode;
-                      const count = countryCounts[cCode] ?? 0;
-                      const label = translateChannelCountryFilter(
-                        cCode,
-                        activeLang
-                      );
-                      const flag = CHANNEL_COUNTRY_FLAGS[cCode] || '🌍';
-                      return (
-                        <button
-                          key={cCode}
-                          type="button"
-                          data-filter-active={active ? 'true' : undefined}
-                          onClick={() => setSelectedCountry(cCode)}
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] transition-all shrink-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0055ff] ${
+                        <span>{flag}</span>
+                        <span>{label}</span>
+                        <span
+                          className={`text-[10px] px-1.5 rounded-full font-mono ${
                             active
-                              ? 'bg-[#1d4ed8] border border-[#0055ff] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(0,85,255,0.45)]'
-                              : 'bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60 font-medium'
+                              ? 'bg-[#0a0e17]/70 text-[#ffffff] font-bold'
+                              : 'bg-[#0a0e17]/60 text-[#cbd5e1]'
                           }`}
                         >
-                          <span>{flag}</span>
-                          <span>{label}</span>
-                          <span
-                            className={`text-[10px] px-1 rounded font-mono ${
-                              active
-                                ? 'bg-[#0a0e17] text-[#ffffff] border border-[#0055ff]/60 font-bold'
-                                : 'bg-[#141a26] text-[#cbd5e1]'
-                            }`}
-                          >
-                            {count}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                          {count}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 
-              {/* Ligne 3 : [GENRE] */}
+              {/* Ligne 4 : [GENRE] */}
               {visibleGroupOptions.length > 1 && (
                 <div
                   data-tv-row="live-genres"
                   data-row-active={
                     activeFilterRow === 'live-genres' ? 'true' : undefined
                   }
-                  className="flex items-center gap-1 overflow-x-auto no-scrollbar pt-1.5 border-t border-[#1a202c] py-1 px-0.5"
+                  className="filter-ribbon no-scrollbar pt-1.5 border-t border-[#1a202c]"
                 >
-                  <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0 select-none">
                     <Sparkles className="w-3 h-3 text-[#e11d48]" />
                     {tr.filterGenreLabel}
                   </span>
@@ -4607,28 +4611,39 @@ export function App() {
                       (grp === 'Tous' ? (groupCounts['Toutes'] ?? 0) : 0);
                     const label = translateSubGenreGroup(grp, activeLang);
                     return (
-                      <button
+                      <div
                         key={grp}
-                        type="button"
+                        role="button"
+                        tabIndex={0}
                         data-filter-active={active ? 'true' : undefined}
                         onClick={() => setSelectedGroup(grp)}
-                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] transition-all shrink-0 cursor-pointer ${
-                          active
-                            ? 'bg-[#e11d48] border border-[#ff0033] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(225,29,72,0.45)]'
-                            : 'bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#e11d48]/60 font-medium'
+                        onKeyDown={(e) => {
+                          if (
+                            e.key === 'Enter' ||
+                            e.key === ' ' ||
+                            e.key === 'Select' ||
+                            e.keyCode === 23 ||
+                            e.keyCode === 66
+                          ) {
+                            e.preventDefault();
+                            setSelectedGroup(grp);
+                          }
+                        }}
+                        className={`filter-badge ${
+                          active ? 'active selected-filter' : ''
                         }`}
                       >
                         <span>{label}</span>
                         <span
-                          className={`text-[10px] px-1 rounded font-mono ${
+                          className={`text-[10px] px-1.5 rounded-full font-mono ${
                             active
-                              ? 'bg-[#0a0e17] text-[#ffffff] border border-[#ff0033]/60 font-bold'
-                              : 'bg-[#141a26] text-[#cbd5e1]'
+                              ? 'bg-[#0a0e17]/70 text-[#ffffff] font-bold'
+                              : 'bg-[#0a0e17]/60 text-[#cbd5e1]'
                           }`}
                         >
                           {count}
                         </span>
-                      </button>
+                      </div>
                     );
                   })}
                 </div>

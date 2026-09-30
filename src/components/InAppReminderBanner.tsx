@@ -129,142 +129,152 @@ export const InAppReminderBanner: React.FC<InAppReminderBannerProps> = ({
       role="region"
       aria-live="polite"
       aria-label="Alerte Rappel Programme TV"
-      className="fixed bottom-3 inset-x-3 sm:bottom-5 sm:inset-x-6 z-40 pointer-events-none flex justify-center"
+      data-tv-row="in-app-alert-banner"
+      style={{
+        position: 'fixed',
+        bottom: '24px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 9999,
+        backgroundColor: '#141a26',
+        border: '1px solid #3b82f6',
+        borderRadius: '12px',
+        padding: '12px 24px',
+        boxShadow: '0 10px 25px rgba(0,0,0,0.8)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+      }}
+      className="toast-notification in-app-toast-banner pointer-events-auto w-[calc(100vw-32px)] max-w-2xl transition-all"
     >
-      <div
-        data-tv-row="in-app-alert-banner"
-        className="pointer-events-auto w-full max-w-4xl rounded-xl bg-[#0a0e17]/95 backdrop-blur-xl border-2 border-[#ec4899] shadow-[0_0_30px_rgba(236,72,153,0.45),0_12px_32px_rgba(0,0,0,0.85)] p-2.5 sm:p-3.5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 transition-all"
+      {/* Bouton principal immédiatement sélectionnable via OK / Enter sur la télécommande */}
+      <button
+        ref={primaryButtonRef}
+        type="button"
+        tabIndex={0}
+        data-tv-alert-banner="true"
+        onClick={() => onSelectReminder(primaryAlert)}
+        onKeyDown={(e) => {
+          if (
+            e.key === 'Enter' ||
+            e.key === ' ' ||
+            e.key === 'Select' ||
+            e.keyCode === 23 ||
+            e.keyCode === 66
+          ) {
+            e.preventDefault();
+            e.stopPropagation();
+            onSelectReminder(primaryAlert);
+          }
+        }}
+        className="tv-focusable flex-1 flex items-center gap-3 text-start rounded-lg p-1.5 bg-transparent hover:bg-[#1a202c]/80 border border-transparent transition-all cursor-pointer min-w-0 group"
       >
-        {/* Bouton principal immédiatement sélectionnable via OK / Enter sur la télécommande */}
-        <button
-          ref={primaryButtonRef}
-          type="button"
-          tabIndex={0}
-          data-tv-alert-banner="true"
-          onClick={() => onSelectReminder(primaryAlert)}
-          onKeyDown={(e) => {
-            if (
-              e.key === 'Enter' ||
-              e.key === ' ' ||
-              e.key === 'Select' ||
-              e.keyCode === 23 ||
-              e.keyCode === 66
-            ) {
-              e.preventDefault();
-              e.stopPropagation();
-              onSelectReminder(primaryAlert);
-            }
-          }}
-          className="tv-focusable flex-1 flex items-center gap-3 text-start rounded-lg p-1.5 sm:p-2 bg-[#141a26]/90 hover:bg-[#1a202c] border border-[#0055ff]/50 transition-all cursor-pointer min-w-0 group"
-        >
-          {/* Icône Cloche & Logo Chaîne */}
-          <div className="relative shrink-0 flex items-center gap-2">
-            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg bg-gradient-to-br from-[#0055ff] to-[#ec4899] p-0.5 shadow-[0_0_14px_rgba(236,72,153,0.55)] flex items-center justify-center">
-              <div className="w-full h-full rounded-[6px] bg-[#0a0e17] flex items-center justify-center p-1">
-                {logoUrl ? (
-                  <img
-                    src={logoUrl}
-                    alt={primaryAlert.channelName}
-                    className="max-w-full max-h-full object-contain"
-                  />
-                ) : (
-                  <Tv className="w-5 h-5 text-[#ffffff]" />
-                )}
-              </div>
+        {/* Icône Cloche & Logo Chaîne */}
+        <div className="relative shrink-0 flex items-center gap-2">
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-[#2563eb] to-[#ec4899] p-0.5 flex items-center justify-center">
+            <div className="w-full h-full rounded-[6px] bg-[#0a0e17] flex items-center justify-center p-1">
+              {logoUrl ? (
+                <img
+                  src={logoUrl}
+                  alt={primaryAlert.channelName}
+                  className="max-w-full max-h-full object-contain"
+                />
+              ) : (
+                <Tv className="w-4 h-4 text-[#ffffff]" />
+              )}
             </div>
-            <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-gradient-to-r from-[#0055ff] to-[#ec4899] border border-[#ffffff] flex items-center justify-center shadow-[0_0_8px_#ec4899]">
-              <BellRing className="w-3 h-3 text-[#ffffff] animate-bounce" />
+          </div>
+          <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#2563eb] border border-[#ffffff] flex items-center justify-center">
+            <BellRing className="w-2.5 h-2.5 text-[#ffffff] animate-bounce" />
+          </span>
+        </div>
+
+        {/* Détails de l'alerte programme */}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {isImminentOrLive ? (
+              isLiveNow ? (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-[#e11d48] text-[#ffffff]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#ffffff] animate-pulse" />
+                  EN COURS · DIRECT
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-gradient-to-r from-[#2563eb] to-[#ec4899] text-[#ffffff]">
+                  <Clock className="w-3 h-3 text-[#ffffff]" />
+                  DANS {diffMinutes} MIN
+                </span>
+              )
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-[#2563eb] text-[#ffffff]">
+                <BellRing className="w-3 h-3 text-[#ffffff]" />
+                ⏰ RAPPEL ACTIVÉ (-5 MIN)
+              </span>
+            )}
+
+            <span className="text-xs font-bold text-[#60a5fa] truncate">
+              {cleanOfficialChannelName(primaryAlert.channelName)}
+            </span>
+
+            <span className="text-[11px] font-mono text-[#cbd5e1]">
+              {formatTimeShort(primaryAlert.startMs)} –{' '}
+              {formatTimeShort(primaryAlert.stopMs)}
+            </span>
+
+            {activeAlerts.length > 1 && (
+              <span className="px-1.5 py-0.2 rounded-full bg-[#1d4ed8]/40 border border-[#3b82f6] text-[10px] font-mono font-bold text-[#ffffff]">
+                +{activeAlerts.length - 1}
+              </span>
+            )}
+          </div>
+
+          <div className="mt-0.5 flex items-center justify-between gap-2">
+            <p className="text-xs sm:text-sm font-extrabold text-[#ffffff] truncate">
+              {displayTitle}
+            </p>
+            <span className="hidden md:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#ec4899]/20 border border-[#ec4899] text-[10px] font-mono font-bold text-[#ffffff] shrink-0">
+              <span>OK</span>
+              <ChevronRight className="w-3 h-3" />
             </span>
           </div>
 
-          {/* Détails de l'alerte programme */}
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {isImminentOrLive ? (
-                isLiveNow ? (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider bg-[#e11d48] text-[#ffffff] border border-[#ff0033] shadow-[0_0_10px_rgba(225,29,72,0.6)]">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#ffffff] animate-pulse" />
-                    EN COURS · DIRECT
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider bg-gradient-to-r from-[#0055ff] to-[#ec4899] text-[#ffffff] border border-[#ec4899] shadow-[0_0_10px_rgba(236,72,153,0.55)]">
-                    <Clock className="w-3 h-3 text-[#ffffff]" />
-                    COMMENCE DANS {diffMinutes} MIN
-                  </span>
-                )
-              ) : (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider bg-gradient-to-r from-[#0055ff] to-[#ec4899] text-[#ffffff] border border-[#ec4899]">
-                  <BellRing className="w-3 h-3 text-[#ffffff]" />
-                  RAPPEL ENREGISTRÉ · DANS {diffMinutes} MIN
-                </span>
-              )}
-
-              <span className="text-xs font-bold text-[#60a5fa] truncate">
-                {cleanOfficialChannelName(primaryAlert.channelName)}
-              </span>
-
-              <span className="text-[11px] font-mono text-[#cbd5e1]">
-                {formatTimeShort(primaryAlert.startMs)} –{' '}
-                {formatTimeShort(primaryAlert.stopMs)}
-              </span>
-
-              {activeAlerts.length > 1 && (
-                <span className="px-1.5 py-0.2 rounded bg-[#1d4ed8]/30 border border-[#0055ff] text-[10px] font-mono font-bold text-[#ffffff]">
-                  +{activeAlerts.length - 1} autre
-                  {activeAlerts.length - 1 > 1 ? 's' : ''}
-                </span>
-              )}
+          {isLiveNow && (
+            <div className="mt-1.5 h-1 w-full bg-[#0a0e17] rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-[#2563eb] via-[#ec4899] to-[#e11d48] rounded-full"
+                style={{ width: `${progress}%` }}
+              />
             </div>
+          )}
+        </div>
+      </button>
 
-            <div className="mt-0.5 flex items-center justify-between gap-2">
-              <p className="text-xs sm:text-sm font-extrabold text-[#ffffff] truncate">
-                {displayTitle}
-              </p>
-              <span className="hidden md:inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#ec4899]/20 border border-[#ec4899] text-[10px] font-mono font-bold text-[#ffffff] shrink-0 group-hover:bg-[#ec4899] transition-colors">
-                <span>OK / ENTER</span>
-                <ChevronRight className="w-3 h-3" />
-              </span>
-            </div>
-
-            {isLiveNow && (
-              <div className="mt-1.5 h-1 w-full bg-[#0a0e17] rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-[#0055ff] via-[#ec4899] to-[#e11d48] rounded-full"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-            )}
-          </div>
+      {/* Actions secondaires (Voir Mes Rappels / Fermer) */}
+      <div className="flex items-center justify-end gap-1.5 shrink-0">
+        <button
+          type="button"
+          onClick={onOpenRemindersTab}
+          className="tv-focusable inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#1d4ed8]/30 hover:bg-[#2563eb] border border-[#3b82f6] text-xs font-bold text-[#ffffff] transition-colors cursor-pointer"
+          title="Ouvrir l'onglet Mes Rappels"
+        >
+          <ListChecks className="w-3.5 h-3.5 text-[#60a5fa]" />
+          <span className="hidden sm:inline">Rappels ({reminders.length})</span>
         </button>
 
-        {/* Actions secondaires (Voir Mes Rappels / Fermer) */}
-        <div className="flex items-center justify-end gap-1.5 shrink-0">
-          <button
-            type="button"
-            onClick={onOpenRemindersTab}
-            className="tv-focusable inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#1d4ed8]/25 hover:bg-[#1d4ed8] border border-[#0055ff] text-xs font-bold text-[#ffffff] transition-colors cursor-pointer"
-            title="Ouvrir l'onglet Mes Rappels"
-          >
-            <ListChecks className="w-3.5 h-3.5 text-[#60a5fa]" />
-            <span>Mes Rappels ({reminders.length})</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              if (isImminentOrLive) {
-                onDismissReminder(primaryAlert.id);
-              } else {
-                onDismissRecentToast();
-              }
-            }}
-            aria-label="Masquer l'alerte de rappel"
-            title="Masquer l'alerte"
-            className="tv-focusable p-2 rounded-lg bg-[#141a26] hover:bg-[#e11d48] border border-[#1a202c] hover:border-[#ff0033] text-[#cbd5e1] hover:text-[#ffffff] transition-colors cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => {
+            if (isImminentOrLive) {
+              onDismissReminder(primaryAlert.id);
+            } else {
+              onDismissRecentToast();
+            }
+          }}
+          aria-label="Masquer l'alerte de rappel"
+          title="Masquer l'alerte"
+          className="tv-focusable p-1.5 rounded-lg bg-[#0a0e17] hover:bg-[#e11d48] border border-[#1a202c] hover:border-[#ff0033] text-[#cbd5e1] hover:text-[#ffffff] transition-colors cursor-pointer"
+        >
+          <X className="w-4 h-4" />
+        </button>
       </div>
     </div>
   );
