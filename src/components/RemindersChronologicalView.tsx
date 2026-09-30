@@ -204,16 +204,16 @@ export const RemindersChronologicalView: React.FC<
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-base sm:text-lg font-bold text-[#ffffff]">
-                  Mes Rappels Visuels In-App
+                  Mes Rappels &amp; Notifications Système
                 </h2>
                 <span className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-gradient-to-r from-[#0055ff] to-[#ec4899] text-[#ffffff] border border-[#ec4899]">
                   {reminders.length} programmé{reminders.length > 1 ? 's' : ''}
                 </span>
               </div>
               <p className="text-xs text-[#cbd5e1] mt-0.5">
-                Agenda chronologique de vos matchs, films et émissions · Bandeau
-                d&apos;alerte TV automatique 5 min avant le début et pendant le
-                direct.
+                Agenda chronologique de vos matchs, films et émissions ·
+                Notification système Android avec son (même application fermée)
+                + bandeau visuel In-App 5 min avant le début.
               </p>
             </div>
           </div>

@@ -16,6 +16,7 @@ import {
 } from '../utils/channelLogoResolver';
 import { cleanOfficialChannelName, ensureHttpsUrl } from '../utils/xmltvParser';
 import { translateEpgTextToFrenchSync } from '../utils/metadataResolverCore';
+import { playInAppNotificationSound } from '../services/nativeNotificationsService';
 
 interface InAppReminderBannerProps {
   reminders: ProgrammeReminder[];
@@ -62,6 +63,16 @@ export const InAppReminderBanner: React.FC<InAppReminderBannerProps> = ({
 
   const primaryAlert = activeAlerts[0] || recentAddedReminder || null;
   const isImminentOrLive = Boolean(activeAlerts[0]);
+  const lastSoundPlayedAlertIdRef = useRef<string | null>(null);
+
+  // Déclenche le carillon sonore In-App dès qu'un rappel entre dans la fenêtre <= 5 min ou En Direct
+  useEffect(() => {
+    const currentImminent = activeAlerts[0];
+    if (!currentImminent) return;
+    if (lastSoundPlayedAlertIdRef.current === currentImminent.id) return;
+    lastSoundPlayedAlertIdRef.current = currentImminent.id;
+    playInAppNotificationSound();
+  }, [activeAlerts]);
 
   // Rend le bandeau immédiatement sélectionnable via le bouton OK/Enter de la télécommande dès son apparition
   useEffect(() => {

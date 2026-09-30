@@ -549,6 +549,59 @@ function rasterizeSvgToPng(svgContent, outputPath, width, _height) {
   fs.writeFileSync(outputPath, pngBuffer);
 }
 
+function buildNotificationWavBuffer() {
+  const sampleRate = 44100;
+  const durationSeconds = 0.85;
+  const numSamples = Math.floor(sampleRate * durationSeconds);
+  const dataSize = numSamples * 2; // 16-bit mono
+  const buffer = Buffer.alloc(44 + dataSize);
+
+  // RIFF WAVE Header
+  buffer.write('RIFF', 0);
+  buffer.writeUInt32LE(36 + dataSize, 4);
+  buffer.write('WAVE', 8);
+  buffer.write('fmt ', 12);
+  buffer.writeUInt32LE(16, 16); // Subchunk1Size (PCM)
+  buffer.writeUInt16LE(1, 20);  // AudioFormat (1 = PCM)
+  buffer.writeUInt16LE(1, 22);  // NumChannels (1 = mono)
+  buffer.writeUInt32LE(sampleRate, 24);
+  buffer.writeUInt32LE(sampleRate * 2, 28); // ByteRate
+  buffer.writeUInt16LE(2, 32);  // BlockAlign
+  buffer.writeUInt16LE(16, 34); // BitsPerSample
+  buffer.write('data', 36);
+  buffer.writeUInt32LE(dataSize, 40);
+
+  // Synthèse d'un carillon cristallin à 3 notes harmoniques (A5 -> D6 -> E6)
+  const notes = [
+    { start: 0.0, freq: 880.0 },
+    { start: 0.14, freq: 1174.66 },
+    { start: 0.28, freq: 1318.51 },
+  ];
+
+  for (let i = 0; i < numSamples; i++) {
+    const t = i / sampleRate;
+    let sampleVal = 0;
+
+    for (const n of notes) {
+      if (t >= n.start) {
+        const dt = t - n.start;
+        const attack = Math.min(1, dt / 0.012);
+        const decay = Math.exp(-dt * 6.5);
+        const env = attack * decay;
+        const fundamental = Math.sin(2 * Math.PI * n.freq * dt);
+        const harmonic = 0.35 * Math.sin(2 * Math.PI * (n.freq * 2) * dt);
+        sampleVal += (fundamental + harmonic) * env * 0.38;
+      }
+    }
+
+    const clamped = Math.max(-1, Math.min(1, sampleVal));
+    const intSample = Math.round(clamped * 32767);
+    buffer.writeInt16LE(intSample, 44 + i * 2);
+  }
+
+  return buffer;
+}
+
 function ensureAndroidManifestAndStrings() {
   fs.mkdirSync(ANDROID_MAIN_DIR, { recursive: true });
   const manifestPath = path.join(ANDROID_MAIN_DIR, 'AndroidManifest.xml');
@@ -564,6 +617,14 @@ function ensureAndroidManifestAndStrings() {
     <!-- Permissions réseau pour les flux EPG (.xml.gz) et l'API TMDB -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- Permissions Système pour les Notifications Locales programmées (avec son, même application fermée) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.VIBRATE" />
 
     <application
         android:allowBackup="true"
@@ -611,6 +672,13 @@ function ensureAndroidManifestAndStrings() {
 </manifest>
 `;
   fs.writeFileSync(manifestPath, manifestXml, 'utf8');
+
+  // Génère le fichier audio notification_sound.wav dans res/raw/ (Android Natif) et dans public/ (Web)
+  const wavBuffer = buildNotificationWavBuffer();
+  const rawDir = path.join(ANDROID_RES_DIR, 'raw');
+  fs.mkdirSync(rawDir, { recursive: true });
+  fs.writeFileSync(path.join(rawDir, 'notification_sound.wav'), wavBuffer);
+  fs.writeFileSync(path.join(PUBLIC_DIR, 'notification_sound.wav'), wavBuffer);
 
   const valuesDir = path.join(ANDROID_RES_DIR, 'values');
   fs.mkdirSync(valuesDir, { recursive: true });

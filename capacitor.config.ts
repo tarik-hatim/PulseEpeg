@@ -39,6 +39,11 @@ export interface CapacitorConfig {
       backgroundColor?: string;
       showSpinner?: boolean;
     };
+    LocalNotifications?: {
+      smallIcon?: string;
+      iconColor?: string;
+      sound?: string;
+    };
   };
 }
 
@@ -74,6 +79,11 @@ const config: CapacitorConfig = {
       launchAutoHide: true,
       backgroundColor: '#0a0e17',
       showSpinner: false,
+    },
+    LocalNotifications: {
+      smallIcon: 'ic_launcher_foreground',
+      iconColor: '#E11D48',
+      sound: 'notification_sound.wav',
     },
   },
 };

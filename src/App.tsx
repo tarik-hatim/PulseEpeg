@@ -110,6 +110,14 @@ import { InAppReminderBanner } from './components/InAppReminderBanner';
 import { RemindersChronologicalView } from './components/RemindersChronologicalView';
 import { PulseEpgLogo } from './components/PulseEpgLogo';
 import {
+  cancelProgrammeNotification,
+  ensureEpgNotificationChannel,
+  playInAppNotificationSound,
+  requestSystemNotificationPermissions,
+  scheduleProgrammeNotification,
+  syncSavedRemindersWithSystemNotifications,
+} from './services/nativeNotificationsService';
+import {
   clearEnrichedMetadataCache,
   enrichProgrammeMetadata,
 } from './services/metadataEnricher';
@@ -743,7 +751,10 @@ export function App() {
           try {
             setRecentSearches(loadRecentSearches());
             setFavorites(loadFavoriteChannels());
-            setReminders(loadReminders());
+            const initialReminders = loadReminders();
+            setReminders(initialReminders);
+            void ensureEpgNotificationChannel();
+            void syncSavedRemindersWithSystemNotifications(initialReminders);
           } catch {
             // Ignore storage errors
           }
@@ -1992,6 +2003,7 @@ export function App() {
         if (exists) {
           const next = prev.filter((r) => r.id !== programme.id);
           saveReminders(next);
+          void cancelProgrammeNotification(programme.id);
           setRecentlyAddedReminder((curr) =>
             curr?.id === programme.id ? null : curr
           );
@@ -2018,6 +2030,9 @@ export function App() {
         );
         saveReminders(next);
 
+        // Demande la permission système LocalNotifications et programme l'alarme Android (canal 'epg_reminders' avec son)
+        void scheduleProgrammeNotification(newReminder);
+
         setDismissedBannerIds((old) =>
           old.filter((id) => id !== newReminder.id)
         );
@@ -2036,6 +2051,7 @@ export function App() {
   );
 
   const handleRemoveReminderById = useCallback((reminderId: string) => {
+    void cancelProgrammeNotification(reminderId);
     setReminders((prev) => {
       const next = prev.filter((r) => r.id !== reminderId);
       saveReminders(next);
@@ -2049,7 +2065,16 @@ export function App() {
   const handleClearExpiredReminders = useCallback(() => {
     const currentNow = Date.now();
     setReminders((prev) => {
-      const next = prev.filter((r) => r.stopMs > currentNow);
+      const hasExpired = prev.some((r) => r.stopMs <= currentNow);
+      const removed = hasExpired
+        ? prev.filter((r) => r.stopMs <= currentNow)
+        : prev;
+      for (const r of removed) {
+        void cancelProgrammeNotification(r.id);
+      }
+      const next = hasExpired
+        ? prev.filter((r) => r.stopMs > currentNow)
+        : [];
       saveReminders(next);
       return next;
     });
@@ -2130,15 +2155,22 @@ export function App() {
     setNowMs(currentNow);
     setDismissedBannerIds([]);
 
-    // Si un rappel est déjà à J-5 min ou en direct, le réafficher immédiatement
-    const hasActiveOrImminent = reminders.some((r) => {
+    // Demande la permission système LocalNotifications et joue le carillon sonore
+    void requestSystemNotificationPermissions();
+    playInAppNotificationSound();
+
+    // Si un rappel est déjà à J-5 min ou en direct, le réafficher immédiatement et déclencher la notification système
+    const existingImminent = reminders.find((r) => {
       const diff = r.startMs - currentNow;
       return (
         (diff > 0 && diff <= 5 * 60 * 1000) ||
         (r.startMs <= currentNow && r.stopMs > currentNow)
       );
     });
-    if (hasActiveOrImminent) {
+    if (existingImminent) {
+      void scheduleProgrammeNotification(existingImminent, {
+        isImmediateTest: true,
+      });
       return;
     }
 
@@ -2170,6 +2202,11 @@ export function App() {
       stopMs: currentNow + 95 * 60 * 1000,
       category: sampleChannel.contentCategory || 'Sport / Football',
     };
+
+    // Programme la vraie notification système Android (avec son sur le canal 'epg_reminders')
+    void scheduleProgrammeNotification(demoReminder, {
+      isImmediateTest: true,
+    });
 
     setReminders((prev) => {
       const filtered = prev.filter((r) => !r.id.startsWith('demo_alert_'));
@@ -4666,11 +4703,7 @@ export function App() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => {
-                      const next = reminders.filter((r) => r.id !== rem.id);
-                      setReminders(next);
-                      saveReminders(next);
-                    }}
+                    onClick={() => handleRemoveReminderById(rem.id)}
                     className="p-1.5 rounded-lg text-[#cbd5e1] hover:text-[#e11d48] cursor-pointer"
                   >
                     <Trash2 className="w-4 h-4" />
