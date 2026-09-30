@@ -126,8 +126,10 @@ export type SatelliteFilter =
   | 'Thor 0.8°W / Intelsat 10-02'
   | 'TurkmenÄlem 52°E'
   | 'MonacoSat 52°E'
+  | 'Star One 70°W'
   | 'Star One D2 70°W'
   | 'Amazonas 61°W'
+  | 'SES-6 40.5°W'
   | 'Intelsat 43.1°W / SES-6 40.5°W'
   | 'Intelsat 43.1°W & SES-6 40.5°W';
 

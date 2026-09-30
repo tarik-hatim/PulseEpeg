@@ -164,6 +164,18 @@ const GROUP_OPTIONS: ChannelGroup[] = [
   'Sport / Football',
 ];
 
+// Paramètres de virtualisation (Windowing) de la liste des chaînes pour Android TV & Mobile
+const VIRTUAL_ROW_GAP = 10; // space-y-2.5 (0.625rem = 10px)
+const VIRTUAL_OVERSCAN_COUNT = 6; // Buffer de pré-rendu haut/bas pour D-Pad fluide sans saccade
+const VIRTUAL_INITIAL_MIN_ITEMS = 12; // Nombre minimal d'éléments rendus à l'écran initial
+
+interface VirtualViewportState {
+  scrollTop: number;
+  viewportHeight: number;
+  listOffsetTop: number;
+  isDesktopLayout: boolean;
+}
+
 export function App() {
   const [settings, setSettings] = useState<AppSettings>(() => loadAppSettings());
   const [channels, setChannels] = useState<EpgChannel[]>([]);
@@ -231,7 +243,34 @@ export function App() {
   const [settingsInitialTab, setSettingsInitialTab] = useState<
     'filters' | 'sources' | 'legal'
   >('filters');
-  const [visibleLimit, setVisibleLimit] = useState<number>(60);
+
+  // États et références pour la Virtualisation de liste (Windowing)
+  const virtualListContainerRef = useRef<HTMLDivElement | null>(null);
+  const measuredRowHeightsRef = useRef<Map<string, number>>(new Map());
+  const rowNodeToChannelIdMapRef = useRef<WeakMap<Element, string>>(
+    new WeakMap()
+  );
+  const rowResizeObserverRef = useRef<ResizeObserver | null>(null);
+  const rowMeasureCallbacksRef = useRef<
+    Map<string, (el: HTMLDivElement | null) => void>
+  >(new Map());
+  const measureRafRef = useRef<number | null>(null);
+  const [heightMeasureVersion, setHeightMeasureVersion] = useState<number>(0);
+  const [focusedChannelIndex, setFocusedChannelIndex] = useState<number | null>(
+    null
+  );
+  const [virtualViewport, setVirtualViewport] = useState<VirtualViewportState>(
+    () => ({
+      scrollTop: typeof window !== 'undefined' ? window.scrollY : 0,
+      viewportHeight:
+        typeof window !== 'undefined' ? Math.max(window.innerHeight, 720) : 900,
+      listOffsetTop: 260,
+      isDesktopLayout:
+        typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
+    })
+  );
+  const virtualViewportRef = useRef<VirtualViewportState>(virtualViewport);
+  virtualViewportRef.current = virtualViewport;
 
   const workerRef = useRef<Worker | null>(null);
 
@@ -1683,7 +1722,17 @@ export function App() {
   ]);
 
   useEffect(() => {
-    setVisibleLimit(60);
+    setFocusedChannelIndex(null);
+    if (typeof window !== 'undefined' && virtualListContainerRef.current) {
+      const rect = virtualListContainerRef.current.getBoundingClientRect();
+      const nextListTop = Math.max(0, rect.top + window.scrollY);
+      setVirtualViewport({
+        scrollTop: window.scrollY,
+        viewportHeight: Math.max(window.innerHeight, 720),
+        listOffsetTop: nextListTop,
+        isDesktopLayout: window.innerWidth >= 1024,
+      });
+    }
   }, [
     selectedCategory,
     selectedSatellite,
@@ -1804,11 +1853,17 @@ export function App() {
           icon: rem.channelIcon,
           orbitalPosition: rem.orbitalPosition || 'Astra 19.2°E',
           satellites: ['Astra 19.2°E'],
-          bouquets: ['Tous'],
+          bouquets: ['Astra Canal+ France'],
           country: 'FR',
-          group: 'Films & Séries',
+          group: 'Cinéma Premières',
           contentCategory: (rem.category as EpgChannel['contentCategory']) || 'Films & Séries',
-        } as EpgChannel);
+          audioTrackLabel: 'VO Audio',
+          subtitleTrackLabel: 'SUB DVB',
+          sourceId: 'fallback',
+          sourceName: 'PulseEPG',
+          hasOriginalAudioVO: true,
+          hasSubtitles: true,
+        } as unknown as EpgChannel);
 
       const channelSchedule =
         activeSchedulesByChannel[cleanXmltvChannelId(foundChannel.id)] ||
@@ -2151,17 +2206,274 @@ export function App() {
     handleSyncToLive();
   };
 
-  const visibleChannels = useMemo(
-    () => filteredChannels.slice(0, visibleLimit),
-    [filteredChannels, visibleLimit]
+  const reminderIdSet = useMemo(
+    () => new Set(reminders.map((r) => r.id)),
+    [reminders]
   );
 
-  // Enrichissement automatique en arrière-plan (dans la langue active) des programmes en direct visibles
+  const handleSelectChannelFromRow = useCallback(
+    (channel: EpgChannel, currentProg?: EpgProgramme | null) => {
+      setSelectedChannel(channel);
+      setSelectedModalProgramme(currentProg ?? null);
+    },
+    []
+  );
+
+  // Initialisation du ResizeObserver partagé pour mesurer dynamiquement la hauteur réelle des cartes visibles
   useEffect(() => {
-    if (viewMode === 'grid' || visibleChannels.length === 0) return;
+    if (typeof window === 'undefined' || typeof ResizeObserver === 'undefined') {
+      return;
+    }
+
+    const observer = new ResizeObserver((entries) => {
+      let hasChange = false;
+      for (const entry of entries) {
+        const chId = rowNodeToChannelIdMapRef.current.get(entry.target);
+        if (!chId) continue;
+        const measured =
+          (entry.target as HTMLElement).offsetHeight ||
+          Math.round(entry.contentRect.height);
+        if (measured > 0) {
+          const prev = measuredRowHeightsRef.current.get(chId);
+          if (prev === undefined || Math.abs(prev - measured) > 1) {
+            measuredRowHeightsRef.current.set(chId, measured);
+            hasChange = true;
+          }
+        }
+      }
+
+      if (hasChange && measureRafRef.current === null) {
+        measureRafRef.current = window.requestAnimationFrame(() => {
+          measureRafRef.current = null;
+          setHeightMeasureVersion((v) => v + 1);
+        });
+      }
+    });
+
+    rowResizeObserverRef.current = observer;
+    return () => {
+      observer.disconnect();
+      rowResizeObserverRef.current = null;
+      if (measureRafRef.current !== null) {
+        window.cancelAnimationFrame(measureRafRef.current);
+        measureRafRef.current = null;
+      }
+    };
+  }, []);
+
+  const getRowMeasureRef = useCallback((channelId: string) => {
+    let cb = rowMeasureCallbacksRef.current.get(channelId);
+    if (!cb) {
+      cb = (el: HTMLDivElement | null) => {
+        if (!el) return;
+        rowNodeToChannelIdMapRef.current.set(el, channelId);
+        rowResizeObserverRef.current?.observe(el);
+        const h = el.offsetHeight;
+        if (h > 0) {
+          const prev = measuredRowHeightsRef.current.get(channelId);
+          if (prev === undefined || Math.abs(prev - h) > 1) {
+            measuredRowHeightsRef.current.set(channelId, h);
+            if (measureRafRef.current === null && typeof window !== 'undefined') {
+              measureRafRef.current = window.requestAnimationFrame(() => {
+                measureRafRef.current = null;
+                setHeightMeasureVersion((v) => v + 1);
+              });
+            }
+          }
+        }
+      };
+      rowMeasureCallbacksRef.current.set(channelId, cb);
+    }
+    return cb;
+  }, []);
+
+  // Écouteurs passifs de défilement (scroll) et redimensionnement (resize) cadencés par requestAnimationFrame
+  useEffect(() => {
+    if (typeof window === 'undefined' || viewMode === 'grid' || viewMode === 'reminders') {
+      return;
+    }
+
+    let rafId: number | null = null;
+
+    const syncViewportMetrics = () => {
+      rafId = null;
+      const scrollTop = window.scrollY || document.documentElement.scrollTop || 0;
+      const viewportHeight = Math.max(window.innerHeight || 720, 480);
+      const isDesktopLayout = window.innerWidth >= 1024;
+      let listOffsetTop = virtualViewportRef.current.listOffsetTop;
+
+      if (virtualListContainerRef.current) {
+        const rect = virtualListContainerRef.current.getBoundingClientRect();
+        listOffsetTop = Math.max(0, rect.top + scrollTop);
+      }
+
+      setVirtualViewport((prev) => {
+        if (
+           prev.isDesktopLayout !== isDesktopLayout ||
+          Math.abs(prev.scrollTop - scrollTop) >= 14 ||
+          Math.abs(prev.viewportHeight - viewportHeight) >= 12 ||
+          Math.abs(prev.listOffsetTop - listOffsetTop) >= 8
+        ) {
+          if (prev.isDesktopLayout !== isDesktopLayout) {
+            measuredRowHeightsRef.current.clear();
+          }
+          return {
+            scrollTop,
+            viewportHeight,
+            listOffsetTop,
+            isDesktopLayout,
+          };
+        }
+        return prev;
+      });
+    };
+
+    const handleScrollOrResize = () => {
+      if (rafId === null) {
+        rafId = window.requestAnimationFrame(syncViewportMetrics);
+      }
+    };
+
+    syncViewportMetrics();
+    window.addEventListener('scroll', handleScrollOrResize, { passive: true });
+    window.addEventListener('resize', handleScrollOrResize, { passive: true });
+
+    return () => {
+      window.removeEventListener('scroll', handleScrollOrResize);
+      window.removeEventListener('resize', handleScrollOrResize);
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+      }
+    };
+  }, [viewMode, filteredChannels.length]);
+
+  // Calcul de la fenêtre virtuelle (Windowing) : offsets cumulés, recherche binaire et spacers haut/bas
+  const virtualWindow = useMemo(() => {
+    const count = filteredChannels.length;
+    const defaultRowHeight = virtualViewport.isDesktopLayout ? 116 : 196;
+    const offsets = new Float64Array(count);
+    const heights = new Float64Array(count);
+
+    let currentTop = 0;
+    for (let i = 0; i < count; i++) {
+      const ch = filteredChannels[i];
+      const h = measuredRowHeightsRef.current.get(ch.id) || defaultRowHeight;
+      offsets[i] = currentTop;
+      heights[i] = h;
+      currentTop += h + (i < count - 1 ? VIRTUAL_ROW_GAP : 0);
+    }
+    const totalHeight = currentTop;
+
+    if (count === 0) {
+      return {
+        startIndex: 0,
+        endIndex: -1,
+        topSpacerPx: 0,
+        bottomSpacerPx: 0,
+        totalHeight: 0,
+        totalCount: 0,
+        items: [] as EpgChannel[],
+        offsets,
+        heights,
+      };
+    }
+
+    const relScrollTop = Math.max(
+      0,
+      virtualViewport.scrollTop - virtualViewport.listOffsetTop
+    );
+    const relScrollBottom =
+      relScrollTop + Math.max(virtualViewport.viewportHeight, 720);
+
+    // Recherche binaire du premier élément visible
+    let low = 0;
+    let high = count - 1;
+    let firstVisibleIdx = 0;
+    while (low <= high) {
+      const mid = (low + high) >>> 1;
+      if (offsets[mid] + heights[mid] >= relScrollTop) {
+        firstVisibleIdx = mid;
+        high = mid - 1;
+      } else {
+        low = mid + 1;
+      }
+    }
+
+    // Recherche binaire du dernier élément visible
+    low = firstVisibleIdx;
+    high = count - 1;
+    let lastVisibleIdx = firstVisibleIdx;
+    while (low <= high) {
+      const mid = (low + high) >>> 1;
+      if (offsets[mid] <= relScrollBottom) {
+        lastVisibleIdx = mid;
+        low = mid + 1;
+      } else {
+        high = mid - 1;
+      }
+    }
+
+    let startIndex = Math.max(0, firstVisibleIdx - VIRTUAL_OVERSCAN_COUNT);
+    let endIndex = Math.min(
+      count - 1,
+      Math.max(
+        firstVisibleIdx + VIRTUAL_INITIAL_MIN_ITEMS - 1,
+        lastVisibleIdx + VIRTUAL_OVERSCAN_COUNT
+      )
+    );
+
+    // Garantit que la carte ciblée au D-Pad Android TV et ses voisines immédiates sont toujours montées
+    if (
+      focusedChannelIndex !== null &&
+      focusedChannelIndex >= 0 &&
+      focusedChannelIndex < count
+    ) {
+      startIndex = Math.min(
+        startIndex,
+        Math.max(0, focusedChannelIndex - VIRTUAL_OVERSCAN_COUNT)
+      );
+      endIndex = Math.max(
+        endIndex,
+        Math.min(count - 1, focusedChannelIndex + VIRTUAL_OVERSCAN_COUNT)
+      );
+    }
+
+    const topSpacerPx = startIndex > 0 ? offsets[startIndex] : 0;
+    const endBottomPx =
+      endIndex >= 0 && endIndex < count
+        ? offsets[endIndex] + heights[endIndex]
+        : 0;
+    const bottomSpacerPx = Math.max(0, totalHeight - endBottomPx);
+
+    return {
+      startIndex,
+      endIndex,
+      topSpacerPx,
+      bottomSpacerPx,
+      totalHeight,
+      totalCount: count,
+      items: filteredChannels.slice(startIndex, endIndex + 1),
+      offsets,
+      heights,
+    };
+  }, [
+    filteredChannels,
+    virtualViewport,
+    focusedChannelIndex,
+    heightMeasureVersion,
+  ]);
+
+  const virtualWindowRef = useRef(virtualWindow);
+  virtualWindowRef.current = virtualWindow;
+
+  const visibleChannels = virtualWindow.items;
+
+  // Enrichissement automatique en arrière-plan (dans la langue active) des programmes actuellement visibles dans la fenêtre virtuelle
+  useEffect(() => {
+    if (viewMode === 'grid' || viewMode === 'reminders' || visibleChannels.length === 0) return;
 
     let cancelled = false;
-    const subset = visibleChannels.slice(0, 14);
+    const subset = visibleChannels.slice(0, 12);
 
     const timer = setTimeout(async () => {
       for (const ch of subset) {
@@ -2321,18 +2633,88 @@ export function App() {
           }
         }
         if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-          const channelCards = Array.from(
-            document.querySelectorAll<HTMLElement>('[data-channel-card="true"]')
-          ).filter((el) => {
-            const r = el.getBoundingClientRect();
-            return r.width > 0 && r.height > 0;
-          });
-          const idx = channelCards.indexOf(parentChannelCard);
-          if (e.key === 'ArrowDown' && idx >= 0) {
-            if (idx >= channelCards.length - 3) {
-              setVisibleLimit((prev) => prev + 60);
+          const rawIdx = parentChannelCard.getAttribute('data-channel-index');
+          const virtualIdx = rawIdx !== null ? Number(rawIdx) : -1;
+          const totalCount = virtualWindowRef.current.totalCount;
+
+          if (virtualIdx >= 0 && totalCount > 0) {
+            if (e.key === 'ArrowDown') {
+              if (virtualIdx < totalCount - 1) {
+                e.preventDefault();
+                const nextIndex = virtualIdx + 1;
+                setFocusedChannelIndex(nextIndex);
+                const nextCard = document.querySelector<HTMLElement>(
+                  `[data-channel-card="true"][data-channel-index="${nextIndex}"]`
+                );
+                if (nextCard) {
+                  nextCard.focus({ preventScroll: true });
+                  nextCard.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center',
+                  });
+                } else {
+                  const targetTop =
+                    virtualViewportRef.current.listOffsetTop +
+                    (virtualWindowRef.current.offsets[nextIndex] || 0) -
+                    window.innerHeight * 0.38;
+                  window.scrollTo({
+                    top: Math.max(0, targetTop),
+                    behavior: 'auto',
+                  });
+                  window.requestAnimationFrame(() => {
+                    const mountedCard = document.querySelector<HTMLElement>(
+                      `[data-channel-card="true"][data-channel-index="${nextIndex}"]`
+                    );
+                    mountedCard?.focus({ preventScroll: true });
+                  });
+                }
+                return;
+              }
+            } else if (e.key === 'ArrowUp') {
+              if (virtualIdx > 0) {
+                e.preventDefault();
+                const prevIndex = virtualIdx - 1;
+                setFocusedChannelIndex(prevIndex);
+                const prevCard = document.querySelector<HTMLElement>(
+                  `[data-channel-card="true"][data-channel-index="${prevIndex}"]`
+                );
+                if (prevCard) {
+                  prevCard.focus({ preventScroll: true });
+                  prevCard.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center',
+                  });
+                } else {
+                  const targetTop =
+                    virtualViewportRef.current.listOffsetTop +
+                    (virtualWindowRef.current.offsets[prevIndex] || 0) -
+                    window.innerHeight * 0.38;
+                  window.scrollTo({
+                    top: Math.max(0, targetTop),
+                    behavior: 'auto',
+                  });
+                  window.requestAnimationFrame(() => {
+                    const mountedCard = document.querySelector<HTMLElement>(
+                      `[data-channel-card="true"][data-channel-index="${prevIndex}"]`
+                    );
+                    mountedCard?.focus({ preventScroll: true });
+                  });
+                }
+                return;
+              } else {
+                // virtualIdx === 0 : laisser la navigation spatiale remonter vers la barre de filtres
+                setFocusedChannelIndex(null);
+              }
             }
-            if (idx < channelCards.length - 1) {
+          } else {
+            const channelCards = Array.from(
+              document.querySelectorAll<HTMLElement>('[data-channel-card="true"]')
+            ).filter((el) => {
+              const r = el.getBoundingClientRect();
+              return r.width > 0 && r.height > 0;
+            });
+            const idx = channelCards.indexOf(parentChannelCard);
+            if (e.key === 'ArrowDown' && idx >= 0 && idx < channelCards.length - 1) {
               e.preventDefault();
               const nextCard = channelCards[idx + 1];
               nextCard.focus({ preventScroll: true });
@@ -2341,16 +2723,16 @@ export function App() {
                 block: 'center',
               });
               return;
+            } else if (e.key === 'ArrowUp' && idx > 0) {
+              e.preventDefault();
+              const prevCard = channelCards[idx - 1];
+              prevCard.focus({ preventScroll: true });
+              prevCard.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center',
+              });
+              return;
             }
-          } else if (e.key === 'ArrowUp' && idx > 0) {
-            e.preventDefault();
-            const prevCard = channelCards[idx - 1];
-            prevCard.focus({ preventScroll: true });
-            prevCard.scrollIntoView({
-              behavior: 'smooth',
-              block: 'center',
-            });
-            return;
           }
         }
       }
@@ -2539,6 +2921,12 @@ export function App() {
 
       if (bestCandidate) {
         e.preventDefault();
+        if (bestCandidate.getAttribute('data-channel-card') === 'true') {
+          const targetIdxAttr = bestCandidate.getAttribute('data-channel-index');
+          if (targetIdxAttr !== null) {
+            setFocusedChannelIndex(Number(targetIdxAttr));
+          }
+        }
         bestCandidate.focus({ preventScroll: true });
         bestCandidate.scrollIntoView({
           behavior: 'smooth',
@@ -2688,8 +3076,6 @@ export function App() {
                   ? 'Mes Rappels'
                   : activeLang === 'es'
                   ? 'Mis Recordatorios'
-                  : activeLang === 'it'
-                  ? 'I Miei Promemoria'
                   : activeLang === 'ar'
                   ? 'تذكيراتي'
                   : 'My Reminders'}
@@ -3172,8 +3558,6 @@ export function App() {
                       ? 'Mes Rappels'
                       : activeLang === 'es'
                       ? 'Mis Recordatorios'
-                      : activeLang === 'it'
-                      ? 'I Miei Promemoria'
                       : activeLang === 'ar'
                       ? 'تذكيراتي'
                       : 'My Reminders'}
@@ -3509,13 +3893,14 @@ export function App() {
           <RemindersChronologicalView
             reminders={reminders}
             channels={channels}
+            schedulesByChannel={activeSchedulesByChannel}
             nowMs={nowMs}
             language={activeLang}
             onSelectReminder={handleSelectReminderTarget}
             onRemoveReminder={handleRemoveReminderById}
-            onClearExpired={handleClearExpiredReminders}
-            onTriggerTestAlert={handleTriggerTestAlertBanner}
-            onBackToLive={() => setViewMode('live')}
+            onClearAllReminders={handleClearExpiredReminders}
+            onToggleReminder={handleToggleReminder}
+            onSimulateImminentAlert={handleTriggerTestAlertBanner}
           />
         ) : viewMode === 'grid' ? (
           <TimeGridView
@@ -3620,48 +4005,56 @@ export function App() {
             )}
           </div>
         ) : (
-          <div data-tv-list="channels" className="space-y-2.5">
-            {visibleChannels.map((ch) => {
-              const pair = currentAndNextByChannel[ch.id] || {
-                current: null,
-                next: null,
-              };
-              return (
-                <ChannelRowCard
-                  key={ch.id}
-                  channel={ch}
-                  currentProgramme={pair.current}
-                  nextProgramme={pair.next}
-                  nowMs={effectiveTimeMs}
-                  isFavorite={favoriteSet.has(ch.id)}
-                  onToggleFavorite={handleToggleFavorite}
-                  onSelectChannel={(channel) => {
-                    setSelectedChannel(channel);
-                    setSelectedModalProgramme(pair.current);
-                  }}
-                  isSelected={selectedChannel?.id === ch.id}
-                  language={activeLang}
-                  activeSatellite={selectedSatellite}
-                  activeBouquet={selectedBouquet}
-                  selectedBouquets={settings.selectedBouquets}
-                  reminders={reminders}
-                  onToggleReminder={handleToggleReminder}
-                />
-              );
-            })}
-
-            {filteredChannels.length > visibleLimit && (
-              <div className="pt-4 text-center">
-                <button
-                  type="button"
-                  onClick={() => setVisibleLimit((prev) => prev + 60)}
-                  className="px-5 py-2.5 rounded-lg bg-[#e11d48] hover:bg-[#ff0033] text-[#ffffff] border border-[#ff0033] shadow-[0_0_14px_rgba(225,29,72,0.45)] text-xs font-bold transition-colors cursor-pointer"
-                >
-                  {tr.loadMoreChannels} (
-                  {filteredChannels.length - visibleLimit} {tr.remainingLabel})
-                </button>
-              </div>
-            )}
+          <div
+            ref={virtualListContainerRef}
+            data-tv-list="channels"
+            data-virtualized="true"
+            style={{
+              paddingTop:
+                virtualWindow.topSpacerPx > 0
+                  ? `${virtualWindow.topSpacerPx}px`
+                  : undefined,
+              paddingBottom:
+                virtualWindow.bottomSpacerPx > 0
+                  ? `${virtualWindow.bottomSpacerPx}px`
+                  : undefined,
+            }}
+          >
+            <div className="space-y-2.5">
+              {virtualWindow.items.map((ch, localIdx) => {
+                const virtualIndex = virtualWindow.startIndex + localIdx;
+                const pair = currentAndNextByChannel[ch.id] || {
+                  current: null,
+                  next: null,
+                };
+                return (
+                  <ChannelRowCard
+                    key={ch.id}
+                    dataIndex={virtualIndex}
+                    measureRef={getRowMeasureRef(ch.id)}
+                    channel={ch}
+                    currentProgramme={pair.current}
+                    nextProgramme={pair.next}
+                    nowMs={effectiveTimeMs}
+                    isFavorite={favoriteSet.has(ch.id)}
+                    onToggleFavorite={handleToggleFavorite}
+                    onSelectChannel={handleSelectChannelFromRow}
+                    isSelected={selectedChannel?.id === ch.id}
+                    language={activeLang}
+                    activeSatellite={selectedSatellite}
+                    activeBouquet={selectedBouquet}
+                    selectedBouquets={settings.selectedBouquets}
+                    hasCurrentReminder={Boolean(
+                      pair.current && reminderIdSet.has(pair.current.id)
+                    )}
+                    hasNextReminder={Boolean(
+                      pair.next && reminderIdSet.has(pair.next.id)
+                    )}
+                    onToggleReminder={handleToggleReminder}
+                  />
+                );
+              })}
+            </div>
           </div>
         )}
       </main>
@@ -3742,12 +4135,13 @@ export function App() {
       {/* Bandeau d'Alerte Visuel In-App (TV D-Pad & Tablette) : programmes commençant dans <= 5 min ou en cours */}
       <InAppReminderBanner
         reminders={reminders}
-        nowMs={nowMs}
+        realNowMs={nowMs}
         dismissedIds={dismissedBannerIds}
-        recentlyAddedReminder={recentlyAddedReminder}
+        recentAddedReminder={recentlyAddedReminder}
         onSelectReminder={handleSelectReminderTarget}
         onOpenRemindersTab={() => setViewMode('reminders')}
-        onDismissAlert={handleDismissBannerAlert}
+        onDismissReminder={handleDismissBannerAlert}
+        onDismissRecentToast={() => setRecentlyAddedReminder(null)}
         language={activeLang}
         isModalOpen={Boolean(selectedChannel) || isSettingsOpen}
       />

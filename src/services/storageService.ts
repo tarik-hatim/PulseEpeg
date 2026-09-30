@@ -2896,13 +2896,13 @@ export async function loadEpgFromCache(
                 ),
                 url: ensureHttpsUrl(ch.url),
                 displayName: cleanOfficialChannelName(ch.displayName),
-                satellites: isTrtChannel
+                satellites: (isTrtChannel
                   ? ['Türksat 42°E', 'Türksat 42°E / Eutelsat 7°E']
                   : (ch.satellites || []).filter(
                       (s) =>
                         s !== 'Türksat 42°E' &&
                         s !== 'Türksat 42°E / Eutelsat 7°E'
-                    ),
+                    )) as EpgChannel['satellites'],
                 orbitalPosition: isTrtChannel
                   ? 'Türksat 42°E / Eutelsat 7°E'
                   : normalizeSingleOrbitalPosition(

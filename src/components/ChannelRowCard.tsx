@@ -56,14 +56,21 @@ interface ChannelRowCardProps {
   nowMs: number;
   isFavorite: boolean;
   onToggleFavorite: (channelId: string) => void;
-  onSelectChannel: (channel: EpgChannel) => void;
+  onSelectChannel: (
+    channel: EpgChannel,
+    currentProgramme?: EpgProgramme | null
+  ) => void;
   isSelected: boolean;
   language?: AppLanguage;
   activeSatellite?: SatelliteFilter;
   activeBouquet?: BouquetFilter;
   selectedBouquets?: EpgBouquetId[];
   reminders?: ProgrammeReminder[];
+  hasCurrentReminder?: boolean;
+  hasNextReminder?: boolean;
   onToggleReminder?: (prog: EpgProgramme, channel: EpgChannel) => void;
+  dataIndex?: number;
+  measureRef?: (el: HTMLDivElement | null) => void;
 }
 
 const COUNTRY_ACCENTS: Record<
@@ -126,7 +133,7 @@ const COUNTRY_ACCENTS: Record<
   },
 };
 
-export const ChannelRowCard: React.FC<ChannelRowCardProps> = ({
+const ChannelRowCardInner: React.FC<ChannelRowCardProps> = ({
   channel,
   currentProgramme,
   nextProgramme,
@@ -140,20 +147,30 @@ export const ChannelRowCard: React.FC<ChannelRowCardProps> = ({
   activeBouquet,
   selectedBouquets,
   reminders = [],
+  hasCurrentReminder: propHasCurrentReminder,
+  hasNextReminder: propHasNextReminder,
   onToggleReminder,
+  dataIndex,
+  measureRef,
 }) => {
   const activeLang = language || getActiveLanguage();
   const tr = getTranslations(activeLang);
   const reminderIdSet = React.useMemo(
-    () => new Set(reminders.map((r) => r.id)),
+    () => (reminders.length > 0 ? new Set(reminders.map((r) => r.id)) : null),
     [reminders]
   );
-  const hasCurrentReminder = currentProgramme
-    ? reminderIdSet.has(currentProgramme.id)
-    : false;
-  const hasNextReminder = nextProgramme
-    ? reminderIdSet.has(nextProgramme.id)
-    : false;
+  const hasCurrentReminder =
+    propHasCurrentReminder !== undefined
+      ? propHasCurrentReminder
+      : currentProgramme && reminderIdSet
+      ? reminderIdSet.has(currentProgramme.id)
+      : false;
+  const hasNextReminder =
+    propHasNextReminder !== undefined
+      ? propHasNextReminder
+      : nextProgramme && reminderIdSet
+      ? reminderIdSet.has(nextProgramme.id)
+      : false;
   const singleSatBadge = getSingleSatelliteBadgeForChannel(
     channel,
     activeSatellite,
@@ -224,11 +241,14 @@ export const ChannelRowCard: React.FC<ChannelRowCardProps> = ({
 
   return (
     <div
+      ref={measureRef}
       tabIndex={0}
       role="button"
       data-channel-card="true"
+      data-channel-id={channel.id}
+      data-channel-index={dataIndex}
       data-tv-focusable="true"
-      onClick={() => onSelectChannel(channel)}
+      onClick={() => onSelectChannel(channel, currentProgramme)}
       onKeyDown={(e) => {
         if (
           e.key === 'Enter' ||
@@ -238,7 +258,7 @@ export const ChannelRowCard: React.FC<ChannelRowCardProps> = ({
           e.keyCode === 66
         ) {
           e.preventDefault();
-          onSelectChannel(channel);
+          onSelectChannel(channel, currentProgramme);
         }
       }}
       className={`tv-card-focusable group relative rounded-lg border cursor-pointer overflow-hidden transition-all ${
@@ -587,3 +607,5 @@ export const ChannelRowCard: React.FC<ChannelRowCardProps> = ({
     </div>
   );
 };
+
+export const ChannelRowCard = React.memo(ChannelRowCardInner);
