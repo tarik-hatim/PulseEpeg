@@ -261,10 +261,40 @@ export function App() {
   const [focusedChannelIndex, setFocusedChannelIndex] = useState<number | null>(
     null
   );
+  const [lastFocusedChannelIndex, setLastFocusedChannelIndex] =
+    useState<number>(0);
+  const lastFocusedChannelIndexRef = useRef<number>(0);
+  const filterRowColMemoryRef = useRef<Record<string, number>>({});
+  const zoneTransitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
   const [activeDpadZone, setActiveDpadZone] = useState<
     'header' | 'filters' | 'channels' | null
   >(null);
+  const activeDpadZoneRef = useRef<'header' | 'filters' | 'channels' | null>(
+    null
+  );
+  activeDpadZoneRef.current = activeDpadZone;
   const [activeFilterRow, setActiveFilterRow] = useState<string | null>(null);
+  const [dpadState, setDpadState] = useState<{
+    previousZone: 'header' | 'filters' | 'channels' | null;
+    lastDirection: 'up' | 'down' | 'left' | 'right' | 'jump' | null;
+    isZoneTransitioning: boolean;
+    transitionSeq: number;
+    filterRowIndex: number;
+    totalFilterRows: number;
+    filterColIndex: number;
+    channelActionCol: number;
+  }>({
+    previousZone: null,
+    lastDirection: null,
+    isZoneTransitioning: false,
+    transitionSeq: 0,
+    filterRowIndex: 0,
+    totalFilterRows: 0,
+    filterColIndex: 0,
+    channelActionCol: 0,
+  });
   const [virtualViewport, setVirtualViewport] = useState<VirtualViewportState>(
     () => ({
       scrollTop: typeof window !== 'undefined' ? window.scrollY : 0,
@@ -1728,7 +1758,13 @@ export function App() {
   ]);
 
   useEffect(() => {
-    setFocusedChannelIndex(null);
+    const maxIdx = Math.max(0, filteredChannels.length - 1);
+    const clampedLastIdx = Math.min(lastFocusedChannelIndexRef.current, maxIdx);
+    lastFocusedChannelIndexRef.current = clampedLastIdx;
+    setLastFocusedChannelIndex(clampedLastIdx);
+    setFocusedChannelIndex((prev) =>
+      prev !== null ? Math.min(prev, maxIdx) : null
+    );
     if (typeof window !== 'undefined' && virtualListContainerRef.current) {
       const rect = virtualListContainerRef.current.getBoundingClientRect();
       const nextListTop = Math.max(0, rect.top + window.scrollY);
@@ -1740,6 +1776,7 @@ export function App() {
       });
     }
   }, [
+    filteredChannels.length,
     selectedCategory,
     selectedSatellite,
     selectedBouquet,
@@ -2428,19 +2465,25 @@ export function App() {
       )
     );
 
-    // Garantit que la carte ciblée au D-Pad Android TV et ses voisines immédiates sont toujours montées
+    // Garantit que la carte ciblée au D-Pad Android TV (ou le dernier index mémorisé) et ses voisines immédiates sont montées
+    const pinnedIndex =
+      focusedChannelIndex !== null
+        ? focusedChannelIndex
+        : lastFocusedChannelIndex;
     if (
-      focusedChannelIndex !== null &&
-      focusedChannelIndex >= 0 &&
-      focusedChannelIndex < count
+      pinnedIndex !== null &&
+      pinnedIndex >= 0 &&
+      pinnedIndex < count &&
+      (focusedChannelIndex !== null ||
+        Math.abs(pinnedIndex - firstVisibleIdx) <= 30)
     ) {
       startIndex = Math.min(
         startIndex,
-        Math.max(0, focusedChannelIndex - VIRTUAL_OVERSCAN_COUNT)
+        Math.max(0, pinnedIndex - VIRTUAL_OVERSCAN_COUNT)
       );
       endIndex = Math.max(
         endIndex,
-        Math.min(count - 1, focusedChannelIndex + VIRTUAL_OVERSCAN_COUNT)
+        Math.min(count - 1, pinnedIndex + VIRTUAL_OVERSCAN_COUNT)
       );
     }
 
@@ -2466,6 +2509,7 @@ export function App() {
     filteredChannels,
     virtualViewport,
     focusedChannelIndex,
+    lastFocusedChannelIndex,
     heightMeasureVersion,
   ]);
 
@@ -2537,47 +2581,326 @@ export function App() {
     return () => clearTimeout(timer);
   }, [selectedChannel, isSettingsOpen]);
 
-  // Suivi en temps réel de la zone de focus D-Pad (Filtres vs Liste des chaînes) pour les indicateurs visuels TV
+  // Déclencheur d'animation de transition inter-zones dans la machine à états D-Pad
+  const triggerZoneTransition = useCallback(
+    (
+      fromZone: 'header' | 'filters' | 'channels' | null,
+      toZone: 'header' | 'filters' | 'channels',
+      direction: 'up' | 'down' | 'left' | 'right' | 'jump'
+    ) => {
+      if (zoneTransitionTimerRef.current) {
+        clearTimeout(zoneTransitionTimerRef.current);
+      }
+      const isCrossZone = fromZone !== null && fromZone !== toZone;
+      setActiveDpadZone(toZone);
+      setDpadState((prev) => ({
+        ...prev,
+        previousZone: isCrossZone ? fromZone : prev.previousZone,
+        lastDirection: direction,
+        isZoneTransitioning: isCrossZone,
+        transitionSeq: prev.transitionSeq + 1,
+      }));
+      if (isCrossZone) {
+        zoneTransitionTimerRef.current = setTimeout(() => {
+          setDpadState((prev) => ({
+            ...prev,
+            isZoneTransitioning: false,
+          }));
+        }, 380);
+      }
+    },
+    []
+  );
+
+  // Fonction déterministe de la machine à états pour focaliser précisément un index de la liste des chaînes
+  const focusChannelAtIndex = useCallback(
+    (
+      targetIndex: number,
+      actionCol = 0,
+      direction: 'up' | 'down' | 'left' | 'right' | 'jump' = 'down'
+    ): boolean => {
+      const totalCount = virtualWindowRef.current.totalCount;
+      if (totalCount <= 0) return false;
+
+      const clampedIdx = Math.max(0, Math.min(totalCount - 1, targetIndex));
+      const prevZone = activeDpadZoneRef.current;
+
+      lastFocusedChannelIndexRef.current = clampedIdx;
+      setLastFocusedChannelIndex(clampedIdx);
+      setFocusedChannelIndex(clampedIdx);
+      setActiveFilterRow(null);
+      triggerZoneTransition(prevZone, 'channels', direction);
+      setDpadState((prev) => ({
+        ...prev,
+        channelActionCol: actionCol,
+      }));
+
+      const applyCardFocus = (cardEl: HTMLElement) => {
+        if (actionCol > 0) {
+          const actions = Array.from(
+            cardEl.querySelectorAll<HTMLElement>(
+              '[data-channel-reminder="true"], [data-channel-fav="true"]'
+            )
+          ).filter((btn) => {
+            const r = btn.getBoundingClientRect();
+            return r.width > 0 && r.height > 0;
+          });
+          const targetAction = actions[Math.min(actionCol - 1, actions.length - 1)];
+          if (targetAction) {
+            targetAction.focus({ preventScroll: true });
+            cardEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+          }
+        }
+        cardEl.focus({ preventScroll: true });
+        cardEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      };
+
+      const existingCard = document.querySelector<HTMLElement>(
+        `[data-channel-card="true"][data-channel-index="${clampedIdx}"]`
+      );
+      if (existingCard) {
+        applyCardFocus(existingCard);
+        return true;
+      }
+
+      const targetTop =
+        virtualViewportRef.current.listOffsetTop +
+        (virtualWindowRef.current.offsets[clampedIdx] || 0) -
+        window.innerHeight * 0.38;
+      window.scrollTo({
+        top: Math.max(0, targetTop),
+        behavior: 'auto',
+      });
+      window.requestAnimationFrame(() => {
+        const mountedCard = document.querySelector<HTMLElement>(
+          `[data-channel-card="true"][data-channel-index="${clampedIdx}"]`
+        );
+        if (mountedCard) {
+          applyCardFocus(mountedCard);
+        }
+      });
+      return true;
+    },
+    [triggerZoneTransition]
+  );
+
+  // Fonction déterministe de la machine à états pour focaliser une ligne de filtres (avec mémoire de colonne)
+  const focusFilterGridRow = useCallback(
+    (
+      targetRowStrategy: 'first' | 'last' | number,
+      options?: {
+        preferCenterX?: number;
+        preferRememberedCol?: boolean;
+        direction?: 'up' | 'down' | 'left' | 'right' | 'jump';
+      }
+    ): boolean => {
+      const filterZone = document.querySelector<HTMLElement>(
+        '[data-tv-zone="filters"]'
+      );
+      if (!filterZone) return false;
+
+      const selector =
+        'button:not([disabled]), [role="button"]:not([tabindex="-1"]), a[href], select:not([disabled]), input:not([disabled])';
+
+      const visibleRows = Array.from(
+        filterZone.querySelectorAll<HTMLElement>('[data-tv-row]')
+      ).filter((row) => {
+        const r = row.getBoundingClientRect();
+        if (r.width <= 0 || r.height <= 0) return false;
+        const items = Array.from(row.querySelectorAll<HTMLElement>(selector)).filter(
+          (el) => {
+            const er = el.getBoundingClientRect();
+            return er.width > 0 && er.height > 0;
+          }
+        );
+        return items.length > 0;
+      });
+
+      if (visibleRows.length === 0) return false;
+
+      const rowIdx =
+        targetRowStrategy === 'first'
+          ? 0
+          : targetRowStrategy === 'last'
+          ? visibleRows.length - 1
+          : Math.max(0, Math.min(visibleRows.length - 1, targetRowStrategy));
+
+      const targetRow = visibleRows[rowIdx];
+      const rowName = targetRow.getAttribute('data-tv-row') || `row-${rowIdx}`;
+      const rowItems = Array.from(
+        targetRow.querySelectorAll<HTMLElement>(selector)
+      ).filter((el) => {
+        const r = el.getBoundingClientRect();
+        return r.width > 0 && r.height > 0;
+      });
+
+      if (rowItems.length === 0) return false;
+
+      let chosenItem = rowItems[0];
+      let chosenColIdx = 0;
+
+      const rememberedCol = filterRowColMemoryRef.current[rowName];
+      const activeChipIdx = rowItems.findIndex(
+        (b) => b.getAttribute('data-filter-active') === 'true'
+      );
+
+      if (
+        options?.preferRememberedCol &&
+        rememberedCol !== undefined &&
+        rememberedCol >= 0 &&
+        rememberedCol < rowItems.length
+      ) {
+        chosenColIdx = rememberedCol;
+        chosenItem = rowItems[chosenColIdx];
+      } else if (options?.preferRememberedCol && activeChipIdx !== -1) {
+        chosenColIdx = activeChipIdx;
+        chosenItem = rowItems[activeChipIdx];
+      } else if (options?.preferCenterX !== undefined) {
+        let minHorizDist = Infinity;
+        rowItems.forEach((item, idx) => {
+          const ir = item.getBoundingClientRect();
+          const icx = ir.left + ir.width / 2;
+          const dist = Math.abs(icx - options.preferCenterX!);
+          if (dist < minHorizDist) {
+            minHorizDist = dist;
+            chosenItem = item;
+            chosenColIdx = idx;
+          }
+        });
+      } else if (activeChipIdx !== -1) {
+        chosenColIdx = activeChipIdx;
+        chosenItem = rowItems[activeChipIdx];
+      }
+
+      filterRowColMemoryRef.current[rowName] = chosenColIdx;
+      const prevZone = activeDpadZoneRef.current;
+      setFocusedChannelIndex(null);
+      setActiveFilterRow(rowName);
+      triggerZoneTransition(
+        prevZone,
+        'filters',
+        options?.direction || 'up'
+      );
+      setDpadState((prev) => ({
+        ...prev,
+        filterRowIndex: rowIdx,
+        totalFilterRows: visibleRows.length,
+        filterColIndex: chosenColIdx,
+      }));
+
+      chosenItem.focus({ preventScroll: true });
+      chosenItem.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+        inline: 'nearest',
+      });
+      return true;
+    },
+    [triggerZoneTransition]
+  );
+
+  // Suivi en temps réel de la machine à états de focus D-Pad (En-tête, Lignes de Filtres, Liste des Chaînes)
   useEffect(() => {
+    const selector =
+      'button:not([disabled]), [role="button"]:not([tabindex="-1"]), a[href], select:not([disabled]), input:not([disabled])';
+
     const handleFocusIn = (e: FocusEvent) => {
       const target = e.target as HTMLElement | null;
       if (!target) return;
 
       const channelCard = target.closest<HTMLElement>('[data-channel-card="true"]');
       if (channelCard) {
-        setActiveDpadZone('channels');
-        setActiveFilterRow(null);
+        const prevZone = activeDpadZoneRef.current;
         const idxAttr = channelCard.getAttribute('data-channel-index');
-        if (idxAttr !== null) {
-          setFocusedChannelIndex(Number(idxAttr));
+        const parsedIdx = idxAttr !== null ? Number(idxAttr) : 0;
+        if (!Number.isNaN(parsedIdx) && parsedIdx >= 0) {
+          lastFocusedChannelIndexRef.current = parsedIdx;
+          setLastFocusedChannelIndex(parsedIdx);
+          setFocusedChannelIndex(parsedIdx);
         }
+        const actions = Array.from(
+          channelCard.querySelectorAll<HTMLElement>(
+            '[data-channel-reminder="true"], [data-channel-fav="true"]'
+          )
+        );
+        const actionIdx = actions.indexOf(target);
+        setActiveFilterRow(null);
+        triggerZoneTransition(
+          prevZone,
+          'channels',
+          prevZone === 'filters' ? 'down' : 'jump'
+        );
+        setDpadState((prev) => ({
+          ...prev,
+          channelActionCol: actionIdx >= 0 ? actionIdx + 1 : 0,
+        }));
         return;
       }
 
       const tvRow = target.closest<HTMLElement>('[data-tv-row]');
       if (tvRow) {
         const rowName = tvRow.getAttribute('data-tv-row') || '';
+        const rowItems = Array.from(
+          tvRow.querySelectorAll<HTMLElement>(selector)
+        ).filter((el) => {
+          const r = el.getBoundingClientRect();
+          return r.width > 0 && r.height > 0;
+        });
+        const colIdx = Math.max(0, rowItems.indexOf(target));
+        filterRowColMemoryRef.current[rowName] = colIdx;
+
         if (rowName === 'header-tabs' || rowName === 'header-actions') {
-          setActiveDpadZone('header');
+          const prevZone = activeDpadZoneRef.current;
+          setFocusedChannelIndex(null);
           setActiveFilterRow(null);
+          triggerZoneTransition(prevZone, 'header', 'up');
         } else {
-          setActiveDpadZone('filters');
+          const prevZone = activeDpadZoneRef.current;
+          const filterZone = tvRow.closest<HTMLElement>('[data-tv-zone="filters"]');
+          const visibleRows = filterZone
+            ? Array.from(
+                filterZone.querySelectorAll<HTMLElement>('[data-tv-row]')
+              ).filter((rEl) => {
+                const r = rEl.getBoundingClientRect();
+                return r.width > 0 && r.height > 0;
+              })
+            : [];
+          const rIdx = Math.max(0, visibleRows.indexOf(tvRow));
+          setFocusedChannelIndex(null);
           setActiveFilterRow(rowName);
+          triggerZoneTransition(
+            prevZone,
+            'filters',
+            prevZone === 'channels' ? 'up' : 'down'
+          );
+          setDpadState((prev) => ({
+            ...prev,
+            filterRowIndex: rIdx,
+            totalFilterRows: visibleRows.length,
+            filterColIndex: colIdx,
+          }));
         }
         return;
       }
 
       if (target.closest('[data-tv-zone="filters"]')) {
-        setActiveDpadZone('filters');
+        const prevZone = activeDpadZoneRef.current;
+        setFocusedChannelIndex(null);
+        triggerZoneTransition(
+          prevZone,
+          'filters',
+          prevZone === 'channels' ? 'up' : 'down'
+        );
         return;
       }
     };
 
     window.addEventListener('focusin', handleFocusIn);
     return () => window.removeEventListener('focusin', handleFocusIn);
-  }, []);
+  }, [triggerZoneTransition]);
 
-  // Navigation Télécommande Android TV / Leanback (D-Pad Spatial & List Navigation)
+  // Machine à états de navigation en grille (D-Pad Grid-Navigation State Machine) pour Android TV
   useEffect(() => {
     const handleGlobalDpadKeyDown = (e: KeyboardEvent) => {
       const activeEl = document.activeElement as HTMLElement | null;
@@ -2610,6 +2933,23 @@ export function App() {
         }
       }
 
+      // Raccourci PageUp / PageDown pour basculer instantanément entre Lignes de Filtres et Liste des Chaînes (sur le dernier index focalisé)
+      if (!modalScopeExists() && !isTextInput) {
+        if (e.key === 'PageUp' && activeDpadZoneRef.current === 'channels') {
+          e.preventDefault();
+          focusFilterGridRow('last', {
+            preferRememberedCol: true,
+            direction: 'up',
+          });
+          return;
+        }
+        if (e.key === 'PageDown' && activeDpadZoneRef.current === 'filters') {
+          e.preventDefault();
+          focusChannelAtIndex(lastFocusedChannelIndexRef.current, 0, 'down');
+          return;
+        }
+      }
+
       if (
         e.key !== 'ArrowUp' &&
         e.key !== 'ArrowDown' &&
@@ -2633,16 +2973,32 @@ export function App() {
         }
       }
 
+      function modalScopeExists() {
+        return Boolean(
+          document.querySelector<HTMLElement>('[data-tv-modal="true"]')
+        );
+      }
+
       const modalScope = document.querySelector<HTMLElement>(
         '[data-tv-modal="true"]'
       );
       const rootScope: ParentNode = modalScope || document;
 
-      // 1. Navigation déterministe sur la liste des chaînes (ChannelRowCard)
+      // ========================================================================
+      // ÉTAT 1 : ZONE LISTE DES CHAÎNES ([data-channel-card="true"])
+      // Navigation 2D (Lignes = Chaînes virtualisées, Colonnes = Carte / Rappel / Favori)
+      // ========================================================================
       const parentChannelCard = activeEl?.closest<HTMLElement>(
         '[data-channel-card="true"]'
       );
       if (parentChannelCard && !modalScope) {
+        const rawIdx = parentChannelCard.getAttribute('data-channel-index');
+        const virtualIdx =
+          rawIdx !== null ? Number(rawIdx) : lastFocusedChannelIndexRef.current;
+        if (!Number.isNaN(virtualIdx) && virtualIdx >= 0) {
+          lastFocusedChannelIndexRef.current = virtualIdx;
+        }
+
         const cardActions = Array.from(
           parentChannelCard.querySelectorAll<HTMLElement>(
             '[data-channel-reminder="true"], [data-channel-fav="true"]'
@@ -2652,7 +3008,11 @@ export function App() {
           return r.width > 0 && r.height > 0;
         });
 
-        if (e.key === 'ArrowRight') {
+        const isRtl = document.documentElement.dir === 'rtl';
+        const forwardKey = isRtl ? 'ArrowLeft' : 'ArrowRight';
+        const backwardKey = isRtl ? 'ArrowRight' : 'ArrowLeft';
+
+        if (e.key === forwardKey) {
           if (activeEl === parentChannelCard && cardActions.length > 0) {
             e.preventDefault();
             cardActions[0].focus({ preventScroll: true });
@@ -2665,7 +3025,8 @@ export function App() {
             return;
           }
         }
-        if (e.key === 'ArrowLeft') {
+
+        if (e.key === backwardKey) {
           const actionIdx = activeEl ? cardActions.indexOf(activeEl) : -1;
           if (actionIdx > 0) {
             e.preventDefault();
@@ -2677,143 +3038,50 @@ export function App() {
             parentChannelCard.focus({ preventScroll: true });
             return;
           }
+          // Depuis la colonne 0 d'une carte de chaîne, Flèche Gauche remonte directement aux lignes de filtres
+          // tout en conservant lastFocusedChannelIndex intact pour un retour exact !
+          if (activeEl === parentChannelCard) {
+            if (
+              focusFilterGridRow('last', {
+                preferRememberedCol: true,
+                direction: 'up',
+              })
+            ) {
+              e.preventDefault();
+              return;
+            }
+          }
         }
+
         if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-          const rawIdx = parentChannelCard.getAttribute('data-channel-index');
-          const virtualIdx = rawIdx !== null ? Number(rawIdx) : -1;
           const totalCount = virtualWindowRef.current.totalCount;
 
           if (virtualIdx >= 0 && totalCount > 0) {
             if (e.key === 'ArrowDown') {
               if (virtualIdx < totalCount - 1) {
                 e.preventDefault();
-                const nextIndex = virtualIdx + 1;
-                setFocusedChannelIndex(nextIndex);
-                const nextCard = document.querySelector<HTMLElement>(
-                  `[data-channel-card="true"][data-channel-index="${nextIndex}"]`
-                );
-                if (nextCard) {
-                  nextCard.focus({ preventScroll: true });
-                  nextCard.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'center',
-                  });
-                } else {
-                  const targetTop =
-                    virtualViewportRef.current.listOffsetTop +
-                    (virtualWindowRef.current.offsets[nextIndex] || 0) -
-                    window.innerHeight * 0.38;
-                  window.scrollTo({
-                    top: Math.max(0, targetTop),
-                    behavior: 'auto',
-                  });
-                  window.requestAnimationFrame(() => {
-                    const mountedCard = document.querySelector<HTMLElement>(
-                      `[data-channel-card="true"][data-channel-index="${nextIndex}"]`
-                    );
-                    mountedCard?.focus({ preventScroll: true });
-                  });
-                }
+                focusChannelAtIndex(virtualIdx + 1, 0, 'down');
                 return;
               }
             } else if (e.key === 'ArrowUp') {
               if (virtualIdx > 0) {
                 e.preventDefault();
-                const prevIndex = virtualIdx - 1;
-                setFocusedChannelIndex(prevIndex);
-                const prevCard = document.querySelector<HTMLElement>(
-                  `[data-channel-card="true"][data-channel-index="${prevIndex}"]`
-                );
-                if (prevCard) {
-                  prevCard.focus({ preventScroll: true });
-                  prevCard.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'center',
-                  });
-                } else {
-                  const targetTop =
-                    virtualViewportRef.current.listOffsetTop +
-                    (virtualWindowRef.current.offsets[prevIndex] || 0) -
-                    window.innerHeight * 0.38;
-                  window.scrollTo({
-                    top: Math.max(0, targetTop),
-                    behavior: 'auto',
-                  });
-                  window.requestAnimationFrame(() => {
-                    const mountedCard = document.querySelector<HTMLElement>(
-                      `[data-channel-card="true"][data-channel-index="${prevIndex}"]`
-                    );
-                    mountedCard?.focus({ preventScroll: true });
-                  });
-                }
+                focusChannelAtIndex(virtualIdx - 1, 0, 'up');
                 return;
               } else {
-                // virtualIdx === 0 : remonter directement à la dernière ligne de filtres visible
-                setFocusedChannelIndex(null);
-                const filterZone = document.querySelector<HTMLElement>(
-                  '[data-tv-zone="filters"]'
-                );
-                if (filterZone) {
-                  const visibleRows = Array.from(
-                    filterZone.querySelectorAll<HTMLElement>('[data-tv-row]')
-                  ).filter((row) => {
-                    const r = row.getBoundingClientRect();
-                    return r.width > 0 && r.height > 0;
-                  });
-                  const lastRow = visibleRows[visibleRows.length - 1];
-                  if (lastRow) {
-                    const rowBtns = Array.from(
-                      lastRow.querySelectorAll<HTMLElement>(
-                        'button:not([disabled]), select:not([disabled])'
-                      )
-                    ).filter((el) => {
-                      const r = el.getBoundingClientRect();
-                      return r.width > 0 && r.height > 0;
-                    });
-                    if (rowBtns.length > 0) {
-                      e.preventDefault();
-                      const targetBtn =
-                        rowBtns.find(
-                          (b) => b.getAttribute('data-filter-active') === 'true'
-                        ) || rowBtns[0];
-                      targetBtn.focus({ preventScroll: true });
-                      targetBtn.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'center',
-                        inline: 'nearest',
-                      });
-                      return;
-                    }
-                  }
+                // virtualIdx === 0 : transition vers la dernière ligne de filtres (lastFocusedChannelIndex reste mémorisé à 0)
+                lastFocusedChannelIndexRef.current = 0;
+                setLastFocusedChannelIndex(0);
+                if (
+                  focusFilterGridRow('last', {
+                    preferRememberedCol: true,
+                    direction: 'up',
+                  })
+                ) {
+                  e.preventDefault();
+                  return;
                 }
               }
-            }
-          } else {
-            const channelCards = Array.from(
-              document.querySelectorAll<HTMLElement>('[data-channel-card="true"]')
-            ).filter((el) => {
-              const r = el.getBoundingClientRect();
-              return r.width > 0 && r.height > 0;
-            });
-            const idx = channelCards.indexOf(parentChannelCard);
-            if (e.key === 'ArrowDown' && idx >= 0 && idx < channelCards.length - 1) {
-              e.preventDefault();
-              const nextCard = channelCards[idx + 1];
-              nextCard.focus({ preventScroll: true });
-              nextCard.scrollIntoView({
-                behavior: 'smooth',
-                block: 'center',
-              });
-              return;
-            } else if (e.key === 'ArrowUp' && idx > 0) {
-              e.preventDefault();
-              const prevCard = channelCards[idx - 1];
-              prevCard.focus({ preventScroll: true });
-              prevCard.scrollIntoView({
-                behavior: 'smooth',
-                block: 'center',
-              });
-              return;
             }
           }
         }
@@ -2886,15 +3154,18 @@ export function App() {
       }
 
       const selector =
-        'button:not([disabled]), [role="button"], a[href], select:not([disabled]), input:not([disabled])';
+        'button:not([disabled]), [role="button"]:not([tabindex="-1"]), a[href], select:not([disabled]), input:not([disabled])';
 
-      // 3. Navigation horizontale et verticale fluide dans les barres de filtres ([data-tv-row])
+      // ========================================================================
+      // ÉTAT 2 : NAVIGATION HORIZONTALE DANS LES LIGNES ([data-tv-row])
+      // ========================================================================
       const activeRow = activeEl?.closest<HTMLElement>('[data-tv-row]');
       if (
         activeRow &&
         activeEl &&
         (e.key === 'ArrowLeft' || e.key === 'ArrowRight')
       ) {
+        const rowName = activeRow.getAttribute('data-tv-row') || '';
         const rowItems = Array.from(
           activeRow.querySelectorAll<HTMLElement>(selector)
         ).filter((el) => {
@@ -2906,9 +3177,16 @@ export function App() {
           const isRtl = document.documentElement.dir === 'rtl';
           const step =
             (e.key === 'ArrowRight' ? 1 : -1) * (isRtl ? -1 : 1);
-          const nextInRow = rowItems[rowIdx + step];
+          const nextColIdx = rowIdx + step;
+          const nextInRow = rowItems[nextColIdx];
           if (nextInRow) {
             e.preventDefault();
+            filterRowColMemoryRef.current[rowName] = nextColIdx;
+            setDpadState((prev) => ({
+              ...prev,
+              filterColIndex: nextColIdx,
+              lastDirection: e.key === 'ArrowRight' ? 'right' : 'left',
+            }));
             nextInRow.focus({ preventScroll: true });
             nextInRow.scrollIntoView({
               behavior: 'smooth',
@@ -2920,13 +3198,32 @@ export function App() {
         }
       }
 
-      // 3B. Passage vertical déterministe entre les lignes de filtres et vers la liste des chaînes
+      // ========================================================================
+      // ÉTAT 2B : TRANSITION EN-TÊTE (HEADER) -> LIGNES DE FILTRES
+      // ========================================================================
+      const parentHeaderZone = activeEl?.closest<HTMLElement>('header');
+      if (parentHeaderZone && !modalScope && e.key === 'ArrowDown') {
+        if (
+          focusFilterGridRow('first', {
+            preferRememberedCol: true,
+            direction: 'down',
+          })
+        ) {
+          e.preventDefault();
+          return;
+        }
+      }
+
+      // ========================================================================
+      // ÉTAT 3 : MACHINE À ÉTATS DE LA GRILLE DE FILTRES ([data-tv-zone="filters"])
+      // Transition verticale déterministe Ligne i <-> Ligne i+1
+      // et atterrissage exact sur lastFocusedChannelIndex lors du passage aux chaînes
+      // ========================================================================
       const parentFilterZone = activeEl?.closest<HTMLElement>(
         '[data-tv-zone="filters"]'
       );
       if (
         parentFilterZone &&
-        activeRow &&
         activeEl &&
         !modalScope &&
         (e.key === 'ArrowDown' || e.key === 'ArrowUp')
@@ -2935,95 +3232,85 @@ export function App() {
           parentFilterZone.querySelectorAll<HTMLElement>('[data-tv-row]')
         ).filter((row) => {
           const r = row.getBoundingClientRect();
-          return r.width > 0 && r.height > 0;
+          if (r.width <= 0 || r.height <= 0) return false;
+          const items = Array.from(
+            row.querySelectorAll<HTMLElement>(selector)
+          ).filter((el) => {
+            const er = el.getBoundingClientRect();
+            return er.width > 0 && er.height > 0;
+          });
+          return items.length > 0;
         });
-        const currentRowIdx = filterRows.indexOf(activeRow);
 
-        if (currentRowIdx !== -1) {
-          const curRect = activeEl.getBoundingClientRect();
-          const curCenterX = curRect.left + curRect.width / 2;
+        const currentRowIdx = activeRow ? filterRows.indexOf(activeRow) : -1;
+        const curRect = activeEl.getBoundingClientRect();
+        const curCenterX = curRect.left + curRect.width / 2;
 
-          if (e.key === 'ArrowDown') {
-            if (currentRowIdx < filterRows.length - 1) {
-              const nextRow = filterRows[currentRowIdx + 1];
-              const nextRowItems = Array.from(
-                nextRow.querySelectorAll<HTMLElement>(selector)
+        if (e.key === 'ArrowDown') {
+          if (currentRowIdx !== -1 && currentRowIdx < filterRows.length - 1) {
+            e.preventDefault();
+            focusFilterGridRow(currentRowIdx + 1, {
+              preferCenterX: curCenterX,
+              direction: 'down',
+            });
+            return;
+          } else {
+            // Sortie de la dernière ligne de filtres (ou du bouton Reset) ->
+            // Atterrissage PRÉCIS sur le dernier index focalisé de la liste des chaînes (lastFocusedChannelIndex)
+            if (
+              focusChannelAtIndex(
+                lastFocusedChannelIndexRef.current,
+                0,
+                'down'
+              )
+            ) {
+              e.preventDefault();
+              return;
+            }
+          }
+        } else if (e.key === 'ArrowUp') {
+          if (currentRowIdx > 0) {
+            e.preventDefault();
+            focusFilterGridRow(currentRowIdx - 1, {
+              preferCenterX: curCenterX,
+              direction: 'up',
+            });
+            return;
+          } else if (currentRowIdx === -1 && filterRows.length > 0) {
+            e.preventDefault();
+            focusFilterGridRow('last', {
+              preferCenterX: curCenterX,
+              direction: 'up',
+            });
+            return;
+          } else if (currentRowIdx === 0) {
+            // Remontée de la 1re ligne de filtres vers la barre d'en-tête (Header)
+            const headerTabsRow = document.querySelector<HTMLElement>(
+              '[data-tv-row="header-tabs"]'
+            );
+            if (headerTabsRow) {
+              const headerBtns = Array.from(
+                headerTabsRow.querySelectorAll<HTMLElement>(selector)
               ).filter((el) => {
                 const r = el.getBoundingClientRect();
                 return r.width > 0 && r.height > 0;
               });
-              if (nextRowItems.length > 0) {
+              if (headerBtns.length > 0) {
                 e.preventDefault();
-                let bestItem = nextRowItems[0];
-                let minHorizDist = Infinity;
-                for (const item of nextRowItems) {
-                  const ir = item.getBoundingClientRect();
-                  const icx = ir.left + ir.width / 2;
-                  const dist = Math.abs(icx - curCenterX);
-                  if (dist < minHorizDist) {
-                    minHorizDist = dist;
-                    bestItem = item;
-                  }
-                }
-                bestItem.focus({ preventScroll: true });
-                bestItem.scrollIntoView({
+                const rememberedIdx =
+                  filterRowColMemoryRef.current['header-tabs'] ?? 0;
+                const targetHeaderBtn =
+                  headerBtns[
+                    Math.max(0, Math.min(headerBtns.length - 1, rememberedIdx))
+                  ] || headerBtns[0];
+                triggerZoneTransition('filters', 'header', 'up');
+                targetHeaderBtn.focus({ preventScroll: true });
+                targetHeaderBtn.scrollIntoView({
                   behavior: 'smooth',
                   block: 'nearest',
-                  inline: 'nearest',
                 });
                 return;
               }
-            } else {
-              // Dernière ligne de filtres -> passage direct à la 1re carte visible de la liste des chaînes
-              const firstChannelCard =
-                document.querySelector<HTMLElement>(
-                  '[data-channel-card="true"][data-channel-index="0"]'
-                ) ||
-                document.querySelector<HTMLElement>('[data-channel-card="true"]');
-              if (firstChannelCard) {
-                e.preventDefault();
-                const idxAttr = firstChannelCard.getAttribute(
-                  'data-channel-index'
-                );
-                if (idxAttr !== null) {
-                  setFocusedChannelIndex(Number(idxAttr));
-                }
-                firstChannelCard.focus({ preventScroll: true });
-                firstChannelCard.scrollIntoView({
-                  behavior: 'smooth',
-                  block: 'center',
-                });
-                return;
-              }
-            }
-          } else if (e.key === 'ArrowUp' && currentRowIdx > 0) {
-            const prevRow = filterRows[currentRowIdx - 1];
-            const prevRowItems = Array.from(
-              prevRow.querySelectorAll<HTMLElement>(selector)
-            ).filter((el) => {
-              const r = el.getBoundingClientRect();
-              return r.width > 0 && r.height > 0;
-            });
-            if (prevRowItems.length > 0) {
-              e.preventDefault();
-              let bestItem = prevRowItems[0];
-              let minHorizDist = Infinity;
-              for (const item of prevRowItems) {
-                const ir = item.getBoundingClientRect();
-                const icx = ir.left + ir.width / 2;
-                const dist = Math.abs(icx - curCenterX);
-                if (dist < minHorizDist) {
-                  minHorizDist = dist;
-                  bestItem = item;
-                }
-              }
-              bestItem.focus({ preventScroll: true });
-              bestItem.scrollIntoView({
-                behavior: 'smooth',
-                block: 'nearest',
-                inline: 'nearest',
-              });
-              return;
             }
           }
         }
@@ -3046,8 +3333,16 @@ export function App() {
 
       if (!activeEl || activeEl === document.body || !rootScope.contains(activeEl)) {
         e.preventDefault();
+        if (
+          !modalScope &&
+          viewMode !== 'grid' &&
+          viewMode !== 'reminders' &&
+          virtualWindowRef.current.totalCount > 0
+        ) {
+          focusChannelAtIndex(lastFocusedChannelIndexRef.current, 0, 'jump');
+          return;
+        }
         const initialTarget =
-          rootScope.querySelector<HTMLElement>('[data-channel-card="true"]') ||
           rootScope.querySelector<HTMLElement>('[data-grid-focusable="true"]') ||
           allNodes[0];
         initialTarget.focus({ preventScroll: true });
@@ -3087,7 +3382,6 @@ export function App() {
             bestCandidate = el;
           }
         } else if (e.key === 'ArrowDown' && dy > 12) {
-          // Privilégier la proximité verticale d'abord afin de passer facilement des filtres à la 1ère carte de chaîne
           const horizDist =
             cx >= r.left && cx <= r.right
               ? 0
@@ -3113,18 +3407,17 @@ export function App() {
       if (bestCandidate) {
         e.preventDefault();
         if (bestCandidate.getAttribute('data-channel-card') === 'true') {
-          const targetIdxAttr = bestCandidate.getAttribute('data-channel-index');
-          if (targetIdxAttr !== null) {
-            setFocusedChannelIndex(Number(targetIdxAttr));
-          }
+          focusChannelAtIndex(
+            lastFocusedChannelIndexRef.current,
+            0,
+            e.key === 'ArrowUp' ? 'up' : 'down'
+          );
+          return;
         }
         bestCandidate.focus({ preventScroll: true });
         bestCandidate.scrollIntoView({
           behavior: 'smooth',
-          block:
-            bestCandidate.getAttribute('data-channel-card') === 'true'
-              ? 'center'
-              : 'nearest',
+          block: 'nearest',
           inline: 'nearest',
         });
       }
@@ -3132,7 +3425,15 @@ export function App() {
 
     window.addEventListener('keydown', handleGlobalDpadKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalDpadKeyDown);
-  }, [selectedChannel, isSettingsOpen, isSearchDropdownOpen]);
+  }, [
+    selectedChannel,
+    isSettingsOpen,
+    isSearchDropdownOpen,
+    viewMode,
+    focusChannelAtIndex,
+    focusFilterGridRow,
+    triggerZoneTransition,
+  ]);
 
   return (
     <div
@@ -3140,7 +3441,11 @@ export function App() {
       className="min-h-screen bg-[#0a0e17] text-[#ffffff] flex flex-col selection:bg-[#e11d48] selection:text-[#ffffff]"
     >
       {/* Top Navigation Bar */}
-      <header className="sticky top-0 z-30 bg-[#0a0e17]/95 backdrop-blur-xl border-b border-[#1a202c] pt-safe">
+      <header
+        data-tv-zone="header"
+        data-dpad-active={activeDpadZone === 'header' ? 'true' : undefined}
+        className="sticky top-0 z-30 bg-[#0a0e17]/95 backdrop-blur-xl border-b border-[#1a202c] pt-safe"
+      >
         <div className="max-w-[1600px] mx-auto px-3 sm:px-6 2xl:px-10 py-3 flex flex-wrap items-center justify-between gap-3">
           {/* Brand Logo & Launcher Icon Adaptatif (Smartphone, Tablette, Android TV, TV Box — Charte #0a0e17, #0055ff, #e11d48) */}
           <div className="flex items-center gap-3">
@@ -3389,9 +3694,21 @@ export function App() {
         {/* Barre de Recherche & Contrôle Temporel Rapide + Zone de Filtres D-Pad */}
         <div
           data-tv-zone="filters"
+          data-dpad-active={activeDpadZone === 'filters' ? 'true' : undefined}
+          data-dpad-transition={
+            dpadState.isZoneTransitioning && activeDpadZone === 'filters'
+              ? dpadState.lastDirection || 'jump'
+              : undefined
+          }
           className="mb-3 rounded-lg bg-[#141a26] border border-[#1a202c] p-3 sm:p-4 space-y-3"
         >
-          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+          <div
+            data-tv-row="filter-search"
+            data-row-active={
+              activeFilterRow === 'filter-search' ? 'true' : undefined
+            }
+            className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3"
+          >
             {/* Search Input & Recent Searches Dropdown */}
             <div ref={searchContainerRef} className="relative flex-1">
               <Search className="w-4 h-4 text-[#cbd5e1] absolute start-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -3656,6 +3973,9 @@ export function App() {
               {/* Ligne 1 : [CATÉGORIE] */}
               <div
                 data-tv-row="live-categories"
+                data-row-active={
+                  activeFilterRow === 'live-categories' ? 'true' : undefined
+                }
                 className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 px-0.5"
               >
                 <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0">
@@ -3670,6 +3990,7 @@ export function App() {
                     <button
                       key={cat.code}
                       type="button"
+                      data-filter-active={active ? 'true' : undefined}
                       onClick={() => setSelectedCategory(cat.code)}
                       className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all shrink-0 cursor-pointer ${
                         active
@@ -3767,6 +4088,9 @@ export function App() {
                 {visibleSatelliteOptions.length > 1 && (
                   <div
                     data-tv-row="live-satellites"
+                    data-row-active={
+                      activeFilterRow === 'live-satellites' ? 'true' : undefined
+                    }
                     className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 px-0.5"
                   >
                     <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0">
@@ -3781,6 +4105,7 @@ export function App() {
                         <button
                           key={sat}
                           type="button"
+                          data-filter-active={active ? 'true' : undefined}
                           onClick={() => handleSelectSatellite(sat)}
                           className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-all shrink-0 cursor-pointer ${
                             active
@@ -3807,6 +4132,9 @@ export function App() {
                 {visibleBouquetOptions.length > 1 && (
                   <div
                     data-tv-row="live-bouquets"
+                    data-row-active={
+                      activeFilterRow === 'live-bouquets' ? 'true' : undefined
+                    }
                     className="flex items-center gap-1 overflow-x-auto no-scrollbar py-1 px-0.5"
                   >
                     <span className="text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0">
@@ -3825,6 +4153,7 @@ export function App() {
                         <button
                           key={bq}
                           type="button"
+                          data-filter-active={active ? 'true' : undefined}
                           onClick={() => handleSelectBouquet(bq)}
                           className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] transition-all shrink-0 cursor-pointer ${
                             active
@@ -3910,6 +4239,9 @@ export function App() {
                   {/* Tablette & TV : Puces (chips) sélectionnables au pad/télécommande */}
                   <div
                     data-tv-row="live-countries"
+                    data-row-active={
+                      activeFilterRow === 'live-countries' ? 'true' : undefined
+                    }
                     className="hidden md:flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 px-0.5"
                   >
                     <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0">
@@ -3928,6 +4260,7 @@ export function App() {
                         <button
                           key={cCode}
                           type="button"
+                          data-filter-active={active ? 'true' : undefined}
                           onClick={() => setSelectedCountry(cCode)}
                           className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] transition-all shrink-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0055ff] ${
                             active
@@ -3957,6 +4290,9 @@ export function App() {
               {visibleGroupOptions.length > 1 && (
                 <div
                   data-tv-row="live-genres"
+                  data-row-active={
+                    activeFilterRow === 'live-genres' ? 'true' : undefined
+                  }
                   className="flex items-center gap-1 overflow-x-auto no-scrollbar pt-1.5 border-t border-[#1a202c] py-1 px-0.5"
                 >
                   <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0">
@@ -3975,6 +4311,7 @@ export function App() {
                       <button
                         key={grp}
                         type="button"
+                        data-filter-active={active ? 'true' : undefined}
                         onClick={() => setSelectedGroup(grp)}
                         className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] transition-all shrink-0 cursor-pointer ${
                           active
@@ -4043,22 +4380,68 @@ export function App() {
           </div>
         </div>
 
-        {/* Indicateur Visuel de Transition Télécommande (D-Pad) : Lignes de Filtres <-> Liste des Chaînes */}
+        {/* Visualisation Animée du Chemin de Focus Actif (D-Pad Grid State Machine) : En-tête <-> Lignes de Filtres <-> Liste des Chaînes (Index Mémorisé) */}
         {viewMode !== 'grid' && viewMode !== 'reminders' && filteredChannels.length > 0 && (
           <div
             data-active-zone={activeDpadZone || 'idle'}
+            data-transition-seq={dpadState.transitionSeq}
             className="tv-zone-bridge mb-3.5 rounded-lg bg-[#141a26]/95 border border-[#1a202c] px-3 sm:px-4 py-2 flex flex-wrap items-center justify-between gap-2 text-xs"
           >
-            <div className="flex items-center gap-2 flex-wrap">
-              {/* Indicateur Zone Filtres */}
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+              {/* Nœud 1 : Zone En-tête (Header) */}
               <button
                 type="button"
                 tabIndex={-1}
                 onClick={() => {
-                  const firstFilterBtn = document.querySelector<HTMLElement>(
-                    '[data-tv-zone="filters"] [data-tv-row] button:not([disabled])'
+                  const headerBtn = document.querySelector<HTMLElement>(
+                    '[data-tv-row="header-tabs"] button:not([disabled])'
                   );
-                  firstFilterBtn?.focus({ preventScroll: false });
+                  if (headerBtn) {
+                    triggerZoneTransition(activeDpadZone, 'header', 'up');
+                    headerBtn.focus({ preventScroll: false });
+                  }
+                }}
+                className={`hidden md:inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold transition-all cursor-pointer ${
+                  activeDpadZone === 'header'
+                    ? 'bg-[#1d4ed8] text-[#ffffff] border border-[#38bdf8] shadow-[0_0_12px_rgba(56,189,248,0.6)]'
+                    : 'bg-[#0a0e17] text-[#cbd5e1] border border-[#1a202c] hover:text-[#ffffff]'
+                }`}
+              >
+                <span>
+                  {activeLang === 'fr'
+                    ? 'En-tête'
+                    : activeLang === 'es'
+                    ? 'Cabecera'
+                    : activeLang === 'ar'
+                    ? 'الرأس'
+                    : 'Header'}
+                </span>
+              </button>
+
+              {/* Connecteur animé Header <-> Filtres */}
+              <span
+                aria-hidden="true"
+                data-flow={
+                  activeDpadZone === 'header'
+                    ? 'up'
+                    : activeDpadZone === 'filters'
+                    ? 'down'
+                    : 'idle'
+                }
+                className="tv-focus-path-connector hidden md:inline-flex"
+              >
+                <span className="tv-focus-path-connector-beam" />
+              </span>
+
+              {/* Nœud 2 : Zone Lignes de Filtres (Grille 2D R/C) */}
+              <button
+                type="button"
+                tabIndex={-1}
+                onClick={() => {
+                  focusFilterGridRow('last', {
+                    preferRememberedCol: true,
+                    direction: 'up',
+                  });
                 }}
                 className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
                   activeDpadZone === 'filters'
@@ -4076,9 +4459,13 @@ export function App() {
                     ? 'صفوف الفلاتر'
                     : 'Filter Rows'}
                 </span>
-                {activeDpadZone === 'filters' && activeFilterRow && (
+                {activeDpadZone === 'filters' && (
                   <span className="px-1.5 py-0.2 rounded bg-[#0a0e17] text-[#38bdf8] border border-[#38bdf8]/60 font-mono text-[10px]">
-                    {activeFilterRow === 'live-categories'
+                    {activeFilterRow === 'filter-search'
+                      ? activeLang === 'fr'
+                        ? 'Recherche'
+                        : 'Search'
+                      : activeFilterRow === 'live-categories'
                       ? tr.filterCatLabel
                       : activeFilterRow === 'live-satellites'
                       ? tr.filterSatLabel
@@ -4087,23 +4474,38 @@ export function App() {
                       : activeFilterRow === 'live-countries'
                       ? tr.filterCountryLabel || tr.filterZoneLabel
                       : tr.filterGenreLabel}
+                    {dpadState.totalFilterRows > 0
+                      ? ` · R${dpadState.filterRowIndex + 1}/${dpadState.totalFilterRows}`
+                      : ''}
                   </span>
                 )}
               </button>
 
-              <span className="text-[#cbd5e1]/60 font-mono text-[11px] select-none">
-                ▲ / ▼
+              {/* Connecteur animé Filtres <-> Chaînes (Chemin de Focus Actif) */}
+              <span
+                aria-hidden="true"
+                data-flow={
+                  activeDpadZone === 'channels'
+                    ? 'down'
+                    : activeDpadZone === 'filters'
+                    ? 'up'
+                    : 'idle'
+                }
+                className="tv-focus-path-connector"
+              >
+                <span className="tv-focus-path-connector-beam" />
               </span>
 
-              {/* Indicateur Zone Liste des Chaînes */}
+              {/* Nœud 3 : Zone Liste des Chaînes (avec affichage permanent du dernier index focalisé mémorisé) */}
               <button
                 type="button"
                 tabIndex={-1}
                 onClick={() => {
-                  const firstChannelCard = document.querySelector<HTMLElement>(
-                    '[data-channel-card="true"]'
+                  focusChannelAtIndex(
+                    lastFocusedChannelIndexRef.current,
+                    0,
+                    'down'
                   );
-                  firstChannelCard?.focus({ preventScroll: false });
                 }}
                 className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
                   activeDpadZone === 'channels'
@@ -4125,12 +4527,12 @@ export function App() {
                   className={`px-1.5 py-0.2 rounded font-mono text-[10px] ${
                     activeDpadZone === 'channels'
                       ? 'bg-[#0a0e17] text-[#ffffff] border border-[#ec4899]/80'
-                      : 'bg-[#141a26] text-[#cbd5e1]'
+                      : 'bg-[#141a26] text-[#38bdf8] border border-[#38bdf8]/40'
                   }`}
                 >
-                  {activeDpadZone === 'channels' && focusedChannelIndex !== null
-                    ? `#${focusedChannelIndex + 1} / ${filteredChannels.length}`
-                    : `${filteredChannels.length}`}
+                  {activeDpadZone === 'channels'
+                    ? `#${(focusedChannelIndex ?? lastFocusedChannelIndex) + 1} / ${filteredChannels.length}`
+                    : `↺ #${Math.min(lastFocusedChannelIndex + 1, filteredChannels.length)} / ${filteredChannels.length}`}
                 </span>
               </button>
             </div>
@@ -4141,15 +4543,15 @@ export function App() {
                 <span className="inline-flex items-center gap-1.5 text-[#38bdf8] font-semibold">
                   <span className="w-2 h-2 rounded-full bg-[#38bdf8] animate-pulse" />
                   {activeLang === 'fr'
-                    ? '◄ ► Parcourir la ligne · ▼ Descendre vers les chaînes'
-                    : '◄ ► Browse filter row · ▼ Move down to channels'}
+                    ? `◄ ► Parcourir · ▼ Retour précis à la chaîne #${Math.min(lastFocusedChannelIndex + 1, filteredChannels.length)}`
+                    : `◄ ► Browse row · ▼ Return to channel #${Math.min(lastFocusedChannelIndex + 1, filteredChannels.length)}`}
                 </span>
               ) : activeDpadZone === 'channels' ? (
                 <span className="inline-flex items-center gap-1.5 text-[#ec4899] font-semibold">
                   <span className="w-2 h-2 rounded-full bg-[#ec4899] animate-pulse" />
                   {activeLang === 'fr'
-                    ? '▲ ▼ Défiler les chaînes · ◄ ► Rappel / Favori · ▲ (ligne 1) Retour aux filtres'
-                    : '▲ ▼ Scroll channels · ◄ ► Reminder / Favorite · ▲ (row 1) Back to filters'}
+                    ? '▲ ▼ Chaînes · ► Rappel / Favori · ◄ Remonter aux filtres (index mémorisé)'
+                    : '▲ ▼ Channels · ► Reminder / Favorite · ◄ Jump to filters (index saved)'}
                 </span>
               ) : (
                 <span className="text-[#cbd5e1]/80">
@@ -4322,6 +4724,14 @@ export function App() {
             ref={virtualListContainerRef}
             data-tv-list="channels"
             data-virtualized="true"
+            data-dpad-active={
+              activeDpadZone === 'channels' ? 'true' : undefined
+            }
+            data-dpad-transition={
+              dpadState.isZoneTransitioning && activeDpadZone === 'channels'
+                ? dpadState.lastDirection || 'jump'
+                : undefined
+            }
             style={{
               paddingTop:
                 virtualWindow.topSpacerPx > 0
@@ -4344,6 +4754,10 @@ export function App() {
                   <ChannelRowCard
                     key={ch.id}
                     dataIndex={virtualIndex}
+                    isMemorizedTarget={
+                      activeDpadZone === 'filters' &&
+                      virtualIndex === lastFocusedChannelIndex
+                    }
                     measureRef={getRowMeasureRef(ch.id)}
                     channel={ch}
                     currentProgramme={pair.current}

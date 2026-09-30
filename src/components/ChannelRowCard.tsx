@@ -71,6 +71,7 @@ interface ChannelRowCardProps {
   onToggleReminder?: (prog: EpgProgramme, channel: EpgChannel) => void;
   dataIndex?: number;
   measureRef?: (el: HTMLDivElement | null) => void;
+  isMemorizedTarget?: boolean;
 }
 
 const COUNTRY_ACCENTS: Record<
@@ -353,6 +354,7 @@ const ChannelRowCardInner: React.FC<ChannelRowCardProps> = ({
   onToggleReminder,
   dataIndex,
   measureRef,
+  isMemorizedTarget = false,
 }) => {
   const activeLang = language || getActiveLanguage();
   const tr = getTranslations(activeLang);
@@ -459,6 +461,7 @@ const ChannelRowCardInner: React.FC<ChannelRowCardProps> = ({
       data-channel-card="true"
       data-channel-id={channel.id}
       data-channel-index={dataIndex}
+      data-channel-memorized={isMemorizedTarget ? 'true' : undefined}
       data-tv-focusable="true"
       onClick={() => onSelectChannel(channel, currentProgramme)}
       onKeyDown={(e) => {
