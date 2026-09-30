@@ -1,4 +1,4 @@
-export type AppLanguage = 'fr' | 'en' | 'ar' | 'es' | 'de' | 'pt';
+export type AppLanguage = 'fr' | 'en' | 'ar' | 'es' | 'de' | 'pt' | 'it' | 'tr';
 
 export type TvProfileId =
   | 'france_europe_fr'

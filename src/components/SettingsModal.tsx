@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
+  AlertTriangle,
   Check,
   CheckSquare,
   Compass,
@@ -43,6 +44,7 @@ import {
   EPG_BOUQUET_CATALOG,
   EPG_THEMATIC_CATEGORIES,
   getBouquetsForTvProfile,
+  getDynamicProfileForLanguage,
   inferTvProfileFromBouquets,
   MAGHREB_OPTIONAL_EXTENSIONS,
   MAX_ACTIVE_BOUQUETS,
@@ -155,9 +157,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   const handleSelectLanguage = (lang: AppLanguage) => {
+    const dyn = getDynamicProfileForLanguage(lang);
+    setLimitWarning(null);
     setDraft((prev) => ({
       ...prev,
       language: lang,
+      tvProfile: dyn.tvProfile,
+      selectedBouquets: dyn.selectedBouquets,
+      sources: syncSourcesWithSelectedBouquets(
+        dyn.selectedBouquets,
+        prev.sources,
+        dyn.tvProfile
+      ),
     }));
     if (onChangeLanguage) {
       onChangeLanguage(lang);
@@ -198,24 +209,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         };
       }
 
+      if (prev.selectedBouquets.length >= MAX_ACTIVE_BOUQUETS) {
+        setLimitWarning(RAM_LIMIT_WARNING_MESSAGE);
+        return prev;
+      }
+
       const candidate = [...prev.selectedBouquets, bouquetId];
       if (
         candidate.length > MAX_ACTIVE_BOUQUETS ||
         countActiveSatellites(candidate) > MAX_ACTIVE_SATELLITES
       ) {
         setLimitWarning(RAM_LIMIT_WARNING_MESSAGE);
-        const capped = candidate.slice(-MAX_ACTIVE_BOUQUETS);
-        const nextProfile = inferTvProfileFromBouquets(capped, prev.tvProfile);
-        return {
-          ...prev,
-          tvProfile: nextProfile,
-          selectedBouquets: capped,
-          sources: syncSourcesWithSelectedBouquets(
-            capped,
-            prev.sources,
-            nextProfile
-          ),
-        };
+        return prev;
       }
 
       const nextProfile = inferTvProfileFromBouquets(
@@ -237,18 +242,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   const selectAllBouquets = () => {
-    const allIds = [...ALL_BOUQUET_IDS];
-    setLimitWarning(null);
-    setDraft((prev) => ({
-      ...prev,
-      tvProfile: 'all_satellites',
-      selectedBouquets: allIds,
-      sources: syncSourcesWithSelectedBouquets(
-        allIds,
-        prev.sources,
-        'all_satellites'
-      ),
-    }));
+    setLimitWarning(RAM_LIMIT_WARNING_MESSAGE);
   };
 
   const toggleSatelliteGroup = (groupIds: EpgBouquetId[]) => {
@@ -287,18 +281,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         countActiveSatellites(merged) > MAX_ACTIVE_SATELLITES
       ) {
         setLimitWarning(RAM_LIMIT_WARNING_MESSAGE);
-        const capped = groupIds.slice(0, MAX_ACTIVE_BOUQUETS);
-        const nextProfile = inferTvProfileFromBouquets(capped, prev.tvProfile);
-        return {
-          ...prev,
-          tvProfile: nextProfile,
-          selectedBouquets: capped,
-          sources: syncSourcesWithSelectedBouquets(
-            capped,
-            prev.sources,
-            nextProfile
-          ),
-        };
+        return prev;
       }
 
       const nextProfile = inferTvProfileFromBouquets(merged, prev.tvProfile);
@@ -1266,6 +1249,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </button>
           </div>
         </div>
+
+        {/* Toast d'alerte flottant en cas de dépassement de la limite stricte de 3 bouquets actifs */}
+        {limitWarning && (
+          <div
+            role="alert"
+            aria-live="assertive"
+            className="toast-notification border-[#f59e0b]"
+          >
+            <AlertTriangle className="w-5 h-5 text-[#f59e0b] shrink-0" />
+            <span className="text-xs sm:text-sm font-semibold text-[#ffffff]">
+              {limitWarning}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );

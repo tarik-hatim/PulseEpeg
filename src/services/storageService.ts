@@ -58,10 +58,10 @@ export const EUTELSAT_16E_AFRICA_TRANSPONDERS = [
 
 export const MAX_RECENT_SEARCHES = 5;
 
-export const MAX_ACTIVE_BOUQUETS = 20;
-export const MAX_ACTIVE_SATELLITES = 12;
+export const MAX_ACTIVE_BOUQUETS = 3;
+export const MAX_ACTIVE_SATELLITES = 3;
 export const RAM_LIMIT_WARNING_MESSAGE =
-  "Sélection personnalisée de bouquets active";
+  "Limite atteinte : Maximum 3 bouquets actifs simultanément pour garantir la fluidité et éviter la saturation mémoire (RAM) de votre TV. Désactivez un bouquet avant d'en ajouter un nouveau.";
 
 export const STRICT_SAT_FILTER_LIST: SatelliteFilter[] = [
   'Tous',
@@ -1204,11 +1204,10 @@ export const TV_PROFILES_CATALOG: TvProfileSpec[] = [
       'Nilesat 7°W, Astra 19.2°E & Hotbird 13°E (3 satellites principaux)',
     satellitesList: ['Nilesat 7°W', 'Astra 19.2°E', 'Hotbird 13°E'],
     description:
-      'Charge uniquement les 3 principaux au démarrage : Nilesat 7°W, Astra 19.2°E, Hotbird 13°E (avec possibilité d’activer TurkmenÄlem/MonacoSAT 52°E, Eutelsat 16°E et Hispasat 30°W dans les paramètres).',
+      'Charge uniquement les 3 principaux au démarrage : Nilesat 7°W, Astra 19.2°E, Hotbird 13°E (maximum 3 bouquets actifs simultanément pour préserver la RAM TV).',
     bouquets: [
       'nilesat_osn_mbc',
       'astra_canal_fr',
-      'astra_tnt_fr',
       'hotbird_bis_fr',
     ],
     optionalExtensions: MAGHREB_OPTIONAL_EXTENSIONS,
@@ -1216,13 +1215,13 @@ export const TV_PROFILES_CATALOG: TvProfileSpec[] = [
   {
     id: 'espagne',
     flag: '🇪🇸',
-    label: 'Espagne',
-    shortLabel: 'Espagne',
-    satellitesSummary: 'Astra 19.2°E & Hispasat 30°W (2 satellites)',
-    satellitesList: ['Astra 19.2°E', 'Hispasat 30°W'],
+    label: 'Espagne & Lusophonie',
+    shortLabel: 'Espagne / PT',
+    satellitesSummary: 'Astra 19.2°E, Hispasat 30°W & Star One 70°W (3 satellites)',
+    satellitesList: ['Astra 19.2°E', 'Hispasat 30°W', 'Star One 70°W'],
     description:
-      'Charge uniquement Astra 19.2°E (Movistar Plus+, DAZN ES) et Hispasat 30°W (TNT Abertis / Movistar).',
-    bouquets: ['movistar_es', 'hispasat_meo_nos'],
+      'Charge Astra 19.2°E (Movistar Plus+, DAZN ES), Hispasat 30°W (Meo/NOS/Movistar) et Star One 70°W (Claro TV).',
+    bouquets: ['movistar_es', 'hispasat_meo_nos', 'starone_70w_claro_br'],
   },
   {
     id: 'italie',
@@ -1256,18 +1255,14 @@ export const TV_PROFILES_CATALOG: TvProfileSpec[] = [
     flag: '🇪🇺',
     label: 'Europe Standard',
     shortLabel: 'Europe Standard',
-    satellitesSummary: 'Astra 19.2°E & Hotbird 13°E (2 satellites)',
+    satellitesSummary: 'Astra 19.2°E & Hotbird 13°E (Max 3 bouquets)',
     satellitesList: ['Astra 19.2°E', 'Hotbird 13°E'],
     description:
-      'Charge uniquement Astra 19.2°E (Canal+ FR, TNT FR, Movistar+, Sky DE) et Hotbird 13°E (Bis TV, Sky IT, Polsat/Canal+ PL).',
+      'Charge Astra 19.2°E (Canal+ FR, Sky DE) et Hotbird 13°E (Bis TV / Sky IT) dans la limite stricte de 3 bouquets actifs.',
     bouquets: [
       'astra_canal_fr',
-      'astra_tnt_fr',
-      'movistar_es',
       'sky_de',
       'hotbird_bis_fr',
-      'sky_it',
-      'canal_pl',
     ],
   },
   {
@@ -1295,12 +1290,75 @@ export const TV_PROFILES_CATALOG: TvProfileSpec[] = [
   },
 ];
 
+export const MAX_ACTIVE_BOUQUETS_STRICT = 3;
+
+export const RAM_BOUQUET_LIMIT_TOAST_MESSAGE =
+  "Limite atteinte : Maximum 3 bouquets actifs simultanément pour garantir la fluidité et éviter la saturation mémoire (RAM) de votre TV. Désactivez un bouquet avant d'en ajouter un nouveau.";
+
+/**
+ * Associe dynamiquement les satellites et bouquets par défaut selon la langue sélectionnée :
+ * - FR -> Astra 19.2°E / Hotbird 13°E [Canal+, TNT, Bis TV]
+ * - AR -> Nilesat 7°W / Badr 26°E [OSN/MBC, beIN/SSC]
+ * - ES/PT -> Astra 19.2°E / Hispasat 30°W / Star One 70°W [Movistar+, Meo/NOS, Claro TV]
+ * - DE -> Astra 19.2°E [Sky DE]
+ * - IT -> Hotbird 13°E [Sky IT]
+ * - TR -> Türksat 42°E [TRT]
+ */
+export function getDynamicProfileForLanguage(lang: AppLanguage): {
+  tvProfile: TvProfileId;
+  selectedBouquets: EpgBouquetId[];
+} {
+  switch (lang) {
+    case 'fr':
+      return {
+        tvProfile: 'france_europe_fr',
+        selectedBouquets: ['astra_canal_fr', 'astra_tnt_fr', 'hotbird_bis_fr'],
+      };
+    case 'ar':
+      return {
+        tvProfile: 'moyen_orient_golfe',
+        selectedBouquets: ['nilesat_osn_mbc', 'badr_bein_ssc'],
+      };
+    case 'es':
+    case 'pt':
+      return {
+        tvProfile: 'espagne',
+        selectedBouquets: [
+          'movistar_es',
+          'hispasat_meo_nos',
+          'starone_70w_claro_br',
+        ],
+      };
+    case 'de':
+      return {
+        tvProfile: 'custom',
+        selectedBouquets: ['sky_de'],
+      };
+    case 'it':
+      return {
+        tvProfile: 'italie',
+        selectedBouquets: ['sky_it'],
+      };
+    case 'tr':
+      return {
+        tvProfile: 'custom',
+        selectedBouquets: ['trt_network'],
+      };
+    case 'en':
+    default:
+      return {
+        tvProfile: 'europe_standard',
+        selectedBouquets: ['astra_canal_fr', 'nilesat_osn_mbc', 'sky_de'],
+      };
+  }
+}
+
 export function getBouquetsForTvProfile(profileId: TvProfileId): EpgBouquetId[] {
   const found = TV_PROFILES_CATALOG.find((p) => p.id === profileId);
   if (found) {
-    return [...found.bouquets];
+    return [...found.bouquets].slice(0, MAX_ACTIVE_BOUQUETS_STRICT);
   }
-  return [...DEFAULT_ENABLED_BOUQUET_IDS];
+  return [...DEFAULT_ENABLED_BOUQUET_IDS].slice(0, MAX_ACTIVE_BOUQUETS_STRICT);
 }
 
 export function inferTvProfileFromBouquets(
@@ -1517,25 +1575,37 @@ export function detectInitialTvProfileFromSystemLanguage(
     }
 
     // 6. Profil "Italie" (Langue 'it')
-    // Charge UNIQUEMENT : Hotbird 13°E
+    // Charge UNIQUEMENT : Hotbird 13°E [Sky IT]
     if (langLower.startsWith('it')) {
       return {
         tvProfile: 'italie',
-        language: 'fr',
-        selectedBouquets: getBouquetsForTvProfile('italie'),
+        language: 'it',
+        selectedBouquets: ['sky_it'],
       };
     }
 
-    // 7. Autres langues -> Profil "Europe Standard" (Astra 19.2°E, Hotbird 13°E)
-    const uiLang: AppLanguage = langLower.startsWith('de')
-      ? 'de'
-      : langLower.startsWith('en')
-      ? 'en'
-      : 'en';
+    // 7. Profil "Turquie" (Langue 'tr') -> Türksat 42°E [TRT]
+    if (langLower.startsWith('tr')) {
+      return {
+        tvProfile: 'europe_standard',
+        language: 'tr',
+        selectedBouquets: ['trt_network'],
+      };
+    }
 
+    // 8. Profil "Allemagne" (Langue 'de') -> Astra 19.2°E [Sky DE]
+    if (langLower.startsWith('de')) {
+      return {
+        tvProfile: 'europe_standard',
+        language: 'de',
+        selectedBouquets: ['sky_de'],
+      };
+    }
+
+    // 9. Autres langues -> Profil "Europe Standard" (Astra 19.2°E, Hotbird 13°E)
     return {
       tvProfile: 'europe_standard',
-      language: uiLang,
+      language: 'en',
       selectedBouquets: getBouquetsForTvProfile('europe_standard'),
     };
   } catch {
@@ -3327,14 +3397,15 @@ export function loadAppSettings(): AppSettings {
         )
       : [];
 
-    const validSelectedBouquets =
+    const validSelectedBouquets = (
       rawSelectedBouquets.length > 0
         ? Array.from(
             new Set(
               rawSelectedBouquets.filter((b) => ALL_BOUQUET_IDS.includes(b))
             )
           )
-        : getBouquetsForTvProfile(activeProfile);
+        : getBouquetsForTvProfile(activeProfile)
+    ).slice(0, MAX_ACTIVE_BOUQUETS_STRICT);
 
     const resolvedProfile = inferTvProfileFromBouquets(
       validSelectedBouquets,

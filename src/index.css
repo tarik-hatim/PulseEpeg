@@ -19,8 +19,7 @@
   box-sizing: border-box;
 }
 
-html,
-body {
+html {
   background-color: #0a0e17 !important;
   background-color: var(--bg-color, #0a0e17) !important;
   color: #ffffff !important;
@@ -30,6 +29,22 @@ body {
   width: 100%;
   min-height: 100%;
   overflow-x: hidden;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans, system-ui, -apple-system, sans-serif);
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background-color: #0a0e17 !important;
+  background-color: var(--bg-color, #0a0e17) !important;
+  color: #ffffff !important;
+  color: var(--text-color, #ffffff) !important;
+  margin: 0;
+  padding: 24px 32px !important;
+  width: 100%;
+  min-height: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box !important;
   font-family: system-ui, -apple-system, sans-serif;
   font-family: var(--font-sans, system-ui, -apple-system, sans-serif);
   -webkit-tap-highlight-color: transparent;
@@ -87,8 +102,13 @@ h2,
 /* ==========================================================================
    SUPPRESSION DES CURSEURS ET BARRES BLANCHES VERTICALES SUR FILTRES & BOUTONS
    ========================================================================== */
+*,
+*::before,
+*::after,
 button,
 [role="button"],
+span,
+div,
 .filter-ribbon,
 .filter-ribbon *,
 .filter-badge,
@@ -99,6 +119,57 @@ header * {
   -webkit-user-select: none !important;
   caret-color: transparent !important;
   outline: none !important;
+}
+
+input[type="text"],
+input[type="search"],
+input[type="url"] {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  caret-color: #ffffff !important;
+}
+
+/* ==========================================================================
+   EN-TÊTE DÉCOMPRESSÉ (FLEXBOX AÉRÉ ANDROID TV)
+   ========================================================================== */
+.tv-decompressed-header {
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-box-align: center;
+  -webkit-align-items: center;
+  align-items: center;
+  -webkit-box-pack: justify;
+  -webkit-justify-content: space-between;
+  justify-content: space-between;
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 20px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* ==========================================================================
+   RECHERCHE & DROPDOWN "RECENT SEARCHES" (ISOLATION STRICTE OVERLAY ABSOLU)
+   ========================================================================== */
+.search-bar-container {
+  position: relative !important;
+  margin-bottom: 16px !important;
+}
+
+.recent-searches-overlay {
+  position: absolute !important;
+  top: 100% !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 999 !important;
+  background: #1b2436 !important;
+  border: 1px solid #334155 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.8) !important;
+  padding: 16px !important;
+  margin-top: 6px !important;
 }
 
 /* ==========================================================================
@@ -119,12 +190,28 @@ header * {
   align-items: center;
   overflow-x: auto;
   gap: 8px;
-  padding: 4px 2px;
+  margin-bottom: 10px;
+  padding-bottom: 4px;
+}
+
+/* Garantie anti-collage pour anciennes WebView Android 8/9 (Chromium < 84) */
+.filter-ribbon > * {
+  margin-right: 8px;
+}
+
+.filter-ribbon > *:last-child {
+  margin-right: 0;
+}
+
+@supports (gap: 8px) {
+  .filter-ribbon > * {
+    margin-right: 0;
+  }
 }
 
 .filter-badge {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 20px;
   padding: 6px 14px;
   color: #cbd5e1;
@@ -148,11 +235,11 @@ header * {
 }
 
 .filter-badge:hover {
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.18);
   color: #ffffff;
 }
 
-/* Filtre Sélectionné (ex: Monde Arabe, Bouquet, Genre) */
+/* Filtre Sélectionné (ex: Monde Arabe, Tous les genres, Bouquet) */
 .filter-badge.active,
 .filter-badge[data-filter-active="true"],
 .selected-filter {
@@ -167,12 +254,10 @@ header * {
 
 /* ==========================================================================
    ADAPTABILITÉ ANDROID 12+ & TV 4K / OVERSCAN + HEADER FIXE
-   Marges de sécurité de 16px à 24px pour éviter que les bords TV (Overscan)
-   ne masquent le bouton Paramètres (⚙️) à droite
    ========================================================================== */
 .tv-overscan-container {
-  padding-left: 16px;
-  padding-right: 16px;
+  padding-left: 8px;
+  padding-right: 8px;
   box-sizing: border-box;
 }
 
@@ -180,18 +265,17 @@ header * {
   display: -webkit-box;
   display: -webkit-flex;
   display: flex;
-  -webkit-flex-wrap: nowrap;
-  flex-wrap: nowrap;
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
   -webkit-box-align: center;
   -webkit-align-items: center;
   align-items: center;
   -webkit-box-pack: justify;
   -webkit-justify-content: space-between;
   justify-content: space-between;
+  gap: 16px;
   width: 100%;
   box-sizing: border-box;
-  padding-left: 16px;
-  padding-right: 16px;
 }
 
 .tv-overscan-tabs-row {
@@ -201,37 +285,13 @@ header * {
   -webkit-box-align: center;
   -webkit-align-items: center;
   align-items: center;
-  width: 100%;
-  box-sizing: border-box;
-  padding-left: 16px;
-  padding-right: 16px;
+  gap: 12px;
   overflow-x: auto;
+  box-sizing: border-box;
 }
 
 .tv-overscan-main {
   box-sizing: border-box;
-  padding-left: 16px;
-  padding-right: 16px;
-}
-
-@media (min-width: 640px) {
-  .tv-overscan-container,
-  .tv-overscan-header-row,
-  .tv-overscan-tabs-row,
-  .tv-overscan-main {
-    padding-left: 20px;
-    padding-right: 20px;
-  }
-}
-
-@media (min-width: 1024px) {
-  .tv-overscan-container,
-  .tv-overscan-header-row,
-  .tv-overscan-tabs-row,
-  .tv-overscan-main {
-    padding-left: 24px;
-    padding-right: 24px;
-  }
 }
 
 .tv-fixed-action-btn {
@@ -253,8 +313,8 @@ header * {
 }
 
 /* ==========================================================================
-   STYLE DE SÉLECTION / FOCUS TV DYNAMIQUE ET ÉLÉGANT (TÉLÉCOMMANDE D-PAD)
-   Élimine la grosse bordure cyan fluo rectangulaire par défaut
+   STYLE DE SÉLECTION / FOCUS TV PROPRE SUR LES CARTES ET PROGRAMMES
+   Élimine le gros rectangle cyan fluo par défaut
    ========================================================================== */
 :focus,
 .selected-program,
@@ -271,8 +331,15 @@ header * {
   outline: none !important;
   border: 2px solid #ec4899 !important;
   background: rgba(236, 72, 153, 0.15) !important;
-  box-shadow: 0 0 15px rgba(236, 72, 153, 0.4);
-  transform: scale(1.01);
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.filter-badge:focus,
+.filter-badge:focus-visible {
+  outline: none !important;
+  border: 2px solid #ec4899 !important;
+  border-radius: 20px !important;
   transition: all 0.2s ease;
 }
 

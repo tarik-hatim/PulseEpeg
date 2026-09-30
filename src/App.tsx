@@ -61,6 +61,7 @@ import {
   ensureSchedulesCoverTargetTime,
   extractChannelCountries,
   getBouquetsForSatellite,
+  getDynamicProfileForLanguage,
   inferTvProfileFromBouquets,
   isBouquetFilterAllowedBySettings,
   isCategoryFilterAllowedBySettings,
@@ -240,6 +241,8 @@ export function App() {
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [isSearchDropdownOpen, setIsSearchDropdownOpen] =
     useState<boolean>(false);
+  const [isSearchInputFocused, setIsSearchInputFocused] =
+    useState<boolean>(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const isTypingSessionRef = useRef<boolean>(false);
 
@@ -342,18 +345,14 @@ export function App() {
     setActiveLanguage(activeLang);
   }, [activeLang]);
 
-  const handleChangeLanguage = useCallback((newLang: AppLanguage) => {
-    setActiveLanguage(newLang);
-    clearEnrichedMetadataCache();
-    setSettings((prev) => {
-      const updated: AppSettings = {
-        ...prev,
-        language: newLang,
-      };
-      saveAppSettings(updated);
-      return updated;
-    });
-  }, []);
+  // Masquage automatique du Toast d'alerte RAM après 6 secondes
+  useEffect(() => {
+    if (!ramWarningMessage) return;
+    const t = setTimeout(() => {
+      setRamWarningMessage(null);
+    }, 6000);
+    return () => clearTimeout(t);
+  }, [ramWarningMessage]);
 
   // Horloge temps réel (rafraîchie toutes les 15s pour détecter les rappels à J-5 min et en direct)
   useEffect(() => {
@@ -1443,25 +1442,6 @@ export function App() {
         return;
       }
 
-      if (selectedSatellite !== 'Tous') {
-        setRamWarningMessage(null);
-        setSelectedBouquetsList((prev) => {
-          if (prev.includes(bq)) {
-            const next = prev.filter((item) => item !== bq);
-            setSelectedBouquet(next[0] || 'Tous');
-            return next;
-          }
-          if (prev.length >= MAX_ACTIVE_BOUQUETS) {
-            setRamWarningMessage(RAM_LIMIT_WARNING_MESSAGE);
-            return prev;
-          }
-          const next = [bq];
-          setSelectedBouquet(bq);
-          return next;
-        });
-        return;
-      }
-
       setSelectedBouquetsList((prev) => {
         if (prev.includes(bq)) {
           const next = prev.filter((item) => item !== bq);
@@ -1479,7 +1459,7 @@ export function App() {
         return next;
       });
     },
-    [selectedSatellite]
+    []
   );
 
   const matchesGroup = useCallback(
@@ -2377,6 +2357,32 @@ export function App() {
       favorites,
       triggerEpgSync,
     ]
+  );
+
+  const handleChangeLanguage = useCallback(
+    (newLang: AppLanguage) => {
+      setActiveLanguage(newLang);
+      clearEnrichedMetadataCache();
+      const dyn = getDynamicProfileForLanguage(newLang);
+      const updated: AppSettings = {
+        ...settings,
+        language: newLang,
+        tvProfile: dyn.tvProfile,
+        selectedBouquets: dyn.selectedBouquets,
+        sources: syncSourcesWithSelectedBouquets(
+          dyn.selectedBouquets,
+          settings.sources,
+          dyn.tvProfile
+        ),
+      };
+      setSelectedSatellite('Tous');
+      setSelectedBouquet('Tous');
+      setSelectedBouquetsList([]);
+      setSelectedCountry('Tous');
+      setRamWarningMessage(null);
+      void handleSaveSettings(updated, false);
+    },
+    [settings, handleSaveSettings]
   );
 
   const handleResetDefaults = useCallback(() => {
@@ -3729,17 +3735,17 @@ export function App() {
       dir={langOpt.dir}
       className="min-h-screen bg-[#0a0e17] text-[#ffffff] flex flex-col selection:bg-[#e11d48] selection:text-[#ffffff]"
     >
-      {/* Top Navigation Bar — Layout Fixe avec Marges de Sécurité TV Overscan (16px-24px) */}
+      {/* Top Navigation Bar — En-tête décompressé avec Marges de Sécurité TV Overscan */}
       <header
         data-tv-zone="header"
         data-dpad-active={activeDpadZone === 'header' ? 'true' : undefined}
-        className="sticky top-0 z-30 w-full bg-[#0a0e17] border-b border-[#1a202c] pt-safe overflow-x-hidden"
+        className="tv-decompressed-header sticky top-0 z-30 w-full bg-[#0a0e17] border-b border-[#1a202c] pt-safe overflow-x-hidden"
       >
         <div className="max-w-[1600px] w-full mx-auto">
-          {/* Ligne supérieure fixe : justify-between (Logo + Langue à gauche, Actions compactes Rafraîchir + Paramètres ⚙️ à droite avec marge Overscan 16px-24px) */}
+          {/* Ligne supérieure fixe : justify-between (Logo + Langue à gauche, Actions compactes Rafraîchir + Paramètres ⚙️ à droite) */}
           <div
             data-tv-row="header-top"
-            className="tv-overscan-header-row w-full flex flex-nowrap items-center justify-between gap-2 py-2.5"
+            className="tv-overscan-header-row w-full flex flex-nowrap items-center justify-between gap-4 py-2.5"
           >
             {/* Gauche : Logo + Sélecteur de Langue + Badge Zone/Profil TV */}
             <div className="flex items-center gap-2 sm:gap-3 min-w-0">
@@ -3978,17 +3984,19 @@ export function App() {
         </div>
       </header>
 
-      {/* Main Content (10-Foot UI & TV Overscan 16px-24px compatible) */}
-      <main className="tv-overscan-main flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-6 2xl:px-10 py-4 sm:py-5">
-        {/* Bannière de progression Web Worker & État d'erreur visuel */}
-        <LoadingStatusBanner
-          progress={workerProgress}
-          isSyncing={isSyncing}
-          errorMessage={epgError}
-          onRetry={() => triggerEpgSync(settings)}
-          onLoadOfflineFallback={() => handleLoadOfflineFallback(settings)}
-          language={activeLang}
-        />
+      {/* Main Content (10-Foot UI & TV Overscan compatible) */}
+      <main className="tv-overscan-main flex-1 max-w-[1600px] w-full mx-auto py-2 sm:py-4">
+        {/* Les logs techniques de chargement XMLTV ("WEB WORKER XMLTV MULTI-FLUX") s'exécutent silencieusement en arrière-plan */}
+        {false && (
+          <LoadingStatusBanner
+            progress={workerProgress}
+            isSyncing={isSyncing}
+            errorMessage={epgError}
+            onRetry={() => triggerEpgSync(settings)}
+            onLoadOfflineFallback={() => handleLoadOfflineFallback(settings)}
+            language={activeLang}
+          />
+        )}
 
         {/* Barre de Recherche & Contrôle Temporel Rapide + Zone de Filtres D-Pad */}
         <div
@@ -3999,7 +4007,7 @@ export function App() {
               ? dpadState.lastDirection || 'jump'
               : undefined
           }
-          className="mb-3 rounded-lg bg-[#141a26] border border-[#1a202c] p-3 sm:p-4 space-y-3"
+          className="mb-4 rounded-lg bg-[#141a26] border border-[#1a202c] p-3 sm:p-4 space-y-3"
         >
           <div
             data-tv-row="filter-search"
@@ -4008,20 +4016,26 @@ export function App() {
             }
             className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3"
           >
-            {/* Search Input & Recent Searches Dropdown */}
-            <div ref={searchContainerRef} className="relative flex-1">
+            {/* Search Input & Recent Searches Dropdown (Isolation stricte en overlay absolu uniquement au focus) */}
+            <div
+              ref={searchContainerRef}
+              className="search-bar-container relative flex-1"
+            >
               <Search className="w-4 h-4 text-[#cbd5e1] absolute start-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
                 value={searchQuery}
-                onClick={() => setIsSearchDropdownOpen(true)}
-                onFocus={() => setIsSearchDropdownOpen(true)}
+                onFocus={() => {
+                  setIsSearchInputFocused(true);
+                  setIsSearchDropdownOpen(true);
+                }}
                 onChange={(e) => {
                   const val = e.target.value;
                   if (!val.trim()) {
                     isTypingSessionRef.current = false;
                   }
                   setSearchQuery(val);
+                  setIsSearchInputFocused(true);
                   setIsSearchDropdownOpen(true);
                 }}
                 onKeyDown={(e) => {
@@ -4044,6 +4058,8 @@ export function App() {
                     );
                     isTypingSessionRef.current = false;
                   }
+                  setIsSearchInputFocused(false);
+                  setIsSearchDropdownOpen(false);
                 }}
                 placeholder={tr.searchPlaceholder}
                 className="w-full ps-10 pe-9 py-2 rounded-lg bg-[#0a0e17] border border-[#1a202c] text-xs sm:text-sm text-[#ffffff] placeholder-[#cbd5e1]/70 focus:outline-none focus:border-[#0055ff] transition-colors"
@@ -4069,46 +4085,40 @@ export function App() {
                 </button>
               )}
 
-              {/* Recent Searches Dropdown */}
-              {isSearchDropdownOpen && (
-                <div
-                  role="listbox"
-                  aria-label="Recent Searches"
-                  className="absolute start-0 end-0 top-full mt-1.5 z-50 rounded-lg bg-[#141a26] border border-[#1a202c] shadow-2xl overflow-hidden"
-                >
-                  <div className="flex items-center justify-between px-3.5 py-2 bg-[#0a0e17] border-b border-[#1a202c]">
-                    <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[#ffffff]">
-                      <Clock className="w-3.5 h-3.5 text-[#0055ff]" />
-                      <span>Recent Searches</span>
-                    </div>
-                    {recentSearches.length > 0 && (
+              {/* Recent Searches Dropdown — Affiché UNIQUEMENT en cas de focus sur la barre de recherche */}
+              {isSearchInputFocused &&
+                isSearchDropdownOpen &&
+                recentSearches.length > 0 && (
+                  <div
+                    role="listbox"
+                    aria-label="Recent Searches"
+                    className="recent-searches-overlay"
+                  >
+                    <div className="flex items-center justify-between pb-2.5 mb-2 border-b border-[#334155]">
+                      <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[#ffffff]">
+                        <Clock className="w-3.5 h-3.5 text-[#0055ff]" />
+                        <span>Recent Searches</span>
+                      </div>
                       <button
                         type="button"
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => {
                           clearRecentSearches();
                           setRecentSearches([]);
+                          setIsSearchDropdownOpen(false);
                         }}
                         className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#cbd5e1] hover:text-[#e11d48] transition-colors cursor-pointer"
                       >
                         <Trash2 className="w-3 h-3" />
                         <span>{activeLang === 'fr' ? 'Effacer' : 'Clear'}</span>
                       </button>
-                    )}
-                  </div>
-
-                  {recentSearches.length === 0 ? (
-                    <div className="px-3.5 py-3 text-xs text-[#cbd5e1]">
-                      {activeLang === 'fr'
-                        ? 'Aucune recherche récente (vos 5 dernières recherches seront enregistrées ici).'
-                        : 'No recent searches yet (your last 5 searches will be saved here).'}
                     </div>
-                  ) : (
-                    <ul className="divide-y divide-[#1a202c] max-h-60 overflow-y-auto">
+
+                    <ul className="divide-y divide-[#334155]/60 max-h-60 overflow-y-auto">
                       {recentSearches.slice(0, 5).map((item) => (
                         <li
                           key={item}
-                          className="flex items-center justify-between hover:bg-[#1a202c] transition-colors"
+                          className="flex items-center justify-between hover:bg-[#0a0e17]/60 rounded-lg transition-colors"
                         >
                           <button
                             type="button"
@@ -4120,8 +4130,9 @@ export function App() {
                                 addRecentSearch(item, prev, false)
                               );
                               setIsSearchDropdownOpen(false);
+                              setIsSearchInputFocused(false);
                             }}
-                            className="flex-1 flex items-center gap-2.5 px-3.5 py-2.5 text-start text-xs sm:text-sm text-[#ffffff] transition-colors cursor-pointer truncate"
+                            className="flex-1 flex items-center gap-2.5 px-3 py-2 text-start text-xs sm:text-sm text-[#ffffff] transition-colors cursor-pointer truncate"
                           >
                             <Clock className="w-3.5 h-3.5 text-[#cbd5e1] shrink-0" />
                             <span className="truncate font-medium">{item}</span>
@@ -4140,16 +4151,15 @@ export function App() {
                                 ? 'Supprimer cette recherche'
                                 : 'Remove search'
                             }
-                            className="p-2 me-1.5 rounded-lg text-[#cbd5e1] hover:text-[#ffffff] hover:bg-[#0a0e17] transition-colors cursor-pointer shrink-0"
+                            className="p-2 me-1 rounded-lg text-[#cbd5e1] hover:text-[#ffffff] hover:bg-[#0a0e17] transition-colors cursor-pointer shrink-0"
                           >
                             <X className="w-3.5 h-3.5" />
                           </button>
                         </li>
                       ))}
                     </ul>
-                  )}
-                </div>
-              )}
+                  </div>
+                )}
             </div>
 
             {/* Horodateur Temps Réel (Live Now) vs Barre de Contrôle Temporel (EXCLUSIVEMENT en vue TV Grid) */}
@@ -5012,6 +5022,20 @@ export function App() {
         language={activeLang}
         isModalOpen={Boolean(selectedChannel) || isSettingsOpen}
       />
+
+      {/* Toast flottant en cas de dépassement de la limite stricte de 3 bouquets actifs (Anti-Crash RAM TV) */}
+      {ramWarningMessage && (
+        <div
+          role="alert"
+          aria-live="assertive"
+          className="toast-notification border-[#f59e0b]"
+        >
+          <AlertTriangle className="w-5 h-5 text-[#f59e0b] shrink-0" />
+          <span className="text-xs sm:text-sm font-semibold text-[#ffffff]">
+            {ramWarningMessage}
+          </span>
+        </div>
+      )}
 
       {/* Modal Paramètres & Sources XMLTV */}
       <SettingsModal

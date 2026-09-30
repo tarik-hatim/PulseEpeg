@@ -96,6 +96,30 @@ export const LANGUAGE_OPTIONS: LanguageOption[] = [
     translateTarget: 'pt',
     dir: 'ltr',
   },
+  {
+    code: 'it',
+    flag: '🇮🇹',
+    label: 'Italiano (IT)',
+    shortLabel: 'IT',
+    tmdbLocale: 'it-IT',
+    intlLocale: 'it-IT',
+    wikiLang: 'it',
+    itunesCountry: 'it',
+    translateTarget: 'it',
+    dir: 'ltr',
+  },
+  {
+    code: 'tr',
+    flag: '🇹🇷',
+    label: 'Türkçe (TR)',
+    shortLabel: 'TR',
+    tmdbLocale: 'tr-TR',
+    intlLocale: 'tr-TR',
+    wikiLang: 'tr',
+    itunesCountry: 'tr',
+    translateTarget: 'tr',
+    dir: 'ltr',
+  },
 ];
 
 export const SUPPORTED_LANGUAGES = LANGUAGE_OPTIONS;
@@ -275,7 +299,10 @@ export interface Translations {
   savedRemindersTitle: string;
 }
 
-const TRANSLATIONS: Record<AppLanguage, Translations> = {
+const TRANSLATIONS: Partial<Record<AppLanguage, Translations>> & {
+  fr: Translations;
+  en: Translations;
+} = {
   fr: {
     appSubtitle:
       'Guide TV Global · Satellites Monde · Films/Séries & Sport Live',
@@ -1168,12 +1195,13 @@ const TRANSLATIONS: Record<AppLanguage, Translations> = {
 };
 
 export function getTranslations(lang?: AppLanguage): Translations {
-  return TRANSLATIONS[lang || currentActiveLanguage] || TRANSLATIONS.fr;
+  const target = lang || currentActiveLanguage;
+  return TRANSLATIONS[target] || TRANSLATIONS.en || TRANSLATIONS.fr;
 }
 
 const CATEGORY_FILTER_LABELS: Record<
   ContentCategoryFilter,
-  Record<AppLanguage, string>
+  Partial<Record<AppLanguage, string>>
 > = {
   Tous: {
     fr: 'Tous',
@@ -1243,7 +1271,10 @@ export function translateCategoryFilter(
 
 export const translateCategoryLabel = translateCategoryFilter;
 
-const SUB_GENRE_LABELS: Record<ChannelGroup, Record<AppLanguage, string>> = {
+const SUB_GENRE_LABELS: Record<
+  ChannelGroup,
+  Partial<Record<AppLanguage, string>>
+> = {
   Tous: {
     fr: 'Tous les genres',
     en: 'All genres',
@@ -1391,7 +1422,10 @@ export function translateBouquetFilter(
 
 export const translateBouquetLabel = translateBouquetFilter;
 
-const COUNTRY_FILTER_LABELS: Record<CountryCode, Record<AppLanguage, string>> =
+const COUNTRY_FILTER_LABELS: Record<
+  CountryCode,
+  Partial<Record<AppLanguage, string>>
+> =
   {
     Tous: {
       fr: 'Tous',
@@ -1518,7 +1552,7 @@ export const CHANNEL_COUNTRY_FLAGS: Record<ChannelCountryFilter, string> = {
 
 const CHANNEL_COUNTRY_LABELS: Record<
   ChannelCountryFilter,
-  Record<AppLanguage, string>
+  Partial<Record<AppLanguage, string>>
 > = {
   Tous: {
     fr: 'Tous',
@@ -1721,7 +1755,7 @@ export function translateCountryFilterLabel(
 
 const ORIGIN_COUNTRY_TRANSLATIONS: Record<
   string,
-  Record<AppLanguage, string>
+  Partial<Record<AppLanguage, string>>
 > = {
   US: {
     fr: 'États-Unis / US',
@@ -1857,7 +1891,10 @@ export function translateOriginCountry(
   return rawOrigin;
 }
 
-const GENRE_TERM_TRANSLATIONS: Record<string, Record<AppLanguage, string>> = {
+const GENRE_TERM_TRANSLATIONS: Record<
+  string,
+  Partial<Record<AppLanguage, string>>
+> = {
   'Série TV': {
     fr: 'Série TV',
     en: 'TV Series',
