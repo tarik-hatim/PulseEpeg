@@ -18,6 +18,7 @@ import {
   Heart,
   Languages,
   LayoutGrid,
+  LogOut,
   Music,
   Newspaper,
   Radio,
@@ -99,6 +100,7 @@ import {
   saveTvSortMode,
   STRICT_SAT_FILTER_LIST,
   syncAppSettingsFromCapacitorPreferences,
+  syncChannelWatchHabitsFromDb,
   syncGlobalFavoritesFromDb,
   syncSourcesWithSelectedBouquets,
   TV_PROFILES_CATALOG,
@@ -374,6 +376,88 @@ export function App() {
   );
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [proFeatureReason, setProFeatureReason] = useState<string | null>(null);
+  const [isExitConfirmOpen, setIsExitConfirmOpen] = useState<boolean>(false);
+  const exitCancelBtnRef = useRef<HTMLButtonElement | null>(null);
+  const exitConfirmBtnRef = useRef<HTMLButtonElement | null>(null);
+  const exitPreviousFocusRef = useRef<HTMLElement | null>(null);
+
+  const handleCloseExitConfirmModal = useCallback(() => {
+    setIsExitConfirmOpen(false);
+    window.requestAnimationFrame(() => {
+      const prevEl = exitPreviousFocusRef.current;
+      if (prevEl && document.body.contains(prevEl)) {
+        prevEl.focus({ preventScroll: true });
+      }
+    });
+  }, []);
+
+  const handleConfirmExitApp = useCallback(() => {
+    setIsExitConfirmOpen(false);
+    try {
+      const navWithApp = navigator as Navigator & {
+        app?: { exitApp?: () => void };
+      };
+      if (typeof navWithApp?.app?.exitApp === 'function') {
+        navWithApp.app.exitApp();
+        return;
+      }
+      const winAny = window as Window & {
+        Capacitor?: {
+          Plugins?: {
+            App?: { exitApp?: () => void };
+          };
+        };
+        Android?: { exitApp?: () => void; closeApp?: () => void };
+        AndroidBridge?: { exitApp?: () => void };
+        tizen?: {
+          application?: {
+            getCurrentApplication?: () => { exit?: () => void };
+          };
+        };
+      };
+      if (typeof winAny.Capacitor?.Plugins?.App?.exitApp === 'function') {
+        winAny.Capacitor.Plugins.App.exitApp();
+        return;
+      }
+      if (typeof winAny.Android?.exitApp === 'function') {
+        winAny.Android.exitApp();
+        return;
+      }
+      if (typeof winAny.Android?.closeApp === 'function') {
+        winAny.Android.closeApp();
+        return;
+      }
+      if (typeof winAny.AndroidBridge?.exitApp === 'function') {
+        winAny.AndroidBridge.exitApp();
+        return;
+      }
+      if (
+        typeof winAny.tizen?.application?.getCurrentApplication === 'function'
+      ) {
+        winAny.tizen.application.getCurrentApplication()?.exit?.();
+        return;
+      }
+      window.close();
+    } catch {
+      // Ignore error if browser blocks window.close()
+    }
+  }, []);
+
+  // Sélectionne par défaut le bouton "Annuler" au D-Pad dès l'ouverture de la modale de sortie
+  useEffect(() => {
+    if (!isExitConfirmOpen) return;
+    const focusCancelBtn = () => {
+      exitCancelBtnRef.current?.focus({ preventScroll: true });
+    };
+    focusCancelBtn();
+    const rafId = window.requestAnimationFrame(focusCancelBtn);
+    const timerId = window.setTimeout(focusCancelBtn, 40);
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      window.clearTimeout(timerId);
+    };
+  }, [isExitConfirmOpen]);
+
   const [selectedEpgDayOffset, setSelectedEpgDayOffset] = useState<number>(0);
   const [isReplayMode, setIsReplayMode] = useState<boolean>(false);
   const pendingProDaySelectionRef = useRef<{
@@ -417,10 +501,13 @@ export function App() {
     }
   }, [isExtendedEpgUnlocked, selectedEpgDayOffset, isReplayMode]);
 
-  // Synchronisation réactive des bouquets et favoris récupérés depuis Supabase `user_settings` (multi-appareils / Samsung TV)
+  // Synchronisation réactive des bouquets, favoris et habitudes de visionnage récupérés depuis Supabase `user_settings`
   useEffect(() => {
     return supabaseService.subscribeUserSettings((record) => {
       setFavorites(record.favorite_channels);
+      if (record.watch_habits && typeof record.watch_habits === 'object') {
+        setChannelWatchHabits(record.watch_habits);
+      }
       setSettings((prev) => {
         const nextProfile = inferTvProfileFromBouquets(
           record.selected_bouquets,
@@ -1058,7 +1145,7 @@ export function App() {
     };
   }, []);
 
-  // Synchronisation initiale et inter-onglets des Favoris Globaux (LocalStorage + IndexedDB / Room DB)
+  // Synchronisation initiale et inter-onglets des Favoris Globaux et Habitudes de Visionnage (LocalStorage + IndexedDB / Room DB)
   useEffect(() => {
     let active = true;
     syncGlobalFavoritesFromDb().then((synced) => {
@@ -1066,9 +1153,16 @@ export function App() {
         setFavorites(synced);
       }
     });
+    syncChannelWatchHabitsFromDb().then((syncedHabits) => {
+      if (active && syncedHabits && typeof syncedHabits === 'object') {
+        setChannelWatchHabits(syncedHabits);
+      }
+    });
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'pulse_epg_favorites_v1') {
         setFavorites(loadFavoriteChannels());
+      } else if (e.key === 'pulseepg_tv_channel_watch_habits_v1') {
+        setChannelWatchHabits(loadChannelWatchHabits());
       }
     };
     window.addEventListener('storage', handleStorageChange);
@@ -2125,22 +2219,34 @@ export function App() {
     return map;
   }, [settingsAllowedChannels, channels]);
 
-  // Enregistrement des habitudes de visionnage (ouverture de chaîne, saut direct et durée de lecture)
+  // Enregistrement des habitudes de visionnage (`watchCount` & `lastWatchedTimestamp` dans LocalStorage / IndexedDB / Supabase)
   const recordChannelHabit = useCallback(
     (
       channelId: string,
       options?: { viewIncrement?: number; dwellSecondsIncrement?: number }
     ) => {
       if (!channelId) return;
-      setChannelWatchHabits((prev) =>
-        recordChannelViewHabit(channelId, {
+      setChannelWatchHabits((prev) => {
+        const nextHabits = recordChannelViewHabit(channelId, {
           ...options,
           existing: prev,
-        })
-      );
+        });
+        void supabaseService.saveHybridUserSettings({
+          watch_habits: nextHabits,
+        });
+        return nextHabits;
+      });
     },
     []
   );
+
+  const handleResetWatchHabits = useCallback(() => {
+    const emptyHabits = clearChannelWatchHabits();
+    setChannelWatchHabits(emptyHabits);
+    void supabaseService.saveHybridUserSettings({
+      watch_habits: emptyHabits,
+    });
+  }, []);
 
   // Mesure automatique du temps de consultation (dwell time) à la fermeture de la fiche chaîne
   useEffect(() => {
@@ -2173,11 +2279,30 @@ export function App() {
     () =>
       new Set(
         Object.values(channelWatchHabits)
-          .filter((h) => h && (h.viewCount > 0 || h.dwellSeconds > 0))
+          .filter(
+            (h) =>
+              h &&
+              ((h.watchCount ?? h.viewCount ?? 0) > 0 || h.dwellSeconds > 0)
+          )
           .map((h) => cleanXmltvChannelId(h.channelId))
       ).size,
     [channelWatchHabits]
   );
+
+  const totalWatchCount = useMemo(() => {
+    const byCanonical = new Map<string, number>();
+    for (const h of Object.values(channelWatchHabits)) {
+      if (!h) continue;
+      const key = cleanXmltvChannelId(h.channelId);
+      const count = Math.round(Number(h.watchCount ?? h.viewCount ?? 0));
+      byCanonical.set(key, Math.max(byCanonical.get(key) ?? 0, count));
+    }
+    let sum = 0;
+    for (const c of byCanonical.values()) {
+      sum += c;
+    }
+    return sum;
+  }, [channelWatchHabits]);
 
   const filteredChannels = useMemo(() => {
     const rawList =
@@ -3894,6 +4019,61 @@ export function App() {
     return () => window.removeEventListener('focusin', handleFocusIn);
   }, [triggerZoneTransition]);
 
+  // Interception de l'événement natif Android / Cordova / Capacitor `backbutton` (KEYCODE_BACK)
+  useEffect(() => {
+    const handleNativeBackButton = (e: Event) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (isExitConfirmOpen) {
+        handleCloseExitConfirmModal();
+        return;
+      }
+      if (isSortMenuOpen) {
+        setIsSortMenuOpen(false);
+        return;
+      }
+      if (isQuickJumpDrawerOpen) {
+        setIsQuickJumpDrawerOpen(false);
+        return;
+      }
+      if (isSearchDropdownOpen) {
+        setIsSearchDropdownOpen(false);
+        return;
+      }
+      if (selectedChannel) {
+        setSelectedChannel(null);
+        setSelectedModalProgramme(null);
+        return;
+      }
+      if (isSettingsOpen) {
+        setIsSettingsOpen(false);
+        return;
+      }
+      if (isAuthModalOpen) {
+        setIsAuthModalOpen(false);
+        setProFeatureReason(null);
+        return;
+      }
+      exitPreviousFocusRef.current =
+        document.activeElement as HTMLElement | null;
+      setIsExitConfirmOpen(true);
+    };
+
+    document.addEventListener('backbutton', handleNativeBackButton, false);
+    return () => {
+      document.removeEventListener('backbutton', handleNativeBackButton, false);
+    };
+  }, [
+    isExitConfirmOpen,
+    isSortMenuOpen,
+    isQuickJumpDrawerOpen,
+    isSearchDropdownOpen,
+    selectedChannel,
+    isSettingsOpen,
+    isAuthModalOpen,
+    handleCloseExitConfirmModal,
+  ]);
+
   // Machine à états de navigation en grille (D-Pad Grid-Navigation State Machine) pour Android TV
   useEffect(() => {
     const handleGlobalDpadKeyDown = (e: KeyboardEvent) => {
@@ -3903,12 +4083,29 @@ export function App() {
         (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA') &&
         (activeEl as HTMLInputElement).type !== 'checkbox';
 
-      if (
+      const isBackOrEscapeKey =
         e.key === 'Escape' ||
+        e.key === 'Back' ||
         e.key === 'BrowserBack' ||
         e.key === 'GoBack' ||
-        (e.key === 'Backspace' && !isTextInput)
-      ) {
+        e.key === 'XF86Back' ||
+        e.key === 'Exit' ||
+        e.code === 'Escape' ||
+        e.code === 'BrowserBack' ||
+        e.keyCode === 4 ||
+        e.keyCode === 27 ||
+        e.keyCode === 111 ||
+        e.keyCode === 461 ||
+        e.keyCode === 10009 ||
+        (e.key === 'Backspace' && !isTextInput);
+
+      if (isBackOrEscapeKey) {
+        if (isExitConfirmOpen) {
+          e.preventDefault();
+          e.stopPropagation();
+          handleCloseExitConfirmModal();
+          return;
+        }
         if (isSortMenuOpen) {
           e.preventDefault();
           setIsSortMenuOpen(false);
@@ -3930,6 +4127,13 @@ export function App() {
           setIsSearchDropdownOpen(false);
           return;
         }
+        if (isTextInput && activeEl) {
+          e.preventDefault();
+          activeEl.blur();
+          setIsSearchInputFocused(false);
+          searchDpadTriggerRef.current?.focus({ preventScroll: true });
+          return;
+        }
         if (selectedChannel) {
           e.preventDefault();
           setSelectedChannel(null);
@@ -3947,6 +4151,13 @@ export function App() {
           setProFeatureReason(null);
           return;
         }
+
+        // Aucune autre modale n'est ouverte sur la vue principale : ouvre la modale de confirmation de sortie
+        e.preventDefault();
+        e.stopPropagation();
+        exitPreviousFocusRef.current = activeEl;
+        setIsExitConfirmOpen(true);
+        return;
       }
 
       const isTvScreen =
@@ -4905,6 +5116,8 @@ export function App() {
   }, [
     selectedChannel,
     isSettingsOpen,
+    isAuthModalOpen,
+    isExitConfirmOpen,
     isSearchDropdownOpen,
     isSortMenuOpen,
     isQuickJumpDrawerOpen,
@@ -4917,6 +5130,7 @@ export function App() {
     triggerZoneTransition,
     jumpToChannelAtIndex,
     jumpToChannelByNumber,
+    handleCloseExitConfirmModal,
   ]);
 
   return (
@@ -5530,8 +5744,8 @@ export function App() {
                 )}
             </div>
 
-            {/* Outils Exclusifs Android TV / TV Box (Masqués sur Smartphone max-width: 767px) : Options de Tri & Channel Quick-Jump */}
-            <div className="tv-only-feature hidden md:flex items-center gap-2.5 shrink-0">
+            {/* Outils de Tri des Chaînes (Tri Intelligent / LCN / A-Z / Genre) & Channel Quick-Jump */}
+            <div className="flex items-center gap-2.5 shrink-0">
               {/* 1. Bouton "Add Sorting Options" avec Sous-Menu Contextuel D-Pad */}
               <div ref={sortMenuContainerRef} className="relative">
                 <button
@@ -5732,7 +5946,7 @@ export function App() {
                         <button
                           type="button"
                           onClick={() => {
-                            setChannelWatchHabits(clearChannelWatchHabits());
+                            handleResetWatchHabits();
                           }}
                           className="tv-dpad-btn w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-[#0a0e17]/80 border border-[#1a202c] text-[11px] font-semibold text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#e11d48]/60 transition-colors cursor-pointer"
                         >
@@ -5740,12 +5954,12 @@ export function App() {
                             <RotateCcw className="w-3 h-3 text-[#ec4899] shrink-0" />
                             <span className="truncate">
                               {activeLang === 'fr'
-                                ? 'Réinitialiser les habitudes de lecture'
+                                ? 'Réinitialiser les habitudes de visionnage'
                                 : 'Reset viewing habits'}
                             </span>
                           </span>
                           <span className="font-mono text-[10px] text-[#cbd5e1] shrink-0">
-                            {learnedHabitsCount}
+                            {learnedHabitsCount} ch. · {totalWatchCount}
                           </span>
                         </button>
                       </div>
@@ -6915,6 +7129,9 @@ export function App() {
         onSaveSettings={handleSaveSettings}
         onResetDefaults={handleResetDefaults}
         onClearCache={handleClearCache}
+        watchedChannelsCount={learnedHabitsCount}
+        totalWatchCount={totalWatchCount}
+        onResetWatchHabits={handleResetWatchHabits}
         initialTab={settingsInitialTab}
         onChangeLanguage={handleChangeLanguage}
         isPremium={authState.isPremium}
@@ -6935,6 +7152,104 @@ export function App() {
             setProFeatureReason(null);
           }}
         />
+      )}
+
+      {/* Modale de confirmation de sortie (Touche Retour / Échap / Exit / KEYCODE_BACK) */}
+      {isExitConfirmOpen && (
+        <div
+          data-tv-modal-overlay="true"
+          className="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-[#0a0e17]/90 backdrop-blur-md animate-fadeIn"
+          onClick={handleCloseExitConfirmModal}
+        >
+          <div
+            data-tv-modal="true"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="exit-confirm-modal-title"
+            className="w-full max-w-md rounded-2xl bg-[#141a26] border border-[#334155] p-6 sm:p-7 shadow-[0_24px_60px_rgba(0,0,0,0.85)] text-center space-y-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mx-auto w-12 h-12 rounded-2xl bg-[#e11d48]/15 border border-[#e11d48]/50 flex items-center justify-center text-[#e11d48] shadow-[0_0_20px_rgba(225,29,72,0.25)]">
+              <LogOut className="w-6 h-6" />
+            </div>
+
+            <div className="space-y-2">
+              <h2
+                id="exit-confirm-modal-title"
+                className="text-base sm:text-lg font-extrabold text-[#ffffff] leading-snug"
+              >
+                Voulez-vous vraiment quitter l&apos;application ?
+              </h2>
+              <p className="text-xs sm:text-sm text-[#cbd5e1]">
+                {activeLang === 'fr'
+                  ? 'Sélectionnez « Annuler » pour continuer à consulter votre guide TV.'
+                  : 'Select "Annuler" to stay in the TV guide or "Quitter" to exit.'}
+              </p>
+            </div>
+
+            {/* 2 boutons centrés côte à côte : "Annuler" (sélectionné par défaut au D-Pad) et "Quitter" */}
+            <div
+              data-tv-modal-zone="footer"
+              data-tv-row="exit-modal-actions"
+              className="flex items-center justify-center gap-4 pt-1"
+            >
+              <button
+                ref={exitCancelBtnRef}
+                type="button"
+                autoFocus
+                data-tv-focusable="true"
+                onClick={handleCloseExitConfirmModal}
+                onKeyDown={(e) => {
+                  if (e.key === 'ArrowRight') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    exitConfirmBtnRef.current?.focus({ preventScroll: true });
+                  } else if (
+                    e.key === 'Enter' ||
+                    e.key === ' ' ||
+                    e.key === 'Select' ||
+                    e.keyCode === 23 ||
+                    e.keyCode === 66
+                  ) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleCloseExitConfirmModal();
+                  }
+                }}
+                className="tv-dpad-btn tv-focusable min-w-[130px] px-5 py-2.5 rounded-xl bg-[#1e293b] hover:bg-[#334155] text-[#ffffff] text-xs sm:text-sm font-bold border border-[#60a5fa] shadow-[0_0_14px_rgba(59,130,246,0.35)] transition-all cursor-pointer"
+              >
+                Annuler
+              </button>
+
+              <button
+                ref={exitConfirmBtnRef}
+                type="button"
+                data-tv-focusable="true"
+                onClick={handleConfirmExitApp}
+                onKeyDown={(e) => {
+                  if (e.key === 'ArrowLeft') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    exitCancelBtnRef.current?.focus({ preventScroll: true });
+                  } else if (
+                    e.key === 'Enter' ||
+                    e.key === ' ' ||
+                    e.key === 'Select' ||
+                    e.keyCode === 23 ||
+                    e.keyCode === 66
+                  ) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleConfirmExitApp();
+                  }
+                }}
+                className="tv-dpad-btn tv-focusable min-w-[130px] px-5 py-2.5 rounded-xl bg-[#e11d48] hover:bg-[#ff0033] text-[#ffffff] text-xs sm:text-sm font-bold border border-[#ff0033] shadow-[0_0_16px_rgba(225,29,72,0.45)] transition-all cursor-pointer"
+              >
+                Quitter
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

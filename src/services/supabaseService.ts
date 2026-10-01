@@ -2,11 +2,16 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { EpgBouquetId } from '../types/epg';
 import {
   ALL_BOUQUET_IDS,
+  ChannelWatchHabit,
   inferTvProfileFromBouquets,
   loadAppSettings,
+  loadChannelWatchHabits,
   loadFavoriteChannels,
   MAX_ACTIVE_BOUQUETS,
+  mergeChannelWatchHabitsMaps,
+  normalizeChannelWatchHabitsMap,
   saveAppSettings,
+  saveChannelWatchHabits,
   saveFavoriteChannels,
   syncSourcesWithSelectedBouquets,
 } from './storageService';
@@ -42,6 +47,7 @@ export interface UserSettingsRecord {
   user_id: string;
   selected_bouquets: EpgBouquetId[];
   favorite_channels: string[];
+  watch_habits?: Record<string, ChannelWatchHabit>;
   is_premium: boolean;
   updated_at: string;
   syncSource: 'local' | 'supabase';
@@ -240,6 +246,7 @@ export class SupabaseService {
   public getUserSettingsSnapshot(): UserSettingsRecord {
     const currentSettings = loadAppSettings();
     const currentFavorites = loadFavoriteChannels();
+    const currentHabits = loadChannelWatchHabits();
     const isPro = this.isPremium;
     const uid = this.state.user?.id || 'guest_local';
 
@@ -250,6 +257,7 @@ export class SupabaseService {
         isPro
       ),
       favorite_channels: sanitizeFavoritesList(currentFavorites),
+      watch_habits: currentHabits,
       is_premium: isPro,
       updated_at: this.state.lastSyncedAt || new Date().toISOString(),
       syncSource: this.state.isLoggedIn && this.isConfigured ? 'supabase' : 'local',
@@ -257,18 +265,21 @@ export class SupabaseService {
   }
 
   /**
-   * Sauvegarde hybride des bouquets et favoris :
-   * - Mode Invité (non connecté) : Sauvegarde dans LocalStorage (max 3 bouquets), 100% hors-ligne.
-   * - Mode Connecté : Synchronise avec la table Supabase `user_settings` (`user_id`, `selected_bouquets`, `favorite_channels`)
+   * Sauvegarde hybride des bouquets, favoris et habitudes de visionnage (`watchCount` & `lastWatchedTimestamp`) :
+   * - Mode Invité (non connecté) : Sauvegarde dans LocalStorage + IndexedDB (max 3 bouquets), 100% hors-ligne.
+   * - Mode Connecté : Synchronise avec la table Supabase `user_settings` (`user_id`, `selected_bouquets`, `favorite_channels`, `watch_habits`)
    *   ou dans le stockage local par compte si les clefs Supabase ne sont pas configurées.
    */
   public async saveHybridUserSettings(params: {
     selected_bouquets?: EpgBouquetId[];
     favorite_channels?: string[];
+    watch_habits?: Record<string, ChannelWatchHabit>;
+    replace_watch_habits?: boolean;
   }): Promise<UserSettingsRecord> {
     const isPro = this.isPremium;
     const currentAppSettings = loadAppSettings();
     const currentFavs = loadFavoriteChannels();
+    const currentHabits = loadChannelWatchHabits();
 
     const nextBouquets = sanitizeBouquetsList(
       params.selected_bouquets ?? currentAppSettings.selectedBouquets,
@@ -277,9 +288,18 @@ export class SupabaseService {
     const nextFavorites = sanitizeFavoritesList(
       params.favorite_channels ?? currentFavs
     );
+    const nextHabits =
+      params.watch_habits !== undefined
+        ? params.replace_watch_habits
+          ? normalizeChannelWatchHabitsMap(params.watch_habits)
+          : mergeChannelWatchHabitsMaps(params.watch_habits, currentHabits)
+        : currentHabits;
 
     if (params.favorite_channels !== undefined) {
       saveFavoriteChannels(nextFavorites);
+    }
+    if (params.watch_habits !== undefined) {
+      saveChannelWatchHabits(nextHabits);
     }
     if (params.selected_bouquets !== undefined) {
       const nextProfile = inferTvProfileFromBouquets(
@@ -305,6 +325,7 @@ export class SupabaseService {
         user_id: 'guest_local',
         selected_bouquets: nextBouquets,
         favorite_channels: nextFavorites,
+        watch_habits: nextHabits,
         is_premium: false,
         updated_at: nowIso,
         syncSource: 'local',
@@ -330,6 +351,7 @@ export class SupabaseService {
             user_id: uid,
             selected_bouquets: nextBouquets,
             favorite_channels: nextFavorites,
+            watch_habits: nextHabits,
             is_premium: isPro,
             updated_at: nowIso,
           },
@@ -337,6 +359,21 @@ export class SupabaseService {
         );
         if (!error) {
           syncSource = 'supabase';
+        } else {
+          // Fallback si la colonne optionnelle `watch_habits` n'existe pas encore dans le schéma Supabase distant
+          const fallbackRes = await this.supabase.from('user_settings').upsert(
+            {
+              user_id: uid,
+              selected_bouquets: nextBouquets,
+              favorite_channels: nextFavorites,
+              is_premium: isPro,
+              updated_at: nowIso,
+            },
+            { onConflict: 'user_id' }
+          );
+          if (!fallbackRes.error) {
+            syncSource = 'supabase';
+          }
         }
       } catch {
         // Fallback local silencieux sans lever d'erreur réseau
@@ -347,6 +384,7 @@ export class SupabaseService {
       user_id: uid,
       selected_bouquets: nextBouquets,
       favorite_channels: nextFavorites,
+      watch_habits: nextHabits,
       is_premium: isPro,
       updated_at: nowIso,
       syncSource,
@@ -374,7 +412,7 @@ export class SupabaseService {
   }
 
   /**
-   * Récupère et fusionne `selected_bouquets` et `favorite_channels` depuis la table Supabase `user_settings`
+   * Récupère et fusionne `selected_bouquets`, `favorite_channels` et `watch_habits` depuis la table Supabase `user_settings`
    * (ou depuis le stockage local simulé si les clefs Supabase ne sont pas configurées).
    */
   public async fetchAndMergeUserSettingsFromCloud(
@@ -387,18 +425,18 @@ export class SupabaseService {
     const isPro = Boolean(targetUser.isPremium || targetUser.plan === 'pro');
     const localSettings = loadAppSettings();
     const localFavorites = loadFavoriteChannels();
+    const localHabits = loadChannelWatchHabits();
 
     let remoteBouquets: EpgBouquetId[] | null = null;
     let remoteFavorites: string[] | null = null;
+    let remoteHabits: Record<string, ChannelWatchHabit> | null = null;
     let syncSource: 'local' | 'supabase' = 'local';
 
     if (this.isConfigured) {
       try {
         const { data, error } = await this.supabase
           .from('user_settings')
-          .select(
-            'user_id, selected_bouquets, favorite_channels, is_premium, updated_at'
-          )
+          .select('*')
           .eq('user_id', uid)
           .maybeSingle();
 
@@ -415,6 +453,9 @@ export class SupabaseService {
           if (Array.isArray(data.favorite_channels)) {
             remoteFavorites = sanitizeFavoritesList(data.favorite_channels);
           }
+          if (data.watch_habits && typeof data.watch_habits === 'object') {
+            remoteHabits = normalizeChannelWatchHabitsMap(data.watch_habits);
+          }
           syncSource = 'supabase';
         }
       } catch {
@@ -422,7 +463,7 @@ export class SupabaseService {
       }
     }
 
-    if (!remoteBouquets && !remoteFavorites) {
+    if (!remoteBouquets && !remoteFavorites && !remoteHabits) {
       try {
         const rawCached = localStorage.getItem(
           `${LOCAL_CLOUD_USER_SETTINGS_PREFIX}${uid}`
@@ -445,6 +486,11 @@ export class SupabaseService {
               parsedCached.favorite_channels
             );
           }
+          if (parsedCached.watch_habits) {
+            remoteHabits = normalizeChannelWatchHabitsMap(
+              parsedCached.watch_habits
+            );
+          }
         }
       } catch {
         // Ignore
@@ -455,6 +501,10 @@ export class SupabaseService {
       ...(remoteFavorites || []),
       ...localFavorites,
     ]);
+    const mergedHabits = mergeChannelWatchHabitsMaps(
+      localHabits,
+      remoteHabits || {}
+    );
 
     const finalBouquets = sanitizeBouquetsList(
       remoteBouquets && remoteBouquets.length > 0
@@ -466,6 +516,7 @@ export class SupabaseService {
     const syncedRecord = await this.saveHybridUserSettings({
       selected_bouquets: finalBouquets,
       favorite_channels: mergedFavorites,
+      watch_habits: mergedHabits,
     });
     syncedRecord.syncSource = syncSource;
 

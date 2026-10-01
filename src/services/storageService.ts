@@ -3873,19 +3873,98 @@ export function clearRecentSearches(): void {
 
 // ============================================================================
 // TRI INTELLIGENT ANDROID TV BOX (FRÉQUENCE DE VISIONNAGE + ORDRE LCN OFFICIEL)
+// Stockage multi-niveaux : LocalStorage + IndexedDB + Capacitor + Supabase
+// Algorithme : Score = (Poids_LCN * Rang_LCN) + (Poids_Usage * Score_Fréquence)
 // ============================================================================
 
 export type TvSortMode = 'lcn' | 'smart' | 'alpha_asc' | 'alpha_desc' | 'genre';
 
 export interface ChannelWatchHabit {
   channelId: string;
+  watchCount: number;
+  lastWatchedTimestamp: number;
   viewCount: number;
   dwellSeconds: number;
   lastViewedAtMs: number;
 }
 
+export const SMART_SORT_POIDS_LCN = 0.35;
+export const SMART_SORT_POIDS_USAGE = 0.65;
+
 const LS_TV_SORT_MODE_KEY = 'pulseepg_tv_sort_mode_v1';
 const LS_CHANNEL_WATCH_HABITS_KEY = 'pulseepg_tv_channel_watch_habits_v1';
+const WATCH_HABITS_DB_KEY = 'channel_watch_habits_room_v1';
+
+export function normalizeChannelWatchHabitsMap(
+  raw: unknown
+): Record<string, ChannelWatchHabit> {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return {};
+  }
+  const normalized: Record<string, ChannelWatchHabit> = {};
+  for (const [key, val] of Object.entries(raw as Record<string, Partial<ChannelWatchHabit>>)) {
+    if (!val || typeof val !== 'object') continue;
+    const chId =
+      typeof val.channelId === 'string' && val.channelId.trim()
+        ? val.channelId.trim()
+        : key;
+    const rawCount = Number(val.watchCount ?? val.viewCount ?? 0);
+    const watchCount = Number.isFinite(rawCount) && rawCount > 0
+      ? Math.round(rawCount * 100) / 100
+      : 0;
+    const rawTs = Number(val.lastWatchedTimestamp ?? val.lastViewedAtMs ?? 0);
+    const lastWatchedTimestamp =
+      Number.isFinite(rawTs) && rawTs > 0 ? Math.round(rawTs) : 0;
+    const rawDwell = Number(val.dwellSeconds ?? 0);
+    const dwellSeconds =
+      Number.isFinite(rawDwell) && rawDwell > 0 ? Math.round(rawDwell) : 0;
+
+    if (watchCount <= 0 && dwellSeconds <= 0) continue;
+
+    normalized[key] = {
+      channelId: chId,
+      watchCount,
+      lastWatchedTimestamp,
+      viewCount: watchCount,
+      dwellSeconds,
+      lastViewedAtMs: lastWatchedTimestamp,
+    };
+  }
+  return normalized;
+}
+
+export function mergeChannelWatchHabitsMaps(
+  primary: Record<string, ChannelWatchHabit>,
+  secondary: Record<string, ChannelWatchHabit>
+): Record<string, ChannelWatchHabit> {
+  const merged: Record<string, ChannelWatchHabit> = {
+    ...normalizeChannelWatchHabitsMap(secondary),
+  };
+  const normPrimary = normalizeChannelWatchHabitsMap(primary);
+
+  for (const [key, pEntry] of Object.entries(normPrimary)) {
+    const existing = merged[key];
+    if (!existing) {
+      merged[key] = pEntry;
+    } else {
+      const maxCount = Math.max(existing.watchCount, pEntry.watchCount);
+      const maxDwell = Math.max(existing.dwellSeconds, pEntry.dwellSeconds);
+      const latestTs = Math.max(
+        existing.lastWatchedTimestamp,
+        pEntry.lastWatchedTimestamp
+      );
+      merged[key] = {
+        channelId: pEntry.channelId || existing.channelId,
+        watchCount: maxCount,
+        lastWatchedTimestamp: latestTs,
+        viewCount: maxCount,
+        dwellSeconds: maxDwell,
+        lastViewedAtMs: latestTs,
+      };
+    }
+  }
+  return merged;
+}
 
 export function loadTvSortMode(): TvSortMode {
   try {
@@ -3921,11 +4000,8 @@ export function loadChannelWatchHabits(): Record<string, ChannelWatchHabit> {
     if (typeof localStorage === 'undefined') return {};
     const raw = localStorage.getItem(LS_CHANNEL_WATCH_HABITS_KEY);
     if (!raw) return {};
-    const parsed = JSON.parse(raw) as Record<string, ChannelWatchHabit>;
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      return {};
-    }
-    return parsed;
+    const parsed = JSON.parse(raw);
+    return normalizeChannelWatchHabitsMap(parsed);
   } catch {
     return {};
   }
@@ -3934,26 +4010,92 @@ export function loadChannelWatchHabits(): Record<string, ChannelWatchHabit> {
 export function saveChannelWatchHabits(
   habits: Record<string, ChannelWatchHabit>
 ): void {
+  const normalized = normalizeChannelWatchHabitsMap(habits);
   try {
     if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(LS_CHANNEL_WATCH_HABITS_KEY, JSON.stringify(habits));
+      localStorage.setItem(
+        LS_CHANNEL_WATCH_HABITS_KEY,
+        JSON.stringify(normalized)
+      );
     }
   } catch {
     // Ignore quota error
   }
+
+  // Persistance asynchrone dans IndexedDB (PulseEpgCacheDB)
+  void (async () => {
+    try {
+      const db = await openDatabase();
+      const tx = db.transaction(SNAPSHOT_STORE, 'readwrite');
+      const store = tx.objectStore(SNAPSHOT_STORE);
+      store.put({
+        id: WATCH_HABITS_DB_KEY,
+        habits: normalized,
+        updatedAtMs: Date.now(),
+      });
+      tx.oncomplete = () => db.close();
+      tx.onerror = () => db.close();
+    } catch {
+      // Ignore IndexedDB error
+    }
+  })();
+
+  // Persistance asynchrone dans Capacitor Preferences (APK Android TV)
   void (async () => {
     try {
       const cap = getCapacitorPreferencesPlugin();
       if (cap?.set) {
         await cap.set({
           key: LS_CHANNEL_WATCH_HABITS_KEY,
-          value: JSON.stringify(habits),
+          value: JSON.stringify(normalized),
         });
       }
     } catch {
       // Ignore Capacitor bridge error
     }
   })();
+}
+
+export async function syncChannelWatchHabitsFromDb(): Promise<
+  Record<string, ChannelWatchHabit>
+> {
+  const localHabits = loadChannelWatchHabits();
+  try {
+    const db = await openDatabase();
+    const dbHabits = await new Promise<Record<string, ChannelWatchHabit>>(
+      (resolve) => {
+        const tx = db.transaction(SNAPSHOT_STORE, 'readonly');
+        const store = tx.objectStore(SNAPSHOT_STORE);
+        const req = store.get(WATCH_HABITS_DB_KEY);
+        req.onsuccess = () => {
+          db.close();
+          const res = req.result as
+            | { habits?: Record<string, ChannelWatchHabit> }
+            | undefined;
+          resolve(normalizeChannelWatchHabitsMap(res?.habits));
+        };
+        req.onerror = () => {
+          db.close();
+          resolve({});
+        };
+      }
+    );
+
+    const merged = mergeChannelWatchHabitsMaps(localHabits, dbHabits);
+    if (Object.keys(merged).length > 0) {
+      try {
+        localStorage.setItem(
+          LS_CHANNEL_WATCH_HABITS_KEY,
+          JSON.stringify(merged)
+        );
+      } catch {
+        // Ignore
+      }
+    }
+    return merged;
+  } catch {
+    return localHabits;
+  }
 }
 
 export function recordChannelViewHabit(
@@ -3973,6 +4115,8 @@ export function recordChannelViewHabit(
   const prev = current[cleanId] ||
     current[channelId] || {
       channelId: cleanId,
+      watchCount: 0,
+      lastWatchedTimestamp: 0,
       viewCount: 0,
       dwellSeconds: 0,
       lastViewedAtMs: 0,
@@ -3980,12 +4124,18 @@ export function recordChannelViewHabit(
 
   const viewInc = options?.viewIncrement ?? 1;
   const dwellInc = options?.dwellSecondsIncrement ?? 0;
+  const prevCount = prev.watchCount ?? prev.viewCount ?? 0;
+  const nextWatchCount = Math.round((prevCount + viewInc) * 100) / 100;
+  const nextDwellSeconds = Math.max(0, Math.round(prev.dwellSeconds + dwellInc));
+  const nowTs = Date.now();
 
   const updatedEntry: ChannelWatchHabit = {
     channelId: cleanId,
-    viewCount: Math.round((prev.viewCount + viewInc) * 100) / 100,
-    dwellSeconds: Math.max(0, Math.round(prev.dwellSeconds + dwellInc)),
-    lastViewedAtMs: Date.now(),
+    watchCount: nextWatchCount,
+    lastWatchedTimestamp: nowTs,
+    viewCount: nextWatchCount,
+    dwellSeconds: nextDwellSeconds,
+    lastViewedAtMs: nowTs,
   };
 
   current[cleanId] = updatedEntry;
@@ -4005,13 +4155,42 @@ export function clearChannelWatchHabits(): Record<string, ChannelWatchHabit> {
   } catch {
     // Ignore
   }
+
+  void (async () => {
+    try {
+      const db = await openDatabase();
+      const tx = db.transaction(SNAPSHOT_STORE, 'readwrite');
+      const store = tx.objectStore(SNAPSHOT_STORE);
+      store.delete(WATCH_HABITS_DB_KEY);
+      tx.oncomplete = () => db.close();
+      tx.onerror = () => db.close();
+    } catch {
+      // Ignore IndexedDB error
+    }
+  })();
+
+  void (async () => {
+    try {
+      const cap = getCapacitorPreferencesPlugin();
+      if (cap?.set) {
+        await cap.set({
+          key: LS_CHANNEL_WATCH_HABITS_KEY,
+          value: JSON.stringify({}),
+        });
+      }
+    } catch {
+      // Ignore Capacitor error
+    }
+  })();
+
   return {};
 }
 
 /**
- * Calcule le score hybride pour le 'Tri intelligent' sur Android TV Box :
- * Combine la fréquence de visionnage (ouvertures, durée de consultation, récence,
- * affinité favoris/rappels) avec l'ordre LCN officiel du bouquet/satellite.
+ * Calcule le score hybride pour le 'Tri Intelligent' de PulseEPG :
+ * Formule officielle : Score = (Poids_LCN * Rang_LCN) + (Poids_Usage * Score_Fréquence)
+ * - Les chaînes les plus regardées (watchCount > 0) remontent automatiquement en haut de la grille
+ * - La structure LCN officielle est conservée pour le reste des chaînes et départage les fréquences proches
  */
 export function computeSmartChannelSortScore(
   channelId: string,
@@ -4021,52 +4200,79 @@ export function computeSmartChannelSortScore(
     isFavorite?: boolean;
     hasReminder?: boolean;
     nowMs?: number;
+    totalChannels?: number;
   }
 ): {
+  score: number;
+  rangLcn: number;
+  scoreFrequence: number;
   hasHabit: boolean;
   habitScore: number;
   hybridRank: number;
+  watchCount: number;
   viewCount: number;
+  lastWatchedTimestamp: number;
 } {
   const cleanId = cleanXmltvChannelId(channelId);
   const entry = habits[cleanId] || habits[channelId];
   const now = options?.nowMs ?? Date.now();
 
-  const rawViews = entry?.viewCount ?? 0;
+  const rawWatchCount = entry?.watchCount ?? entry?.viewCount ?? 0;
+  const lastWatchedTimestamp =
+    entry?.lastWatchedTimestamp ?? entry?.lastViewedAtMs ?? 0;
   const dwellMins = (entry?.dwellSeconds ?? 0) / 60;
-  const ageDays =
-    entry?.lastViewedAtMs && entry.lastViewedAtMs > 0
-      ? Math.max(0, (now - entry.lastViewedAtMs) / 86400000)
-      : 30;
 
-  // Pondération de récence douce sur 14 jours (conserve au moins 55% du poids historique)
-  const recencyFactor =
-    rawViews > 0 ? 0.55 + 0.45 * Math.exp(-ageDays / 14) : 0;
-
-  const frequencyPoints = rawViews * 14 * recencyFactor;
-  const dwellPoints = Math.min(dwellMins, 45) * 3.5;
-  const favBonus = options?.isFavorite ? 22 : 0;
-  const reminderBonus = options?.hasReminder ? 12 : 0;
-
-  const habitScore =
-    Math.round((frequencyPoints + dwellPoints + favBonus + reminderBonus) * 10) /
-    10;
-  const hasHabit = habitScore > 0;
-
-  // Combinaison hybride :
-  // - Chaque point d'habitude remonte prioritairement la chaîne selon sa fréquence de visionnage
-  // - À fréquence similaire, l'ordre LCN officiel départage naturellement les chaînes (poids LCN progressif)
-  // - Les chaînes non visionnées conservent strictement leur ordre LCN officiel
   const safeLcn = Number.isFinite(lcn) && lcn > 0 ? lcn : 9999;
-  const hybridRank = hasHabit
-    ? -10000 - habitScore * 25 + safeLcn * 0.15
-    : safeLcn;
+  const maxLcnPool = Math.max(options?.totalChannels ?? 600, safeLcn, 100);
+
+  // Rang_LCN normalisé dans ]0, 1] : LCN #1 possède le Rang_LCN maximal (1.0),
+  // décroissant strictement selon la numérotation LCN officielle.
+  const rangLcn = Math.max(0, 1 - (safeLcn - 1) / (maxLcnPool + 10));
+
+  // Score_Fréquence basé sur watchCount et lastWatchedTimestamp :
+  // Si la chaîne a été regardée (watchCount > 0 ou dwellMins > 0), Score_Fréquence >= 1.0
+  // pour garantir que (Poids_Usage * Score_Fréquence) > (Poids_LCN * 1.0), faisant remonter
+  // automatiquement les chaînes regardées en tête de grille tout en conservant l'ordre LCN pour le reste.
+  const hasWatchedActivity = rawWatchCount > 0 || dwellMins > 0;
+  let scoreFrequence = 0;
+
+  if (hasWatchedActivity) {
+    const ageDays =
+      lastWatchedTimestamp > 0
+        ? Math.max(0, (now - lastWatchedTimestamp) / 86400000)
+        : 14;
+    // Pondération de fraîcheur sur 14 jours à partir de lastWatchedTimestamp
+    const recencyFactor = 0.65 + 0.35 * Math.exp(-ageDays / 14);
+    const freqIntensity = Math.min(2.5, Math.log1p(rawWatchCount) * 0.85);
+    const dwellBonus = Math.min(0.45, dwellMins * 0.03);
+    const favBonus = options?.isFavorite ? 0.25 : 0;
+    const reminderBonus = options?.hasReminder ? 0.12 : 0;
+
+    scoreFrequence =
+      1.0 +
+      freqIntensity * recencyFactor +
+      dwellBonus +
+      favBonus +
+      reminderBonus;
+  }
+
+  // Formule hybride : Score = (Poids_LCN * Rang_LCN) + (Poids_Usage * Score_Fréquence)
+  const score =
+    SMART_SORT_POIDS_LCN * rangLcn + SMART_SORT_POIDS_USAGE * scoreFrequence;
+
+  const habitScore = Math.round(scoreFrequence * 100) / 10;
 
   return {
-    hasHabit,
+    score,
+    rangLcn,
+    scoreFrequence,
+    hasHabit: hasWatchedActivity,
     habitScore,
-    hybridRank,
-    viewCount: Math.ceil(rawViews),
+    // hybridRank négatif de `score` pour un tri croissant standard (score le plus élevé en 1er)
+    hybridRank: -score,
+    watchCount: Math.ceil(rawWatchCount),
+    viewCount: Math.ceil(rawWatchCount),
+    lastWatchedTimestamp,
   };
 }
 

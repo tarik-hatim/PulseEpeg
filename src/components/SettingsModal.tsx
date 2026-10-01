@@ -79,6 +79,9 @@ interface SettingsModalProps {
   onChangeLanguage?: (lang: AppLanguage) => void;
   isPremium?: boolean;
   onRequestProUpgrade?: () => void;
+  watchedChannelsCount?: number;
+  totalWatchCount?: number;
+  onResetWatchHabits?: () => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -93,6 +96,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onChangeLanguage,
   isPremium = false,
   onRequestProUpgrade,
+  watchedChannelsCount = 0,
+  totalWatchCount = 0,
+  onResetWatchHabits,
 }) => {
   const effectiveMaxBouquets = isPremium
     ? ALL_BOUQUET_IDS.length
@@ -106,10 +112,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [newCountry, setNewCountry] =
     useState<Exclude<CountryCode, 'Tous'>>('FR');
   const [limitWarning, setLimitWarning] = useState<string | null>(null);
+  const [habitsResetFeedback, setHabitsResetFeedback] = useState(false);
 
   useEffect(() => {
     setDraft(settings);
     setLimitWarning(null);
+    setHabitsResetFeedback(false);
   }, [settings, isOpen]);
 
   useEffect(() => {
@@ -1051,6 +1059,57 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       </p>
                     </div>
                   </div>
+                </div>
+              </div>
+
+              {/* Section 4 : Tri Intelligent & Habitudes de visionnage (watchCount & lastWatchedTimestamp) */}
+              <div
+                data-tv-modal-group="watch-habits"
+                className="space-y-3 pt-4 border-t border-[#1a202c]"
+              >
+                <div className="p-4 sm:p-5 rounded-xl bg-[#0a0e17] border border-[#1a202c] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="space-y-1.5 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Sparkles className="w-4 h-4 text-[#ec4899] shrink-0" />
+                      <h3 className="text-xs sm:text-sm font-bold text-[#ffffff]">
+                        {activeLang === 'fr'
+                          ? 'Tri Intelligent & Habitudes de visionnage'
+                          : 'Smart Sort & Viewing Habits'}
+                      </h3>
+                      <span className="px-2 py-0.5 rounded bg-[#141a26] border border-[#334155] font-mono text-[10px] font-bold text-[#38bdf8]">
+                        {watchedChannelsCount}{' '}
+                        {activeLang === 'fr' ? 'chaînes' : 'channels'} ·{' '}
+                        {totalWatchCount}{' '}
+                        {activeLang === 'fr' ? 'vues' : 'views'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-[#cbd5e1] leading-relaxed">
+                      {activeLang === 'fr'
+                        ? 'Stocke localement (LocalStorage / IndexedDB / Supabase) la fréquence (watchCount) et l’horodatage (lastWatchedTimestamp) pour faire remonter vos chaînes les plus regardées selon Score = (Poids_LCN × Rang_LCN) + (Poids_Usage × Score_Fréquence).'
+                        : 'Locally stores watchCount and lastWatchedTimestamp (LocalStorage / IndexedDB / Supabase) to promote your most-watched channels using Score = (LCN_Weight × LCN_Rank) + (Usage_Weight × Frequency_Score).'}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onResetWatchHabits?.();
+                      setHabitsResetFeedback(true);
+                      setTimeout(() => setHabitsResetFeedback(false), 3000);
+                    }}
+                    className="tv-dpad-btn inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#141a26] hover:bg-[#1a202c] border border-[#ec4899]/60 hover:border-[#ec4899] text-xs font-bold text-[#ffffff] transition-all cursor-pointer shrink-0"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 text-[#ec4899] shrink-0" />
+                    <span>
+                      {habitsResetFeedback
+                        ? activeLang === 'fr'
+                          ? 'Habitudes réinitialisées ✓'
+                          : 'Viewing habits reset ✓'
+                        : activeLang === 'fr'
+                        ? 'Réinitialiser les habitudes de visionnage'
+                        : 'Reset viewing habits'}
+                    </span>
+                  </button>
                 </div>
               </div>
 
