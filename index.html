@@ -79,6 +79,7 @@
         text-align: center;
         padding: 24px;
         box-sizing: border-box;
+        overflow: visible !important;
       }
       .tv-boot-logo-box {
         width: 96px !important;
@@ -105,10 +106,25 @@
         -webkit-justify-content: center;
         justify-content: center;
         overflow: hidden !important;
-        contain: layout paint;
         box-sizing: border-box !important;
         -webkit-flex-shrink: 0;
         flex-shrink: 0;
+        transform: scale(1);
+        transform-origin: center center;
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out, border-color 0.2s ease-in-out, filter 0.2s ease-in-out;
+        will-change: transform, box-shadow;
+      }
+      .tv-boot-logo-box:hover,
+      .tv-boot-logo-box:focus,
+      .tv-boot-logo-box:focus-visible,
+      .tv-boot-logo-box.focused {
+        transform: scale(1.05) !important;
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out, border-color 0.2s ease-in-out, filter 0.2s ease-in-out !important;
+        border-color: #ec4899 !important;
+        box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.75), 0 0 34px rgba(225, 29, 72, 0.65), 0 10px 26px rgba(0, 85, 255, 0.45) !important;
+        filter: drop-shadow(0 0 14px rgba(236, 72, 153, 0.55));
+        outline: none !important;
+        z-index: 10;
       }
       .tv-boot-logo-box > *,
       .tv-boot-logo-svg {
@@ -182,8 +198,8 @@
   <body class="bg-[#0a0e17] text-[#ffffff] antialiased selection:bg-[#e11d48] selection:text-[#ffffff]">
     <div id="root">
       <!-- Fallback visuel immédiat affiché à 0ms avant l'exécution du moindre script JS (Android TV / Box Echolink Atomo) -->
-      <div id="tv-boot-splash" role="status" aria-live="polite">
-        <div class="tv-boot-logo-box" style="width: 96px; height: 96px; max-width: 200px; max-height: 200px; margin: 0 auto 22px auto; object-fit: contain; object-position: center; overflow: hidden;" aria-hidden="true">
+      <div id="tv-boot-splash" role="status" aria-live="polite" style="overflow: visible;">
+        <div class="tv-boot-logo-box" tabindex="0" style="width: 96px; height: 96px; max-width: 200px; max-height: 200px; margin: 0 auto 22px auto; object-fit: contain; object-position: center; overflow: hidden; transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;" aria-hidden="true">
           <svg class="tv-boot-logo-svg" width="96" height="96" preserveAspectRatio="xMidYMid meet" style="width: 100%; height: 100%; max-width: 200px; max-height: 200px; margin: auto; object-fit: contain; object-position: center; display: block;" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
             <defs>
               <linearGradient id="bootStem" x1="0%" y1="0%" x2="0%" y2="100%">

@@ -99,6 +99,13 @@ svg {
   object-position: center !important;
 }
 
+#tv-boot-splash,
+.header-brand-wrapper,
+.pulse-logo-container,
+.pulse-logo-icon-wrapper {
+  overflow: visible !important;
+}
+
 .tv-boot-logo-box {
   width: 96px !important;
   height: 96px !important;
@@ -111,10 +118,26 @@ svg {
   object-fit: contain !important;
   object-position: center !important;
   overflow: hidden !important;
-  contain: layout paint;
   box-sizing: border-box !important;
   -webkit-flex-shrink: 0 !important;
   flex-shrink: 0 !important;
+  transform: scale(1);
+  transform-origin: center center;
+  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out, border-color 0.2s ease-in-out, filter 0.2s ease-in-out;
+  will-change: transform, box-shadow;
+}
+
+.tv-boot-logo-box:hover,
+.tv-boot-logo-box:focus,
+.tv-boot-logo-box:focus-visible,
+.tv-boot-logo-box.focused {
+  transform: scale(1.05) !important;
+  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out, border-color 0.2s ease-in-out, filter 0.2s ease-in-out !important;
+  border-color: #ec4899 !important;
+  box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.75), 0 0 34px rgba(225, 29, 72, 0.65), 0 10px 26px rgba(0, 85, 255, 0.45) !important;
+  filter: drop-shadow(0 0 14px rgba(236, 72, 153, 0.55));
+  outline: none !important;
+  z-index: 10;
 }
 
 .tv-boot-logo-box > *,
