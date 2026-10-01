@@ -72,9 +72,11 @@ interface ChannelDetailPanelProps {
   activeSatellite?: SatelliteFilter;
   activeBouquet?: BouquetFilter;
   selectedBouquets?: EpgBouquetId[];
+  isExtendedEpgUnlocked?: boolean;
+  onRequestProEpgUpgrade?: (reason?: string) => void;
 }
 
-const DAY_OFFSETS = [-1, 0, 1, 2, 3, 4, 5];
+const DAY_OFFSETS = [-1, 0, 1, 2, 3, 4, 5, 6, 7];
 
 /**
  * Extrait l'année (YYYY) ou formate la date de manière concise
@@ -106,12 +108,17 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
   activeSatellite,
   activeBouquet,
   selectedBouquets,
+  isExtendedEpgUnlocked = false,
+  onRequestProEpgUpgrade,
 }) => {
   const activeLang = language || getActiveLanguage();
   const tr = getTranslations(activeLang);
   const langOpt = getLanguageOption(activeLang);
 
   const [selectedDayOffset, setSelectedDayOffset] = useState<number>(0);
+  const [pendingLockedOffset, setPendingLockedOffset] = useState<number | null>(
+    null
+  );
   const [periodFilter, setPeriodFilter] = useState<
     'all' | 'morning' | 'afternoon' | 'evening'
   >('all');
@@ -121,6 +128,16 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
   const [enrichedProg, setEnrichedProg] = useState<EpgProgramme | null>(
     initialSelectedProgramme
   );
+
+  // Déblocage instantané du jour cliqué dès que l'utilisateur passe en mode Connecté + Premium (is_premium: true)
+  useEffect(() => {
+    if (isExtendedEpgUnlocked && pendingLockedOffset !== null) {
+      setSelectedDayOffset(pendingLockedOffset);
+      setPendingLockedOffset(null);
+    } else if (!isExtendedEpgUnlocked && selectedDayOffset !== 0) {
+      setSelectedDayOffset(0);
+    }
+  }, [isExtendedEpgUnlocked, pendingLockedOffset, selectedDayOffset]);
 
   const expandedProgrammes = useMemo(() => {
     const baseDate = new Date(nowMs);
@@ -182,22 +199,25 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
     return DAY_OFFSETS.map((offset) => {
       const startOfDay = baseDate.getTime() + offset * 86400000;
       const endOfDay = startOfDay + 86400000;
+      const formattedDate = formatDayLabel(startOfDay, activeLang);
       const label =
         offset === -1
-          ? tr.yesterday
+          ? `Catch-up · ${tr.yesterday}`
           : offset === 0
-          ? tr.today
+          ? `${tr.today} (24h)`
           : offset === 1
-          ? tr.tomorrow
-          : formatDayLabel(startOfDay, activeLang);
+          ? `J+1 · ${tr.tomorrow}`
+          : `J+${offset} · ${formattedDate}`;
 
       const count = expandedProgrammes.filter(
         (p) => p.stopMs > startOfDay && p.startMs < endOfDay
       ).length;
 
-      return { offset, startOfDay, endOfDay, label, count };
+      const isLocked = offset !== 0 && !isExtendedEpgUnlocked;
+
+      return { offset, startOfDay, endOfDay, label, count, isLocked };
     });
-  }, [nowMs, expandedProgrammes, tr, activeLang]);
+  }, [nowMs, expandedProgrammes, tr, activeLang, isExtendedEpgUnlocked]);
 
   const activeDayTab =
     dayTabs.find((d) => d.offset === selectedDayOffset) || dayTabs[1];
@@ -321,17 +341,18 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
   return (
     <div
       dir={langOpt.dir}
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[#0a0e17]/88 backdrop-blur-md p-0 sm:p-4 animate-fadeIn"
+      data-tv-modal-overlay="true"
+      className="fixed inset-0 z-[2000] flex items-end sm:items-center justify-center bg-[#0a0e17]/90 backdrop-blur-md p-2 sm:p-4 animate-fadeIn"
       onClick={onClose}
     >
       {/* Conteneur principal du modal avec défilement vertical garanti sur mobile & navigation D-Pad TV */}
       <div
         data-tv-modal="true"
-        className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-[#141a26] border border-[#1a202c] rounded-t-xl sm:rounded-xl shadow-2xl"
+        className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-[#141a26] border border-[#1a202c] rounded-xl shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* En-tête simplifié et collant : Nom de chaîne + Actions */}
-        <div className="sticky top-0 z-20 px-4 py-3 bg-[#0a0e17]/95 backdrop-blur-md border-b border-[#1a202c] flex items-center justify-between gap-3">
+        {/* En-tête simplifié et collant : Nom de chaîne + Actions (Bouton X Fermer toujours visible) */}
+        <div className="sticky top-0 z-30 px-4 py-3 bg-[#0b0f19] border-b border-[#1a202c] flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 rounded-lg bg-[#0a0e17] border border-[#1a202c] flex items-center justify-center p-1.5 shrink-0">
               <img
@@ -421,10 +442,11 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="p-2 rounded-lg bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#e11d48]/60 transition-colors cursor-pointer"
+              aria-label={tr.close}
+              className="tv-dpad-btn inline-flex items-center justify-center w-9 h-9 rounded-lg bg-[#e11d48]/20 border border-[#e11d48]/70 text-[#ffffff] hover:bg-[#e11d48] transition-colors cursor-pointer shrink-0"
               title={tr.close}
             >
-              <X className="w-4 h-4" />
+              <X className="w-5 h-5" />
             </button>
           </div>
         </div>
@@ -433,7 +455,7 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
         <div className="p-4 sm:p-5 space-y-4">
           {displayProg && displayMetadata && (
             <div className="rounded-lg bg-[#0a0e17] border border-[#1a202c] p-3.5 sm:p-4">
-              {/* En-tête épuré : Horaires/Progression + Badge Fiche FR */}
+              {/* En-tête épuré : Horaires/Progression + Badge Fiche FR + Bouton Rappel & Fermer (X) */}
               <div className="flex items-center justify-between gap-2 flex-wrap mb-3">
                 <div className="flex items-center gap-2 flex-wrap">
                   {isLiveActiveProg ? (
@@ -469,29 +491,41 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                   )}
                 </div>
 
-                {displayProg.stopMs > nowMs && (
+                <div className="flex items-center gap-2 shrink-0">
+                  {displayProg.stopMs > nowMs && (
+                    <button
+                      type="button"
+                      onClick={() => onToggleReminder(displayProg, channel)}
+                      className={`tv-focusable inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer shrink-0 ${
+                        reminderIds.has(displayProg.id)
+                          ? 'bg-gradient-to-r from-[#0055ff] to-[#ec4899] border-[1.5px] border-[#ec4899] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(236,72,153,0.5)]'
+                          : 'bg-[#141a26] border border-[#0055ff]/60 text-[#ffffff] hover:border-[#ec4899] font-semibold'
+                      }`}
+                    >
+                      {reminderIds.has(displayProg.id) ? (
+                        <>
+                          <BellRing className="w-3.5 h-3.5 text-[#ffffff]" />
+                          {tr.reminderActive}
+                        </>
+                      ) : (
+                        <>
+                          <Bell className="w-3.5 h-3.5 text-[#60a5fa]" />
+                          {tr.reminderBtn}
+                        </>
+                      )}
+                    </button>
+                  )}
+
                   <button
                     type="button"
-                    onClick={() => onToggleReminder(displayProg, channel)}
-                    className={`tv-focusable inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer shrink-0 ${
-                      reminderIds.has(displayProg.id)
-                        ? 'bg-gradient-to-r from-[#0055ff] to-[#ec4899] border-[1.5px] border-[#ec4899] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(236,72,153,0.5)]'
-                        : 'bg-[#141a26] border border-[#0055ff]/60 text-[#ffffff] hover:border-[#ec4899] font-semibold'
-                    }`}
+                    onClick={onClose}
+                    aria-label={tr.close}
+                    title={tr.close}
+                    className="tv-focusable inline-flex items-center justify-center w-8 h-8 rounded-lg bg-[#141a26] border border-[#334155] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#e11d48] transition-colors cursor-pointer shrink-0"
                   >
-                    {reminderIds.has(displayProg.id) ? (
-                      <>
-                        <BellRing className="w-3.5 h-3.5 text-[#ffffff]" />
-                        {tr.reminderActive}
-                      </>
-                    ) : (
-                      <>
-                        <Bell className="w-3.5 h-3.5 text-[#60a5fa]" />
-                        {tr.reminderBtn}
-                      </>
-                    )}
+                    <X className="w-4 h-4" />
                   </button>
-                )}
+                </div>
               </div>
 
               {/* Barre de progression temporelle colorée En Direct (#ec4899 -> #8b5cf6 sur rail rgba(255,255,255,0.1)) */}
@@ -648,7 +682,7 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
             </div>
           )}
 
-          {/* Sélecteur de Jour & Tranche Horaire — Rouge Crimson pour les boutons actifs */}
+          {/* Sélecteur de Jour 7 Jours & Tranche Horaire — Cadenas 🔒 sur J+1..J+7 et Catch-up en Mode Invité / Gratuit */}
           <div className="rounded-lg bg-[#0a0e17] border border-[#1a202c] p-3 space-y-2.5">
             <div
               data-tv-row="modal-days"
@@ -661,23 +695,48 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                   <button
                     key={tab.offset}
                     type="button"
-                    onClick={() => setSelectedDayOffset(tab.offset)}
+                    onClick={() => {
+                      if (tab.isLocked) {
+                        setPendingLockedOffset(tab.offset);
+                        onRequestProEpgUpgrade?.();
+                        return;
+                      }
+                      setSelectedDayOffset(tab.offset);
+                    }}
+                    title={
+                      tab.isLocked
+                        ? activeLang === 'fr'
+                          ? `${tab.label} 🔒 — Réservé aux membres PulseEPG Pro`
+                          : `${tab.label} 🔒 — PulseEPG Pro required`
+                        : tab.label
+                    }
                     className={`px-3 py-1.5 rounded-lg text-xs transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
                       isSelected
                         ? 'bg-[#e11d48] border-[1.5px] border-[#ff0033] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(225,29,72,0.45)]'
+                        : tab.isLocked
+                        ? 'bg-[#141a26]/80 border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#f59e0b]/70 font-medium'
                         : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60 font-medium'
                     }`}
                   >
                     <span>{tab.label}</span>
-                    <span
-                      className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${
-                        isSelected
-                          ? 'bg-[#0a0e17]/80 text-[#ffffff] border border-[#ff0033]/50 font-bold'
-                          : 'bg-[#0a0e17] text-[#cbd5e1]'
-                      }`}
-                    >
-                      {tab.count}
-                    </span>
+                    {tab.isLocked ? (
+                      <span
+                        aria-label="Verrouillé PulseEPG Pro"
+                        className="text-[11px] leading-none shrink-0"
+                      >
+                        🔒
+                      </span>
+                    ) : (
+                      <span
+                        className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${
+                          isSelected
+                            ? 'bg-[#0a0e17]/80 text-[#ffffff] border border-[#ff0033]/50 font-bold'
+                            : 'bg-[#0a0e17] text-[#cbd5e1]'
+                        }`}
+                      >
+                        {tab.count}
+                      </span>
+                    )}
                   </button>
                 );
               })}

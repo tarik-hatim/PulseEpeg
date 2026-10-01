@@ -64,6 +64,7 @@ import {
   LANGUAGE_OPTIONS,
 } from '../utils/i18n';
 import { ensureHttpsUrl } from '../utils/xmltvParser';
+import { PRO_BOUQUETS_UPGRADE_MESSAGE } from '../services/supabaseService';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -75,6 +76,8 @@ interface SettingsModalProps {
   onClearCache: () => void;
   initialTab?: 'filters' | 'sources' | 'legal';
   onChangeLanguage?: (lang: AppLanguage) => void;
+  isPremium?: boolean;
+  onRequestProUpgrade?: () => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -87,7 +90,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onClearCache,
   initialTab = 'filters',
   onChangeLanguage,
+  isPremium = false,
+  onRequestProUpgrade,
 }) => {
+  const effectiveMaxBouquets = isPremium
+    ? ALL_BOUQUET_IDS.length
+    : MAX_ACTIVE_BOUQUETS;
   const [draft, setDraft] = useState<AppSettings>(settings);
   const [activeTab, setActiveTab] = useState<'filters' | 'sources' | 'legal'>(
     initialTab
@@ -205,14 +213,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         };
       }
 
-      if (prev.selectedBouquets.length >= MAX_ACTIVE_BOUQUETS) {
-        setLimitWarning(RAM_LIMIT_WARNING_MESSAGE);
+      if (!isPremium && prev.selectedBouquets.length >= effectiveMaxBouquets) {
+        setLimitWarning(PRO_BOUQUETS_UPGRADE_MESSAGE);
+        if (onRequestProUpgrade) {
+          onRequestProUpgrade();
+        }
         return prev;
       }
 
       const candidate = [...prev.selectedBouquets, bouquetId];
-      if (candidate.length > MAX_ACTIVE_BOUQUETS) {
-        setLimitWarning(RAM_LIMIT_WARNING_MESSAGE);
+      if (!isPremium && candidate.length > effectiveMaxBouquets) {
+        setLimitWarning(PRO_BOUQUETS_UPGRADE_MESSAGE);
+        if (onRequestProUpgrade) {
+          onRequestProUpgrade();
+        }
         return prev;
       }
 
@@ -235,7 +249,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   const selectAllBouquets = () => {
-    setLimitWarning(RAM_LIMIT_WARNING_MESSAGE);
+    if (!isPremium) {
+      setLimitWarning(PRO_BOUQUETS_UPGRADE_MESSAGE);
+      if (onRequestProUpgrade) {
+        onRequestProUpgrade();
+      }
+      return;
+    }
+    setLimitWarning(null);
+    const allBouquets = [...ALL_BOUQUET_IDS];
+    setDraft((prev) => ({
+      ...prev,
+      tvProfile: 'all_satellites',
+      selectedBouquets: allBouquets,
+      sources: syncSourcesWithSelectedBouquets(
+        allBouquets,
+        prev.sources,
+        'all_satellites'
+      ),
+    }));
   };
 
   const toggleSatelliteGroup = (groupIds: EpgBouquetId[]) => {
@@ -270,10 +302,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         new Set<EpgBouquetId>([...prev.selectedBouquets, ...groupIds])
       );
       if (
-        merged.length > MAX_ACTIVE_BOUQUETS ||
-        countActiveSatellites(merged) > MAX_ACTIVE_SATELLITES
+        !isPremium &&
+        (merged.length > MAX_ACTIVE_BOUQUETS ||
+          countActiveSatellites(merged) > MAX_ACTIVE_SATELLITES)
       ) {
-        setLimitWarning(RAM_LIMIT_WARNING_MESSAGE);
+        setLimitWarning(PRO_BOUQUETS_UPGRADE_MESSAGE);
+        if (onRequestProUpgrade) {
+          onRequestProUpgrade();
+        }
         return prev;
       }
 
@@ -354,7 +390,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   return (
     <div
       dir={langOpt.dir}
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-[#0a0e17]/88 backdrop-blur-md animate-fadeIn"
+      data-tv-modal-overlay="true"
+      className="fixed inset-0 z-[2000] flex items-center justify-center p-3 sm:p-4 bg-[#0a0e17]/90 backdrop-blur-md animate-fadeIn"
       onClick={onClose}
     >
       <div
@@ -563,6 +600,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           draft.selectedBouquets.includes(id)
                         );
                         const wouldExceedMax =
+                          !isPremium &&
                           !isExtActive &&
                           Array.from(
                             new Set([
@@ -574,23 +612,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           <button
                             key={ext.id}
                             type="button"
-                            disabled={wouldExceedMax}
-                            style={
-                              wouldExceedMax
-                                ? { opacity: 0.4, cursor: 'not-allowed' }
-                                : undefined
-                            }
                             onClick={() => {
-                              if (!wouldExceedMax) {
-                                toggleSatelliteGroup(ext.bouquetIds);
-                              }
+                              toggleSatelliteGroup(ext.bouquetIds);
                             }}
-                            className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all border ${
+                            className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all border cursor-pointer ${
                               wouldExceedMax
-                                ? 'bg-[#0a0e17] border-[#1a202c] text-[#cbd5e1] opacity-40 cursor-not-allowed'
+                                ? 'bg-[#0a0e17] border-[#1a202c] text-[#cbd5e1] opacity-65 hover:border-[#ec4899]'
                                 : isExtActive
-                                ? 'bg-[#1d4ed8]/30 border-[#ec4899] text-[#ffffff] shadow-[0_0_10px_rgba(236,72,153,0.3)] cursor-pointer'
-                                : 'bg-[#0a0e17] border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff] cursor-pointer'
+                                ? 'bg-[#1d4ed8]/30 border-[#ec4899] text-[#ffffff] shadow-[0_0_10px_rgba(236,72,153,0.3)]'
+                                : 'bg-[#0a0e17] border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]'
                             }`}
                           >
                             {isExtActive ? (
@@ -616,26 +646,52 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       {tr.bouquetsSectionTitle}
                     </h3>
                     <p className="text-xs text-[#cbd5e1] mt-0.5">
-                      Maximum {MAX_ACTIVE_BOUQUETS} bouquets sélectionnés simultanément. Décocher un bouquet actif pour en choisir un autre.
+                      {isPremium
+                        ? 'Mode PulseEPG Pro 👑 actif : Sélection illimitée de bouquets et synchronisation multi-satellites débloquées.'
+                        : `Maximum ${MAX_ACTIVE_BOUQUETS} bouquets sélectionnés simultanément en mode Invité / Gratuit.`}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span
                       className={`px-3 py-1 rounded-lg border text-xs font-mono font-bold ${
-                        draft.selectedBouquets.length >= MAX_ACTIVE_BOUQUETS
+                        isPremium
+                          ? 'bg-gradient-to-r from-[#f59e0b]/20 to-[#ec4899]/20 text-[#fde047] border-[#f59e0b]'
+                          : draft.selectedBouquets.length >= MAX_ACTIVE_BOUQUETS
                           ? 'bg-[#e11d48]/20 text-[#ffffff] border-[#e11d48]'
                           : 'bg-[#0a0e17] text-[#38bdf8] border-[#0055ff]/60'
                       }`}
                     >
-                      {draft.selectedBouquets.length}/{MAX_ACTIVE_BOUQUETS} Bouquets actifs (Max {MAX_ACTIVE_BOUQUETS})
+                      {isPremium
+                        ? `${draft.selectedBouquets.length}/${ALL_BOUQUET_IDS.length} Bouquets actifs (Illimité Pro 👑)`
+                        : `${draft.selectedBouquets.length}/${MAX_ACTIVE_BOUQUETS} Bouquets actifs (Max ${MAX_ACTIVE_BOUQUETS})`}
                     </span>
+                    <button
+                      type="button"
+                      onClick={selectAllBouquets}
+                      className="tv-dpad-btn px-2.5 py-1 rounded-lg bg-gradient-to-r from-[#ec4899]/25 to-[#8b5cf6]/25 border border-[#ec4899] text-[11px] font-bold text-[#fde047] hover:bg-[#ec4899]/40 transition-all cursor-pointer"
+                    >
+                      {isPremium
+                        ? '🛰️ Activer tous les bouquets (Multi-Satellites)'
+                        : '👑 Débloquer tous les bouquets (Pro)'}
+                    </button>
                   </div>
                 </div>
 
                 {limitWarning && (
-                  <div className="p-3 rounded-lg bg-[#0a0e17] border border-[#f59e0b]/70 text-[#ffffff] text-xs font-medium flex items-center gap-2">
-                    <ShieldAlert className="w-4 h-4 text-[#f59e0b] shrink-0" />
-                    <span>{limitWarning}</span>
+                  <div className="p-3 rounded-lg bg-[#0a0e17] border border-[#f59e0b]/70 text-[#ffffff] text-xs font-medium flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <ShieldAlert className="w-4 h-4 text-[#f59e0b] shrink-0" />
+                      <span>{limitWarning}</span>
+                    </div>
+                    {!isPremium && onRequestProUpgrade && (
+                      <button
+                        type="button"
+                        onClick={onRequestProUpgrade}
+                        className="tv-dpad-btn px-2.5 py-1 rounded-lg bg-[#ec4899] text-[#ffffff] text-xs font-bold cursor-pointer shrink-0"
+                      >
+                        Activer Pro 👑
+                      </button>
+                    )}
                   </div>
                 )}
 
@@ -650,12 +706,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       groupIds.length > 0 && activeCount === groupIds.length;
                     const someChecked = activeCount > 0;
                     const isMaxReached =
-                      draft.selectedBouquets.length >= MAX_ACTIVE_BOUQUETS;
+                      draft.selectedBouquets.length >= effectiveMaxBouquets;
                     const groupWouldExceedMax =
                       !allChecked &&
                       Array.from(
                         new Set([...draft.selectedBouquets, ...groupIds])
-                      ).length > MAX_ACTIVE_BOUQUETS;
+                      ).length > effectiveMaxBouquets;
 
                     return (
                       <div
@@ -670,21 +726,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         <div className="flex items-start justify-between gap-2 pb-2 border-b border-[#1a202c]">
                           <button
                             type="button"
-                            disabled={groupWouldExceedMax}
-                            style={
-                              groupWouldExceedMax
-                                ? { opacity: 0.4, cursor: 'not-allowed' }
-                                : undefined
-                            }
                             onClick={() => {
-                              if (!groupWouldExceedMax) {
-                                toggleSatelliteGroup(groupIds);
-                              }
+                              toggleSatelliteGroup(groupIds);
                             }}
-                            className={`flex items-start gap-2.5 min-w-0 flex-1 rounded-md p-0.5 text-start ${
-                              groupWouldExceedMax
-                                ? 'opacity-40 cursor-not-allowed'
-                                : 'cursor-pointer'
+                            className={`flex items-start gap-2.5 min-w-0 flex-1 rounded-md p-0.5 text-start cursor-pointer ${
+                              groupWouldExceedMax ? 'opacity-65' : ''
                             }`}
                           >
                             <div className="mt-0.5 text-[#0055ff] shrink-0">
@@ -693,13 +739,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 readOnly
                                 tabIndex={-1}
                                 checked={allChecked}
-                                disabled={groupWouldExceedMax}
-                                style={
-                                  groupWouldExceedMax
-                                    ? { cursor: 'not-allowed' }
-                                    : { cursor: 'pointer' }
-                                }
-                                className="w-4 h-4 accent-[#0055ff] rounded pointer-events-none"
+                                className="w-4 h-4 accent-[#0055ff] rounded pointer-events-none cursor-pointer"
                               />
                             </div>
                             <div className="min-w-0">
@@ -728,7 +768,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             const checked = draft.selectedBouquets.includes(
                               bq.id
                             );
-                            const isDisabled = !checked && isMaxReached;
+                            const isLockedByFreemium =
+                              !checked && !isPremium && isMaxReached;
                             const loc = getBouquetLocalizedText(
                               bq.id,
                               activeLang,
@@ -738,46 +779,35 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             return (
                               <label
                                 key={bq.id}
-                                tabIndex={isDisabled ? -1 : 0}
-                                aria-disabled={isDisabled}
-                                style={
-                                  isDisabled
-                                    ? { opacity: 0.4, cursor: 'not-allowed' }
-                                    : { cursor: 'pointer' }
-                                }
-                                onKeyDown={(e) => {
-                                  if (
-                                    !isDisabled &&
-                                    (e.key === 'Enter' || e.key === ' ')
-                                  ) {
+                                tabIndex={0}
+                                onClick={(e) => {
+                                  if (isLockedByFreemium) {
                                     e.preventDefault();
                                     toggleBouquet(bq.id);
                                   }
                                 }}
-                                className={`p-2.5 rounded-lg transition-all flex items-start gap-2.5 ${
-                                  isDisabled
-                                    ? 'bg-[#141a26]/40 border border-[#1a202c] text-[#cbd5e1] opacity-40 cursor-not-allowed'
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    toggleBouquet(bq.id);
+                                  }
+                                }}
+                                className={`p-2.5 rounded-lg transition-all flex items-start gap-2.5 cursor-pointer ${
+                                  isLockedByFreemium
+                                    ? 'bg-[#141a26]/50 border border-[#1a202c] hover:border-[#ec4899]/80 text-[#cbd5e1] opacity-75'
                                     : checked
-                                    ? 'bg-[#141a26] border-[1.5px] border-[#0055ff] text-[#ffffff] cursor-pointer'
-                                    : 'bg-[#141a26]/60 border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] cursor-pointer'
+                                    ? 'bg-[#141a26] border-[1.5px] border-[#0055ff] text-[#ffffff]'
+                                    : 'bg-[#141a26]/60 border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff]'
                                 }`}
                               >
                                 <div className="mt-0.5 shrink-0 flex items-center">
                                   <input
                                     type="checkbox"
                                     checked={checked}
-                                    disabled={isDisabled}
                                     onChange={() => {
-                                      if (!isDisabled) {
-                                        toggleBouquet(bq.id);
-                                      }
+                                      toggleBouquet(bq.id);
                                     }}
-                                    style={
-                                      isDisabled
-                                        ? { cursor: 'not-allowed' }
-                                        : { cursor: 'pointer' }
-                                    }
-                                    className="w-4 h-4 accent-[#0055ff] rounded disabled:cursor-not-allowed"
+                                    className="w-4 h-4 accent-[#0055ff] rounded cursor-pointer"
                                   />
                                 </div>
                                 <div className="min-w-0 flex-1">

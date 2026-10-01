@@ -3,10 +3,12 @@ import {
   Baby,
   Bell,
   BellRing,
+  Calendar,
   ChevronLeft,
   ChevronRight,
   Clock,
   Compass,
+  Crown,
   Film,
   Globe,
   Heart,
@@ -127,6 +129,11 @@ interface TimeGridViewProps {
     targetChannel?: EpgChannel,
     targetLcn?: number
   ) => void;
+  isExtendedEpgUnlocked?: boolean;
+  selectedEpgDayOffset?: number;
+  isReplayMode?: boolean;
+  onSelectEpgDay?: (dayOffset: number, replayMode?: boolean) => void;
+  onRequestProEpgUpgrade?: (reason?: string) => void;
 }
 
 const PIXELS_PER_MINUTE = 4.6;
@@ -215,6 +222,11 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
   onToggleReminder,
   channelLcnMap,
   onQuickJumpStep,
+  isExtendedEpgUnlocked = false,
+  selectedEpgDayOffset = 0,
+  isReplayMode = false,
+  onSelectEpgDay,
+  onRequestProEpgUpgrade,
 }) => {
   const activeLang = language || getActiveLanguage();
   const tr = getTranslations(activeLang);
@@ -247,6 +259,55 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
 
   const windowEndMs = windowStartMs + WINDOW_MINUTES * 60000;
 
+  // Barre de dates 7 jours : Catch-up (-1), Aujourd'hui (0 - 24h), et J+1 à J+7 (1..7)
+  const sevenDayBarItems = useMemo(() => {
+    const baseDate = new Date(baseRealNowMs);
+    baseDate.setHours(0, 0, 0, 0);
+    const offsets = [-1, 0, 1, 2, 3, 4, 5, 6, 7];
+
+    return offsets.map((offset) => {
+      const dayStartMs = baseDate.getTime() + offset * 86400000;
+      const shortDateLabel = formatDayLabel(dayStartMs, activeLang);
+      const isCatchUp = offset === -1;
+      const isToday = offset === 0;
+      const isLocked = !isToday && !isExtendedEpgUnlocked;
+
+      let badgeLabel = '';
+      if (isCatchUp) {
+        badgeLabel = 'Catch-up';
+      } else if (isToday) {
+        badgeLabel =
+          activeLang === 'fr' ? "Aujourd'hui (24h)" : `${tr.today} (24h)`;
+      } else if (offset === 1) {
+        badgeLabel = `J+1 · ${tr.tomorrow}`;
+      } else {
+        badgeLabel = `J+${offset} · ${shortDateLabel}`;
+      }
+
+      const isActive = isCatchUp
+        ? isReplayMode || selectedEpgDayOffset === -1
+        : !isReplayMode && selectedEpgDayOffset === offset;
+
+      return {
+        offset,
+        dayStartMs,
+        badgeLabel,
+        isCatchUp,
+        isToday,
+        isLocked,
+        isActive,
+      };
+    });
+  }, [
+    baseRealNowMs,
+    activeLang,
+    tr.today,
+    tr.tomorrow,
+    isExtendedEpgUnlocked,
+    isReplayMode,
+    selectedEpgDayOffset,
+  ]);
+
   const timeSlots = useMemo(() => {
     const slots: number[] = [];
     const count = WINDOW_HOURS * 2;
@@ -262,6 +323,17 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
   }, [baseRealNowMs, windowStartMs, windowEndMs]);
 
   const shiftWindow = (hours: number) => {
+    const candidateMs = windowStartMs + hours * 3600000 + 30 * 60000;
+    const todayDateStr = formatDateInputValue(baseRealNowMs);
+    const candidateDateStr = formatDateInputValue(candidateMs);
+
+    // En Mode Invité / Gratuit, l'utilisateur navigue librement sur la journée en cours (24h).
+    // S'il tente de déborder sur J-1 (Catch-up) ou J+1..J+7, on ouvre le modal PulseEPG Pro.
+    if (!isExtendedEpgUnlocked && candidateDateStr !== todayDateStr) {
+      onRequestProEpgUpgrade?.();
+      return;
+    }
+
     if (onShiftTimeOffset) {
       onShiftTimeOffset(hours * 60);
     } else {
@@ -271,6 +343,9 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
   };
 
   const resetToNow = () => {
+    if (onSelectEpgDay) {
+      onSelectEpgDay(0, false);
+    }
     if (onResetToLive) {
       onResetToLive();
     } else {
@@ -289,6 +364,12 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
   };
 
   const handleDateInputChange = (dateValue: string) => {
+    const todayDateStr = formatDateInputValue(baseRealNowMs);
+    if (!isExtendedEpgUnlocked && dateValue !== todayDateStr) {
+      onRequestProEpgUpgrade?.();
+      return;
+    }
+
     const parsedMs = parseDateInputWithCurrentTime(dateValue, nowMs);
     if (parsedMs === null) return;
     if (onSelectDateTime) {
@@ -944,10 +1025,108 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
         )}
       </div>
 
-      {/* 2. Bloc Isolé : Ligne de Navigation Temporelle sous la zone des filtres (margin-top: 16px; display: flex; align-items: center; gap: 12px;) */}
+      {/* 2.A Barre de Dates Guide EPG Étendu (7 Jours : J+1 à J+7 & Catch-up / Replay) */}
+      <div className="mt-4 p-3 sm:p-3.5 rounded-xl bg-[#141a26] border border-[#1a202c] space-y-2 select-none">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2 text-xs font-bold text-[#ffffff]">
+            <Calendar className="w-4 h-4 text-[#0055ff] shrink-0" />
+            <span>
+              {activeLang === 'fr'
+                ? 'Guide EPG 7 Jours & Catch-up / Replay'
+                : '7-Day EPG Guide & Catch-up / Replay'}
+            </span>
+            {isExtendedEpgUnlocked ? (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-extrabold bg-gradient-to-r from-[#f59e0b] to-[#ec4899] text-[#ffffff]">
+                <Crown className="w-3 h-3 text-[#fde047]" />
+                <span>
+                  {activeLang === 'fr'
+                    ? '7 Jours + Replay Débloqués (Pro 👑)'
+                    : '7 Days + Replay Unlocked (Pro 👑)'}
+                </span>
+              </span>
+            ) : (
+              <span className="text-[11px] font-medium text-[#cbd5e1]">
+                {activeLang === 'fr'
+                  ? '· Mode Invité / Gratuit : Journée en cours (24h) accessible'
+                  : '· Guest / Free Mode: Current day (24h) accessible'}
+              </span>
+            )}
+          </div>
+
+          {isReplayMode && isExtendedEpgUnlocked && (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-[#ec4899]/20 border border-[#ec4899] text-[11px] font-extrabold text-[#ffffff]">
+              <RotateCcw className="w-3 h-3 text-[#ec4899]" />
+              <span>
+                {activeLang === 'fr'
+                  ? 'Mode Replay / Catch-up Actif'
+                  : 'Replay / Catch-up Mode Active'}
+              </span>
+            </span>
+          )}
+        </div>
+
+        <div
+          data-tv-row="grid-7day-bar"
+          className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1"
+        >
+          {sevenDayBarItems.map((item) => (
+            <button
+              key={item.offset}
+              type="button"
+              data-filter-active={item.isActive ? 'true' : undefined}
+              onClick={() => {
+                if (item.isLocked) {
+                  if (onSelectEpgDay) {
+                    onSelectEpgDay(item.offset, item.isCatchUp);
+                  } else {
+                    onRequestProEpgUpgrade?.();
+                  }
+                  return;
+                }
+                if (onSelectEpgDay) {
+                  onSelectEpgDay(item.offset, item.isCatchUp);
+                } else if (onSelectDateTime) {
+                  onSelectDateTime(baseRealNowMs + item.offset * 86400000);
+                }
+              }}
+              title={
+                item.isLocked
+                  ? activeLang === 'fr'
+                    ? `${item.badgeLabel} 🔒 — Débloquez le Guide EPG 7 jours et le Catch-up avec PulseEPG Pro`
+                    : `${item.badgeLabel} 🔒 — Unlock 7-day EPG & Catch-up with PulseEPG Pro`
+                  : item.badgeLabel
+              }
+              className={`tv-dpad-btn inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer shrink-0 ${
+                item.isActive
+                  ? item.isCatchUp
+                    ? 'bg-gradient-to-r from-[#ec4899] to-[#8b5cf6] border-[1.5px] border-[#ec4899] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(236,72,153,0.45)]'
+                    : 'bg-[#e11d48] border-[1.5px] border-[#ff0033] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(225,29,72,0.45)]'
+                  : item.isLocked
+                  ? 'bg-[#0a0e17]/90 border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#f59e0b]/70 font-medium'
+                  : 'bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60 font-medium'
+              }`}
+            >
+              {item.isCatchUp && !item.isLocked && (
+                <RotateCcw className="w-3.5 h-3.5 text-[#ec4899] shrink-0" />
+              )}
+              <span>{item.badgeLabel}</span>
+              {item.isLocked && (
+                <span
+                  aria-label="Verrouillé PulseEPG Pro"
+                  className="text-[11px] leading-none shrink-0"
+                >
+                  🔒
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 2.B Bloc Isolé : Ligne de Navigation Temporelle sous la zone des filtres (margin-top: 16px; display: flex; align-items: center; gap: 12px;) */}
       <div
         style={{
-          marginTop: '16px',
+          marginTop: '12px',
           marginBottom: '16px',
           display: 'flex',
           alignItems: 'center',

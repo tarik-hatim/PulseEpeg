@@ -1348,9 +1348,27 @@ export function getDynamicProfileForLanguage(lang: AppLanguage): {
   }
 }
 
-export function getBouquetsForTvProfile(profileId: TvProfileId): EpgBouquetId[] {
+export function isStoredSessionPremium(): boolean {
+  try {
+    if (typeof localStorage === 'undefined') return false;
+    const raw = localStorage.getItem('pulseepg_optional_auth_session_v1');
+    if (!raw) return false;
+    const parsed = JSON.parse(raw) as { isPremium?: boolean; plan?: string };
+    return Boolean(parsed && (parsed.isPremium === true || parsed.plan === 'pro'));
+  } catch {
+    return false;
+  }
+}
+
+export function getBouquetsForTvProfile(
+  profileId: TvProfileId,
+  isPremium: boolean = isStoredSessionPremium()
+): EpgBouquetId[] {
   const found = TV_PROFILES_CATALOG.find((p) => p.id === profileId);
   if (found) {
+    if (isPremium || profileId === 'all_satellites') {
+      return [...found.bouquets];
+    }
     return [...found.bouquets].slice(0, MAX_ACTIVE_BOUQUETS_STRICT);
   }
   return [...DEFAULT_ENABLED_BOUQUET_IDS].slice(0, MAX_ACTIVE_BOUQUETS_STRICT);
@@ -3446,15 +3464,19 @@ export function loadAppSettings(): AppSettings {
         )
       : [];
 
-    const validSelectedBouquets = (
+    const isPremiumSession = isStoredSessionPremium();
+    const deduplicatedBouquets =
       rawSelectedBouquets.length > 0
         ? Array.from(
             new Set(
               rawSelectedBouquets.filter((b) => ALL_BOUQUET_IDS.includes(b))
             )
           )
-        : getBouquetsForTvProfile(activeProfile)
-    ).slice(0, MAX_ACTIVE_BOUQUETS_STRICT);
+        : getBouquetsForTvProfile(activeProfile, isPremiumSession);
+
+    const validSelectedBouquets = isPremiumSession
+      ? deduplicatedBouquets
+      : deduplicatedBouquets.slice(0, MAX_ACTIVE_BOUQUETS_STRICT);
 
     const resolvedProfile = inferTvProfileFromBouquets(
       validSelectedBouquets,

@@ -5,11 +5,13 @@ import {
   Baby,
   Bell,
   BellRing,
+  Calendar,
   Check,
   ChevronDown,
   ChevronUp,
   Clock,
   Compass,
+  Crown,
   Film,
   Globe,
   Hash,
@@ -30,6 +32,7 @@ import {
   Trash2,
   Trophy,
   Tv,
+  User,
   Volume2,
   X,
   Zap,
@@ -114,6 +117,13 @@ import { PWAInstallButton } from './components/PWAInstallButton';
 import { InAppReminderBanner } from './components/InAppReminderBanner';
 import { RemindersChronologicalView } from './components/RemindersChronologicalView';
 import { PulseEpgLogo } from './components/PulseEpgLogo';
+import { AuthAccountModal } from './components/AuthAccountModal';
+import {
+  AuthSessionState,
+  PRO_BOUQUETS_UPGRADE_MESSAGE,
+  PRO_EPG_7DAYS_UPGRADE_MESSAGE,
+  supabaseService,
+} from './services/supabaseService';
 import {
   cancelProgrammeNotification,
   ensureEpgNotificationChannel,
@@ -277,6 +287,84 @@ export function App() {
     'filters' | 'sources' | 'legal'
   >('filters');
 
+  // Session utilisateur optionnelle (Mode Invité par défaut : isLoggedIn = false, isPremium = false)
+  const [authState, setAuthState] = useState<AuthSessionState>(() =>
+    supabaseService.getState()
+  );
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [proFeatureReason, setProFeatureReason] = useState<string | null>(null);
+  const [selectedEpgDayOffset, setSelectedEpgDayOffset] = useState<number>(0);
+  const [isReplayMode, setIsReplayMode] = useState<boolean>(false);
+  const pendingProDaySelectionRef = useRef<{
+    offset: number;
+    replay: boolean;
+  } | null>(null);
+
+  // Déblocage Premium du Guide EPG 7 jours et du mode Replay uniquement si connecté ET is_premium: true
+  const isExtendedEpgUnlocked = Boolean(
+    authState.isLoggedIn && authState.isPremium
+  );
+
+  useEffect(() => {
+    return supabaseService.subscribe((nextState) => {
+      setAuthState(nextState);
+    });
+  }, []);
+
+  // Déblocage instantané des 7 jours complets et du mode Replay dès que l'utilisateur est connecté ET is_premium: true
+  useEffect(() => {
+    if (isExtendedEpgUnlocked) {
+      if (pendingProDaySelectionRef.current) {
+        const pending = pendingProDaySelectionRef.current;
+        pendingProDaySelectionRef.current = null;
+        const currentRealNow = Date.now();
+        setNowMs(currentRealNow);
+        setSelectedEpgDayOffset(pending.offset);
+        setIsReplayMode(pending.replay);
+        const deltaMins = pending.offset * 1440;
+        setTimeOffsetMinutes(deltaMins);
+        setActiveTimePreset(
+          deltaMins === 0 ? 'now' : deltaMins < 0 ? 'minus' : 'plus'
+        );
+      }
+    } else if (selectedEpgDayOffset !== 0 || isReplayMode) {
+      setSelectedEpgDayOffset(0);
+      setIsReplayMode(false);
+      setNowMs(Date.now());
+      setTimeOffsetMinutes(0);
+      setActiveTimePreset('now');
+    }
+  }, [isExtendedEpgUnlocked, selectedEpgDayOffset, isReplayMode]);
+
+  // Synchronisation réactive des bouquets et favoris récupérés depuis Supabase `user_settings` (multi-appareils / Samsung TV)
+  useEffect(() => {
+    return supabaseService.subscribeUserSettings((record) => {
+      setFavorites(record.favorite_channels);
+      setSettings((prev) => {
+        const nextProfile = inferTvProfileFromBouquets(
+          record.selected_bouquets,
+          prev.tvProfile
+        );
+        const nextSources = syncSourcesWithSelectedBouquets(
+          record.selected_bouquets,
+          prev.sources,
+          nextProfile
+        );
+        const updatedSettings: AppSettings = {
+          ...prev,
+          tvProfile: nextProfile,
+          selectedBouquets: record.selected_bouquets,
+          sources: nextSources,
+        };
+        const fallback = buildOfflineFallbackEpgSnapshot(updatedSettings);
+        setChannels(fallback.channels);
+        setSchedulesByChannel(fallback.schedulesByChannel);
+        setCacheMeta(fallback.metadata);
+        return updatedSettings;
+      });
+    });
+  }, []);
+
   // États et références pour la Virtualisation de liste (Windowing)
   const virtualListContainerRef = useRef<HTMLDivElement | null>(null);
   const measuredRowHeightsRef = useRef<Map<string, number>>(new Map());
@@ -410,18 +498,21 @@ export function App() {
     };
   }, [isSearchDropdownOpen]);
 
-  // Force l'horodateur sur le temps réel actuel sans possibilité de décalage en vue "Live Now"
+  // Force l'horodateur sur le temps réel actuel en vue "Live Now" uniquement si aucun jour J+1..J+7 ou Replay n'est actif
   useEffect(() => {
-    if (viewMode === 'live') {
+    if (viewMode === 'live' && selectedEpgDayOffset === 0 && !isReplayMode) {
       setNowMs(Date.now());
       setTimeOffsetMinutes(0);
       setActiveTimePreset('now');
     }
-  }, [viewMode]);
+  }, [viewMode, selectedEpgDayOffset, isReplayMode]);
 
   const effectiveTimeMs = useMemo(
-    () => (viewMode === 'grid' ? nowMs + timeOffsetMinutes * 60000 : nowMs),
-    [viewMode, nowMs, timeOffsetMinutes]
+    () =>
+      viewMode === 'grid' || selectedEpgDayOffset !== 0 || isReplayMode
+        ? nowMs + timeOffsetMinutes * 60000
+        : nowMs,
+    [viewMode, nowMs, timeOffsetMinutes, selectedEpgDayOffset, isReplayMode]
   );
 
   const handleLoadOfflineFallback = useCallback(
@@ -1454,8 +1545,10 @@ export function App() {
           setRamWarningMessage(null);
           return next;
         }
-        if (prev.length >= MAX_ACTIVE_BOUQUETS) {
-          setRamWarningMessage(RAM_LIMIT_WARNING_MESSAGE);
+        if (!authState.isPremium && prev.length >= MAX_ACTIVE_BOUQUETS) {
+          setRamWarningMessage(PRO_BOUQUETS_UPGRADE_MESSAGE);
+          setProFeatureReason(PRO_BOUQUETS_UPGRADE_MESSAGE);
+          setIsAuthModalOpen(true);
           return prev;
         }
         const next = [...prev, bq];
@@ -1464,7 +1557,7 @@ export function App() {
         return next;
       });
     },
-    []
+    [authState.isPremium, activeLang]
   );
 
   const matchesGroup = useCallback(
@@ -2087,6 +2180,9 @@ export function App() {
           )
         : [...prev, channelId];
       saveFavoriteChannels(next);
+      void supabaseService.saveHybridUserSettings({
+        favorite_channels: next,
+      });
       return next;
     });
   }, []);
@@ -2338,19 +2434,23 @@ export function App() {
 
   const handleSaveSettings = useCallback(
     async (newSettings: AppSettings, forceReload: boolean) => {
+      const enforcedBouquets = authState.isPremium
+        ? newSettings.selectedBouquets
+        : newSettings.selectedBouquets.slice(0, MAX_ACTIVE_BOUQUETS);
       const resolvedProfile =
         newSettings.tvProfile ||
         inferTvProfileFromBouquets(
-          newSettings.selectedBouquets,
+          enforcedBouquets,
           newSettings.tvProfile
         );
       const syncedSources = syncSourcesWithSelectedBouquets(
-        newSettings.selectedBouquets,
+        enforcedBouquets,
         newSettings.sources,
         resolvedProfile
       );
       const finalizedSettings: AppSettings = {
         ...newSettings,
+        selectedBouquets: enforcedBouquets,
         tvProfile: resolvedProfile,
         sources: syncedSources,
       };
@@ -2361,6 +2461,10 @@ export function App() {
 
       setSettings(finalizedSettings);
       saveAppSettings(finalizedSettings);
+      void supabaseService.saveHybridUserSettings({
+        selected_bouquets: finalizedSettings.selectedBouquets,
+        favorite_channels: favorites,
+      });
 
       if (
         selectedSatellite !== 'Tous' &&
@@ -2462,6 +2566,7 @@ export function App() {
       }
     },
     [
+      authState.isPremium,
       settings,
       channels,
       schedulesByChannel,
@@ -2528,6 +2633,96 @@ export function App() {
     triggerEpgSync(settings);
   }, [settings, triggerEpgSync]);
 
+  const handleRequestProEpgUpgrade = useCallback((customReason?: string) => {
+    setProFeatureReason(customReason || PRO_EPG_7DAYS_UPGRADE_MESSAGE);
+    setIsAuthModalOpen(true);
+  }, []);
+
+  const handleSelectEpgDay = useCallback(
+    (dayOffset: number, replayMode = false) => {
+      const isToday = dayOffset === 0 && !replayMode;
+      if (isToday) {
+        setSelectedEpgDayOffset(0);
+        setIsReplayMode(false);
+        setNowMs(Date.now());
+        setTimeOffsetMinutes(0);
+        setActiveTimePreset('now');
+        setLiveSyncCount((prev) => prev + 1);
+        return;
+      }
+
+      // En Mode Invité / Compte Gratuit : les jours J+1 à J+7 et le Catch-up sont verrouillés 🔒
+      if (!isExtendedEpgUnlocked) {
+        pendingProDaySelectionRef.current = {
+          offset: dayOffset,
+          replay: replayMode || dayOffset < 0,
+        };
+        setProFeatureReason(PRO_EPG_7DAYS_UPGRADE_MESSAGE);
+        setIsAuthModalOpen(true);
+        return;
+      }
+
+      // Déblocage Premium : consultation instantanée des 7 jours complets et du mode Replay
+      const currentRealNow = Date.now();
+      setNowMs(currentRealNow);
+      setSelectedEpgDayOffset(dayOffset);
+      setIsReplayMode(replayMode || dayOffset < 0);
+      const deltaMinutes = dayOffset * 1440;
+      setTimeOffsetMinutes(deltaMinutes);
+      setActiveTimePreset(dayOffset < 0 ? 'minus' : 'plus');
+    },
+    [isExtendedEpgUnlocked]
+  );
+
+  // Barre de dates 7 jours (Catch-up, Aujourd'hui 24h, J+1 à J+7) pour la navigation principale
+  const mainSevenDayBarItems = useMemo(() => {
+    const baseDate = new Date(nowMs);
+    baseDate.setHours(0, 0, 0, 0);
+    const offsets = [-1, 0, 1, 2, 3, 4, 5, 6, 7];
+
+    return offsets.map((offset) => {
+      const dayStartMs = baseDate.getTime() + offset * 86400000;
+      const shortDateLabel = formatDayLabel(dayStartMs, activeLang);
+      const isCatchUp = offset === -1;
+      const isToday = offset === 0;
+      const isLocked = !isToday && !isExtendedEpgUnlocked;
+
+      let badgeLabel = '';
+      if (isCatchUp) {
+        badgeLabel = 'Catch-up';
+      } else if (isToday) {
+        badgeLabel =
+          activeLang === 'fr' ? "Aujourd'hui (24h)" : `${tr.today} (24h)`;
+      } else if (offset === 1) {
+        badgeLabel = `J+1 · ${tr.tomorrow}`;
+      } else {
+        badgeLabel = `J+${offset} · ${shortDateLabel}`;
+      }
+
+      const isActive = isCatchUp
+        ? isReplayMode || selectedEpgDayOffset === -1
+        : !isReplayMode && selectedEpgDayOffset === offset;
+
+      return {
+        offset,
+        dayStartMs,
+        badgeLabel,
+        isCatchUp,
+        isToday,
+        isLocked,
+        isActive,
+      };
+    });
+  }, [
+    nowMs,
+    activeLang,
+    tr.today,
+    tr.tomorrow,
+    isExtendedEpgUnlocked,
+    isReplayMode,
+    selectedEpgDayOffset,
+  ]);
+
   const shiftTimeOffsetMinutes = useCallback((deltaMinutes: number) => {
     setTimeOffsetMinutes((prev) => {
       const next = prev + deltaMinutes;
@@ -2537,6 +2732,8 @@ export function App() {
   }, []);
 
   const handleSyncToLive = useCallback(() => {
+    setSelectedEpgDayOffset(0);
+    setIsReplayMode(false);
     setNowMs(Date.now());
     setTimeOffsetMinutes(0);
     setActiveTimePreset('now');
@@ -2547,28 +2744,53 @@ export function App() {
     const currentRealNow = Date.now();
     setNowMs(currentRealNow);
     const referenceDayMs =
-      viewMode === 'grid'
-        ? currentRealNow + timeOffsetMinutes * 60000
+      viewMode === 'grid' || selectedEpgDayOffset !== 0
+        ? currentRealNow + selectedEpgDayOffset * 86400000
         : currentRealNow;
     const target = getCasablancaTimestampForHour(referenceDayMs, 20, 45);
     const diffMins = Math.round((target - currentRealNow) / 60000);
     setTimeOffsetMinutes(diffMins);
     setActiveTimePreset('prime');
-  }, [viewMode, timeOffsetMinutes]);
+  }, [viewMode, selectedEpgDayOffset]);
 
-  const handleSelectCustomDateTime = useCallback((targetMs: number) => {
-    const currentRealNow = Date.now();
-    setNowMs(currentRealNow);
-    const diffMins = Math.round((targetMs - currentRealNow) / 60000);
-    setTimeOffsetMinutes(diffMins);
-    setActiveTimePreset(
-      diffMins === 0 ? 'now' : diffMins < 0 ? 'minus' : 'plus'
-    );
-  }, []);
+  const handleSelectCustomDateTime = useCallback(
+    (targetMs: number) => {
+      const currentRealNow = Date.now();
+      const baseToday = new Date(currentRealNow);
+      baseToday.setHours(0, 0, 0, 0);
+      const targetDay = new Date(targetMs);
+      targetDay.setHours(0, 0, 0, 0);
+      const dayDiff = Math.round(
+        (targetDay.getTime() - baseToday.getTime()) / 86400000
+      );
+
+      if (dayDiff !== 0 && !isExtendedEpgUnlocked) {
+        pendingProDaySelectionRef.current = {
+          offset: Math.max(-1, Math.min(7, dayDiff)),
+          replay: dayDiff < 0,
+        };
+        setProFeatureReason(PRO_EPG_7DAYS_UPGRADE_MESSAGE);
+        setIsAuthModalOpen(true);
+        return;
+      }
+
+      setNowMs(currentRealNow);
+      setSelectedEpgDayOffset(Math.max(-1, Math.min(7, dayDiff)));
+      setIsReplayMode(dayDiff < 0);
+      const diffMins = Math.round((targetMs - currentRealNow) / 60000);
+      setTimeOffsetMinutes(diffMins);
+      setActiveTimePreset(
+        diffMins === 0 ? 'now' : diffMins < 0 ? 'minus' : 'plus'
+      );
+    },
+    [isExtendedEpgUnlocked]
+  );
 
   const isTimeViewOffset =
-    viewMode === 'grid' &&
-    (timeOffsetMinutes !== 0 || activeTimePreset !== 'now');
+    (viewMode === 'grid' &&
+      (timeOffsetMinutes !== 0 || activeTimePreset !== 'now')) ||
+    selectedEpgDayOffset !== 0 ||
+    isReplayMode;
 
   const formattedOffsetBadge = useMemo(() => {
     if (activeTimePreset === 'prime') {
@@ -2681,7 +2903,13 @@ export function App() {
 
     const syncViewportMetrics = () => {
       rafId = null;
-      const scrollTop = window.scrollY || document.documentElement.scrollTop || 0;
+      const scrollTop =
+        window.scrollY ||
+        window.pageYOffset ||
+        document.scrollingElement?.scrollTop ||
+        document.documentElement.scrollTop ||
+        document.body.scrollTop ||
+        0;
       const viewportHeight = Math.max(window.innerHeight || 720, 480);
       const isDesktopLayout = window.innerWidth >= 1024;
       let listOffsetTop = virtualViewportRef.current.listOffsetTop;
@@ -2693,7 +2921,7 @@ export function App() {
 
       setVirtualViewport((prev) => {
         if (
-           prev.isDesktopLayout !== isDesktopLayout ||
+          prev.isDesktopLayout !== isDesktopLayout ||
           Math.abs(prev.scrollTop - scrollTop) >= 14 ||
           Math.abs(prev.viewportHeight - viewportHeight) >= 12 ||
           Math.abs(prev.listOffsetTop - listOffsetTop) >= 8
@@ -2719,11 +2947,16 @@ export function App() {
     };
 
     syncViewportMetrics();
-    window.addEventListener('scroll', handleScrollOrResize, { passive: true });
+    window.addEventListener('scroll', handleScrollOrResize, {
+      passive: true,
+      capture: true,
+    });
     window.addEventListener('resize', handleScrollOrResize, { passive: true });
 
     return () => {
-      window.removeEventListener('scroll', handleScrollOrResize);
+      window.removeEventListener('scroll', handleScrollOrResize, {
+        capture: true,
+      });
       window.removeEventListener('resize', handleScrollOrResize);
       if (rafId !== null) {
         window.cancelAnimationFrame(rafId);
@@ -2731,7 +2964,7 @@ export function App() {
     };
   }, [viewMode, filteredChannels.length]);
 
-  // Calcul de la fenêtre virtuelle (Windowing) : offsets cumulés, recherche binaire et spacers haut/bas
+  // Calcul des métriques de la liste complète des chaînes filtrées (sans troncature ni vide noir au scroll)
   const virtualWindow = useMemo(() => {
     const count = filteredChannels.length;
     const defaultRowHeight = virtualViewport.isDesktopLayout ? 116 : 196;
@@ -2757,19 +2990,24 @@ export function App() {
         totalHeight: 0,
         totalCount: 0,
         items: [] as EpgChannel[],
+        viewportItems: [] as EpgChannel[],
         offsets,
         heights,
       };
     }
 
+    const containerRectTop = virtualListContainerRef.current
+      ? virtualListContainerRef.current.getBoundingClientRect().top
+      : virtualViewport.listOffsetTop - virtualViewport.scrollTop;
     const relScrollTop = Math.max(
       0,
+      -containerRectTop,
       virtualViewport.scrollTop - virtualViewport.listOffsetTop
     );
     const relScrollBottom =
       relScrollTop + Math.max(virtualViewport.viewportHeight, 720);
 
-    // Recherche binaire du premier élément visible
+    // Recherche binaire du premier élément visible à l'écran (pour l'enrichissement TMDB en arrière-plan)
     let low = 0;
     let high = count - 1;
     let firstVisibleIdx = 0;
@@ -2783,7 +3021,7 @@ export function App() {
       }
     }
 
-    // Recherche binaire du dernier élément visible
+    // Recherche binaire du dernier élément visible à l'écran
     low = firstVisibleIdx;
     high = count - 1;
     let lastVisibleIdx = firstVisibleIdx;
@@ -2797,43 +3035,20 @@ export function App() {
       }
     }
 
-    let startIndex = Math.max(0, firstVisibleIdx - VIRTUAL_OVERSCAN_COUNT);
-    let endIndex = Math.min(
+    // Rendu intégral de toutes les chaînes filtrées (ex: 374 chaînes) sans spacer vide noir ni blocage après 10 cartes
+    const startIndex = 0;
+    const endIndex = count - 1;
+    const topSpacerPx = 0;
+    const bottomSpacerPx = 0;
+
+    const viewportStart = Math.max(0, firstVisibleIdx - VIRTUAL_OVERSCAN_COUNT);
+    const viewportEnd = Math.min(
       count - 1,
       Math.max(
         firstVisibleIdx + VIRTUAL_INITIAL_MIN_ITEMS - 1,
         lastVisibleIdx + VIRTUAL_OVERSCAN_COUNT
       )
     );
-
-    // Garantit que la carte ciblée au D-Pad Android TV (ou le dernier index mémorisé) et ses voisines immédiates sont montées
-    const pinnedIndex =
-      focusedChannelIndex !== null
-        ? focusedChannelIndex
-        : lastFocusedChannelIndex;
-    if (
-      pinnedIndex !== null &&
-      pinnedIndex >= 0 &&
-      pinnedIndex < count &&
-      (focusedChannelIndex !== null ||
-        Math.abs(pinnedIndex - firstVisibleIdx) <= 30)
-    ) {
-      startIndex = Math.min(
-        startIndex,
-        Math.max(0, pinnedIndex - VIRTUAL_OVERSCAN_COUNT)
-      );
-      endIndex = Math.max(
-        endIndex,
-        Math.min(count - 1, pinnedIndex + VIRTUAL_OVERSCAN_COUNT)
-      );
-    }
-
-    const topSpacerPx = startIndex > 0 ? offsets[startIndex] : 0;
-    const endBottomPx =
-      endIndex >= 0 && endIndex < count
-        ? offsets[endIndex] + heights[endIndex]
-        : 0;
-    const bottomSpacerPx = Math.max(0, totalHeight - endBottomPx);
 
     return {
       startIndex,
@@ -2842,7 +3057,8 @@ export function App() {
       bottomSpacerPx,
       totalHeight,
       totalCount: count,
-      items: filteredChannels.slice(startIndex, endIndex + 1),
+      items: filteredChannels,
+      viewportItems: filteredChannels.slice(viewportStart, viewportEnd + 1),
       offsets,
       heights,
     };
@@ -2857,7 +3073,7 @@ export function App() {
   const virtualWindowRef = useRef(virtualWindow);
   virtualWindowRef.current = virtualWindow;
 
-  const visibleChannels = virtualWindow.items;
+  const visibleChannels = virtualWindow.viewportItems;
 
   // Enrichissement automatique en arrière-plan (dans la langue active) des programmes actuellement visibles dans la fenêtre virtuelle
   useEffect(() => {
@@ -2911,6 +3127,7 @@ export function App() {
     if (
       !selectedChannel &&
       !isSettingsOpen &&
+      !isAuthModalOpen &&
       !isSortMenuOpen &&
       !isQuickJumpDrawerOpen
     ) {
@@ -2937,6 +3154,7 @@ export function App() {
   }, [
     selectedChannel,
     isSettingsOpen,
+    isAuthModalOpen,
     isSortMenuOpen,
     isQuickJumpDrawerOpen,
   ]);
@@ -3516,13 +3734,25 @@ export function App() {
           setIsSettingsOpen(false);
           return;
         }
+        if (isAuthModalOpen) {
+          e.preventDefault();
+          setIsAuthModalOpen(false);
+          setProFeatureReason(null);
+          return;
+        }
       }
 
       const isTvScreen =
         typeof window !== 'undefined' && window.innerWidth >= 768;
 
       // Saisie directe d'un numéro de chaîne au pavé numérique de la télécommande sur TV ("Channel Quick-Jump")
-      if (isTvScreen && !isTextInput && !isSettingsOpen && !selectedChannel) {
+      if (
+        isTvScreen &&
+        !isTextInput &&
+        !isSettingsOpen &&
+        !isAuthModalOpen &&
+        !selectedChannel
+      ) {
         const digitMatch =
           /^[0-9]$/.test(e.key)
             ? e.key
@@ -4200,13 +4430,13 @@ export function App() {
   return (
     <div
       dir={langOpt.dir}
-      className="min-h-screen bg-[#0a0e17] text-[#ffffff] flex flex-col selection:bg-[#e11d48] selection:text-[#ffffff]"
+      className="min-h-screen mt-0 pt-0 bg-[#0a0e17] text-[#ffffff] flex flex-col selection:bg-[#e11d48] selection:text-[#ffffff]"
     >
-      {/* Top Navigation Bar — En-tête décompressé avec Marges de Sécurité TV Overscan & Flexbox Responsive */}
+      {/* Top Navigation Bar — Collé au haut de l'écran (top: 0; left: 0; width: 100%; z-index: 1000; background: #0b0f19) */}
       <header
         data-tv-zone="header"
         data-dpad-active={activeDpadZone === 'header' ? 'true' : undefined}
-        className="relative z-20 w-full bg-[#0a0e17] border-b border-[#1a202c] pt-safe mb-5"
+        className="sticky top-0 left-0 z-[1000] w-full bg-[#0b0f19] backdrop-blur-md border-b border-[#1a202c] mt-0 mb-4"
       >
         <div className="tv-decompressed-header max-w-[1600px] w-full mx-auto py-2.5">
           {/* 1. Gauche : Logo PulseEPG (dans son conteneur propre) + Badge Audio "VO + SUB" désolidarisé */}
@@ -4242,6 +4472,8 @@ export function App() {
             <button
               type="button"
               onClick={() => {
+                setSelectedEpgDayOffset(0);
+                setIsReplayMode(false);
                 setNowMs(Date.now());
                 setTimeOffsetMinutes(0);
                 setActiveTimePreset('now');
@@ -4418,6 +4650,62 @@ export function App() {
             })()}
 
             <PWAInstallButton language={activeLang} />
+
+            {/* Bouton discret Compte / Connexion (Mode Invité par défaut sans blocage, accessible D-Pad TV & Mobile) */}
+            <button
+              type="button"
+              onClick={() => {
+                setProFeatureReason(null);
+                setIsAuthModalOpen(true);
+              }}
+              title={
+                authState.isLoggedIn && authState.user
+                  ? `${authState.user.displayName} (${
+                      authState.isPremium ? 'PulseEPG Pro 👑' : 'Gratuit'
+                    })`
+                  : activeLang === 'fr'
+                  ? "Se connecter / S'inscrire (Optionnel)"
+                  : 'Sign In / Sign Up (Optional)'
+              }
+              className={`tv-dpad-btn inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer shrink-0 ${
+                authState.isLoggedIn
+                  ? authState.isPremium
+                    ? 'bg-gradient-to-r from-[#f59e0b]/20 to-[#ec4899]/25 text-[#ffffff] border border-[#f59e0b]/80'
+                    : 'bg-[#141a26] text-[#ffffff] border border-[#0055ff]/70'
+                  : 'bg-[#141a26] hover:bg-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#0055ff]/60'
+              }`}
+            >
+              {authState.isLoggedIn && authState.user ? (
+                <>
+                  {authState.isPremium ? (
+                    <Crown className="w-3.5 h-3.5 text-[#fde047] shrink-0" />
+                  ) : (
+                    <User className="w-3.5 h-3.5 text-[#38bdf8] shrink-0" />
+                  )}
+                  <span className="truncate max-w-[96px] font-bold text-[#ffffff]">
+                    {authState.user.displayName}
+                  </span>
+                  <span
+                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold shrink-0 ${
+                      authState.isPremium
+                        ? 'bg-gradient-to-r from-[#f59e0b] to-[#ec4899] text-[#ffffff]'
+                        : 'bg-[#1d4ed8]/30 text-[#38bdf8] border border-[#0055ff]/50'
+                    }`}
+                  >
+                    {authState.isPremium ? 'PulseEPG Pro 👑' : 'Gratuit'}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <User className="w-3.5 h-3.5 text-[#38bdf8] shrink-0" />
+                  <span className="hidden sm:inline">
+                    {activeLang === 'fr'
+                      ? "Se connecter / S'inscrire"
+                      : 'Sign In / Sign Up'}
+                  </span>
+                </>
+              )}
+            </button>
 
             <button
               type="button"
@@ -5175,9 +5463,60 @@ export function App() {
                   })}
                 </div>
               )}
+              {/* Ligne 5 : [BARRE DE DATES EPG 7 JOURS : Aujourd'hui 24h, J+1 à J+7 & Catch-up / Replay] */}
+              <div
+                data-tv-row="live-7day-bar"
+                data-row-active={
+                  activeFilterRow === 'live-7day-bar' ? 'true' : undefined
+                }
+                className="filter-ribbon no-scrollbar pt-1.5 border-t border-[#1a202c]"
+              >
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0 select-none">
+                  <Calendar className="w-3.5 h-3.5 text-[#0055ff]" />
+                  {activeLang === 'fr' ? 'EPG 7 Jours :' : '7-Day EPG:'}
+                </span>
+                {mainSevenDayBarItems.map((item) => (
+                  <button
+                    key={item.offset}
+                    type="button"
+                    data-filter-active={item.isActive ? 'true' : undefined}
+                    onClick={() =>
+                      handleSelectEpgDay(item.offset, item.isCatchUp)
+                    }
+                    title={
+                      item.isLocked
+                        ? activeLang === 'fr'
+                          ? `${item.badgeLabel} 🔒 — Débloquez le Guide EPG 7 jours et le Catch-up avec PulseEPG Pro`
+                          : `${item.badgeLabel} 🔒 — Unlock 7-day EPG & Catch-up with PulseEPG Pro`
+                        : item.badgeLabel
+                    }
+                    className={`tv-dpad-btn inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-all cursor-pointer shrink-0 ${
+                      item.isActive
+                        ? item.isCatchUp
+                          ? 'bg-gradient-to-r from-[#ec4899] to-[#8b5cf6] border border-[#ec4899] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(236,72,153,0.45)]'
+                          : 'bg-[#e11d48] border border-[#ff0033] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(225,29,72,0.45)]'
+                        : item.isLocked
+                        ? 'bg-[#0a0e17]/90 border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#f59e0b]/70 font-medium'
+                        : 'bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60 font-medium'
+                    }`}
+                  >
+                    {item.isCatchUp && !item.isLocked && (
+                      <RotateCcw className="w-3 h-3 text-[#ec4899] shrink-0" />
+                    )}
+                    <span>{item.badgeLabel}</span>
+                    {item.isLocked && (
+                      <span
+                        aria-label="Verrouillé PulseEPG Pro"
+                        className="text-[11px] leading-none shrink-0"
+                      >
+                        🔒
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
-
           {/* Résumé Statut & Bouton Reset Filtres */}
           <div className="pt-2 border-t border-[#1a202c] flex flex-wrap items-center justify-between gap-2 text-xs text-[#cbd5e1]">
             <div className="flex items-center gap-2 flex-wrap">
@@ -5316,6 +5655,11 @@ export function App() {
             onToggleReminder={handleToggleReminder}
             channelLcnMap={channelLcnMap}
             onQuickJumpStep={handleGridQuickJumpStep}
+            isExtendedEpgUnlocked={isExtendedEpgUnlocked}
+            selectedEpgDayOffset={selectedEpgDayOffset}
+            isReplayMode={isReplayMode}
+            onSelectEpgDay={handleSelectEpgDay}
+            onRequestProEpgUpgrade={handleRequestProEpgUpgrade}
           />
         ) : filteredChannels.length === 0 ? (
           <div className="rounded-lg border border-dashed border-[#1a202c] bg-[#141a26] p-10 text-center max-w-lg mx-auto my-8">
@@ -5392,7 +5736,6 @@ export function App() {
           <div
             ref={virtualListContainerRef}
             data-tv-list="channels"
-            data-virtualized="true"
             data-dpad-active={
               activeDpadZone === 'channels' ? 'true' : undefined
             }
@@ -5401,18 +5744,9 @@ export function App() {
                 ? dpadState.lastDirection || 'jump'
                 : undefined
             }
-            style={{
-              paddingTop:
-                virtualWindow.topSpacerPx > 0
-                  ? `${virtualWindow.topSpacerPx}px`
-                  : undefined,
-              paddingBottom:
-                virtualWindow.bottomSpacerPx > 0
-                  ? `${virtualWindow.bottomSpacerPx}px`
-                  : undefined,
-            }}
+            className="w-full h-auto max-h-none overflow-visible"
           >
-            <div className="space-y-2.5">
+            <div className="space-y-2.5 w-full h-auto max-h-none overflow-visible">
               {virtualWindow.items.map((ch, localIdx) => {
                 const virtualIndex = virtualWindow.startIndex + localIdx;
                 const pair = currentAndNextByChannel[ch.id] || {
@@ -5526,6 +5860,8 @@ export function App() {
           activeSatellite={selectedSatellite}
           activeBouquet={selectedBouquet}
           selectedBouquets={settings.selectedBouquets}
+          isExtendedEpgUnlocked={isExtendedEpgUnlocked}
+          onRequestProEpgUpgrade={handleRequestProEpgUpgrade}
         />
       )}
 
@@ -5898,7 +6234,25 @@ export function App() {
         onClearCache={handleClearCache}
         initialTab={settingsInitialTab}
         onChangeLanguage={handleChangeLanguage}
+        isPremium={authState.isPremium}
+        onRequestProUpgrade={() => {
+          setProFeatureReason(PRO_BOUQUETS_UPGRADE_MESSAGE);
+          setIsAuthModalOpen(true);
+        }}
       />
+
+      {/* Modal Optionnel Compte Utilisateur / Connexion Supabase (Ne s'ouvre que sur clic volontaire ou fonctionnalité Pro) */}
+      {isAuthModalOpen && (
+        <AuthAccountModal
+          authState={authState}
+          language={activeLang}
+          proFeatureReason={proFeatureReason}
+          onClose={() => {
+            setIsAuthModalOpen(false);
+            setProFeatureReason(null);
+          }}
+        />
+      )}
     </div>
   );
 }

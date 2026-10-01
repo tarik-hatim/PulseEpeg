@@ -24,11 +24,13 @@ html {
   background-color: var(--bg-color, #0a0e17) !important;
   color: #ffffff !important;
   color: var(--text-color, #ffffff) !important;
-  margin: 0;
-  padding: 0;
+  margin: 0 !important;
+  margin-top: 0 !important;
+  padding: 0 !important;
+  padding-top: 0 !important;
   width: 100%;
   min-height: 100%;
-  overflow-x: hidden;
+  overflow-x: clip;
   font-family: system-ui, -apple-system, sans-serif;
   font-family: var(--font-sans, system-ui, -apple-system, sans-serif);
   -webkit-tap-highlight-color: transparent;
@@ -39,26 +41,42 @@ body {
   background-color: var(--bg-color, #0a0e17) !important;
   color: #ffffff !important;
   color: var(--text-color, #ffffff) !important;
-  margin: 0;
-  padding: 8px 10px !important;
+  margin: 0 !important;
+  margin-top: 0 !important;
+  padding: 0 10px 12px 10px !important;
+  padding-top: 0 !important;
   width: 100%;
   min-height: 100%;
-  overflow-x: hidden;
+  overflow-x: clip;
   box-sizing: border-box !important;
   font-family: system-ui, -apple-system, sans-serif;
   font-family: var(--font-sans, system-ui, -apple-system, sans-serif);
   -webkit-tap-highlight-color: transparent;
 }
 
+#root {
+  margin: 0 !important;
+  margin-top: 0 !important;
+  padding: 0 !important;
+  padding-top: 0 !important;
+  width: 100%;
+  min-height: 100%;
+}
+
 @media (max-width: 767px) {
   body {
-    padding: 8px 10px !important;
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+    padding-bottom: 12px !important;
   }
 }
 
 @media (min-width: 768px) {
   body {
-    padding-top: 32px !important;
+    margin-top: 0 !important;
+    padding-top: 0 !important;
     padding-left: 32px !important;
     padding-right: 32px !important;
     padding-bottom: 24px !important;
@@ -145,13 +163,28 @@ input[type="url"] {
 }
 
 /* ==========================================================================
-   EN-TÊTE DÉCOMPRESSÉ (FLEXBOX AÉRÉ ANDROID TV & POSITION RELATIVE ANTI-MASQUAGE)
+   EN-TÊTE PRINCIPAL COLLÉ AU HAUT DE L'ÉCRAN (TOP: 0, Z-INDEX: 1000, FOND OPAQUE #0b0f19)
    ========================================================================== */
 header[data-tv-zone="header"] {
-  position: relative !important;
-  top: auto !important;
-  z-index: 20;
-  margin-bottom: 20px !important;
+  position: -webkit-sticky !important;
+  position: sticky !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  z-index: 1000 !important;
+  margin-top: 0 !important;
+  margin-bottom: 16px !important;
+  background-color: #0b0f19 !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  backdrop-filter: blur(10px) !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.75);
+}
+
+@media (min-width: 768px) {
+  header[data-tv-zone="header"] {
+    padding-top: 8px;
+  }
 }
 
 .tv-decompressed-header {
@@ -168,9 +201,23 @@ header[data-tv-zone="header"] {
   -webkit-flex-wrap: wrap;
   flex-wrap: wrap;
   gap: 16px;
-  margin-bottom: 20px;
+  margin-bottom: 0;
   width: 100%;
   box-sizing: border-box;
+}
+
+/* Liste de chaînes : aucune contrainte de hauteur fixe ni overflow:hidden pour éviter tout vide noir */
+[data-tv-list="channels"] {
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Superposition modale (Fiche événement / Réglages) toujours au-dessus du header (z-index: 1000) */
+[data-tv-modal-overlay="true"] {
+  z-index: 2500 !important;
 }
 
 /* Séparation stricte du Logo PulseEPG et du badge Audio "VO + SUB" */

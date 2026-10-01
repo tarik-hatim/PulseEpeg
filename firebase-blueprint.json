@@ -1,0 +1,116 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Private user account profile for PulseEPG storing display name, email, subscription tier (free or pro), and timestamps.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Immutable owner UID matching request.auth.uid"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "User display name shown in the PulseEPG header"
+        },
+        "email": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 160,
+          "description": "User email address (PII isolated to owner)"
+        },
+        "plan": {
+          "type": "string",
+          "enum": ["free", "pro"],
+          "description": "Subscription tier: free (Gratuit) or pro (PulseEPG Pro)"
+        },
+        "isPremium": {
+          "type": "boolean",
+          "description": "Whether the user has active PulseEPG Pro status"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of profile creation"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of last profile update"
+        }
+      },
+      "required": [
+        "uid",
+        "displayName",
+        "email",
+        "plan",
+        "isPremium",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "UserSettings": {
+      "title": "UserSettings",
+      "description": "Synchronized user preferences (user_id, selected_bouquets, favorite_channels, is_premium) for multi-device EPG sync (e.g. Samsung TV, Android TV, Smartphone).",
+      "type": "object",
+      "properties": {
+        "user_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Immutable owner user_id matching request.auth.uid"
+        },
+        "selected_bouquets": {
+          "type": "array",
+          "description": "List of selected satellite bouquet IDs (max 3 when is_premium is false, up to 25 when is_premium is true)"
+        },
+        "favorite_channels": {
+          "type": "array",
+          "description": "List of favorite channel XMLTV IDs synchronized across devices (bounded <= 200)"
+        },
+        "is_premium": {
+          "type": "boolean",
+          "description": "Whether the user has PulseEPG Pro unlimited bouquets enabled"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of initial settings sync"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of latest settings sync"
+        }
+      },
+      "required": [
+        "user_id",
+        "selected_bouquets",
+        "favorite_channels",
+        "is_premium",
+        "created_at",
+        "updated_at"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserProfile"
+      },
+      "description": "Owner-isolated user profile document for PulseEPG accounts"
+    },
+    "/user_settings/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserSettings"
+      },
+      "description": "Owner-isolated user_settings document synchronizing selected_bouquets and favorite_channels across devices"
+    }
+  }
+}
