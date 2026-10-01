@@ -4346,6 +4346,49 @@ function resolveCanonicalBeinChannelSpec(
   return null;
 }
 
+const NON_FRENCH_FOREIGN_CHANNEL_REGEX =
+  /(?:^|[._\s-])(rai|raistoria|raiscuola|rainews|rainews24|raigulp|raiyoyo|raimovie|raipremium|raisport|mediaset|canale[._\s-]*5|italia[._\s-]*1|rete[._\s-]*4|tgcom|tgcom24|la7|cielo|sky[._\s-]*italia|sky[._\s-]*tg24|sky[._\s-]*uno|saudi|ksa|alsaudiya|ekhbariya|asharq|sbc|alkass|aljazeera|alarabiya|alhadath|mbc|rotana|osn|dubai|abudhabi|sharjah|kuwait|qatar|oman|bahrain|iqraa|resalah|almajd|wanasah|wannasah|spacetoon|baraem|jeem|fatafeat|2m|alaoula|arryadia|tamazight|assadissa|medi1|chada|algerie|algérie|echourouk|ennahar|samira|elbilad|beur|berbere|berbère|tunisie|wataniya|hannibal|nessma|hiwar|carthage|lbc|mtvlebanon|mtvliban|aljadeed|almanar|roya|jordan|syria|iraqia|sharqiya|sumaria|rudaw|kurdistan|nile|masriya|dmc|cbcegypt|alhayat|alnahar|sadaelbalad|qahera|ontime|trt|eurod|eurostar|showturk|showtv|kanal7|kanald|atvavrupa|tgrt|cnnturk|haberturk|ulke|beyaz|halktv|zdf|daserste|ard|prosieben|pro7|sat1|kabeleins|superrtl|rtltelevision|rtl2|rtlii|rtlup|rtlnitro|vox|ntvde|welt|swr|wdr|ndr|mdr|3sat|kika|phoenix|deutschewelle|dw|sixx|tele5|tve|24horas|antena3|atreseries|startve|teledeporte|canalsur|andalucia|tv3|etb|tvg|galicia|lasexta|cuatro|telecinco|realmadrid|rtpi|rtp|sic|tvi|recordtv|tvrecord|globo|cmtv|portocanal|benfica|sporting|tvcine|tvp|polsat|tvn|itvn|kinopolska|tvr|rtsh|klan|rtssat|hrt|bnt|hayat|obn|2stv|rts1|rtssenegal|rti1|rti2|ortm|crtv|equinoxe|canal2|nci|voxafrica|africa24|rtb|ortb|rtnc|telecongo|gabon|tvt|telesahel|cctv|cgtn|nhk|phoenixcne|mandarin|beijing|ntd|arirang|kbs|vtv|netviet|zeetv|zeecinema|starplus|colors|sonytv|b4u|ndtv|suntv|vijay|geotv|arydigital|humtv|ptvglobal|bangla|1tvrus|rtrplaneta|ntvmir|tntcomedy|armenia|kentron|shant|ertworld|bbcworld|bbcnews|bbcentertainment|cnn|skynews|cnbc|bloomberg|foxnews)(?:$|[._\s0-9-])/i;
+
+const GENUINE_FRENCH_BOUQUET_CHANNEL_REGEX =
+  /(?:^|[._\s-])(canal\+|canalplus|canalj|canalsport|canalfoot|canalbox|canalgrand|canalcinema|canalcinéma|canalseries|canalséries|canaldocs|canalkids|canallive|multisports|cine\+|ciné\+|ocs|tf1|france[._\s-]*[2345]|franceinfo|france24|m6|arte|c8|w9|tmc|tfx|nrj12|nrjhits|nrj|lcp|publicsenat|publicsénat|bfm|bfmtv|cnews|cstar|gulli|equipe|équipe|lequipe|6ter|rmc|cherie25|chérie25|lci|culturebox|tv5monde|tv5|euronews|parispremiere|parispremière|teva|téva|rtl9|serieclub|sérieclub|13emerue|13èmerue|syfy|warner|polar\+|action|ab1|ab3|abxplore|paramount|tcm|comedycentral|comedie\+|comédie\+|planete\+|planète\+|planete|planète|nationalgeographic|natgeo|histoire|toutelhistoire|ushuaia|ushuaïa|animaux|scienceetvie|science&vie|chasse|trek|seasons|museum|crimedistrict|tvbreizh|novelas|beinsports|eurosport|infosport|equidia|automoto|golf\+|sportenfrance|es1|disney|nickelodeon|nickjr|boomerang|boing|cartoon|toonami|mangas|tiji|piwi|teletoon|télétoon|jone|j-one|gameone|mezzo|rfm|trace|mtv|melody|olympia|mcm|bet|tlc|hgtv|discovery|laune|tipik|latrois|rtltvi|clubrtl|plugrtl|rtsun|rtsdeux)(?:$|[._\s0-9-])/i;
+
+export function isNonFrenchForeignChannel(
+  idOrKey?: string | null,
+  displayName?: string | null
+): boolean {
+  const raw = `${idOrKey || ''} ${displayName || ''}`.toLowerCase().trim();
+  if (!raw) return false;
+  const baseNoFr = raw.replace(/\.fr\b/gi, ' ');
+  const compact = baseNoFr.replace(/[._]+/g, '');
+  if (
+    /\b(rai\s*(1|2|3|4|5|uno|due|tre|storia|scuola|news|gulp|yoyo|movie|premium|sport)|saudi\s*(channel|tv|1|2|sport|quran|sunnah)|al\s*saudiya|canale\s*5|italia\s*1|rete\s*4|mediaset\s*italia|2m\s*(maroc|monde)|canal\s*alg[eé]rie|alg[eé]rie\s*3|tunisie\s*nationale|wataniya\s*[12]|al\s*aoula|arryadia)\b/i.test(
+      baseNoFr
+    )
+  ) {
+    return true;
+  }
+  return (
+    NON_FRENCH_FOREIGN_CHANNEL_REGEX.test(baseNoFr) ||
+    NON_FRENCH_FOREIGN_CHANNEL_REGEX.test(compact)
+  );
+}
+
+export function isGenuineFrenchBouquetChannel(
+  idOrKey?: string | null,
+  displayName?: string | null
+): boolean {
+  if (!idOrKey && !displayName) return false;
+  if (isNonFrenchForeignChannel(idOrKey, displayName)) return false;
+  const cleanKey = cleanXmltvChannelId(idOrKey || '').toLowerCase();
+  if (cleanKey && FRENCH_TNT_AND_CINEMA_MAP[cleanKey]) return true;
+  const combined = `${cleanKey.replace(/\.fr$/i, '')} ${displayName || ''}`.toLowerCase();
+  const compact = combined.replace(/[._]+/g, '');
+  return (
+    GENUINE_FRENCH_BOUQUET_CHANNEL_REGEX.test(combined) ||
+    GENUINE_FRENCH_BOUQUET_CHANNEL_REGEX.test(compact)
+  );
+}
+
 function resolveDynamicGlobalSpec(rawId: string): WhitelistedChannelSpec | null {
   const key = cleanXmltvChannelId(rawId).toLowerCase();
 
@@ -4382,11 +4425,69 @@ function resolveDynamicGlobalSpec(rawId: string): WhitelistedChannelSpec | null 
   }
 
   // 2. Autres chaînes Françaises (.fr) sur Astra 19.2°E & Hotbird 13°E (Tous genres & catégories)
+  // Vérifie strictement qu'il s'agit d'une vraie chaîne française (exclut Rai Storia, Saudi Channel 1, etc. présents dans FR1.xml.gz)
   if (key.endsWith('.fr')) {
-    const classified = classifyChannelCategoryAndGroup(key);
-    if (!classified) return null;
     const cleanName = formatCleanChannelDisplayName(rawId, /\.fr$/i);
     if (!cleanName) return null;
+
+    if (!isGenuineFrenchBouquetChannel(key, cleanName)) {
+      // Si c'est une chaîne italienne (ex: Rai Storia, Rai Uno, Mediaset) présente dans FR1 avec suffixe .fr,
+      // on la rattache exclusivement à l'Italie (Hotbird 13°E · Bis TV/Rai · sky_it), jamais à Canal+ France
+      if (
+        /\b(rai\b|rai[._0-9]|raistoria|raiscuola|rainews|raigulp|raiyoyo|raimovie|raipremium|raisport|mediaset|canale[._\s-]*5|italia[._\s-]*1|rete[._\s-]*4|tgcom|la7\b)/i.test(
+          `${key.replace(/\.fr$/i, '')} ${cleanName}`
+        )
+      ) {
+        const classifiedIt = classifyChannelCategoryAndGroup(key);
+        if (!classifiedIt) return null;
+        return {
+          canonicalId: key.replace(/\.fr$/i, '.it'),
+          displayName: cleanName,
+          contentCategory: classifiedIt.contentCategory,
+          country: 'IT',
+          satellites: ['Hotbird 13°E'],
+          orbitalPosition: 'Hotbird 13°E',
+          bouquets: ['Hotbird Bis TV/Rai'],
+          bouquetId: 'sky_it',
+          group: classifiedIt.group,
+          audioTrackLabel: 'Dual Audio IT / VO EN',
+          subtitleTrackLabel: 'DVB-Sub IT / Teletext',
+          hasPolishLektor: false,
+          hasSubtitles: true,
+        };
+      }
+
+      // Si c'est une chaîne saoudienne / Golfe / Badr (ex: Saudi Channel 1) présente dans FR1 avec suffixe .fr,
+      // on la rattache exclusivement à Badr 26°E (badr_bein_ssc · Badr TV Arabes/Al Kass), jamais à Canal+ France
+      if (
+        /\b(saudi|ksa|alsaudiya|ekhbariya|asharq|sbc|alkass|al[._\s-]*kass|dubai|abu[._\s-]*dhabi|sharjah|kuwait|qatar|oman|bahrain)\b/i.test(
+          `${key.replace(/\.fr$/i, '')} ${cleanName}`
+        )
+      ) {
+        const classifiedAr = classifyChannelCategoryAndGroup(key);
+        if (!classifiedAr) return null;
+        return {
+          canonicalId: key.replace(/\.fr$/i, '.sa'),
+          displayName: cleanName,
+          contentCategory: classifiedAr.contentCategory,
+          country: 'AR',
+          satellites: ["Badr / Es'hailSat 26°E"],
+          orbitalPosition: 'Badr 26°E',
+          bouquets: ['Badr TV Arabes/Al Kass'],
+          bouquetId: 'badr_bein_ssc',
+          group: classifiedAr.group,
+          audioTrackLabel: 'Audio Original AR / EN',
+          subtitleTrackLabel: 'DVB-Sub AR / EN',
+          hasPolishLektor: false,
+          hasSubtitles: true,
+        };
+      }
+
+      return null;
+    }
+
+    const classified = classifyChannelCategoryAndGroup(key);
+    if (!classified) return null;
     const isBis =
       key.includes('ab1') ||
       key.includes('action') ||

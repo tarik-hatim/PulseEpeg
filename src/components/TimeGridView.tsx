@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   Baby,
   Bell,
@@ -182,7 +183,345 @@ const COUNTRY_FLAGS: Record<string, string> = {
   LATAM: '🌎',
 };
 
-export const TimeGridView: React.FC<TimeGridViewProps> = ({
+interface GridChannelRowProps {
+  ch: EpgChannel;
+  rowIdx: number;
+  lcn: number;
+  isFav: boolean;
+  progs: EpgProgramme[];
+  windowStartMs: number;
+  windowEndMs: number;
+  nowMs: number;
+  baseRealNowMs: number;
+  nowOffsetPx: number | null;
+  selectedSatellite: SatelliteFilter;
+  selectedBouquet: BouquetFilter;
+  activeLang: AppLanguage;
+  reminderIdSet: Set<string>;
+  cancelReminderLabel: string;
+  remindProgramLabel: string;
+  onSelectChannel: (channel: EpgChannel, programme?: EpgProgramme) => void;
+  onToggleFavorite: (channelId: string) => void;
+  onToggleReminder?: (prog: EpgProgramme, channel: EpgChannel) => void;
+}
+
+const GridChannelRowInner: React.FC<GridChannelRowProps> = ({
+  ch,
+  rowIdx,
+  lcn,
+  isFav,
+  progs,
+  windowStartMs,
+  windowEndMs,
+  nowMs,
+  baseRealNowMs,
+  nowOffsetPx,
+  selectedSatellite,
+  selectedBouquet,
+  activeLang,
+  reminderIdSet,
+  cancelReminderLabel,
+  remindProgramLabel,
+  onSelectChannel,
+  onToggleFavorite,
+  onToggleReminder,
+}) => {
+  const flag = COUNTRY_FLAGS[ch.country] || '🛰️';
+  const satBadge = getSingleSatelliteBadgeForChannel(ch, selectedSatellite);
+  const rawBouquetBadge = getActiveBouquetBadgeForChannel(
+    ch,
+    selectedSatellite,
+    selectedBouquet
+  );
+  const cleanedBouquetBadge = rawBouquetBadge
+    ? cleanBouquetName(rawBouquetBadge, satBadge)
+    : '';
+
+  return (
+    <div className="flex h-20 2xl:h-24 border-b border-[#1a202c]">
+      {/* Cellule Chaîne Collante à Gauche */}
+      <div
+        tabIndex={0}
+        role="button"
+        data-grid-focusable="true"
+        data-grid-row={rowIdx}
+        data-grid-col="channel"
+        data-channel-id={ch.id}
+        onClick={() => onSelectChannel(ch)}
+        onKeyDown={(e) => {
+          if (
+            e.key === 'Enter' ||
+            e.key === ' ' ||
+            e.key === 'Select' ||
+            e.keyCode === 23 ||
+            e.keyCode === 66
+          ) {
+            e.preventDefault();
+            onSelectChannel(ch);
+          }
+        }}
+        className="tv-focusable sticky left-0 z-20 w-52 sm:w-64 shrink-0 border-r border-[#1a202c] bg-[#0a0e17] px-2.5 flex items-center justify-between gap-2 hover:bg-[#141a26] transition-colors cursor-pointer group select-none"
+      >
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-9 h-9 rounded-lg bg-[#141a26] border border-[#1a202c] flex items-center justify-center p-1 shrink-0">
+            <img
+              src={
+                ensureHttpsUrl(
+                  (
+                    ch.icon ||
+                    resolveOfficialChannelLogoUrl(ch.id, ch.displayName)
+                  ).replace(/^http:\/\//i, 'https://')
+                ) || buildCleanFallbackLogoDataUri(ch.displayName, ch.id)
+              }
+              alt={ch.displayName}
+              className="max-w-full max-h-full object-contain"
+              loading="lazy"
+              onError={(e) => {
+                const candidates = getChannelLogoCandidates(
+                  ch.id,
+                  ch.displayName,
+                  ch.icon
+                );
+                const currentSrc = e.currentTarget.src;
+                const idx = candidates.indexOf(currentSrc);
+                const nextSrc =
+                  idx !== -1 && idx + 1 < candidates.length
+                    ? candidates[idx + 1]
+                    : buildCleanFallbackLogoDataUri(ch.displayName, ch.id);
+                if (currentSrc !== nextSrc) {
+                  e.currentTarget.src = nextSrc;
+                }
+              }}
+            />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1 min-w-0">
+              <span className="tv-lcn-badge hidden md:inline-flex items-center px-1 py-0.2 rounded bg-[#141a26] text-[#38bdf8] border border-[#334155] font-mono text-[9px] font-bold shrink-0">
+                #{lcn}
+              </span>
+              <span className="text-[10px] shrink-0">{flag}</span>
+              <p className="text-xs font-bold text-[#ffffff] truncate">
+                {cleanOfficialChannelName(ch.displayName)}
+              </p>
+            </div>
+            <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+              <span className="text-[9px] font-semibold px-1 py-0.2 rounded bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50 truncate uppercase tracking-wider">
+                {satBadge}
+              </span>
+              {cleanedBouquetBadge && (
+                <span className="text-[9px] font-bold px-1 py-0.2 rounded bg-[#ec4899]/20 text-[#ffffff] border border-[#ec4899]/60 truncate max-w-[100px]">
+                  {cleanedBouquetBadge}
+                </span>
+              )}
+              <span className="inline-flex items-center gap-0.5 text-[9px] text-[#60a5fa] font-semibold">
+                <Subtitles className="w-2.5 h-2.5" />
+                SUB
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleFavorite(ch.id);
+          }}
+          className={`p-1.5 rounded-lg transition-colors cursor-pointer shrink-0 ${
+            isFav ? 'text-[#e11d48]' : 'text-[#cbd5e1] hover:text-[#ffffff]'
+          }`}
+        >
+          <Heart className={`w-3.5 h-3.5 ${isFav ? 'fill-[#e11d48]' : ''}`} />
+        </button>
+      </div>
+
+      {/* Cellule Timeline Programmes */}
+      <div
+        style={{ width: `${TOTAL_TIMELINE_WIDTH}px` }}
+        className="h-20 2xl:h-24 relative shrink-0 bg-[#0a0e17]"
+      >
+        {nowOffsetPx !== null && (
+          <div
+            style={{ left: `${nowOffsetPx}px` }}
+            className="absolute top-0 bottom-0 w-px bg-[#e11d48] shadow-[0_0_8px_#e11d48] z-15 pointer-events-none"
+          />
+        )}
+
+        {progs.map((prog, progIdx) => {
+          const clampedStart = Math.max(prog.startMs, windowStartMs);
+          const clampedStop = Math.min(prog.stopMs, windowEndMs);
+          const leftPx =
+            ((clampedStart - windowStartMs) / 60000) * PIXELS_PER_MINUTE;
+          const widthPx = Math.max(
+            36,
+            ((clampedStop - clampedStart) / 60000) * PIXELS_PER_MINUTE - 3
+          );
+          const isLive = prog.startMs <= nowMs && prog.stopMs > nowMs;
+          const hasReminder = reminderIdSet.has(prog.id);
+
+          const allowGridSE = isProgrammeSeriesOrDocumentary({
+            category: prog.category,
+            rawCategory: prog.rawCategory,
+            title: prog.originalTitle || prog.title,
+            subTitle: prog.subTitle,
+            channelCategory: ch.contentCategory,
+          });
+          const parsedGridSE = allowGridSE
+            ? parseSeasonAndEpisode(
+                prog.episodeNum,
+                prog.originalTitle || prog.title,
+                prog.subTitle
+              )
+            : {};
+          const formattedGridSE = allowGridSE
+            ? formatSeasonEpisodeCode(
+                parsedGridSE.season,
+                parsedGridSE.episode
+              )
+            : undefined;
+
+          return (
+            <div
+              key={prog.id}
+              tabIndex={0}
+              role="button"
+              data-grid-focusable="true"
+              data-grid-row={rowIdx}
+              data-grid-col={progIdx}
+              data-start-ms={prog.startMs}
+              data-stop-ms={prog.stopMs}
+              data-left-px={Math.round(leftPx)}
+              data-width-px={Math.round(widthPx)}
+              onClick={() => onSelectChannel(ch, prog)}
+              onKeyDown={(e) => {
+                if (
+                  e.key === 'Enter' ||
+                  e.key === ' ' ||
+                  e.key === 'Select' ||
+                  e.keyCode === 23 ||
+                  e.keyCode === 66
+                ) {
+                  e.preventDefault();
+                  onSelectChannel(ch, prog);
+                }
+              }}
+              style={{
+                left: `${leftPx}px`,
+                width: `${widthPx}px`,
+              }}
+              className={`tv-focusable absolute top-1 bottom-1 rounded-lg px-2.5 py-1.5 border overflow-hidden cursor-pointer flex flex-col justify-between transition-all ${
+                hasReminder
+                  ? 'bg-gradient-to-r from-[#0055ff]/25 via-[#141a26] to-[#ec4899]/25 border-[1.5px] border-[#ec4899] shadow-[0_0_12px_rgba(236,72,153,0.4)] z-15'
+                  : isLive
+                  ? 'bg-[#141a26] border-[#e11d48] shadow-[0_0_10px_rgba(225,29,72,0.3)] z-10'
+                  : 'bg-[#141a26] hover:bg-[#1a202c] border-[#1a202c] hover:border-[#0055ff]/60'
+              }`}
+              title={`${
+                activeLang === 'fr'
+                  ? translateEpgTextToFrenchSync(prog.title)
+                  : prog.title
+              } (${formatTimeShort(prog.startMs)} - ${formatTimeShort(
+                prog.stopMs
+              )})`}
+            >
+              <div className="min-w-0">
+                <div className="flex items-center justify-between gap-1">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    {isLive && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#e11d48] animate-pulse shadow-[0_0_6px_#e11d48] shrink-0" />
+                    )}
+                    {hasReminder && (
+                      <span className="inline-flex items-center gap-0.5 px-1 py-0.2 rounded text-[9px] font-extrabold uppercase bg-gradient-to-r from-[#0055ff] to-[#ec4899] text-[#ffffff] shrink-0">
+                        <BellRing className="w-2.5 h-2.5 text-[#ffffff]" />
+                      </span>
+                    )}
+                    <p className="text-xs font-bold text-[#ffffff] truncate">
+                      {activeLang === 'fr'
+                        ? translateEpgTextToFrenchSync(prog.title)
+                        : prog.title}
+                    </p>
+                  </div>
+
+                  {onToggleReminder &&
+                    prog.stopMs > baseRealNowMs &&
+                    widthPx >= 95 && (
+                      <button
+                        type="button"
+                        tabIndex={-1}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToggleReminder(prog, ch);
+                        }}
+                        className={`p-1 rounded-md transition-all shrink-0 cursor-pointer ${
+                          hasReminder
+                            ? 'bg-gradient-to-r from-[#0055ff] to-[#ec4899] text-[#ffffff] shadow-[0_0_8px_rgba(236,72,153,0.5)]'
+                            : 'bg-[#0a0e17]/80 text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#ec4899]'
+                        }`}
+                        title={
+                          hasReminder ? cancelReminderLabel : remindProgramLabel
+                        }
+                      >
+                        {hasReminder ? (
+                          <BellRing className="w-2.5 h-2.5" />
+                        ) : (
+                          <Bell className="w-2.5 h-2.5 text-[#60a5fa]" />
+                        )}
+                      </button>
+                    )}
+                </div>
+                {prog.subTitle && allowGridSE && widthPx > 130 && (
+                  <p className="text-[10px] text-[#cbd5e1] truncate">
+                    {activeLang === 'fr'
+                      ? translateEpgTextToFrenchSync(prog.subTitle)
+                      : prog.subTitle}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between gap-1 text-[10px] text-[#cbd5e1] font-mono">
+                <span className="truncate">
+                  {formatTimeShort(prog.startMs)} -{' '}
+                  {formatTimeShort(prog.stopMs)}
+                </span>
+                {formattedGridSE && widthPx > 140 ? (
+                  <span className="px-1 py-0.2 rounded bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50 text-[9px] font-sans font-medium truncate max-w-[65px]">
+                    {formattedGridSE}
+                  </span>
+                ) : (
+                  prog.category &&
+                  widthPx > 140 && (
+                    <span className="px-1.5 py-0.2 rounded bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50 text-[9px] font-sans truncate max-w-[90px]">
+                      {translateDynamicGenre(prog.category, activeLang)}
+                    </span>
+                  )
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+const MemoizedGridChannelRow = React.memo(
+  GridChannelRowInner,
+  (prev, next) =>
+    prev.ch === next.ch &&
+    prev.rowIdx === next.rowIdx &&
+    prev.lcn === next.lcn &&
+    prev.isFav === next.isFav &&
+    prev.progs === next.progs &&
+    prev.windowStartMs === next.windowStartMs &&
+    prev.windowEndMs === next.windowEndMs &&
+    prev.selectedSatellite === next.selectedSatellite &&
+    prev.selectedBouquet === next.selectedBouquet &&
+    prev.activeLang === next.activeLang &&
+    prev.reminderIdSet === next.reminderIdSet &&
+    Math.floor(prev.nowMs / 60000) === Math.floor(next.nowMs / 60000)
+);
+
+const TimeGridViewInner: React.FC<TimeGridViewProps> = ({
   channels,
   programmesByChannel,
   nowMs,
@@ -455,36 +794,80 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
     [allowedGroupOptions, groupCounts]
   );
 
-  // Garantit que la fenêtre horaire sélectionnée sur la Grille TV dispose de programmes pour toutes les chaînes
+  const gridVisibleChannels = channels;
+
+  // Virtualisation des lignes de la Grille TV (@tanstack/react-virtual) :
+  // seules les 8 à 12 lignes visibles dans le viewport sont montées dans le DOM
+  const rowVirtualizer = useVirtualizer({
+    count: gridVisibleChannels.length,
+    getScrollElement: () => scrollContainerRef.current,
+    estimateSize: () =>
+      typeof window !== 'undefined' && window.innerWidth >= 1536 ? 96 : 80,
+    initialRect: { width: 1280, height: 720 },
+    overscan: 4,
+  });
+
+  const virtualRows = rowVirtualizer.getVirtualItems();
+  const totalVirtualHeight = rowVirtualizer.getTotalSize();
+  const topVirtualPadding =
+    virtualRows.length > 0 ? virtualRows[0].start : 0;
+  const bottomVirtualPadding =
+    virtualRows.length > 0
+      ? Math.max(0, totalVirtualHeight - virtualRows[virtualRows.length - 1].end)
+      : 0;
+
+  const visibleStartIdx =
+    virtualRows.length > 0 ? virtualRows[0].index : 0;
+  const visibleEndIdx =
+    virtualRows.length > 0
+      ? virtualRows[virtualRows.length - 1].index
+      : Math.min(gridVisibleChannels.length - 1, 11);
+
+  // Calcul EPG paresseux (Lazy EPG) : ne projette les programmes que pour les 8 à 15 chaînes actuellement visibles à l'écran !
+  const visibleSliceChannels = useMemo(
+    () =>
+      gridVisibleChannels.slice(
+        Math.max(0, visibleStartIdx),
+        Math.max(0, visibleEndIdx + 1)
+      ),
+    [gridVisibleChannels, visibleStartIdx, visibleEndIdx]
+  );
+
   const effectiveProgrammesByChannel = useMemo(
     () =>
       ensureSchedulesCoverTargetTime(
-        channels,
+        visibleSliceChannels,
         programmesByChannel,
         windowStartMs + 30 * 60000
       ),
-    [channels, programmesByChannel, windowStartMs]
+    [visibleSliceChannels, programmesByChannel, windowStartMs]
   );
 
-  // Ne conserve sur la Grille TV que les chaînes ayant au moins un programme valide dans la fenêtre horaire
-  const gridVisibleChannels = useMemo(
-    () =>
-      channels.filter((ch) => {
-        const cleanId = cleanXmltvChannelId(ch.id);
-        const list =
-          effectiveProgrammesByChannel[cleanId] ||
-          effectiveProgrammesByChannel[ch.id] ||
-          [];
-        return list.some(
-          (p) =>
-            p &&
-            !isPlaceholderProgrammeTitle(p.title) &&
-            p.stopMs > windowStartMs &&
-            p.startMs < windowEndMs
-        );
-      }),
-    [channels, effectiveProgrammesByChannel, windowStartMs, windowEndMs]
-  );
+  // Pré-filtre mémoïsé des programmes de la fenêtre horaire pour les seules lignes visibles
+  const visibleWindowProgrammesMap = useMemo(() => {
+    const map = new Map<string, EpgProgramme[]>();
+    for (const ch of visibleSliceChannels) {
+      const cleanId = cleanXmltvChannelId(ch.id);
+      const rawChannelProgs =
+        effectiveProgrammesByChannel[cleanId] ||
+        effectiveProgrammesByChannel[ch.id] ||
+        [];
+      const filtered = rawChannelProgs.filter(
+        (p) =>
+          p &&
+          !isPlaceholderProgrammeTitle(p.title) &&
+          p.stopMs > windowStartMs &&
+          p.startMs < windowEndMs
+      );
+      map.set(ch.id, filtered);
+    }
+    return map;
+  }, [
+    visibleSliceChannels,
+    effectiveProgrammesByChannel,
+    windowStartMs,
+    windowEndMs,
+  ]);
 
   useEffect(() => {
     if (nowOffsetPx !== null && scrollContainerRef.current) {
@@ -693,6 +1076,34 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
               }
               targetEl = bestProg || nextRowElements[0];
             }
+          } else {
+            // Si la ligne cible est hors de la tranche virtualisée, scrolle le virtualizer puis focalise la ligne montée
+            e.preventDefault();
+            e.stopPropagation();
+            rowVirtualizer.scrollToIndex(nextRow, { align: 'center' });
+            if (isFastJump && onQuickJumpStep) {
+              const jumpedCh = gridVisibleChannels[nextRow];
+              const jumpedLcn = jumpedCh
+                ? channelLcnMap?.get(jumpedCh.id) || nextRow + 1
+                : nextRow + 1;
+              onQuickJumpStep(stepDelta, jumpedCh, jumpedLcn);
+            }
+            window.requestAnimationFrame(() => {
+              const mountedTarget =
+                container.querySelector<HTMLElement>(
+                  currentCol === 'channel'
+                    ? `[data-grid-focusable="true"][data-grid-row="${nextRow}"][data-grid-col="channel"]`
+                    : `[data-grid-focusable="true"][data-grid-row="${nextRow}"]`
+                ) ||
+                container.querySelector<HTMLElement>(
+                  `[data-grid-focusable="true"][data-grid-row="${nextRow}"]`
+                );
+              if (mountedTarget) {
+                mountedTarget.focus({ preventScroll: true });
+                scrollGridElementIntoView(mountedTarget);
+              }
+            });
+            return;
           }
 
           if (targetEl && isFastJump && onQuickJumpStep) {
@@ -1290,329 +1701,45 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
             </div>
           </div>
 
-          {/* Lignes dynamiques des chaînes filtrées et de leurs programmes */}
-          <div className="divide-y divide-[#1a202c]">
-            {gridVisibleChannels.map((ch, rowIdx) => {
+          {/* Lignes virtualisées des chaînes filtrées et de leurs programmes (8 à 12 lignes dans le DOM) */}
+          <div
+            style={{
+              paddingTop: topVirtualPadding > 0 ? `${topVirtualPadding}px` : undefined,
+              paddingBottom:
+                bottomVirtualPadding > 0 ? `${bottomVirtualPadding}px` : undefined,
+            }}
+          >
+            {virtualRows.map((virtualRow) => {
+              const rowIdx = virtualRow.index;
+              const ch = gridVisibleChannels[rowIdx];
+              if (!ch) return null;
               const isFav = favoriteSet.has(ch.id);
-              const flag = COUNTRY_FLAGS[ch.country] || '🛰️';
-              const cleanId = cleanXmltvChannelId(ch.id);
-              const rawChannelProgs =
-                effectiveProgrammesByChannel[cleanId] ||
-                effectiveProgrammesByChannel[ch.id] ||
-                [];
-              const progs = rawChannelProgs.filter(
-                (p) =>
-                  p &&
-                  !isPlaceholderProgrammeTitle(p.title) &&
-                  p.stopMs > windowStartMs &&
-                  p.startMs < windowEndMs
-              );
+              const lcn = channelLcnMap?.get(ch.id) || rowIdx + 1;
+              const progs = visibleWindowProgrammesMap.get(ch.id) || [];
 
               return (
-                <div key={ch.id} className="flex h-20 2xl:h-24">
-                  {/* Cellule Chaîne Collante à Gauche */}
-                  <div
-                    tabIndex={0}
-                    role="button"
-                    data-grid-focusable="true"
-                    data-grid-row={rowIdx}
-                    data-grid-col="channel"
-                    data-channel-id={ch.id}
-                    onClick={() => onSelectChannel(ch)}
-                    onKeyDown={(e) => {
-                      if (
-                        e.key === 'Enter' ||
-                        e.key === ' ' ||
-                        e.key === 'Select' ||
-                        e.keyCode === 23 ||
-                        e.keyCode === 66
-                      ) {
-                        e.preventDefault();
-                        onSelectChannel(ch);
-                      }
-                    }}
-                    className="tv-focusable sticky left-0 z-20 w-52 sm:w-64 shrink-0 border-r border-[#1a202c] bg-[#0a0e17] px-2.5 flex items-center justify-between gap-2 hover:bg-[#141a26] transition-colors cursor-pointer group select-none"
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-9 h-9 rounded-lg bg-[#141a26] border border-[#1a202c] flex items-center justify-center p-1 shrink-0">
-                        <img
-                          src={
-                            ensureHttpsUrl(
-                              (
-                                ch.icon ||
-                                resolveOfficialChannelLogoUrl(
-                                  ch.id,
-                                  ch.displayName
-                                )
-                              ).replace(/^http:\/\//i, 'https://')
-                            ) ||
-                            buildCleanFallbackLogoDataUri(ch.displayName, ch.id)
-                          }
-                          alt={ch.displayName}
-                          className="max-w-full max-h-full object-contain"
-                          loading="lazy"
-                          onError={(e) => {
-                            const candidates = getChannelLogoCandidates(
-                              ch.id,
-                              ch.displayName,
-                              ch.icon
-                            );
-                            const currentSrc = e.currentTarget.src;
-                            const idx = candidates.indexOf(currentSrc);
-                            const nextSrc =
-                              idx !== -1 && idx + 1 < candidates.length
-                                ? candidates[idx + 1]
-                                : buildCleanFallbackLogoDataUri(
-                                    ch.displayName,
-                                    ch.id
-                                  );
-                            if (currentSrc !== nextSrc) {
-                              e.currentTarget.src = nextSrc;
-                            }
-                          }}
-                        />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1 min-w-0">
-                          <span className="tv-lcn-badge hidden md:inline-flex items-center px-1 py-0.2 rounded bg-[#141a26] text-[#38bdf8] border border-[#334155] font-mono text-[9px] font-bold shrink-0">
-                            #{channelLcnMap?.get(ch.id) || rowIdx + 1}
-                          </span>
-                          <span className="text-[10px] shrink-0">{flag}</span>
-                          <p className="text-xs font-bold text-[#ffffff] truncate">
-                            {cleanOfficialChannelName(ch.displayName)}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-                          <span className="text-[9px] font-semibold px-1 py-0.2 rounded bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50 truncate uppercase tracking-wider">
-                            {getSingleSatelliteBadgeForChannel(
-                              ch,
-                              selectedSatellite
-                            )}
-                          </span>
-                          {getActiveBouquetBadgeForChannel(
-                            ch,
-                            selectedSatellite,
-                            selectedBouquet
-                          ) && (
-                            <span className="text-[9px] font-bold px-1 py-0.2 rounded bg-[#ec4899]/20 text-[#ffffff] border border-[#ec4899]/60 truncate max-w-[100px]">
-                              {cleanBouquetName(
-                                getActiveBouquetBadgeForChannel(
-                                  ch,
-                                  selectedSatellite,
-                                  selectedBouquet
-                                ) || '',
-                                getSingleSatelliteBadgeForChannel(
-                                  ch,
-                                  selectedSatellite
-                                )
-                              )}
-                            </span>
-                          )}
-                          <span className="inline-flex items-center gap-0.5 text-[9px] text-[#60a5fa] font-semibold">
-                            <Subtitles className="w-2.5 h-2.5" />
-                            SUB
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onToggleFavorite(ch.id);
-                      }}
-                      className={`p-1.5 rounded-lg transition-colors cursor-pointer shrink-0 ${
-                        isFav
-                          ? 'text-[#e11d48]'
-                          : 'text-[#cbd5e1] hover:text-[#ffffff]'
-                      }`}
-                    >
-                      <Heart
-                        className={`w-3.5 h-3.5 ${isFav ? 'fill-[#e11d48]' : ''}`}
-                      />
-                    </button>
-                  </div>
-
-                  {/* Cellule Timeline Programmes */}
-                  <div
-                    style={{ width: `${TOTAL_TIMELINE_WIDTH}px` }}
-                    className="h-20 2xl:h-24 relative shrink-0 bg-[#0a0e17]"
-                  >
-                    {/* Marqueur vertical Temps Réel (Rouge / Crimson Sky Sport) */}
-                    {nowOffsetPx !== null && (
-                      <div
-                        style={{ left: `${nowOffsetPx}px` }}
-                        className="absolute top-0 bottom-0 w-px bg-[#e11d48] shadow-[0_0_8px_#e11d48] z-15 pointer-events-none"
-                      />
-                    )}
-
-                    {progs.map((prog, progIdx) => {
-                      const clampedStart = Math.max(
-                        prog.startMs,
-                        windowStartMs
-                      );
-                      const clampedStop = Math.min(prog.stopMs, windowEndMs);
-                      const leftPx =
-                        ((clampedStart - windowStartMs) / 60000) *
-                        PIXELS_PER_MINUTE;
-                      const widthPx = Math.max(
-                        36,
-                        ((clampedStop - clampedStart) / 60000) *
-                          PIXELS_PER_MINUTE -
-                          3
-                      );
-                      const isLive =
-                        prog.startMs <= nowMs && prog.stopMs > nowMs;
-                      const hasReminder = reminderIdSet.has(prog.id);
-
-                      const allowGridSE = isProgrammeSeriesOrDocumentary({
-                        category: prog.category,
-                        rawCategory: prog.rawCategory,
-                        title: prog.originalTitle || prog.title,
-                        subTitle: prog.subTitle,
-                        channelCategory: ch.contentCategory,
-                      });
-                      const parsedGridSE = allowGridSE
-                        ? parseSeasonAndEpisode(
-                            prog.episodeNum,
-                            prog.originalTitle || prog.title,
-                            prog.subTitle
-                          )
-                        : {};
-                      const formattedGridSE = allowGridSE
-                        ? formatSeasonEpisodeCode(
-                            parsedGridSE.season,
-                            parsedGridSE.episode
-                          )
-                        : undefined;
-
-                      return (
-                        <div
-                          key={prog.id}
-                          tabIndex={0}
-                          role="button"
-                          data-grid-focusable="true"
-                          data-grid-row={rowIdx}
-                          data-grid-col={progIdx}
-                          data-start-ms={prog.startMs}
-                          data-stop-ms={prog.stopMs}
-                          data-left-px={Math.round(leftPx)}
-                          data-width-px={Math.round(widthPx)}
-                          onClick={() => onSelectChannel(ch, prog)}
-                          onKeyDown={(e) => {
-                            if (
-                              e.key === 'Enter' ||
-                              e.key === ' ' ||
-                              e.key === 'Select' ||
-                              e.keyCode === 23 ||
-                              e.keyCode === 66
-                            ) {
-                              e.preventDefault();
-                              onSelectChannel(ch, prog);
-                            }
-                          }}
-                          style={{
-                            left: `${leftPx}px`,
-                            width: `${widthPx}px`,
-                          }}
-                          className={`tv-focusable absolute top-1 bottom-1 rounded-lg px-2.5 py-1.5 border overflow-hidden cursor-pointer flex flex-col justify-between transition-all ${
-                            hasReminder
-                              ? 'bg-gradient-to-r from-[#0055ff]/25 via-[#141a26] to-[#ec4899]/25 border-[1.5px] border-[#ec4899] shadow-[0_0_12px_rgba(236,72,153,0.4)] z-15'
-                              : isLive
-                              ? 'bg-[#141a26] border-[#e11d48] shadow-[0_0_10px_rgba(225,29,72,0.3)] z-10'
-                              : 'bg-[#141a26] hover:bg-[#1a202c] border-[#1a202c] hover:border-[#0055ff]/60'
-                          }`}
-                          title={`${
-                            activeLang === 'fr'
-                              ? translateEpgTextToFrenchSync(prog.title)
-                              : prog.title
-                          } (${formatTimeShort(prog.startMs)} - ${formatTimeShort(
-                            prog.stopMs
-                          )})`}
-                        >
-                          <div className="min-w-0">
-                            <div className="flex items-center justify-between gap-1">
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                {isLive && (
-                                  <span className="w-1.5 h-1.5 rounded-full bg-[#e11d48] animate-pulse shadow-[0_0_6px_#e11d48] shrink-0" />
-                                )}
-                                {hasReminder && (
-                                  <span className="inline-flex items-center gap-0.5 px-1 py-0.2 rounded text-[9px] font-extrabold uppercase bg-gradient-to-r from-[#0055ff] to-[#ec4899] text-[#ffffff] shrink-0">
-                                    <BellRing className="w-2.5 h-2.5 text-[#ffffff]" />
-                                  </span>
-                                )}
-                                <p className="text-xs font-bold text-[#ffffff] truncate">
-                                  {activeLang === 'fr'
-                                    ? translateEpgTextToFrenchSync(prog.title)
-                                    : prog.title}
-                                </p>
-                              </div>
-
-                              {onToggleReminder &&
-                                prog.stopMs > baseRealNowMs &&
-                                widthPx >= 95 && (
-                                  <button
-                                    type="button"
-                                    tabIndex={-1}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      onToggleReminder(prog, ch);
-                                    }}
-                                    className={`p-1 rounded-md transition-all shrink-0 cursor-pointer ${
-                                      hasReminder
-                                        ? 'bg-gradient-to-r from-[#0055ff] to-[#ec4899] text-[#ffffff] shadow-[0_0_8px_rgba(236,72,153,0.5)]'
-                                        : 'bg-[#0a0e17]/80 text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#ec4899]'
-                                    }`}
-                                    title={
-                                      hasReminder
-                                        ? tr.cancelReminder
-                                        : tr.remindProgram
-                                    }
-                                  >
-                                    {hasReminder ? (
-                                      <BellRing className="w-2.5 h-2.5" />
-                                    ) : (
-                                      <Bell className="w-2.5 h-2.5 text-[#60a5fa]" />
-                                    )}
-                                  </button>
-                                )}
-                            </div>
-                            {prog.subTitle && allowGridSE && widthPx > 130 && (
-                              <p className="text-[10px] text-[#cbd5e1] truncate">
-                                {activeLang === 'fr'
-                                  ? translateEpgTextToFrenchSync(prog.subTitle)
-                                  : prog.subTitle}
-                              </p>
-                            )}
-                          </div>
-
-                          <div className="flex items-center justify-between gap-1 text-[10px] text-[#cbd5e1] font-mono">
-                            <span className="truncate">
-                              {formatTimeShort(prog.startMs)} -{' '}
-                              {formatTimeShort(prog.stopMs)}
-                            </span>
-                            {formattedGridSE && widthPx > 140 ? (
-                              <span className="px-1 py-0.2 rounded bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50 text-[9px] font-sans font-medium truncate max-w-[65px]">
-                                {formattedGridSE}
-                              </span>
-                            ) : (
-                              prog.category &&
-                              widthPx > 140 && (
-                                <span className="px-1.5 py-0.2 rounded bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50 text-[9px] font-sans truncate max-w-[90px]">
-                                  {translateDynamicGenre(
-                                    prog.category,
-                                    activeLang
-                                  )}
-                                </span>
-                              )
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
+                <MemoizedGridChannelRow
+                  key={ch.id}
+                  ch={ch}
+                  rowIdx={rowIdx}
+                  lcn={lcn}
+                  isFav={isFav}
+                  progs={progs}
+                  windowStartMs={windowStartMs}
+                  windowEndMs={windowEndMs}
+                  nowMs={nowMs}
+                  baseRealNowMs={baseRealNowMs}
+                  nowOffsetPx={nowOffsetPx}
+                  selectedSatellite={selectedSatellite}
+                  selectedBouquet={selectedBouquet}
+                  activeLang={activeLang}
+                  reminderIdSet={reminderIdSet}
+                  cancelReminderLabel={tr.cancelReminder}
+                  remindProgramLabel={tr.remindProgram}
+                  onSelectChannel={onSelectChannel}
+                  onToggleFavorite={onToggleFavorite}
+                  onToggleReminder={onToggleReminder}
+                />
               );
             })}
           </div>
@@ -1622,3 +1749,5 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
     </div>
   );
 };
+
+export const TimeGridView = React.memo(TimeGridViewInner);

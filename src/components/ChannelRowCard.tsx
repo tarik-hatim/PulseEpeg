@@ -857,4 +857,32 @@ const ChannelRowCardInner: React.FC<ChannelRowCardProps> = ({
   );
 };
 
-export const ChannelRowCard = React.memo(ChannelRowCardInner);
+function areChannelRowPropsEqual(
+  prev: ChannelRowCardProps,
+  next: ChannelRowCardProps
+): boolean {
+  return (
+    prev.channel === next.channel &&
+    prev.dataIndex === next.dataIndex &&
+    prev.lcnNumber === next.lcnNumber &&
+    prev.isFavorite === next.isFavorite &&
+    prev.isSelected === next.isSelected &&
+    prev.isMemorizedTarget === next.isMemorizedTarget &&
+    prev.hasCurrentReminder === next.hasCurrentReminder &&
+    prev.hasNextReminder === next.hasNextReminder &&
+    prev.language === next.language &&
+    prev.activeSatellite === next.activeSatellite &&
+    prev.activeBouquet === next.activeBouquet &&
+    prev.selectedBouquets === next.selectedBouquets &&
+    prev.currentProgramme?.id === next.currentProgramme?.id &&
+    prev.currentProgramme?.enrichedSource ===
+      next.currentProgramme?.enrichedSource &&
+    prev.nextProgramme?.id === next.nextProgramme?.id &&
+    Math.floor(prev.nowMs / 60000) === Math.floor(next.nowMs / 60000)
+  );
+}
+
+export const ChannelRowCard = React.memo(
+  ChannelRowCardInner,
+  areChannelRowPropsEqual
+);

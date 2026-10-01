@@ -28,6 +28,8 @@ import {
   cleanXmltvChannelId,
   ensureHttpsUrl,
   isAdultChannel,
+  isGenuineFrenchBouquetChannel,
+  isNonFrenchForeignChannel,
   isPlaceholderProgrammeTitle,
   normalizeSingleOrbitalPosition,
   supplementSatelliteBouquetsCoverage,
@@ -37,9 +39,9 @@ import { resolveOfficialChannelLogoUrl } from '../utils/channelLogoResolver';
 const DB_NAME = 'PulseEpgCacheDB';
 const DB_VERSION = 1;
 const SNAPSHOT_STORE = 'epg_snapshots';
-const SNAPSHOT_KEY = 'active_epg_whitelist_v19';
+const SNAPSHOT_KEY = 'active_epg_whitelist_v20';
 
-const LS_META_KEY = 'pulse_epg_meta_v19';
+const LS_META_KEY = 'pulse_epg_meta_v20';
 const LS_SETTINGS_KEY = 'pulse_epg_settings_v5';
 export const LS_TV_PROFILE_KEY = 'pulse_epg_tv_profile_v1';
 const LS_STRICT_PROFILE_V12_MIGRATED_KEY = 'pulse_epg_strict_fr_ar_v16';
@@ -386,11 +388,13 @@ export function extractChannelCountries(
 
   // 15. France (Astra Canal+ France, TNT France, Bis TV, TV5Monde, France 24, .fr)
   if (
-    ch.country === 'FR' ||
-    idLower.endsWith('.fr') ||
-    chBouquets.includes('Astra Canal+ France') ||
-    chBouquets.includes('Astra TNT France') ||
-    /\b(tv5\s*monde|tv5monde|france\s*24|africanews)\b/i.test(combined)
+    !isNonFrenchForeignChannel(ch.id, ch.displayName) &&
+    (ch.country === 'FR' ||
+      (idLower.endsWith('.fr') &&
+        isGenuineFrenchBouquetChannel(ch.id, ch.displayName)) ||
+      chBouquets.includes('Astra Canal+ France') ||
+      chBouquets.includes('Astra TNT France') ||
+      /\b(tv5\s*monde|tv5monde|france\s*24|africanews)\b/i.test(combined))
   ) {
     countries.add('FR');
   }
@@ -408,7 +412,9 @@ export function extractChannelCountries(
   if (
     ch.country === 'IT' ||
     idLower.endsWith('.it') ||
-    /\b(rai\s*[1-5]|sky\s*italia|mediaset|canale\s*5|italia\s*1)\b/i.test(combined)
+    /\b(rai\b|rai\s*[1-5]|rai\s*(uno|due|tre|storia|scuola|news|gulp|yoyo|movie|premium|sport)|sky\s*italia|mediaset|canale\s*5|italia\s*1|rete\s*4|tgcom24|la7\b)\b/i.test(
+      combined
+    )
   ) {
     countries.add('IT');
   }
@@ -431,7 +437,10 @@ export function extractChannelCountries(
     chBouquets.includes('TNT Arabe/Égypte') ||
     chBouquets.includes('Badr beIN (Sports & Movies)') ||
     chBouquets.includes('Badr SSC') ||
-    chBouquets.includes('Badr TV Arabes/Al Kass')
+    chBouquets.includes('Badr TV Arabes/Al Kass') ||
+    /\b(saudi|ksa|al\s*saudiya|ekhbariya|asharq|alkass|al\s*kass|aljazeera|al\s*jazeera|alarabiya|al\s*arabiya)\b/i.test(
+      combined
+    )
   ) {
     countries.add('AR');
   }
@@ -579,6 +588,21 @@ export function channelMatchesBouquetFilter(
   if (activeSatellite !== 'Tous') {
     const allowedForSat = getBouquetsForSatellite(activeSatellite);
     if (!allowedForSat.includes(bouquetFilter)) {
+      return false;
+    }
+  }
+
+  if (
+    bouquetFilter === 'Astra Canal+ France' ||
+    bouquetFilter === 'Canal+ France' ||
+    bouquetFilter === 'Astra Canal+' ||
+    bouquetFilter === 'Astra TNT France' ||
+    bouquetFilter === 'TNT France'
+  ) {
+    if (
+      ch.country !== 'FR' ||
+      isNonFrenchForeignChannel(ch.id, ch.displayName)
+    ) {
       return false;
     }
   }
@@ -741,7 +765,19 @@ export function getActiveBouquetBadgeForChannel(
   activeBouquet?: BouquetFilter
 ): string | undefined {
   const resolvedSat = getSingleSatelliteBadgeForChannel(ch, activeSatellite);
-  const chBouquets = ch.bouquets || [];
+  const isForeignNonFrench =
+    ch.country !== 'FR' || isNonFrenchForeignChannel(ch.id, ch.displayName);
+  const rawBouquets = ch.bouquets || [];
+  const chBouquets = isForeignNonFrench
+    ? rawBouquets.filter(
+        (b) =>
+          b !== 'Astra Canal+ France' &&
+          b !== 'Canal+ France' &&
+          b !== 'Astra Canal+' &&
+          b !== 'Astra TNT France' &&
+          b !== 'TNT France'
+      )
+    : rawBouquets;
 
   if (
     activeBouquet &&
@@ -760,15 +796,24 @@ export function getActiveBouquetBadgeForChannel(
   }
 
   if (chBouquets.length > 0) {
-    return sanitizeBouquetDisplayName(chBouquets[0], resolvedSat);
+    const allowedForResolvedSat = getBouquetsForSatellite(
+      resolvedSat as SatelliteFilter
+    );
+    const matchingResolvedSat = chBouquets.find((b) =>
+      allowedForResolvedSat.includes(b)
+    );
+    return sanitizeBouquetDisplayName(
+      matchingResolvedSat || chBouquets[0],
+      resolvedSat
+    );
   }
 
   // Fallback dynamique basé sur le bouquetId si ch.bouquets est vide
   const fallbackBouquetId = resolveChannelBouquetId(ch);
   const fallbackNames: Partial<Record<EpgBouquetId, string>> = {
-    astra_canal_fr: 'Canal+ France',
-    astra_tnt_fr: 'TNT France',
-    tnt_fr: 'TNT France',
+    astra_canal_fr: isForeignNonFrench ? undefined : 'Canal+ France',
+    astra_tnt_fr: isForeignNonFrench ? undefined : 'TNT France',
+    tnt_fr: isForeignNonFrench ? undefined : 'TNT France',
     hotbird_bis_fr: 'Bis TV/Rai',
     movistar_es: 'Movistar+ España',
     hispasat_meo_nos: 'Meo/NOS/Movistar',
@@ -3091,12 +3136,25 @@ export async function loadEpgFromCache(
             result.schedulesByChannel || {}
           );
           const sanitizedChannels: EpgChannel[] = result.channels
-            .filter((ch) => !isAdultChannel(ch.id, ch.displayName))
+            .filter((ch) => {
+              if (isAdultChannel(ch.id, ch.displayName)) return false;
+              // Exclure du cache toute chaîne étrangère issue de FR1 (.fr) qui avait été classée à tort en France
+              if (
+                ch.country === 'FR' &&
+                isNonFrenchForeignChannel(ch.id, ch.displayName)
+              ) {
+                return false;
+              }
+              return true;
+            })
             .map((ch) => {
               const isTrtChannel =
                 ch.bouquetId === 'trt_network' ||
                 ch.bouquets?.includes('TRT Network') ||
                 /\.tr$/i.test(ch.id || '');
+              const isForeignNonFrench =
+                ch.country !== 'FR' ||
+                isNonFrenchForeignChannel(ch.id, ch.displayName);
               return {
                 ...ch,
                 icon: resolveOfficialChannelLogoUrl(
@@ -3106,6 +3164,16 @@ export async function loadEpgFromCache(
                 ),
                 url: ensureHttpsUrl(ch.url),
                 displayName: cleanOfficialChannelName(ch.displayName),
+                bouquets: isForeignNonFrench
+                  ? (ch.bouquets || []).filter(
+                      (b) =>
+                        b !== 'Astra Canal+ France' &&
+                        b !== 'Canal+ France' &&
+                        b !== 'Astra Canal+' &&
+                        b !== 'Astra TNT France' &&
+                        b !== 'TNT France'
+                    )
+                  : ch.bouquets,
                 satellites: (isTrtChannel
                   ? ['Türksat 42°E', 'Türksat 42°E / Eutelsat 7°E']
                   : (ch.satellites || []).filter(

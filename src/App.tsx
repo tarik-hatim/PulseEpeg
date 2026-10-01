@@ -1,4 +1,12 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from 'react';
 import {
   AlertTriangle,
   ArrowUpDown,
@@ -163,6 +171,7 @@ import {
   cleanOfficialChannelName,
   cleanXmltvChannelId,
   isExclusivelySportChannel,
+  isNonFrenchForeignChannel,
   isPlaceholderProgrammeTitle,
   matchesProgrammeCategory,
   matchesProgrammeGenreGroup,
@@ -203,9 +212,30 @@ const GROUP_OPTIONS: ChannelGroup[] = [
 ];
 
 // Paramètres de virtualisation (Windowing) de la liste des chaînes pour Android TV & Mobile
+// Seules les chaînes visibles à l'écran (~8 à 15 éléments) sont montées dans le DOM
 const VIRTUAL_ROW_GAP = 10; // space-y-2.5 (0.625rem = 10px)
-const VIRTUAL_OVERSCAN_COUNT = 6; // Buffer de pré-rendu haut/bas pour D-Pad fluide sans saccade
-const VIRTUAL_INITIAL_MIN_ITEMS = 12; // Nombre minimal d'éléments rendus à l'écran initial
+const VIRTUAL_OVERSCAN_COUNT = 3; // Buffer court haut/bas pour maintenir ~8 à 15 chaînes max dans le DOM
+const VIRTUAL_INITIAL_MIN_ITEMS = 10; // Nombre d'éléments visibles rendus à l'écran initial
+
+interface ChannelStaticFilterMeta {
+  cleanId: string;
+  cleanName: string;
+  searchChannelText: string;
+  isSportExclusive: boolean;
+  countries: ChannelCountryFilter[];
+  countrySet: Set<ChannelCountryFilter>;
+  satellitesSet: Set<SatelliteFilter>;
+  bouquetsSet: Set<BouquetFilter>;
+}
+
+interface ChannelLiveEpgMeta {
+  current: EpgProgramme | null;
+  next: EpgProgramme | null;
+  hasLiveOrNext: boolean;
+  categoriesSet: Set<ContentCategoryFilter>;
+  groupsSet: Set<ChannelGroup>;
+  searchProgText: string;
+}
 
 interface VirtualViewportState {
   scrollTop: number;
@@ -263,6 +293,17 @@ export function App() {
   const [selectedCountry, setSelectedCountry] =
     useState<ChannelCountryFilter>('Tous');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [, startFilterTransition] = useTransition();
+
+  // Valeurs différées (useDeferredValue) pour ne jamais bloquer le retour visuel immédiat
+  // (état actif des boutons cliqués, outline D-Pad, saisie clavier) lors du filtrage lourd
+  const deferredCategory = useDeferredValue(selectedCategory);
+  const deferredSatellite = useDeferredValue(selectedSatellite);
+  const deferredBouquet = useDeferredValue(selectedBouquet);
+  const deferredBouquetsList = useDeferredValue(selectedBouquetsList);
+  const deferredGenre = useDeferredValue(selectedGroup);
+  const deferredCountry = useDeferredValue(selectedCountry);
+  const deferredSearchQuery = useDeferredValue(searchQuery);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [isSearchDropdownOpen, setIsSearchDropdownOpen] =
     useState<boolean>(false);
@@ -1187,181 +1228,41 @@ export function App() {
     return set;
   }, [favorites]);
 
-  // Garantit que chaque chaîne dispose d'une grille complète pour la date/heure cible (hier, demain, J+2..J+7, etc.)
-  const activeSchedulesByChannel = useMemo(
-    () =>
-      ensureSchedulesCoverTargetTime(
-        channels,
-        schedulesByChannel,
-        effectiveTimeMs
-      ),
-    [channels, schedulesByChannel, effectiveTimeMs]
+  // Granularité à la minute pour les calculs EPG afin d'éviter de recalculer les 21 019 programmes toutes les 15s
+  const effectiveMinuteMs = useMemo(
+    () => Math.floor(effectiveTimeMs / 60000) * 60000,
+    [effectiveTimeMs]
   );
 
-  // Résolution globale des chaînes favorites (peu importe leur satellite ou bouquet d'origine)
+  // Résolution globale des chaînes favorites (uniquement sur la liste des favoris de l'utilisateur)
   const { favoriteChannels: globalFavoriteChannels, supplementedSchedules } =
     useMemo(
       () =>
         resolveGlobalFavoriteChannels(
           channels,
-          activeSchedulesByChannel,
+          schedulesByChannel,
           favorites
         ),
-      [channels, activeSchedulesByChannel, favorites]
+      [channels, schedulesByChannel, favorites]
     );
 
-  // Map des programmes en cours et suivants pour chaque chaîne à l'instant `effectiveTimeMs`
-  const currentAndNextByChannel = useMemo(() => {
-    const map: Record<
-      string,
-      { current: EpgProgramme | null; next: EpgProgramme | null }
-    > = {};
-
-    const allKnownChannels = [
-      ...settingsAllowedChannels,
-      ...globalFavoriteChannels,
-    ];
-
-    for (const ch of allKnownChannels) {
-      const cleanId = cleanXmltvChannelId(ch.id);
-      const list =
-        supplementedSchedules[cleanId] ||
-        supplementedSchedules[ch.id] ||
-        activeSchedulesByChannel[cleanId] ||
-        activeSchedulesByChannel[ch.id] ||
-        [];
-      let current: EpgProgramme | null = null;
-      let next: EpgProgramme | null = null;
-
-      for (let i = 0; i < list.length; i++) {
-        const p = list[i];
-        if (!p || isPlaceholderProgrammeTitle(p.title)) continue;
-        if (p.startMs <= effectiveTimeMs && p.stopMs > effectiveTimeMs) {
-          current = p;
-          for (let j = i + 1; j < list.length; j++) {
-            if (list[j] && !isPlaceholderProgrammeTitle(list[j].title)) {
-              next = list[j];
-              break;
-            }
-          }
-          break;
-        }
-        if (p.startMs > effectiveTimeMs) {
-          next = p;
-          break;
-        }
-      }
-
-      map[ch.id] = { current, next };
-      if (cleanId !== ch.id) {
-        map[cleanId] = { current, next };
-      }
-    }
-    return map;
-  }, [
-    settingsAllowedChannels,
-    globalFavoriteChannels,
-    supplementedSchedules,
-    activeSchedulesByChannel,
-    effectiveTimeMs,
-  ]);
-
-  const matchesSearch = useCallback(
-    (ch: EpgChannel, query: string): boolean => {
-      if (!query) return true;
-      const q = query.toLowerCase();
-      const matchName =
-        ch.displayName.toLowerCase().includes(q) ||
-        ch.id.toLowerCase().includes(q) ||
-        ch.orbitalPosition.toLowerCase().includes(q) ||
-        ch.bouquets.some((b) => b.toLowerCase().includes(q));
-      if (matchName) return true;
-
-      const pair = currentAndNextByChannel[ch.id];
-      const curr = pair?.current;
-      const nxt = pair?.next;
-
-      return Boolean(
-        (curr &&
-          (curr.title.toLowerCase().includes(q) ||
-            curr.originalTitle?.toLowerCase().includes(q) ||
-            curr.subTitle?.toLowerCase().includes(q) ||
-            curr.category?.toLowerCase().includes(q) ||
-            curr.actors?.some((a) => a.toLowerCase().includes(q)))) ||
-          (nxt &&
-            (nxt.title.toLowerCase().includes(q) ||
-              nxt.originalTitle?.toLowerCase().includes(q)))
-      );
-    },
-    [currentAndNextByChannel]
-  );
-
-  const baseViewChannels = useMemo(() => {
-    const q = searchQuery.trim();
-    if (viewMode === 'favorites') {
-      // En vue "Favorites", affiche toutes les chaînes favorites globales,
-      // peu importe leur satellite ou bouquet d'origine
-      return globalFavoriteChannels.filter((ch) => {
-        if (q && !matchesSearch(ch, q)) return false;
-        return true;
-      });
-    }
-    return settingsAllowedChannels.filter((ch) => {
-      const pair = currentAndNextByChannel[ch.id];
-      if (!pair?.current && !pair?.next) return false;
-      if (q && !matchesSearch(ch, q)) return false;
-      return true;
-    });
-  }, [
-    settingsAllowedChannels,
-    globalFavoriteChannels,
-    currentAndNextByChannel,
-    viewMode,
-    searchQuery,
-    matchesSearch,
-  ]);
-
-  const matchesCategory = useCallback(
-    (ch: EpgChannel, cat: ContentCategoryFilter): boolean => {
-      const pair = currentAndNextByChannel[ch.id];
-      if (!pair?.current && !pair?.next) return false;
-      if (cat === 'Tous') return true;
-
-      // Règle stricte : masquer impérativement toute chaîne exclusivement sportive (ex: beIN Sports 1 HD)
-      // lorsque le filtre "Films & Séries" ou toute catégorie non-sportive est active
-      if (cat !== 'Sport / Football' && isExclusivelySportChannel(ch)) {
-        return false;
-      }
-      if (cat === 'Sport / Football' && !isExclusivelySportChannel(ch)) {
-        return false;
-      }
-
-      if (ch.contentCategory && ch.contentCategory !== cat) {
-        return false;
-      }
-
-      return (
-        matchesProgrammeCategory(pair?.current, cat, ch.contentCategory) ||
-        matchesProgrammeCategory(pair?.next, cat, ch.contentCategory)
-      );
-    },
-    [currentAndNextByChannel]
-  );
-
-  const matchesSatellite = (ch: EpgChannel, sat: SatelliteFilter): boolean => {
+  const rawMatchesSatellite = (
+    ch: EpgChannel,
+    sat: SatelliteFilter
+  ): boolean => {
     if (sat === 'Tous') return true;
     if (sat === "Badr / Es'hailSat 26°E" || sat === 'Badr 26°E') {
       return (
         ch.satellites.includes("Badr / Es'hailSat 26°E") ||
         ch.satellites.includes('Badr 26°E') ||
-        ch.orbitalPosition?.includes('Badr')
+        Boolean(ch.orbitalPosition?.includes('Badr'))
       );
     }
     if (sat === 'Thor 0.8°W / Intelsat 10-02' || sat === 'Thor 0.8°W') {
       return (
         ch.satellites.includes('Thor 0.8°W / Intelsat 10-02') ||
         ch.satellites.includes('Thor 0.8°W') ||
-        ch.orbitalPosition?.includes('Thor')
+        Boolean(ch.orbitalPosition?.includes('Thor'))
       );
     }
     if (sat === 'Eutelsat 16°E') {
@@ -1375,7 +1276,7 @@ export function App() {
       return (
         ch.satellites.includes('Eutelsat 16°E') ||
         ch.orbitalPosition === 'Eutelsat 16°E' ||
-        ch.orbitalPosition?.includes('16°E')
+        Boolean(ch.orbitalPosition?.includes('16°E'))
       );
     }
     if (
@@ -1385,7 +1286,7 @@ export function App() {
       return (
         ch.satellites.includes('Türksat 42°E') ||
         ch.satellites.includes('Türksat 42°E / Eutelsat 7°E') ||
-        ch.orbitalPosition?.includes('Türksat') ||
+        Boolean(ch.orbitalPosition?.includes('Türksat')) ||
         ch.bouquetId === 'trt_network' ||
         ch.bouquets.includes('TRT Network')
       );
@@ -1408,7 +1309,7 @@ export function App() {
       return (
         ch.satellites.includes('Star One D2 70°W') ||
         ch.satellites.includes('Star One 70°W') ||
-        ch.orbitalPosition?.includes('70°W')
+        Boolean(ch.orbitalPosition?.includes('70°W'))
       );
     }
     if (
@@ -1420,22 +1321,25 @@ export function App() {
         ch.satellites.includes('Intelsat 43.1°W / SES-6 40.5°W') ||
         ch.satellites.includes('Intelsat 43.1°W & SES-6 40.5°W') ||
         ch.satellites.includes('SES-6 40.5°W') ||
-        ch.orbitalPosition?.includes('40.5°W') ||
-        ch.orbitalPosition?.includes('43.1°W')
+        Boolean(ch.orbitalPosition?.includes('40.5°W')) ||
+        Boolean(ch.orbitalPosition?.includes('43.1°W'))
       );
     }
     return ch.satellites.includes(sat) || ch.orbitalPosition === sat;
   };
 
-  const matchesSingleBouquet = (ch: EpgChannel, bq: BouquetFilter): boolean => {
+  const rawMatchesSingleBouquet = (
+    ch: EpgChannel,
+    bq: BouquetFilter,
+    combinedLower: string
+  ): boolean => {
     if (bq === 'Tous') return true;
-    const combined = `${ch.id} ${ch.displayName}`.toLowerCase();
 
     if (bq === 'TRT Network') {
       return (
         ch.bouquets.includes('TRT Network') ||
         ch.bouquetId === 'trt_network' ||
-        /\btrt\b/i.test(combined)
+        /\btrt\b/i.test(combinedLower)
       );
     }
     if (bq === 'Nilesat MBC/OSN/Rotana') {
@@ -1443,7 +1347,7 @@ export function App() {
         ch.satellites.includes('Nilesat 7°W') &&
         (ch.bouquets.includes('Nilesat MBC/OSN/Rotana') ||
           /mbc|osn|rotana|wanasah|dubai\s*one|star\s*movies|star\s*world/i.test(
-            combined
+            combinedLower
           ))
       );
     }
@@ -1452,28 +1356,28 @@ export function App() {
         ch.satellites.includes('Nilesat 7°W') &&
         (ch.bouquets.includes('TNT Arabe/Égypte') ||
           !/mbc|osn|rotana|wanasah|dubai\s*one|star\s*movies|star\s*world/i.test(
-            combined
+            combinedLower
           ))
       );
     }
     if (bq === 'Badr beIN (Sports & Movies)') {
       return (
-        matchesSatellite(ch, "Badr / Es'hailSat 26°E") &&
+        rawMatchesSatellite(ch, "Badr / Es'hailSat 26°E") &&
         (ch.bouquets.includes('Badr beIN (Sports & Movies)') ||
-          /bein|baraem|jeem|fatafeat/i.test(combined))
+          /bein|baraem|jeem|fatafeat/i.test(combinedLower))
       );
     }
     if (bq === 'Badr SSC') {
       return (
-        matchesSatellite(ch, "Badr / Es'hailSat 26°E") &&
-        (ch.bouquets.includes('Badr SSC') || /\bssc\b/i.test(combined))
+        rawMatchesSatellite(ch, "Badr / Es'hailSat 26°E") &&
+        (ch.bouquets.includes('Badr SSC') || /\bssc\b/i.test(combinedLower))
       );
     }
     if (bq === 'Badr TV Arabes/Al Kass') {
       return (
-        matchesSatellite(ch, "Badr / Es'hailSat 26°E") &&
+        rawMatchesSatellite(ch, "Badr / Es'hailSat 26°E") &&
         (ch.bouquets.includes('Badr TV Arabes/Al Kass') ||
-          !/bein|baraem|jeem|fatafeat|\bssc\b/i.test(combined))
+          !/bein|baraem|jeem|fatafeat|\bssc\b/i.test(combinedLower))
       );
     }
     if (
@@ -1482,6 +1386,8 @@ export function App() {
       bq === 'Astra Canal+'
     ) {
       return (
+        ch.country === 'FR' &&
+        !isNonFrenchForeignChannel(ch.id, ch.displayName) &&
         ch.satellites.includes('Astra 19.2°E') &&
         (ch.bouquets.includes('Astra Canal+ France') ||
           ch.bouquetId === 'astra_canal_fr' ||
@@ -1491,6 +1397,8 @@ export function App() {
     }
     if (bq === 'Astra TNT France' || bq === 'TNT France') {
       return (
+        ch.country === 'FR' &&
+        !isNonFrenchForeignChannel(ch.id, ch.displayName) &&
         ch.satellites.includes('Astra 19.2°E') &&
         (ch.bouquets.includes('Astra TNT France') ||
           ch.bouquetId === 'astra_tnt_fr' ||
@@ -1562,7 +1470,7 @@ export function App() {
       bq === 'Total TV (Balkans)'
     ) {
       return (
-        matchesSatellite(ch, 'Eutelsat 16°E') &&
+        rawMatchesSatellite(ch, 'Eutelsat 16°E') &&
         (ch.bouquets.includes(
           'Total TV (Balkans / Serbie / Croatie / Bosnie / Slovénie)'
         ) ||
@@ -1576,7 +1484,7 @@ export function App() {
       bq === 'MaxTV Sat (Croatie)'
     ) {
       return (
-        matchesSatellite(ch, 'Eutelsat 16°E') &&
+        rawMatchesSatellite(ch, 'Eutelsat 16°E') &&
         (ch.bouquets.includes('MAXtv / A1 Croatia') ||
           ch.bouquets.includes('MAXtv (Croatie)') ||
           ch.bouquets.includes('MaxTV Sat (Croatie)') ||
@@ -1593,7 +1501,7 @@ export function App() {
       bq === 'A1 Bulgaria / A1 Hrvatska'
     ) {
       return (
-        matchesSatellite(ch, 'Eutelsat 16°E') &&
+        rawMatchesSatellite(ch, 'Eutelsat 16°E') &&
         (ch.bouquets.includes(bq) ||
           (bq === 'Autres chaînes africaines / francophones' &&
             ch.bouquets.includes('Bouquet Afrique Francophone (2S TV, RTI, CRTV)')))
@@ -1605,7 +1513,7 @@ export function App() {
       bq === 'Digi TV'
     ) {
       return (
-        matchesSatellite(ch, 'Thor 0.8°W / Intelsat 10-02') &&
+        rawMatchesSatellite(ch, 'Thor 0.8°W / Intelsat 10-02') &&
         ch.bouquets.includes(bq)
       );
     }
@@ -1614,16 +1522,16 @@ export function App() {
       bq === 'Turkmenistan National TV'
     ) {
       return (
-        (matchesSatellite(ch, 'TurkmenÄlem 52°E') ||
-          matchesSatellite(ch, 'MonacoSat 52°E')) &&
+        (rawMatchesSatellite(ch, 'TurkmenÄlem 52°E') ||
+          rawMatchesSatellite(ch, 'MonacoSat 52°E')) &&
         (ch.bouquets.includes('Bouquet National Turkmène') ||
           ch.bouquets.includes('Turkmenistan National TV'))
       );
     }
     if (bq === 'Alem TV') {
       return (
-        (matchesSatellite(ch, 'TurkmenÄlem 52°E') ||
-          matchesSatellite(ch, 'MonacoSat 52°E')) &&
+        (rawMatchesSatellite(ch, 'TurkmenÄlem 52°E') ||
+          rawMatchesSatellite(ch, 'MonacoSat 52°E')) &&
         ch.bouquets.includes('Alem TV')
       );
     }
@@ -1632,8 +1540,8 @@ export function App() {
       bq === 'Persiana Media Group (Farsi/Sport/Cinema)'
     ) {
       return (
-        (matchesSatellite(ch, 'MonacoSat 52°E') ||
-          matchesSatellite(ch, 'TurkmenÄlem 52°E')) &&
+        (rawMatchesSatellite(ch, 'MonacoSat 52°E') ||
+          rawMatchesSatellite(ch, 'TurkmenÄlem 52°E')) &&
         (ch.bouquets.includes('Groupe Persiana') ||
           ch.bouquets.includes('Persiana Media Group (Farsi/Sport/Cinema)'))
       );
@@ -1645,8 +1553,8 @@ export function App() {
       bq === 'Big Bang TV'
     ) {
       return (
-        (matchesSatellite(ch, 'MonacoSat 52°E') ||
-          matchesSatellite(ch, 'TurkmenÄlem 52°E')) &&
+        (rawMatchesSatellite(ch, 'MonacoSat 52°E') ||
+          rawMatchesSatellite(ch, 'TurkmenÄlem 52°E')) &&
         (ch.bouquets.includes(bq) ||
           (bq === 'Information (Iran Intl / Afghanistan Intl)' &&
             ch.bouquets.includes('Information')))
@@ -1655,20 +1563,356 @@ export function App() {
     return ch.bouquets.includes(bq);
   };
 
-  const matchesBouquet = useCallback(
-    (ch: EpgChannel, bq: BouquetFilter): boolean => {
-      if (bq === 'Tous' && selectedBouquetsList.length === 0) {
+  // Index statique O(1) pré-calculé une seule fois par chaîne (évite des milliers d'appels RegExp / toLowerCase au clic sur un filtre)
+  const channelStaticMetaMap = useMemo(() => {
+    const map = new Map<string, ChannelStaticFilterMeta>();
+    const allChannels = [...channels, ...globalFavoriteChannels];
+
+    for (const ch of allChannels) {
+      if (map.has(ch.id)) continue;
+      const cleanId = cleanXmltvChannelId(ch.id);
+      const cleanName = cleanOfficialChannelName(ch.displayName);
+      const combinedLower = `${ch.id} ${ch.displayName}`.toLowerCase();
+      const searchChannelText = `${ch.displayName} ${ch.id} ${
+        ch.orbitalPosition || ''
+      } ${ch.bouquets.join(' ')}`.toLowerCase();
+      const isSportExclusive = isExclusivelySportChannel(ch);
+      const countries = extractChannelCountries(ch);
+      const countrySet = new Set<ChannelCountryFilter>(['Tous', ...countries]);
+      for (const cOpt of CHANNEL_COUNTRY_FILTER_OPTIONS) {
+        if (cOpt !== 'Tous' && !countrySet.has(cOpt)) {
+          if (channelMatchesCountryFilter(ch, cOpt)) {
+            countrySet.add(cOpt);
+          }
+        }
+      }
+
+      const satellitesSet = new Set<SatelliteFilter>(['Tous']);
+      for (const sat of SATELLITE_OPTIONS) {
+        if (sat !== 'Tous' && rawMatchesSatellite(ch, sat)) {
+          satellitesSet.add(sat);
+        }
+      }
+
+      const bouquetsSet = new Set<BouquetFilter>(['Tous']);
+      for (const bq of BOUQUET_OPTIONS) {
+        if (bq !== 'Tous' && rawMatchesSingleBouquet(ch, bq, combinedLower)) {
+          bouquetsSet.add(bq);
+        }
+      }
+
+      map.set(ch.id, {
+        cleanId,
+        cleanName,
+        searchChannelText,
+        isSportExclusive,
+        countries,
+        countrySet,
+        satellitesSet,
+        bouquetsSet,
+      });
+    }
+    return map;
+  }, [channels, globalFavoriteChannels]);
+
+  // Cache paresseux (Lazy EPG) : calcule le programme "En Direct" (current/next) et ses catégories/genres
+  // UNIQUEMENT à la demande pour les chaînes inspectées/filtrées, jamais sur les 21 019 programmes en tâche de fond
+  const liveEpgCacheRef = useRef<{
+    minuteMs: number;
+    schedulesRef: Record<string, EpgProgramme[]>;
+    supplementedRef: Record<string, EpgProgramme[]>;
+    entries: Map<string, ChannelLiveEpgMeta>;
+  }>({
+    minuteMs: 0,
+    schedulesRef: {},
+    supplementedRef: {},
+    entries: new Map(),
+  });
+
+  const resolveChannelLiveMeta = useCallback(
+    (ch: EpgChannel): ChannelLiveEpgMeta => {
+      const cache = liveEpgCacheRef.current;
+      if (
+        cache.minuteMs !== effectiveMinuteMs ||
+        cache.schedulesRef !== schedulesByChannel ||
+        cache.supplementedRef !== supplementedSchedules
+      ) {
+        cache.minuteMs = effectiveMinuteMs;
+        cache.schedulesRef = schedulesByChannel;
+        cache.supplementedRef = supplementedSchedules;
+        cache.entries.clear();
+      }
+
+      const existing = cache.entries.get(ch.id);
+      if (existing) return existing;
+
+      const staticMeta = channelStaticMetaMap.get(ch.id);
+      const cleanId = staticMeta?.cleanId || cleanXmltvChannelId(ch.id);
+      let list =
+        supplementedSchedules[cleanId] ||
+        supplementedSchedules[ch.id] ||
+        schedulesByChannel[cleanId] ||
+        schedulesByChannel[ch.id] ||
+        [];
+
+      const scanSchedule = (
+        scheduleList: EpgProgramme[]
+      ): { current: EpgProgramme | null; next: EpgProgramme | null } => {
+        let current: EpgProgramme | null = null;
+        let next: EpgProgramme | null = null;
+        for (let i = 0; i < scheduleList.length; i++) {
+          const p = scheduleList[i];
+          if (!p || isPlaceholderProgrammeTitle(p.title)) continue;
+          if (
+            p.startMs <= effectiveMinuteMs &&
+            p.stopMs > effectiveMinuteMs
+          ) {
+            current = p;
+            for (let j = i + 1; j < scheduleList.length; j++) {
+              if (
+                scheduleList[j] &&
+                !isPlaceholderProgrammeTitle(scheduleList[j].title)
+              ) {
+                next = scheduleList[j];
+                break;
+              }
+            }
+            break;
+          }
+          if (p.startMs > effectiveMinuteMs) {
+            next = p;
+            break;
+          }
+        }
+        return { current, next };
+      };
+
+      let { current, next } = scanSchedule(list);
+
+      // Si la grille brute de cette chaîne ne couvre pas encore `effectiveMinuteMs` (ex: J+2..J+7 ou Catch-up),
+      // on projette à la demande UNIQUEMENT cette chaîne (et non les 555 chaînes)
+      if (!current && !next && list.length > 0) {
+        const projected = ensureSchedulesCoverTargetTime(
+          [ch],
+          schedulesByChannel,
+          effectiveMinuteMs
+        );
+        list = projected[cleanId] || projected[ch.id] || list;
+        const rescanned = scanSchedule(list);
+        current = rescanned.current;
+        next = rescanned.next;
+      }
+
+      const hasLiveOrNext = Boolean(current || next);
+      const isSportExclusive =
+        staticMeta?.isSportExclusive ?? isExclusivelySportChannel(ch);
+
+      const categoriesSet = new Set<ContentCategoryFilter>();
+      const groupsSet = new Set<ChannelGroup>();
+
+      if (hasLiveOrNext) {
+        categoriesSet.add('Tous');
+        groupsSet.add('Tous');
+        groupsSet.add('Toutes');
+
+        for (const catOpt of CATEGORY_OPTIONS) {
+          const cat = catOpt.code;
+          if (cat === 'Tous') continue;
+          if (cat !== 'Sport / Football' && isSportExclusive) continue;
+          if (cat === 'Sport / Football' && !isSportExclusive) continue;
+          if (ch.contentCategory && ch.contentCategory !== cat) continue;
+          if (
+            matchesProgrammeCategory(current ?? undefined, cat, ch.contentCategory) ||
+            matchesProgrammeCategory(next ?? undefined, cat, ch.contentCategory)
+          ) {
+            categoriesSet.add(cat);
+          }
+        }
+
+        for (const grp of GROUP_OPTIONS) {
+          if (grp === 'Tous' || grp === 'Toutes') continue;
+          if (grp !== 'Sport / Football' && isSportExclusive) continue;
+          if (grp === 'Sport / Football' && !isSportExclusive) continue;
+          const isCinemaSubGenre =
+            grp === 'Cinéma Premières' ||
+            grp === 'Action & Thriller' ||
+            grp === 'Séries TV & US' ||
+            grp === 'Comédie & Famille' ||
+            grp === 'Classiques & Culte';
+          if (
+            isCinemaSubGenre &&
+            ch.contentCategory &&
+            ch.contentCategory !== 'Films & Séries'
+          ) {
+            continue;
+          }
+          if (
+            matchesProgrammeGenreGroup(
+              current ?? undefined,
+              grp,
+              ch.group,
+              ch.contentCategory
+            ) ||
+            matchesProgrammeGenreGroup(
+              next ?? undefined,
+              grp,
+              ch.group,
+              ch.contentCategory
+            )
+          ) {
+            groupsSet.add(grp);
+          }
+        }
+      }
+
+      const searchProgText = hasLiveOrNext
+        ? `${current?.title || ''} ${current?.originalTitle || ''} ${
+            current?.subTitle || ''
+          } ${current?.category || ''} ${
+            current?.actors ? current.actors.join(' ') : ''
+          } ${next?.title || ''} ${next?.originalTitle || ''}`.toLowerCase()
+        : '';
+
+      const meta: ChannelLiveEpgMeta = {
+        current,
+        next,
+        hasLiveOrNext,
+        categoriesSet,
+        groupsSet,
+        searchProgText,
+      };
+      cache.entries.set(ch.id, meta);
+      return meta;
+    },
+    [
+      effectiveMinuteMs,
+      schedulesByChannel,
+      supplementedSchedules,
+      channelStaticMetaMap,
+    ]
+  );
+
+  const matchesSearch = useCallback(
+    (ch: EpgChannel, query: string): boolean => {
+      if (!query) return true;
+      const q = query.toLowerCase();
+      const staticMeta = channelStaticMetaMap.get(ch.id);
+      if (staticMeta) {
+        if (staticMeta.searchChannelText.includes(q)) return true;
+      } else if (
+        ch.displayName.toLowerCase().includes(q) ||
+        ch.id.toLowerCase().includes(q) ||
+        ch.orbitalPosition.toLowerCase().includes(q) ||
+        ch.bouquets.some((b) => b.toLowerCase().includes(q))
+      ) {
         return true;
       }
-      if (selectedBouquetsList.length > 0 && bq === selectedBouquet) {
-        return selectedBouquetsList.some((item) =>
+
+      const liveMeta = resolveChannelLiveMeta(ch);
+      return liveMeta.searchProgText.includes(q);
+    },
+    [channelStaticMetaMap, resolveChannelLiveMeta]
+  );
+
+  const baseViewChannels = useMemo(() => {
+    const q = deferredSearchQuery.trim();
+    if (viewMode === 'favorites') {
+      // En vue "Favorites", affiche toutes les chaînes favorites globales,
+      // peu importe leur satellite ou bouquet d'origine
+      return globalFavoriteChannels.filter((ch) => {
+        if (q && !matchesSearch(ch, q)) return false;
+        return true;
+      });
+    }
+    return settingsAllowedChannels.filter((ch) => {
+      const liveMeta = resolveChannelLiveMeta(ch);
+      if (!liveMeta.hasLiveOrNext) return false;
+      if (q && !matchesSearch(ch, q)) return false;
+      return true;
+    });
+  }, [
+    settingsAllowedChannels,
+    globalFavoriteChannels,
+    resolveChannelLiveMeta,
+    viewMode,
+    deferredSearchQuery,
+    matchesSearch,
+  ]);
+
+  const matchesCategory = useCallback(
+    (ch: EpgChannel, cat: ContentCategoryFilter): boolean => {
+      const liveMeta = resolveChannelLiveMeta(ch);
+      if (!liveMeta.hasLiveOrNext) return false;
+      if (cat === 'Tous') return true;
+      return liveMeta.categoriesSet.has(cat);
+    },
+    [resolveChannelLiveMeta]
+  );
+
+  const matchesSatellite = useCallback(
+    (ch: EpgChannel, sat: SatelliteFilter): boolean => {
+      if (sat === 'Tous') return true;
+      const staticMeta = channelStaticMetaMap.get(ch.id);
+      if (staticMeta) {
+        return staticMeta.satellitesSet.has(sat);
+      }
+      return rawMatchesSatellite(ch, sat);
+    },
+    [channelStaticMetaMap]
+  );
+
+  const matchesSingleBouquet = useCallback(
+    (ch: EpgChannel, bq: BouquetFilter): boolean => {
+      if (bq === 'Tous') return true;
+      const staticMeta = channelStaticMetaMap.get(ch.id);
+      if (staticMeta) {
+        return staticMeta.bouquetsSet.has(bq);
+      }
+      return rawMatchesSingleBouquet(
+        ch,
+        bq,
+        `${ch.id} ${ch.displayName}`.toLowerCase()
+      );
+    },
+    [channelStaticMetaMap]
+  );
+
+  const matchesBouquet = useCallback(
+    (ch: EpgChannel, bq: BouquetFilter): boolean => {
+      if (bq === 'Tous' && deferredBouquetsList.length === 0) {
+        return true;
+      }
+      if (deferredBouquetsList.length > 0 && bq === deferredBouquet) {
+        return deferredBouquetsList.some((item) =>
           matchesSingleBouquet(ch, item)
         );
       }
       return matchesSingleBouquet(ch, bq);
     },
-    [selectedBouquetsList, selectedBouquet]
+    [deferredBouquetsList, deferredBouquet, matchesSingleBouquet]
   );
+
+  // Actions de sélection de filtre non-bloquantes (retour visuel immédiat + transition React)
+  const handleSelectCategory = useCallback((cat: ContentCategoryFilter) => {
+    setSelectedCategory(cat);
+    startFilterTransition(() => {
+      setSelectedCategory(cat);
+    });
+  }, []);
+
+  const handleSelectCountry = useCallback((country: ChannelCountryFilter) => {
+    setSelectedCountry(country);
+    startFilterTransition(() => {
+      setSelectedCountry(country);
+    });
+  }, []);
+
+  const handleSelectGroup = useCallback((grp: ChannelGroup) => {
+    setSelectedGroup(grp);
+    startFilterTransition(() => {
+      setSelectedGroup(grp);
+    });
+  }, []);
 
   // Quand l'utilisateur clique sur un satellite, réinitialise automatiquement le filtre "BOUQUET" sur "All" ("Tous")
   // et affiche toutes les chaînes associées au satellite sans restreindre par défaut aux seuls bouquets nommés.
@@ -1683,12 +1927,16 @@ export function App() {
   const matchesCountry = useCallback(
     (ch: EpgChannel, country: ChannelCountryFilter): boolean => {
       if (country === 'Tous') return true;
+      const staticMeta = channelStaticMetaMap.get(ch.id);
+      if (staticMeta) {
+        return staticMeta.countrySet.has(country);
+      }
       return channelMatchesCountryFilter(ch, country);
     },
-    []
+    [channelStaticMetaMap]
   );
 
-  // Gestion de la sélection de Bouquet avec limite stricte de 3 bouquets simultanés max (RAM < 50 Mo)
+  // Gestion de la sélection exclusive d'un Bouquet dans la barre de filtre (évite le mélange de chaînes d'anciens bouquets)
   const handleSelectBouquet = useCallback(
     (bq: BouquetFilter) => {
       if (bq === 'Tous') {
@@ -1700,90 +1948,42 @@ export function App() {
 
       if (bq === 'TRT Network') {
         setRamWarningMessage(null);
-        setSelectedBouquetsList((prev) => {
-          if (prev.includes('TRT Network')) {
-            const next = prev.filter((item) => item !== 'TRT Network');
-            setSelectedBouquet(next[0] || 'Tous');
-            return next;
+        setSelectedBouquet((prevBq) => {
+          if (prevBq === 'TRT Network') {
+            setSelectedBouquetsList([]);
+            return 'Tous';
           }
           setSelectedSatellite('Türksat 42°E');
-          setSelectedBouquet('TRT Network');
-          return ['TRT Network'];
+          setSelectedBouquetsList(['TRT Network']);
+          return 'TRT Network';
         });
         return;
       }
 
-      setSelectedBouquetsList((prev) => {
-        if (prev.includes(bq)) {
-          const next = prev.filter((item) => item !== bq);
-          setSelectedBouquet(next[0] || 'Tous');
-          setRamWarningMessage(null);
-          return next;
+      setRamWarningMessage(null);
+      setSelectedBouquet((prevBq) => {
+        if (prevBq === bq) {
+          setSelectedBouquetsList([]);
+          return 'Tous';
         }
-        if (!authState.isPremium && prev.length >= MAX_ACTIVE_BOUQUETS) {
-          setRamWarningMessage(PRO_BOUQUETS_UPGRADE_MESSAGE);
-          setProFeatureReason(PRO_BOUQUETS_UPGRADE_MESSAGE);
-          setIsAuthModalOpen(true);
-          return prev;
-        }
-        const next = [...prev, bq];
-        setSelectedBouquet(bq);
-        setRamWarningMessage(null);
-        return next;
+        setSelectedBouquetsList([bq]);
+        return bq;
       });
     },
-    [authState.isPremium, activeLang]
+    []
   );
 
   const matchesGroup = useCallback(
     (ch: EpgChannel, grp: ChannelGroup): boolean => {
-      const pair = currentAndNextByChannel[ch.id];
-      if (!pair?.current && !pair?.next) return false;
+      const liveMeta = resolveChannelLiveMeta(ch);
+      if (!liveMeta.hasLiveOrNext) return false;
       if (grp === 'Toutes' || grp === 'Tous') return true;
-
-      // Règle stricte : masquer impérativement toute chaîne exclusivement sportive (ex: beIN Sports 1 HD)
-      // lorsque "Cinéma Premières" ou tout autre genre non-sportif est actif
-      if (grp !== 'Sport / Football' && isExclusivelySportChannel(ch)) {
-        return false;
-      }
-      if (grp === 'Sport / Football' && !isExclusivelySportChannel(ch)) {
-        return false;
-      }
-
-      const isCinemaSubGenre =
-        grp === 'Cinéma Premières' ||
-        grp === 'Action & Thriller' ||
-        grp === 'Séries TV & US' ||
-        grp === 'Comédie & Famille' ||
-        grp === 'Classiques & Culte';
-
-      if (
-        isCinemaSubGenre &&
-        ch.contentCategory &&
-        ch.contentCategory !== 'Films & Séries'
-      ) {
-        return false;
-      }
-
-      return (
-        matchesProgrammeGenreGroup(
-          pair?.current,
-          grp,
-          ch.group,
-          ch.contentCategory
-        ) ||
-        matchesProgrammeGenreGroup(
-          pair?.next,
-          grp,
-          ch.group,
-          ch.contentCategory
-        )
-      );
+      return liveMeta.groupsSet.has(grp);
     },
-    [currentAndNextByChannel]
+    [resolveChannelLiveMeta]
   );
 
-  // Recalcul en temps réel des compteurs croisés ([CATÉGORIE] -> [SATELLITE / BOUQUET / COUNTRY] -> [GENRE])
+  // Recalcul mémoïsé des compteurs croisés sur les valeurs différées ([CATÉGORIE] -> [SATELLITE / BOUQUET / COUNTRY] -> [GENRE])
   const categoryCounts = useMemo(() => {
     const counts: Record<ContentCategoryFilter, number> = {
       Tous: 0,
@@ -1797,10 +1997,10 @@ export function App() {
 
     const pool = baseViewChannels.filter(
       (ch) =>
-        matchesSatellite(ch, selectedSatellite) &&
-        matchesBouquet(ch, selectedBouquet) &&
-        matchesCountry(ch, selectedCountry) &&
-        matchesGroup(ch, selectedGroup)
+        matchesSatellite(ch, deferredSatellite) &&
+        matchesBouquet(ch, deferredBouquet) &&
+        matchesCountry(ch, deferredCountry) &&
+        matchesGroup(ch, deferredGenre)
     );
 
     counts.Tous = pool.length;
@@ -1821,11 +2021,13 @@ export function App() {
     return counts;
   }, [
     baseViewChannels,
-    selectedSatellite,
-    selectedBouquet,
-    selectedCountry,
-    selectedGroup,
+    deferredSatellite,
+    deferredBouquet,
+    deferredCountry,
+    deferredGenre,
     settings.enabledCategories,
+    matchesSatellite,
+    matchesBouquet,
     matchesCategory,
     matchesCountry,
     matchesGroup,
@@ -1857,12 +2059,12 @@ export function App() {
 
     const pool = baseViewChannels.filter(
       (ch) =>
-        matchesCategory(ch, selectedCategory) &&
-        (selectedBouquet === 'TRT Network'
-          ? matchesBouquet(ch, selectedBouquet)
+        matchesCategory(ch, deferredCategory) &&
+        (deferredBouquet === 'TRT Network'
+          ? matchesBouquet(ch, deferredBouquet)
           : true) &&
-        matchesCountry(ch, selectedCountry) &&
-        matchesGroup(ch, selectedGroup)
+        matchesCountry(ch, deferredCountry) &&
+        matchesGroup(ch, deferredGenre)
     );
 
     counts.Tous = pool.length;
@@ -1912,10 +2114,12 @@ export function App() {
     return counts;
   }, [
     baseViewChannels,
-    selectedCategory,
-    selectedCountry,
-    selectedGroup,
+    deferredCategory,
+    deferredBouquet,
+    deferredCountry,
+    deferredGenre,
     matchesCategory,
+    matchesBouquet,
     matchesCountry,
     matchesGroup,
   ]);
@@ -1928,14 +2132,14 @@ export function App() {
 
     const pool = baseViewChannels.filter(
       (ch) =>
-        matchesCategory(ch, selectedCategory) &&
-        matchesSatellite(ch, selectedSatellite) &&
-        matchesCountry(ch, selectedCountry) &&
-        matchesGroup(ch, selectedGroup)
+        matchesCategory(ch, deferredCategory) &&
+        matchesSatellite(ch, deferredSatellite) &&
+        matchesCountry(ch, deferredCountry) &&
+        matchesGroup(ch, deferredGenre)
     );
 
     counts.Tous = pool.length;
-    const targetBouquets = getBouquetsForSatellite(selectedSatellite);
+    const targetBouquets = getBouquetsForSatellite(deferredSatellite);
     for (const ch of pool) {
       for (const bq of targetBouquets) {
         if (bq !== 'Tous' && matchesSingleBouquet(ch, bq)) {
@@ -1946,11 +2150,13 @@ export function App() {
     return counts;
   }, [
     baseViewChannels,
-    selectedCategory,
-    selectedSatellite,
-    selectedCountry,
-    selectedGroup,
+    deferredCategory,
+    deferredSatellite,
+    deferredCountry,
+    deferredGenre,
     matchesCategory,
+    matchesSatellite,
+    matchesSingleBouquet,
     matchesCountry,
     matchesGroup,
   ]);
@@ -1963,15 +2169,18 @@ export function App() {
 
     const pool = baseViewChannels.filter(
       (ch) =>
-        matchesCategory(ch, selectedCategory) &&
-        matchesSatellite(ch, selectedSatellite) &&
-        matchesBouquet(ch, selectedBouquet) &&
-        matchesGroup(ch, selectedGroup)
+        matchesCategory(ch, deferredCategory) &&
+        matchesSatellite(ch, deferredSatellite) &&
+        matchesBouquet(ch, deferredBouquet) &&
+        matchesGroup(ch, deferredGenre)
     );
 
     counts.Tous = pool.length;
     for (const ch of pool) {
-      const extracted = extractChannelCountries(ch);
+      const staticMeta = channelStaticMetaMap.get(ch.id);
+      const extracted = staticMeta
+        ? staticMeta.countries
+        : extractChannelCountries(ch);
       for (const c of extracted) {
         counts[c] = (counts[c] || 0) + 1;
       }
@@ -1979,11 +2188,13 @@ export function App() {
     return counts;
   }, [
     baseViewChannels,
-    selectedCategory,
-    selectedSatellite,
-    selectedBouquet,
-    selectedGroup,
+    deferredCategory,
+    deferredSatellite,
+    deferredBouquet,
+    deferredGenre,
+    channelStaticMetaMap,
     matchesCategory,
+    matchesSatellite,
     matchesBouquet,
     matchesGroup,
   ]);
@@ -2006,10 +2217,10 @@ export function App() {
 
     const pool = baseViewChannels.filter(
       (ch) =>
-        matchesCategory(ch, selectedCategory) &&
-        matchesSatellite(ch, selectedSatellite) &&
-        matchesBouquet(ch, selectedBouquet) &&
-        matchesCountry(ch, selectedCountry)
+        matchesCategory(ch, deferredCategory) &&
+        matchesSatellite(ch, deferredSatellite) &&
+        matchesBouquet(ch, deferredBouquet) &&
+        matchesCountry(ch, deferredCountry)
     );
 
     counts.Toutes = pool.length;
@@ -2024,11 +2235,13 @@ export function App() {
     return counts;
   }, [
     baseViewChannels,
-    selectedCategory,
-    selectedSatellite,
-    selectedBouquet,
-    selectedCountry,
+    deferredCategory,
+    deferredSatellite,
+    deferredBouquet,
+    deferredCountry,
     matchesCategory,
+    matchesSatellite,
+    matchesBouquet,
     matchesCountry,
     matchesGroup,
   ]);
@@ -2304,34 +2517,49 @@ export function App() {
     return sum;
   }, [channelWatchHabits]);
 
+  const deferredTvSortMode = useDeferredValue(tvSortMode);
+
+  // Filtrage global et calcul de tri strictement mémoïsés (useMemo)
+  // dépendant uniquement des filtres actifs différés (deferredSatellite, deferredBouquet, deferredGenre, deferredSearchQuery, etc.)
   const filteredChannels = useMemo(() => {
+    const q = deferredSearchQuery.trim();
+    const candidatePool =
+      viewMode === 'favorites'
+        ? globalFavoriteChannels
+        : settingsAllowedChannels;
+
+    // 1. Filtrage structurel O(1) ultra-rapide (Satellite, Bouquet, Zone/Pays) AVANT d'inspecter les programmes EPG
     const rawList =
       viewMode === 'favorites'
-        ? baseViewChannels
-        : baseViewChannels.filter((ch) => {
-            if (!matchesCategory(ch, selectedCategory)) return false;
-            if (!matchesSatellite(ch, selectedSatellite)) return false;
-            if (!matchesBouquet(ch, selectedBouquet)) return false;
-            if (!matchesCountry(ch, selectedCountry)) return false;
-            if (!matchesGroup(ch, selectedGroup)) return false;
+        ? candidatePool.filter((ch) => !q || matchesSearch(ch, q))
+        : candidatePool.filter((ch) => {
+            if (!matchesSatellite(ch, deferredSatellite)) return false;
+            if (!matchesBouquet(ch, deferredBouquet)) return false;
+            if (!matchesCountry(ch, deferredCountry)) return false;
+            // 2. Calcul EPG "En Direct" uniquement pour les chaînes ayant passé les filtres structurels
+            if (!matchesCategory(ch, deferredCategory)) return false;
+            if (!matchesGroup(ch, deferredGenre)) return false;
+            if (q && !matchesSearch(ch, q)) return false;
             return true;
           });
 
-    if (tvSortMode === 'lcn') {
+    if (deferredTvSortMode === 'lcn') {
       return [...rawList].sort(
         (a, b) =>
           (channelLcnMap.get(a.id) ?? 9999) - (channelLcnMap.get(b.id) ?? 9999)
       );
     }
 
-    if (tvSortMode === 'smart') {
+    if (deferredTvSortMode === 'smart') {
       const scoreCache = new Map<
         string,
         ReturnType<typeof computeSmartChannelSortScore>
       >();
       for (const ch of rawList) {
         const lcn = channelLcnMap.get(ch.id) ?? 9999;
-        const cleanId = cleanXmltvChannelId(ch.id);
+        const cleanId =
+          channelStaticMetaMap.get(ch.id)?.cleanId ||
+          cleanXmltvChannelId(ch.id);
         scoreCache.set(
           ch.id,
           computeSmartChannelSortScore(ch.id, lcn, channelWatchHabits, {
@@ -2339,7 +2567,7 @@ export function App() {
             hasReminder:
               reminderChannelIdsSet.has(ch.id) ||
               reminderChannelIdsSet.has(cleanId),
-            nowMs,
+            nowMs: effectiveMinuteMs,
           })
         );
       }
@@ -2355,30 +2583,44 @@ export function App() {
       });
     }
 
-    if (tvSortMode === 'alpha_asc') {
-      return [...rawList].sort((a, b) =>
-        cleanOfficialChannelName(a.displayName).localeCompare(
-          cleanOfficialChannelName(b.displayName),
-          'fr',
-          { sensitivity: 'base', numeric: true }
-        )
-      );
+    if (deferredTvSortMode === 'alpha_asc') {
+      return [...rawList].sort((a, b) => {
+        const nameA =
+          channelStaticMetaMap.get(a.id)?.cleanName ||
+          cleanOfficialChannelName(a.displayName);
+        const nameB =
+          channelStaticMetaMap.get(b.id)?.cleanName ||
+          cleanOfficialChannelName(b.displayName);
+        return nameA.localeCompare(nameB, 'fr', {
+          sensitivity: 'base',
+          numeric: true,
+        });
+      });
     }
 
-    if (tvSortMode === 'alpha_desc') {
-      return [...rawList].sort((a, b) =>
-        cleanOfficialChannelName(b.displayName).localeCompare(
-          cleanOfficialChannelName(a.displayName),
-          'fr',
-          { sensitivity: 'base', numeric: true }
-        )
-      );
+    if (deferredTvSortMode === 'alpha_desc') {
+      return [...rawList].sort((a, b) => {
+        const nameA =
+          channelStaticMetaMap.get(a.id)?.cleanName ||
+          cleanOfficialChannelName(a.displayName);
+        const nameB =
+          channelStaticMetaMap.get(b.id)?.cleanName ||
+          cleanOfficialChannelName(b.displayName);
+        return nameB.localeCompare(nameA, 'fr', {
+          sensitivity: 'base',
+          numeric: true,
+        });
+      });
     }
 
-    if (tvSortMode === 'genre') {
+    if (deferredTvSortMode === 'genre') {
       const getGenreRank = (ch: EpgChannel): number => {
         const cat = ch.contentCategory || '';
-        if (cat === 'Sport / Football' || isExclusivelySportChannel(ch)) return 1;
+        const isSport =
+          cat === 'Sport / Football' ||
+          (channelStaticMetaMap.get(ch.id)?.isSportExclusive ??
+            isExclusivelySportChannel(ch));
+        if (isSport) return 1;
         if (cat === 'Films & Séries') return 2;
         if (cat === 'Documentaires') return 3;
         if (cat === 'Jeunesse / Enfants') return 4;
@@ -2390,9 +2632,9 @@ export function App() {
         const rankDiff = getGenreRank(a) - getGenreRank(b);
         if (rankDiff !== 0) return rankDiff;
         const currA =
-          currentAndNextByChannel[a.id]?.current?.category || a.group || '';
+          resolveChannelLiveMeta(a).current?.category || a.group || '';
         const currB =
-          currentAndNextByChannel[b.id]?.current?.category || b.group || '';
+          resolveChannelLiveMeta(b).current?.category || b.group || '';
         const grpCompare = currA.localeCompare(currB, 'fr', {
           sensitivity: 'base',
         });
@@ -2406,24 +2648,88 @@ export function App() {
     return rawList;
   }, [
     viewMode,
-    baseViewChannels,
-    selectedCategory,
-    selectedSatellite,
-    selectedBouquet,
-    selectedCountry,
-    selectedGroup,
-    matchesCategory,
+    globalFavoriteChannels,
+    settingsAllowedChannels,
+    deferredCategory,
+    deferredSatellite,
+    deferredBouquet,
+    deferredCountry,
+    deferredGenre,
+    deferredSearchQuery,
+    deferredTvSortMode,
+    matchesSatellite,
     matchesBouquet,
     matchesCountry,
+    matchesCategory,
     matchesGroup,
-    tvSortMode,
+    matchesSearch,
     channelLcnMap,
+    channelStaticMetaMap,
     channelWatchHabits,
     favoriteSet,
     reminderChannelIdsSet,
-    nowMs,
-    currentAndNextByChannel,
+    effectiveMinuteMs,
+    resolveChannelLiveMeta,
   ]);
+
+  // Optimisation du Calcul EPG : calcule la map des programmes "En Direct" (current / next)
+  // UNIQUEMENT pour les chaînes actuellement filtrées, et non sur l'ensemble des 21 019 programmes en tâche de fond
+  const currentAndNextByChannel = useMemo(() => {
+    const map: Record<
+      string,
+      { current: EpgProgramme | null; next: EpgProgramme | null }
+    > = {};
+    for (const ch of filteredChannels) {
+      const liveMeta = resolveChannelLiveMeta(ch);
+      const pair = { current: liveMeta.current, next: liveMeta.next };
+      map[ch.id] = pair;
+      const cleanId =
+        channelStaticMetaMap.get(ch.id)?.cleanId ||
+        cleanXmltvChannelId(ch.id);
+      if (cleanId !== ch.id) {
+        map[cleanId] = pair;
+      }
+    }
+    return map;
+  }, [filteredChannels, resolveChannelLiveMeta, channelStaticMetaMap]);
+
+  // Grilles EPG projetées à la demande uniquement pour la fiche chaîne sélectionnée (1 seule chaîne)
+  const selectedChannelProgrammes = useMemo(() => {
+    if (!selectedChannel) return [];
+    const cleanId = cleanXmltvChannelId(selectedChannel.id);
+    const projected = ensureSchedulesCoverTargetTime(
+      [selectedChannel],
+      schedulesByChannel,
+      effectiveTimeMs
+    );
+    return (
+      projected[cleanId] ||
+      projected[selectedChannel.id] ||
+      schedulesByChannel[cleanId] ||
+      schedulesByChannel[selectedChannel.id] ||
+      []
+    );
+  }, [selectedChannel, schedulesByChannel, effectiveTimeMs]);
+
+  // Grilles EPG projetées uniquement pour les chaînes ayant un rappel dans l'onglet "Mes Rappels"
+  const remindersSchedulesByChannel = useMemo(() => {
+    if (viewMode !== 'reminders' || reminders.length === 0) {
+      return schedulesByChannel;
+    }
+    const remChannelIds = new Set(
+      reminders.flatMap((r) => [r.channelId, cleanXmltvChannelId(r.channelId)])
+    );
+    const subsetChannels = channels.filter(
+      (c) =>
+        remChannelIds.has(c.id) || remChannelIds.has(cleanXmltvChannelId(c.id))
+    );
+    if (subsetChannels.length === 0) return schedulesByChannel;
+    return ensureSchedulesCoverTargetTime(
+      subsetChannels,
+      schedulesByChannel,
+      effectiveTimeMs
+    );
+  }, [viewMode, reminders, channels, schedulesByChannel, effectiveTimeMs]);
 
   // Conserve l'index de la chaîne sélectionnée après un changement dynamique de tri TV
   useEffect(() => {
@@ -2605,9 +2911,16 @@ export function App() {
           hasSubtitles: true,
         } as unknown as EpgChannel);
 
+      const projectedSingle = ensureSchedulesCoverTargetTime(
+        [foundChannel],
+        schedulesByChannel,
+        rem.startMs
+      );
       const channelSchedule =
-        activeSchedulesByChannel[cleanXmltvChannelId(foundChannel.id)] ||
-        activeSchedulesByChannel[foundChannel.id] ||
+        projectedSingle[cleanXmltvChannelId(foundChannel.id)] ||
+        projectedSingle[foundChannel.id] ||
+        schedulesByChannel[cleanXmltvChannelId(foundChannel.id)] ||
+        schedulesByChannel[foundChannel.id] ||
         [];
 
       const matchedProg =
@@ -2639,7 +2952,7 @@ export function App() {
     },
     [
       channels,
-      activeSchedulesByChannel,
+      schedulesByChannel,
       handleDismissBannerAlert,
       recordChannelHabit,
     ]
@@ -3269,7 +3582,7 @@ export function App() {
     };
   }, [viewMode, filteredChannels.length]);
 
-  // Calcul des métriques de la liste complète des chaînes filtrées (sans troncature ni vide noir au scroll)
+  // Calcul des métriques de la liste virtualisée (seules 8 à 15 chaînes visibles montées dans le DOM)
   const virtualWindow = useMemo(() => {
     const count = filteredChannels.length;
     const defaultRowHeight = virtualViewport.isDesktopLayout ? 116 : 196;
@@ -3312,7 +3625,7 @@ export function App() {
     const relScrollBottom =
       relScrollTop + Math.max(virtualViewport.viewportHeight, 720);
 
-    // Recherche binaire du premier élément visible à l'écran (pour l'enrichissement TMDB en arrière-plan)
+    // Recherche binaire du premier élément visible à l'écran
     let low = 0;
     let high = count - 1;
     let firstVisibleIdx = 0;
@@ -3340,20 +3653,41 @@ export function App() {
       }
     }
 
-    // Rendu intégral de toutes les chaînes filtrées (ex: 374 chaînes) sans spacer vide noir ni blocage après 10 cartes
-    const startIndex = 0;
-    const endIndex = count - 1;
-    const topSpacerPx = 0;
-    const bottomSpacerPx = 0;
-
-    const viewportStart = Math.max(0, firstVisibleIdx - VIRTUAL_OVERSCAN_COUNT);
-    const viewportEnd = Math.min(
+    let viewportStart = Math.max(0, firstVisibleIdx - VIRTUAL_OVERSCAN_COUNT);
+    let viewportEnd = Math.min(
       count - 1,
       Math.max(
         firstVisibleIdx + VIRTUAL_INITIAL_MIN_ITEMS - 1,
         lastVisibleIdx + VIRTUAL_OVERSCAN_COUNT
       )
     );
+
+    // Plafonne strictement la fenêtre DOM autour de 8 à 15 éléments visibles maximum
+    const maxDomWindowSize = 15;
+    if (viewportEnd - viewportStart + 1 > maxDomWindowSize) {
+      viewportStart = Math.max(0, firstVisibleIdx - 2);
+      viewportEnd = Math.min(count - 1, viewportStart + maxDomWindowSize - 1);
+    }
+
+    // Si une carte est ciblée au D-Pad en dehors de la tranche courante, centre la fenêtre de 12 éléments dessus
+    if (
+      focusedChannelIndex !== null &&
+      focusedChannelIndex >= 0 &&
+      focusedChannelIndex < count &&
+      (focusedChannelIndex < viewportStart || focusedChannelIndex > viewportEnd)
+    ) {
+      viewportStart = Math.max(0, focusedChannelIndex - 5);
+      viewportEnd = Math.min(count - 1, viewportStart + 11);
+    }
+
+    const startIndex = viewportStart;
+    const endIndex = viewportEnd;
+    const topSpacerPx = startIndex > 0 ? offsets[startIndex] : 0;
+    const bottomSpacerPx =
+      endIndex < count - 1
+        ? Math.max(0, totalHeight - (offsets[endIndex] + heights[endIndex]))
+        : 0;
+    const visibleSlice = filteredChannels.slice(startIndex, endIndex + 1);
 
     return {
       startIndex,
@@ -3362,8 +3696,8 @@ export function App() {
       bottomSpacerPx,
       totalHeight,
       totalCount: count,
-      items: filteredChannels,
-      viewportItems: filteredChannels.slice(viewportStart, viewportEnd + 1),
+      items: visibleSlice,
+      viewportItems: visibleSlice,
       offsets,
       heights,
     };
@@ -3551,8 +3885,13 @@ export function App() {
         virtualViewportRef.current.listOffsetTop +
         (virtualWindowRef.current.offsets[clampedIdx] || 0) -
         window.innerHeight * 0.38;
+      const nextScrollTop = Math.max(0, Math.round(targetTop));
+      setVirtualViewport((prev) => ({
+        ...prev,
+        scrollTop: nextScrollTop,
+      }));
       window.scrollTo({
-        top: Math.max(0, targetTop),
+        top: nextScrollTop,
         behavior: 'auto',
       });
       window.requestAnimationFrame(() => {
@@ -6032,7 +6371,7 @@ export function App() {
                       role="button"
                       tabIndex={0}
                       data-filter-active={active ? 'true' : undefined}
-                      onClick={() => setSelectedCategory(cat.code)}
+                      onClick={() => handleSelectCategory(cat.code)}
                       onKeyDown={(e) => {
                         if (
                           e.key === 'Enter' ||
@@ -6042,7 +6381,7 @@ export function App() {
                           e.keyCode === 66
                         ) {
                           e.preventDefault();
-                          setSelectedCategory(cat.code);
+                          handleSelectCategory(cat.code);
                         }
                       }}
                       className={`filter-badge ${
@@ -6280,7 +6619,7 @@ export function App() {
                         role="button"
                         tabIndex={0}
                         data-filter-active={active ? 'true' : undefined}
-                        onClick={() => setSelectedCountry(cCode)}
+                        onClick={() => handleSelectCountry(cCode)}
                         onKeyDown={(e) => {
                           if (
                             e.key === 'Enter' ||
@@ -6290,7 +6629,7 @@ export function App() {
                             e.keyCode === 66
                           ) {
                             e.preventDefault();
-                            setSelectedCountry(cCode);
+                            handleSelectCountry(cCode);
                           }
                         }}
                         className={`filter-badge ${
@@ -6335,7 +6674,7 @@ export function App() {
                         role="button"
                         tabIndex={0}
                         data-filter-active={active ? 'true' : undefined}
-                        onClick={() => setSelectedGroup(grp)}
+                        onClick={() => handleSelectGroup(grp)}
                         onKeyDown={(e) => {
                           if (
                             e.key === 'Enter' ||
@@ -6345,7 +6684,7 @@ export function App() {
                             e.keyCode === 66
                           ) {
                             e.preventDefault();
-                            setSelectedGroup(grp);
+                            handleSelectGroup(grp);
                           }
                         }}
                         className={`filter-badge ${
@@ -6496,7 +6835,7 @@ export function App() {
           <RemindersChronologicalView
             reminders={reminders}
             channels={channels}
-            schedulesByChannel={activeSchedulesByChannel}
+            schedulesByChannel={remindersSchedulesByChannel}
             nowMs={nowMs}
             language={activeLang}
             onSelectReminder={handleSelectReminderTarget}
@@ -6508,7 +6847,7 @@ export function App() {
         ) : viewMode === 'grid' ? (
           <TimeGridView
             channels={filteredChannels}
-            programmesByChannel={activeSchedulesByChannel}
+            programmesByChannel={schedulesByChannel}
             nowMs={effectiveTimeMs}
             realNowMs={nowMs}
             timeOffsetMinutes={timeOffsetMinutes}
@@ -6526,7 +6865,7 @@ export function App() {
               setSelectedModalProgramme(prog || null);
             }}
             selectedCategory={selectedCategory}
-            onSelectCategory={setSelectedCategory}
+            onSelectCategory={handleSelectCategory}
             selectedSatellite={selectedSatellite}
             onSelectSatellite={handleSelectSatellite}
             selectedBouquet={selectedBouquet}
@@ -6534,9 +6873,9 @@ export function App() {
             selectedBouquetsList={selectedBouquetsList}
             ramWarningMessage={ramWarningMessage}
             selectedCountry={selectedCountry}
-            onSelectCountry={setSelectedCountry}
+            onSelectCountry={handleSelectCountry}
             selectedGroup={selectedGroup}
-            onSelectGroup={setSelectedGroup}
+            onSelectGroup={handleSelectGroup}
             categoryCounts={categoryCounts}
             satelliteCounts={satelliteCounts}
             bouquetCounts={bouquetCounts}
@@ -6643,7 +6982,19 @@ export function App() {
             }
             className="w-full h-auto max-h-none overflow-visible"
           >
-            <div className="space-y-2.5 w-full h-auto max-h-none overflow-visible">
+            <div
+              style={{
+                paddingTop:
+                  virtualWindow.topSpacerPx > 0
+                    ? `${virtualWindow.topSpacerPx}px`
+                    : undefined,
+                paddingBottom:
+                  virtualWindow.bottomSpacerPx > 0
+                    ? `${virtualWindow.bottomSpacerPx}px`
+                    : undefined,
+              }}
+              className="space-y-2.5 w-full h-auto max-h-none overflow-visible"
+            >
               {virtualWindow.items.map((ch, localIdx) => {
                 const virtualIndex = virtualWindow.startIndex + localIdx;
                 const pair = currentAndNextByChannel[ch.id] || {
@@ -6663,7 +7014,7 @@ export function App() {
                     channel={ch}
                     currentProgramme={pair.current}
                     nextProgramme={pair.next}
-                    nowMs={effectiveTimeMs}
+                    nowMs={effectiveMinuteMs}
                     isFavorite={favoriteSet.has(ch.id)}
                     onToggleFavorite={handleToggleFavorite}
                     onSelectChannel={handleSelectChannelFromRow}
@@ -6738,11 +7089,7 @@ export function App() {
       {selectedChannel && (
         <ChannelDetailPanel
           channel={selectedChannel}
-          programmes={
-            activeSchedulesByChannel[cleanXmltvChannelId(selectedChannel.id)] ||
-            activeSchedulesByChannel[selectedChannel.id] ||
-            []
-          }
+          programmes={selectedChannelProgrammes}
           nowMs={effectiveTimeMs}
           isFavorite={favoriteSet.has(selectedChannel.id)}
           onToggleFavorite={handleToggleFavorite}
