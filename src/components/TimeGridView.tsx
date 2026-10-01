@@ -54,6 +54,7 @@ import {
 } from '../utils/metadataResolverCore';
 import {
   CHANNEL_COUNTRY_FLAGS,
+  cleanBouquetName,
   getActiveLanguage,
   getTranslations,
   translateBouquetFilter,
@@ -78,6 +79,7 @@ import {
 import {
   CHANNEL_COUNTRY_FILTER_OPTIONS,
   ensureSchedulesCoverTargetTime,
+  getActiveBouquetBadgeForChannel,
   getBouquetsForSatellite,
   getSingleSatelliteBadgeForChannel,
   STRICT_SAT_FILTER_LIST,
@@ -736,7 +738,10 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
   return (
     <div className="w-full">
       {/* 1. Bloc Isolé : Zone des Filtres (CATÉGORIE, SATELLITE, BOUQUET, ZONE, GENRE) */}
-      <div className="p-3 sm:p-4 rounded-xl bg-[#141a26] border border-[#1a202c] space-y-3 select-none">
+      <div
+        data-tv-zone="filters"
+        className="p-3 sm:p-4 rounded-xl bg-[#141a26] border border-[#1a202c] space-y-3 select-none"
+      >
         {/* Ligne 1 : [CATÉGORIE] */}
         <div
           data-tv-row="grid-categories"
@@ -887,7 +892,11 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
                   : selectedBouquet === bq ||
                     selectedBouquetsList.includes(bq);
               const count = bouquetCounts[bq] ?? 0;
-              const label = translateBouquetFilter(bq, activeLang);
+              const label = translateBouquetFilter(
+                bq,
+                activeLang,
+                selectedSatellite
+              );
               return (
                 <div
                   key={bq}
@@ -1026,7 +1035,10 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
       </div>
 
       {/* 2.A Barre de Dates Guide EPG Étendu (7 Jours : J+1 à J+7 & Catch-up / Replay) */}
-      <div className="mt-4 p-3 sm:p-3.5 rounded-xl bg-[#141a26] border border-[#1a202c] space-y-2 select-none">
+      <div
+        data-tv-zone="filters"
+        className="mt-4 p-3 sm:p-3.5 rounded-xl bg-[#141a26] border border-[#1a202c] space-y-2 select-none"
+      >
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2 text-xs font-bold text-[#ffffff]">
             <Calendar className="w-4 h-4 text-[#0055ff] shrink-0" />
@@ -1125,6 +1137,7 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
 
       {/* 2.B Bloc Isolé : Ligne de Navigation Temporelle sous la zone des filtres (margin-top: 16px; display: flex; align-items: center; gap: 12px;) */}
       <div
+        data-tv-zone="filters"
         style={{
           marginTop: '12px',
           marginBottom: '16px',
@@ -1369,13 +1382,32 @@ export const TimeGridView: React.FC<TimeGridViewProps> = ({
                             {cleanOfficialChannelName(ch.displayName)}
                           </p>
                         </div>
-                        <div className="flex items-center gap-1 mt-0.5">
-                          <span className="text-[9px] font-semibold px-1 py-0.2 rounded bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50 truncate">
+                        <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                          <span className="text-[9px] font-semibold px-1 py-0.2 rounded bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50 truncate uppercase tracking-wider">
                             {getSingleSatelliteBadgeForChannel(
                               ch,
                               selectedSatellite
                             )}
                           </span>
+                          {getActiveBouquetBadgeForChannel(
+                            ch,
+                            selectedSatellite,
+                            selectedBouquet
+                          ) && (
+                            <span className="text-[9px] font-bold px-1 py-0.2 rounded bg-[#ec4899]/20 text-[#ffffff] border border-[#ec4899]/60 truncate max-w-[100px]">
+                              {cleanBouquetName(
+                                getActiveBouquetBadgeForChannel(
+                                  ch,
+                                  selectedSatellite,
+                                  selectedBouquet
+                                ) || '',
+                                getSingleSatelliteBadgeForChannel(
+                                  ch,
+                                  selectedSatellite
+                                )
+                              )}
+                            </span>
+                          )}
                           <span className="inline-flex items-center gap-0.5 text-[9px] text-[#60a5fa] font-semibold">
                             <Subtitles className="w-2.5 h-2.5" />
                             SUB

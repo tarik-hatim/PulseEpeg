@@ -51,6 +51,7 @@ import {
   resolveOfficialChannelLogoUrl,
 } from '../utils/channelLogoResolver';
 import {
+  cleanBouquetName,
   getActiveLanguage,
   getLanguageOption,
   getTranslations,
@@ -399,6 +400,7 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                   .trim()}
               </h2>
               <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                {/* Badge 1 : Nom du Satellite uniquement (ex: "ASTRA 19.2°E") */}
                 <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50 uppercase tracking-wider">
                   {getSingleSatelliteBadgeForChannel(
                     channel,
@@ -406,16 +408,24 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                     selectedBouquets
                   )}
                 </span>
+                {/* Badge 2 : Nom du Bouquet nettoyé uniquement (ex: "Canal+ France") */}
                 {getActiveBouquetBadgeForChannel(
                   channel,
                   activeSatellite,
                   activeBouquet
                 ) && (
-                  <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50">
-                    {getActiveBouquetBadgeForChannel(
-                      channel,
-                      activeSatellite,
-                      activeBouquet
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#ec4899]/20 text-[#ffffff] border border-[#ec4899]/60">
+                    {cleanBouquetName(
+                      getActiveBouquetBadgeForChannel(
+                        channel,
+                        activeSatellite,
+                        activeBouquet
+                      ) || '',
+                      getSingleSatelliteBadgeForChannel(
+                        channel,
+                        activeSatellite,
+                        selectedBouquets
+                      )
                     )}
                   </span>
                 )}
@@ -455,7 +465,7 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
         <div className="p-4 sm:p-5 space-y-4">
           {displayProg && displayMetadata && (
             <div className="rounded-lg bg-[#0a0e17] border border-[#1a202c] p-3.5 sm:p-4">
-              {/* En-tête épuré : Horaires/Progression + Badge Fiche FR + Bouton Rappel & Fermer (X) */}
+              {/* En-tête épuré : Horaires/Progression + Badge 1 Satellite + Badge 2 Bouquet nettoyé + Bouton Rappel & Fermer (X) */}
               <div className="flex items-center justify-between gap-2 flex-wrap mb-3">
                 <div className="flex items-center gap-2 flex-wrap">
                   {isLiveActiveProg ? (
@@ -475,6 +485,37 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                         displayProg.stopMs
                       )}
                       )
+                    </span>
+                  )}
+
+                  {/* Badge 1 : Nom du Satellite uniquement (ex: "ASTRA 19.2°E") */}
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50 uppercase tracking-wider">
+                    {getSingleSatelliteBadgeForChannel(
+                      channel,
+                      activeSatellite,
+                      selectedBouquets
+                    )}
+                  </span>
+
+                  {/* Badge 2 : Nom du Bouquet nettoyé uniquement (ex: "Canal+ France") */}
+                  {getActiveBouquetBadgeForChannel(
+                    channel,
+                    activeSatellite,
+                    activeBouquet
+                  ) && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-[#ec4899]/20 text-[#ffffff] border border-[#ec4899]/60">
+                      {cleanBouquetName(
+                        getActiveBouquetBadgeForChannel(
+                          channel,
+                          activeSatellite,
+                          activeBouquet
+                        ) || '',
+                        getSingleSatelliteBadgeForChannel(
+                          channel,
+                          activeSatellite,
+                          selectedBouquets
+                        )
+                      )}
                     </span>
                   )}
 

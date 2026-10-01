@@ -1409,15 +1409,118 @@ export function translateSatelliteFilter(
 
 export const translateSatelliteLabel = translateSatelliteFilter;
 
+/**
+ * Sanitizer universel pour nettoyer dynamiquement les noms de bouquets et supprimer toute redondance
+ * avec le nom du satellite ou sa position orbitale.
+ * Exemples :
+ * - "Astra Canal+ France" -> "Canal+ France"
+ * - "Hotbird Bis TV/Rai" -> "Bis TV/Rai"
+ * - "Astra TNT France" -> "TNT France"
+ * - "Astra 19.2°E · Canal+ France" -> "Canal+ France"
+ */
+export function cleanBouquetName(
+  bouquetName: string,
+  satelliteName?: string
+): string {
+  if (!bouquetName) return '';
+  let cleaned = bouquetName.trim();
+
+  if (
+    cleaned === 'Tous' ||
+    cleaned === 'Toutes' ||
+    cleaned === 'All' ||
+    cleaned === 'Todos' ||
+    cleaned === 'Tutti' ||
+    cleaned === 'Alle' ||
+    cleaned === 'Wszystkie' ||
+    cleaned === 'الكل'
+  ) {
+    return cleaned;
+  }
+
+  // 1. Si le nom contient un séparateur explicite (· ou —) après un nom de satellite / position orbitale
+  if (cleaned.includes('·')) {
+    const parts = cleaned.split('·').map((p) => p.trim());
+    if (
+      parts.length >= 2 &&
+      /(astra|hotbird|nilesat|badr|es'hailsat|hispasat|eutelsat|türksat|turksat|thor|intelsat|turkmen|monacosat|star\s*one|amazonas|ses-6|\d+(?:\.\d+)?°[ew])/i.test(
+        parts[0]
+      )
+    ) {
+      cleaned = parts.slice(1).join(' · ').trim();
+    }
+  }
+  if (cleaned.includes('—')) {
+    const parts = cleaned.split('—').map((p) => p.trim());
+    if (
+      parts.length >= 2 &&
+      /(astra|hotbird|nilesat|badr|es'hailsat|hispasat|eutelsat|türksat|turksat|thor|intelsat|turkmen|monacosat|star\s*one|amazonas|ses-6|نايل\s*سات|بدر|أسترا|هوت\s*بيرد|هيسباسات|يوتلسات|توركسات|ثور|تركمان|موناكو|\d+(?:\.\d+)?°[ew])/i.test(
+        parts[0]
+      )
+    ) {
+      cleaned = parts.slice(1).join(' — ').trim();
+    }
+  }
+
+  // 2. Si le format est "Satellite X°E (Nom du Bouquet)" -> extraire "Nom du Bouquet"
+  const parenLeadingSatMatch = cleaned.match(
+    /^(?:Astra|Hotbird|Nilesat|Badr(?:\s*\/\s*Es'hailSat)?|Hispasat|Eutelsat|Türksat|Turksat|Thor|Intelsat|TurkmenÄlem|MonacoSat|Star\s*One(?:\s*D2)?|Amazonas|SES-6|نايل\s*سات|بدر|أسترا|هوت\s*بيرد|هيسباسات|ستار\s*ون|أمازوناس|إنتلسات)[^()]*\(([^()]+)\)$/i
+  );
+  if (parenLeadingSatMatch && parenLeadingSatMatch[1]) {
+    cleaned = parenLeadingSatMatch[1].trim();
+  }
+
+  // 3. Suppression dynamique basée sur le satellite actif / associé s'il est fourni
+  if (satelliteName && satelliteName !== 'Tous') {
+    const satTokens = satelliteName
+      .replace(/[()]/g, ' ')
+      .split(/[\s/&,·-]+/)
+      .map((t) => t.trim())
+      .filter((t) => t.length >= 3);
+
+    for (const token of satTokens) {
+      const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const prefixRegex = new RegExp(`^${escaped}\\s+`, 'i');
+      cleaned = cleaned.replace(prefixRegex, '').trim();
+    }
+  }
+
+  // 4. Suppression des préfixes satellites connus en début de chaîne (FR / EN / ES / AR...)
+  cleaned = cleaned
+    .replace(
+      /^(?:Astra(?:\s+19\.2°E)?|Hotbird(?:\s+13°E)?|Nilesat(?:\s+7°W)?|Badr(?:\s*\/\s*Es'hailSat)?(?:\s+26°E)?|Hispasat(?:\s+30°W)?|Eutelsat(?:\s+5°W|\s+16°E|\s+7°E)?|Türksat(?:\s+42°E)?|Turksat(?:\s+42°E)?|Thor(?:\s+0\.8°W)?|Intelsat(?:\s+10-02|\s+43\.1°W)?|TurkmenÄlem(?:\s+52°E)?|MonacoSat(?:\s+52°E)?|Star\s+One(?:\s+D2)?(?:\s+70°W)?|Amazonas(?:\s+61°W)?|SES-6(?:\s+40\.5°W)?)\s+/i,
+      ''
+    )
+    .replace(
+      /^(?:نايل\s*سات|نيلسات|بدر|أسترا|هوت\s*بيرد|هيسباسات|يوتلسات|توركسات|ثور)\s+/i,
+      ''
+    )
+    .trim();
+
+  // 5. Suppression des mentions satellites redondantes entre parenthèses en fin de libellé
+  cleaned = cleaned
+    .replace(
+      /\s*\((?:Hotbird(?:\s*13°E)?|Astra(?:\s*19\.2°E)?|Nilesat(?:\s*7°W)?|Badr(?:\s*26°E)?|Hispasat(?:\s*30°W)?|30°W|19\.2°E|13°E|7°W|26°E|16°E|42°E|52°E|0\.8°W|أسترا\s*19\.2°E|هوت\s*بيرد\s*13°E)\)\s*$/i,
+      ''
+    )
+    .replace(/\s+30°W$/i, '')
+    .trim();
+
+  return cleaned || bouquetName.trim();
+}
+
+export const sanitizeBouquetDisplayName = cleanBouquetName;
+
 export function translateBouquetFilter(
   bq: BouquetFilter,
-  lang?: AppLanguage
+  lang?: AppLanguage,
+  satelliteContext?: string
 ): string {
   const l = lang || currentActiveLanguage;
   if (bq === 'Tous') {
     return CATEGORY_FILTER_LABELS.Tous[l] || 'Tous';
   }
-  return bq;
+  return cleanBouquetName(bq, satelliteContext);
 }
 
 export const translateBouquetLabel = translateBouquetFilter;
@@ -2411,7 +2514,7 @@ export function getBouquetLocalizedText(
 
   const entry = map[id]?.[lang];
   return {
-    label: entry?.label || defaultLabel,
+    label: sanitizeBouquetDisplayName(entry?.label || defaultLabel),
     description: entry?.description || defaultDesc,
   };
 }

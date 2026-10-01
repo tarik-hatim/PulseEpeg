@@ -56,6 +56,7 @@ import {
 } from '../services/storageService';
 import { LauncherIconsPreviewCard } from './PulseEpgLogo';
 import {
+  cleanBouquetName,
   getActiveLanguage,
   getBouquetLocalizedText,
   getCategoryLocalizedText,
@@ -396,20 +397,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     >
       <div
         data-tv-modal="true"
-        className="w-full max-w-4xl bg-[#141a26] border border-[#1a202c] rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]"
+        className="w-full max-w-4xl bg-[#141a26] border border-[#1a202c] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header Modal */}
-        <div className="p-4 sm:p-5 bg-[#0a0e17] border-b border-[#1a202c] flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-[#e11d48] border border-[#ff0033] flex items-center justify-center text-[#ffffff] shadow-[0_0_12px_rgba(225,29,72,0.45)]">
+        {/* Header Modal — Décompressé avec shrink-0 pour éviter tout chevauchement du sous-titre avec la ligne de séparation */}
+        <div
+          data-tv-modal-zone="header"
+          data-tv-row="settings-header"
+          className="shrink-0 px-5 sm:px-6 pt-5 pb-6 bg-[#0a0e17] border-b border-[#ec4899]/40 flex items-center justify-between gap-4"
+        >
+          <div className="flex items-start sm:items-center gap-3.5 min-w-0">
+            <div className="w-11 h-11 rounded-xl bg-[#e11d48] border border-[#ff0033] flex items-center justify-center text-[#ffffff] shadow-[0_0_12px_rgba(225,29,72,0.45)] shrink-0">
               <Filter className="w-5 h-5" />
             </div>
-            <div>
-              <h2 className="text-base sm:text-lg font-bold text-[#ffffff]">
+            <div className="min-w-0 space-y-1.5">
+              <h2 className="text-base sm:text-lg font-bold text-[#ffffff] leading-snug">
                 {tr.settingsModalTitle}
               </h2>
-              <p className="text-xs text-[#cbd5e1]">
+              <p className="text-xs text-[#cbd5e1] leading-relaxed pb-1">
                 {tr.settingsModalSubtitle}
               </p>
             </div>
@@ -417,7 +422,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-lg bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#e11d48]/60 transition-colors cursor-pointer"
+            className="tv-dpad-btn p-2.5 rounded-xl bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#e11d48]/60 transition-colors cursor-pointer shrink-0"
             title={tr.close}
           >
             <X className="w-5 h-5" />
@@ -426,13 +431,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         {/* Navigation par Onglets — Rouge Crimson Sky Sport pour les boutons actifs */}
         <div
+          data-tv-modal-zone="tabs"
           data-tv-row="settings-tabs"
-          className="px-4 sm:px-5 py-2.5 bg-[#0a0e17] border-b border-[#1a202c] flex items-center gap-2 overflow-x-auto no-scrollbar"
+          className="shrink-0 px-5 sm:px-6 py-3.5 bg-[#0a0e17] border-b border-[#1a202c] flex items-center gap-3 overflow-x-auto no-scrollbar"
         >
           <button
             type="button"
             onClick={() => setActiveTab('filters')}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm transition-all cursor-pointer shrink-0 ${
+            className={`tv-dpad-btn inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm transition-all cursor-pointer shrink-0 ${
               activeTab === 'filters'
                 ? 'bg-[#e11d48] border-[1.5px] border-[#ff0033] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(225,29,72,0.45)]'
                 : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60 font-medium'
@@ -445,7 +451,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('sources')}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm transition-all cursor-pointer shrink-0 ${
+            className={`tv-dpad-btn inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm transition-all cursor-pointer shrink-0 ${
               activeTab === 'sources'
                 ? 'bg-[#e11d48] border-[1.5px] border-[#ff0033] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(225,29,72,0.45)]'
                 : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60 font-medium'
@@ -458,7 +464,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('legal')}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm transition-all cursor-pointer shrink-0 ${
+            className={`tv-dpad-btn inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm transition-all cursor-pointer shrink-0 ${
               activeTab === 'legal'
                 ? 'bg-[#e11d48] border-[1.5px] border-[#ff0033] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(225,29,72,0.45)]'
                 : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60 font-medium'
@@ -469,26 +475,32 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </button>
         </div>
 
-        {/* Body */}
-        <div className="p-4 sm:p-5 overflow-y-auto space-y-6 flex-1">
+        {/* Body — Conteneur défilant avec padding-bottom généreux (pb-28 / >100px) pour éviter toute superposition avec le footer */}
+        <div
+          data-tv-modal-scroll="true"
+          className="p-5 sm:p-6 pb-28 sm:pb-32 overflow-y-auto space-y-7 flex-1 scroll-pb-28"
+        >
           {/* Sélecteur de Langue International (i18n + RTL) toujours accessible */}
-          <div className="p-4 rounded-lg bg-[#0a0e17] border border-[#1a202c] space-y-3">
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <div>
+          <div className="p-5 rounded-xl bg-[#0a0e17] border border-[#1a202c] space-y-4">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="space-y-1">
                 <h3 className="text-sm font-bold text-[#ffffff] flex items-center gap-2">
                   <Languages className="w-4 h-4 text-[#0055ff]" />
                   {tr.languageSectionTitle}
                 </h3>
-                <p className="text-xs text-[#cbd5e1] mt-0.5">
+                <p className="text-xs text-[#cbd5e1] leading-relaxed">
                   {tr.languageSectionDesc}
                 </p>
               </div>
-              <span className="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50 font-semibold">
+              <span className="text-[11px] font-mono px-3 py-1 rounded-lg bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50 font-semibold">
                 {langOpt.flag} {langOpt.label} · TMDB {langOpt.tmdbLocale}
               </span>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
+            <div
+              data-tv-modal-group="languages"
+              className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3.5"
+            >
               {LANGUAGE_OPTIONS.map((opt) => {
                 const isSelected = activeLang === opt.code;
                 return (
@@ -496,13 +508,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     key={opt.code}
                     type="button"
                     onClick={() => handleSelectLanguage(opt.code)}
-                    className={`flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg text-xs transition-all cursor-pointer ${
+                    className={`tv-dpad-btn flex items-center justify-between gap-2 px-3.5 py-3 rounded-xl text-xs transition-all cursor-pointer ${
                       isSelected
                         ? 'bg-[#1d4ed8] border-[1.5px] border-[#0055ff] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(0,85,255,0.45)]'
                         : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60 font-medium'
                     }`}
                   >
-                    <span className="flex items-center gap-1.5 truncate">
+                    <span className="flex items-center gap-2 truncate">
                       <span className="text-base leading-none">{opt.flag}</span>
                       <span className="truncate">{opt.label}</span>
                     </span>
@@ -516,36 +528,39 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {activeTab === 'filters' && (
             <>
               {/* Sélecteur manuel de Zone / Profil TV (avec détection intelligente au 1er lancement) */}
-              <div className="p-4 rounded-lg bg-[#0a0e17] border border-[#1a202c] space-y-3">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <div>
+              <div className="p-5 rounded-xl bg-[#0a0e17] border border-[#1a202c] space-y-4">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="space-y-1">
                     <h3 className="text-sm font-bold text-[#ffffff] flex items-center gap-2">
                       <Globe className="w-4 h-4 text-[#0055ff]" />
                       Zone / Profil TV
                     </h3>
-                    <p className="text-xs text-[#cbd5e1] mt-0.5">
+                    <p className="text-xs text-[#cbd5e1] leading-relaxed">
                       Filtre la base EPG dès l&apos;initialisation pour ne charger en mémoire que les chaînes du profil sélectionné (détection auto selon <code className="text-[#ffffff] font-mono">navigator.language</code> : <span className="text-[#ffffff] font-semibold">{systemLocaleLabel}</span>).
                     </p>
                   </div>
-                  <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-2.5 flex-wrap">
                     <button
                       type="button"
                       onClick={handleAutoDetectTvProfile}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#141a26] hover:bg-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#0055ff]/60 text-xs font-medium transition-colors cursor-pointer"
+                      className="tv-dpad-btn inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#141a26] hover:bg-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#0055ff]/60 text-xs font-medium transition-colors cursor-pointer"
                       title="Réappliquer la détection automatique selon la langue du système"
                     >
                       <RotateCcw className="w-3.5 h-3.5 text-[#0055ff]" />
                       <span>Auto ({systemLocaleLabel})</span>
                     </button>
                     {activeProfileId === 'custom' && (
-                      <span className="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50 font-semibold">
+                      <span className="text-[11px] font-mono px-3 py-1.5 rounded-xl bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50 font-semibold">
                         ⚙️ Profil personnalisé ({draft.selectedBouquets.length} bouquets)
                       </span>
                     )}
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                <div
+                  data-tv-modal-group="profiles"
+                  className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5"
+                >
                   {TV_PROFILES_CATALOG.filter(
                     (profile) => profile.id !== 'all_satellites'
                   ).map((profile) => {
@@ -555,13 +570,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         key={profile.id}
                         type="button"
                         onClick={() => handleSelectTvProfile(profile.id)}
-                        className={`flex flex-col items-start justify-between gap-1.5 p-3 rounded-lg text-start transition-all cursor-pointer ${
+                        className={`tv-dpad-btn flex flex-col items-start justify-between gap-3 p-4 sm:p-5 rounded-xl text-start transition-all cursor-pointer min-h-[112px] ${
                           isSelected
                             ? 'bg-[#1d4ed8]/25 border-[1.5px] border-[#0055ff] text-[#ffffff] shadow-[0_0_12px_rgba(0,85,255,0.35)]'
                             : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60'
                         }`}
                       >
-                        <div className="w-full flex items-center justify-between gap-2">
+                        <div className="w-full flex items-center justify-between gap-2.5">
                           <span className="flex items-center gap-2 font-bold text-xs sm:text-sm text-[#ffffff] truncate">
                             <span className="text-base leading-none shrink-0">
                               {profile.flag}
@@ -569,12 +584,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             <span className="truncate">{profile.label}</span>
                           </span>
                           {isSelected && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider shrink-0 bg-[#1d4ed8] text-[#ffffff]">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider shrink-0 bg-[#1d4ed8] text-[#ffffff]">
                               Actif
                             </span>
                           )}
                         </div>
-                        <p className="text-[11px] text-[#cbd5e1] line-clamp-2 leading-snug">
+                        <p className="text-xs text-[#cbd5e1] line-clamp-2 leading-relaxed">
                           {profile.satellitesSummary}
                         </p>
                       </button>
@@ -695,7 +710,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
                   {SATELLITE_GROUPS_CATALOG.map((satGroup) => {
                     const groupBouquets = satGroup.bouquets;
                     const groupIds = groupBouquets.map((bq) => bq.id);
@@ -716,20 +731,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     return (
                       <div
                         key={satGroup.satelliteId}
-                        className={`rounded-lg border p-3.5 transition-all flex flex-col gap-2.5 ${
+                        data-tv-modal-group={`sat-${satGroup.satelliteId}`}
+                        className={`rounded-xl border p-4 sm:p-5 transition-all flex flex-col gap-4 ${
                           someChecked
                             ? 'bg-[#0a0e17] border-[#0055ff]/60'
                             : 'bg-[#0a0e17]/60 border-[#1a202c]'
                         }`}
                       >
                         {/* En-tête de la carte Satellite par Position Orbitale */}
-                        <div className="flex items-start justify-between gap-2 pb-2 border-b border-[#1a202c]">
+                        <div className="flex items-start justify-between gap-3 pb-4 border-b border-[#1a202c]">
                           <button
                             type="button"
                             onClick={() => {
                               toggleSatelliteGroup(groupIds);
                             }}
-                            className={`flex items-start gap-2.5 min-w-0 flex-1 rounded-md p-0.5 text-start cursor-pointer ${
+                            className={`tv-dpad-btn flex items-start gap-3 min-w-0 flex-1 rounded-xl p-3 text-start cursor-pointer ${
                               groupWouldExceedMax ? 'opacity-65' : ''
                             }`}
                           >
@@ -739,11 +755,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 readOnly
                                 tabIndex={-1}
                                 checked={allChecked}
-                                className="w-4 h-4 accent-[#0055ff] rounded pointer-events-none cursor-pointer"
+                                className="w-4 h-4 accent-[#0055ff] rounded pointer-events-none"
                               />
                             </div>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-1.5 flex-wrap">
+                            <div className="min-w-0 space-y-1.5">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <span className="text-sm font-bold text-[#ffffff]">
                                   {satGroup.flag} {satGroup.title}
                                 </span>
@@ -751,19 +767,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                   {satGroup.orbitalPosition}
                                 </span>
                               </div>
-                              <p className="text-[11px] text-[#cbd5e1] mt-0.5 leading-snug">
+                              <p className="text-xs text-[#cbd5e1] leading-relaxed pb-0.5">
                                 {satGroup.subtitle}
                               </p>
                             </div>
                           </button>
 
-                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50 shrink-0">
+                          <span className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-lg bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50 shrink-0 mt-1">
                             {activeCount}/{groupIds.length}
                           </span>
                         </div>
 
                         {/* Sous-cases de sélection des bouquets pour ce satellite */}
-                        <div className="space-y-2">
+                        <div className="space-y-3">
                           {groupBouquets.map((bq) => {
                             const checked = draft.selectedBouquets.includes(
                               bq.id
@@ -776,23 +792,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               bq.label,
                               bq.description
                             );
+                            const cleanedLabel = cleanBouquetName(
+                              loc.label,
+                              satGroup.title
+                            );
                             return (
-                              <label
+                              <div
                                 key={bq.id}
+                                role="checkbox"
+                                aria-checked={checked}
                                 tabIndex={0}
-                                onClick={(e) => {
-                                  if (isLockedByFreemium) {
-                                    e.preventDefault();
-                                    toggleBouquet(bq.id);
-                                  }
-                                }}
+                                onClick={() => toggleBouquet(bq.id)}
                                 onKeyDown={(e) => {
-                                  if (e.key === 'Enter' || e.key === ' ') {
+                                  if (
+                                    e.key === 'Enter' ||
+                                    e.key === ' ' ||
+                                    e.key === 'Select' ||
+                                    e.keyCode === 23 ||
+                                    e.keyCode === 66
+                                  ) {
                                     e.preventDefault();
                                     toggleBouquet(bq.id);
                                   }
                                 }}
-                                className={`p-2.5 rounded-lg transition-all flex items-start gap-2.5 cursor-pointer ${
+                                className={`tv-dpad-btn p-3.5 sm:p-4 rounded-xl transition-all flex items-start gap-3 cursor-pointer ${
                                   isLockedByFreemium
                                     ? 'bg-[#141a26]/50 border border-[#1a202c] hover:border-[#ec4899]/80 text-[#cbd5e1] opacity-75'
                                     : checked
@@ -800,28 +823,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                     : 'bg-[#141a26]/60 border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff]'
                                 }`}
                               >
-                                <div className="mt-0.5 shrink-0 flex items-center">
+                                <div className="mt-0.5 shrink-0 flex items-center pointer-events-none">
                                   <input
                                     type="checkbox"
+                                    readOnly
+                                    tabIndex={-1}
                                     checked={checked}
-                                    onChange={() => {
-                                      toggleBouquet(bq.id);
-                                    }}
-                                    className="w-4 h-4 accent-[#0055ff] rounded cursor-pointer"
+                                    className="w-4 h-4 accent-[#0055ff] rounded pointer-events-none"
                                   />
                                 </div>
-                                <div className="min-w-0 flex-1">
+                                <div className="min-w-0 flex-1 space-y-1.5">
                                   <div className="flex items-center justify-between gap-2">
-                                    <span className="text-xs font-bold text-[#ffffff] truncate">
-                                      {bq.flag} {loc.label}
+                                    <span className="text-xs sm:text-sm font-bold text-[#ffffff] leading-snug">
+                                      {bq.flag} {cleanedLabel}
                                     </span>
                                   </div>
-                                  <p className="text-[11px] text-[#cbd5e1] mt-0.5 leading-relaxed">
+                                  <p className="text-xs text-[#cbd5e1] leading-relaxed">
                                     {loc.description}
                                   </p>
                                   {bq.sampleChannels &&
                                     bq.sampleChannels.length > 0 && (
-                                      <div className="flex flex-wrap gap-1.5 mt-2">
+                                      <div className="flex flex-wrap gap-1.5 pt-1">
                                         {bq.sampleChannels.map((sample) => (
                                           <span
                                             key={sample}
@@ -837,7 +859,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                       </div>
                                     )}
                                 </div>
-                              </label>
+                              </div>
                             );
                           })}
                         </div>
@@ -848,18 +870,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
 
               {/* Section 2 : Catégories Thématiques */}
-              <div className="space-y-3 pt-2 border-t border-[#1a202c]">
-                <div>
+              <div className="space-y-4 pt-4 border-t border-[#1a202c]">
+                <div className="space-y-1">
                   <h3 className="text-sm font-bold text-[#ffffff] flex items-center gap-2">
                     <Film className="w-4 h-4 text-[#e11d48]" />
                     {tr.thematicCategoriesTitle}
                   </h3>
-                  <p className="text-xs text-[#cbd5e1] mt-0.5">
+                  <p className="text-xs text-[#cbd5e1] leading-relaxed">
                     {tr.thematicCategoriesDesc}
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                <div
+                  data-tv-modal-group="categories"
+                  className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5"
+                >
                   {EPG_THEMATIC_CATEGORIES.map((cat) => {
                     const checked = draft.enabledCategories.includes(cat.id);
                     const locCat = getCategoryLocalizedText(
@@ -875,12 +900,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         role="button"
                         onClick={() => toggleCategory(cat.id)}
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
+                          if (
+                            e.key === 'Enter' ||
+                            e.key === ' ' ||
+                            e.key === 'Select' ||
+                            e.keyCode === 23 ||
+                            e.keyCode === 66
+                          ) {
                             e.preventDefault();
                             toggleCategory(cat.id);
                           }
                         }}
-                        className={`p-3 rounded-lg transition-all cursor-pointer flex items-start gap-2.5 ${
+                        className={`tv-dpad-btn p-4 sm:p-5 rounded-xl transition-all cursor-pointer flex items-start gap-3.5 min-h-[96px] ${
                           checked
                             ? 'bg-[#0a0e17] border-[1.5px] border-[#e11d48]'
                             : 'bg-[#0a0e17]/60 border border-[#1a202c] opacity-75 hover:opacity-100'
@@ -893,14 +924,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             <Square className="w-4 h-4 text-[#cbd5e1]/60" />
                           )}
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5">
+                        <div className="min-w-0 flex-1 space-y-1.5">
+                          <div className="flex items-center gap-2">
                             {getCategoryIcon(cat.id)}
-                            <span className="text-xs font-bold text-[#ffffff] truncate">
+                            <span className="text-xs sm:text-sm font-bold text-[#ffffff] leading-snug">
                               {locCat.label}
                             </span>
                           </div>
-                          <p className="text-[11px] text-[#cbd5e1] mt-1 leading-snug">
+                          <p className="text-xs text-[#cbd5e1] leading-relaxed">
                             {locCat.description}
                           </p>
                         </div>
@@ -911,13 +942,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
 
               {/* Section 3 : Filtres Audio VO & Anti-Lektor Polonais */}
-              <div className="space-y-3 pt-2 border-t border-[#1a202c]">
+              <div className="space-y-4 pt-4 border-t border-[#1a202c]">
                 <h3 className="text-sm font-bold text-[#ffffff] flex items-center gap-2">
                   <Volume2 className="w-4 h-4 text-[#0055ff]" />
                   {tr.audioSubtitlesTitle}
                 </h3>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div
+                  data-tv-modal-group="audio"
+                  className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5"
+                >
                   <div
                     tabIndex={0}
                     role="button"
@@ -928,7 +962,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       }))
                     }
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
+                      if (
+                        e.key === 'Enter' ||
+                        e.key === ' ' ||
+                        e.key === 'Select' ||
+                        e.keyCode === 23 ||
+                        e.keyCode === 66
+                      ) {
                         e.preventDefault();
                         setDraft((prev) => ({
                           ...prev,
@@ -936,7 +976,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         }));
                       }
                     }}
-                    className={`p-3.5 rounded-lg transition-all cursor-pointer flex items-start gap-3 ${
+                    className={`tv-dpad-btn p-4 sm:p-5 rounded-xl transition-all cursor-pointer flex items-start gap-3.5 ${
                       draft.excludePolishLektor
                         ? 'bg-[#0a0e17] border-[1.5px] border-[#0055ff]'
                         : 'bg-[#0a0e17]/60 border border-[#1a202c]'
@@ -949,14 +989,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         <Square className="w-4 h-4 text-[#cbd5e1]/60" />
                       )}
                     </div>
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <ShieldAlert className="w-3.5 h-3.5 text-[#0055ff]" />
-                        <span className="text-xs font-bold text-[#ffffff]">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <ShieldAlert className="w-4 h-4 text-[#0055ff]" />
+                        <span className="text-xs sm:text-sm font-bold text-[#ffffff]">
                           {tr.excludePolishLektorTitle}
                         </span>
                       </div>
-                      <p className="text-[11px] text-[#cbd5e1] mt-1 leading-relaxed">
+                      <p className="text-xs text-[#cbd5e1] leading-relaxed">
                         {tr.excludePolishLektorDesc}
                       </p>
                     </div>
@@ -972,7 +1012,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       }))
                     }
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
+                      if (
+                        e.key === 'Enter' ||
+                        e.key === ' ' ||
+                        e.key === 'Select' ||
+                        e.keyCode === 23 ||
+                        e.keyCode === 66
+                      ) {
                         e.preventDefault();
                         setDraft((prev) => ({
                           ...prev,
@@ -980,7 +1026,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         }));
                       }
                     }}
-                    className={`p-3.5 rounded-lg transition-all cursor-pointer flex items-start gap-3 ${
+                    className={`tv-dpad-btn p-4 sm:p-5 rounded-xl transition-all cursor-pointer flex items-start gap-3.5 ${
                       draft.excludeNoSubtitles
                         ? 'bg-[#0a0e17] border-[1.5px] border-[#0055ff]'
                         : 'bg-[#0a0e17]/60 border border-[#1a202c]'
@@ -993,14 +1039,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         <Square className="w-4 h-4 text-[#cbd5e1]/60" />
                       )}
                     </div>
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <Subtitles className="w-3.5 h-3.5 text-[#0055ff]" />
-                        <span className="text-xs font-bold text-[#ffffff]">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <Subtitles className="w-4 h-4 text-[#0055ff]" />
+                        <span className="text-xs sm:text-sm font-bold text-[#ffffff]">
                           {tr.requireSubtitlesTitle}
                         </span>
                       </div>
-                      <p className="text-[11px] text-[#cbd5e1] mt-1 leading-relaxed">
+                      <p className="text-xs text-[#cbd5e1] leading-relaxed">
                         {tr.requireSubtitlesDesc}
                       </p>
                     </div>
@@ -1285,11 +1331,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
 
         {/* Footer Actions — Rouge/Crimson Sky Sport pour l'action principale */}
-        <div className="p-4 sm:p-5 bg-[#0a0e17] border-t border-[#1a202c] flex flex-wrap items-center justify-between gap-3">
+        <div
+          data-tv-modal-zone="footer"
+          data-tv-row="settings-footer"
+          className="shrink-0 p-4 sm:p-5 bg-[#0a0e17] border-t border-[#1a202c] flex flex-wrap items-center justify-between gap-3 z-20"
+        >
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-lg bg-[#141a26] hover:bg-[#1a202c] text-xs font-semibold text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] transition-colors cursor-pointer"
+            className="tv-dpad-btn px-4 py-2.5 rounded-xl bg-[#141a26] hover:bg-[#1a202c] text-xs font-semibold text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] transition-colors cursor-pointer"
           >
             {tr.cancelBtn}
           </button>
@@ -1301,7 +1351,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 onSaveSettings(draft, false);
                 onClose();
               }}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#1d4ed8] hover:bg-[#0055ff] text-xs font-semibold text-[#ffffff] border border-[#0055ff] transition-colors cursor-pointer"
+              className="tv-dpad-btn inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#1d4ed8] hover:bg-[#0055ff] text-xs font-semibold text-[#ffffff] border border-[#0055ff] transition-colors cursor-pointer"
             >
               <Check className="w-4 h-4 text-[#ffffff]" />
               {tr.saveBtn}
@@ -1313,7 +1363,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 onSaveSettings(draft, true);
                 onClose();
               }}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#e11d48] hover:bg-[#ff0033] border-[1.5px] border-[#ff0033] text-xs font-bold text-[#ffffff] shadow-[0_0_12px_rgba(225,29,72,0.45)] transition-all cursor-pointer"
+              className="tv-dpad-btn inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#e11d48] hover:bg-[#ff0033] border-[1.5px] border-[#ff0033] text-xs font-bold text-[#ffffff] shadow-[0_0_12px_rgba(225,29,72,0.45)] transition-all cursor-pointer"
             >
               <RefreshCw className="w-4 h-4" />
               {tr.saveAndApplyBtn}

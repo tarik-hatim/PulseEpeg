@@ -184,7 +184,7 @@ export class SupabaseService {
       auth: {
         persistSession: configured,
         autoRefreshToken: configured,
-        detectSessionInUrl: false,
+        detectSessionInUrl: configured,
       },
     });
 
@@ -818,6 +818,80 @@ export class SupabaseService {
       return this.signUp(params);
     }
     return this.signInWithPassword(params);
+  }
+
+  /**
+   * 3. Authentification Google via Supabase OAuth : `supabase.auth.signInWithOAuth({ provider: 'google' })`
+   * Si la configuration Supabase n'est pas encore saisie, gère le clic proprement avec une simulation
+   * d'authentification locale et une notification informative pour les tests UI.
+   */
+  public async signInWithGoogle(params?: {
+    activatePro?: boolean;
+    displayName?: string;
+    email?: string;
+  }): Promise<{
+    user: PulseUserAccount | null;
+    isSimulated: boolean;
+    infoMessage?: string;
+  }> {
+    const isPro = Boolean(params?.activatePro);
+    const cleanEmail = sanitizeEmail(
+      params?.email?.trim() || 'google.user@gmail.com'
+    );
+    const cleanName = sanitizeDisplayName(
+      params?.displayName?.trim() || 'Compte Google',
+      cleanEmail
+    );
+
+    if (this.isConfigured) {
+      try {
+        const { error } = await this.supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo:
+              typeof window !== 'undefined'
+                ? window.location.origin
+                : undefined,
+          },
+        });
+        if (error) {
+          throw new Error(error.message);
+        }
+        return {
+          user: this.state.user,
+          isSimulated: false,
+        };
+      } catch {
+        const simulated = this.buildSimulatedLocalAccount(
+          cleanEmail,
+          cleanName,
+          isPro
+        );
+        this.emitState(simulated);
+        await this.fetchAndMergeUserSettingsFromCloud(simulated);
+        return {
+          user: simulated,
+          isSimulated: true,
+          infoMessage:
+            'Mode test local : Authentification Google simulée avec succès (vérifiez la configuration Google OAuth dans Supabase).',
+        };
+      }
+    }
+
+    // Configuration Supabase non saisie -> Simulation locale propre avec notification informative pour les tests UI
+    const simulatedAccount = this.buildSimulatedLocalAccount(
+      cleanEmail,
+      cleanName,
+      isPro
+    );
+    this.emitState(simulatedAccount);
+    await this.fetchAndMergeUserSettingsFromCloud(simulatedAccount);
+    return {
+      user: simulatedAccount,
+      isSimulated: true,
+      infoMessage:
+        'Mode test local : Connexion Google simulée avec succès (clefs Supabase non configurées).',
+    };
   }
 
   /**

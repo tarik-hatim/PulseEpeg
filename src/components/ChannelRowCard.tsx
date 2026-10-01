@@ -44,6 +44,7 @@ import {
   getChannelLogoCandidates,
 } from '../utils/channelLogoResolver';
 import {
+  cleanBouquetName,
   getActiveLanguage,
   getTranslations,
   translateDynamicGenre,
@@ -381,11 +382,14 @@ const ChannelRowCardInner: React.FC<ChannelRowCardProps> = ({
     activeSatellite,
     selectedBouquets
   );
-  const activeBouquetBadge = getActiveBouquetBadgeForChannel(
+  const rawBouquetBadge = getActiveBouquetBadgeForChannel(
     channel,
     activeSatellite,
     activeBouquet
   );
+  const activeBouquetBadge = rawBouquetBadge
+    ? cleanBouquetName(rawBouquetBadge, singleSatBadge)
+    : null;
 
   const progress = currentProgramme
     ? calculateProgress(currentProgramme.startMs, currentProgramme.stopMs, nowMs)
@@ -550,14 +554,15 @@ const ChannelRowCardInner: React.FC<ChannelRowCardProps> = ({
               </div>
 
               <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                {/* Badge 1 : Nom du Satellite uniquement (ex: "ASTRA 19.2°E") */}
                 <span
                   className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border uppercase tracking-wider ${accent.badge}`}
                 >
                   {singleSatBadge}
                 </span>
+                {/* Badge 2 : Nom du Bouquet nettoyé uniquement (ex: "Canal+ France") */}
                 {activeBouquetBadge && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50">
-                    <Satellite className="w-2.5 h-2.5 text-[#0055ff]" />
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#ec4899]/20 text-[#ffffff] border border-[#ec4899]/60">
                     {activeBouquetBadge}
                   </span>
                 )}

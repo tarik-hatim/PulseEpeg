@@ -91,12 +91,44 @@ svg {
 
 /* Garantie stricte sur le logo "P" (SplashScreen & Header) : jamais plus de 200x200px */
 .pulse-epg-logo-svg,
-.tv-boot-logo-svg,
-.tv-boot-logo-box {
+.tv-boot-logo-svg {
   max-width: 200px !important;
   max-height: 200px !important;
   margin: auto;
   object-fit: contain !important;
+  object-position: center !important;
+}
+
+.tv-boot-logo-box {
+  width: 96px !important;
+  height: 96px !important;
+  max-width: 200px !important;
+  max-height: 200px !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  aspect-ratio: 1 / 1;
+  margin: 0 auto 22px auto;
+  object-fit: contain !important;
+  object-position: center !important;
+  overflow: hidden !important;
+  contain: layout paint;
+  box-sizing: border-box !important;
+  -webkit-flex-shrink: 0 !important;
+  flex-shrink: 0 !important;
+}
+
+.tv-boot-logo-box > *,
+.tv-boot-logo-box svg,
+.tv-boot-logo-box img {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 200px !important;
+  max-height: 200px !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  object-fit: contain !important;
+  object-position: center !important;
+  display: block;
 }
 
 /* Rétrocompatibilité Android 8/9 (Chromium < 80) : Dimensions explicites des icônes SVG */
@@ -560,9 +592,10 @@ header[data-tv-zone="header"] {
 
 /* ==========================================================================
    STYLE DE SÉLECTION / FOCUS TV PROPRE SUR LES CARTES ET PROGRAMMES
-   Élimine le gros rectangle cyan fluo par défaut
+   Élimine le gros rectangle cyan fluo par défaut et empêche tout focus parasite
+   sur le bouton Réglages (Engrenage) du Header hors focus D-Pad actif
    ========================================================================== */
-:focus,
+:focus:not(.tv-fixed-action-btn),
 .selected-program,
 .tv-card-focusable:focus,
 .tv-card-focusable:focus-visible,
@@ -580,6 +613,37 @@ header[data-tv-zone="header"] {
   box-shadow: 0 0 15px rgba(236, 72, 153, 0.4) !important;
   -webkit-transform: scale(1.01);
   transform: scale(1.01);
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.tv-fixed-action-btn:not([data-dpad-focused="true"]),
+.tv-fixed-action-btn:not([data-dpad-focused="true"]):focus,
+.tv-fixed-action-btn:not([data-dpad-focused="true"]):focus-visible,
+.tv-fixed-action-btn:not([data-dpad-focused="true"]).focused,
+.tv-fixed-action-btn:not([data-dpad-focused="true"]).active {
+  outline: none !important;
+  border: 1px solid #1a202c !important;
+  background-color: #141a26 !important;
+  box-shadow: none !important;
+  -webkit-transform: none !important;
+  transform: none !important;
+}
+
+.tv-fixed-action-btn:not([data-dpad-focused="true"]):hover {
+  background-color: #1a202c !important;
+  border-color: rgba(0, 85, 255, 0.6) !important;
+}
+
+.tv-fixed-action-btn[data-dpad-focused="true"]:focus,
+.tv-fixed-action-btn[data-dpad-focused="true"]:focus-visible,
+.tv-fixed-action-btn.focused[data-dpad-focused="true"] {
+  outline: none !important;
+  border: 2px solid #ec4899 !important;
+  background: rgba(236, 72, 153, 0.15) !important;
+  box-shadow: 0 0 15px rgba(236, 72, 153, 0.4) !important;
+  -webkit-transform: scale(1.01) !important;
+  transform: scale(1.01) !important;
   border-radius: 8px;
   transition: all 0.2s ease;
 }

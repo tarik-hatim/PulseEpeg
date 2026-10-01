@@ -15,7 +15,13 @@ import {
   ThematicCategoryId,
   TvProfileId,
 } from '../types/epg';
-import { applyDocumentLanguageDir, SUPPORTED_LANGUAGES } from '../utils/i18n';
+import {
+  applyDocumentLanguageDir,
+  cleanBouquetName,
+  sanitizeBouquetDisplayName,
+  SUPPORTED_LANGUAGES,
+} from '../utils/i18n';
+export { cleanBouquetName, sanitizeBouquetDisplayName };
 import { configureActiveTimezone } from '../utils/timeFormat';
 import {
   cleanOfficialChannelName,
@@ -725,31 +731,65 @@ export function getSingleSatelliteBadgeForChannel(
 }
 
 /**
- * Retourne le bouquet de la chaîne correspondant au satellite/bouquet actif.
+ * Retourne le bouquet de la chaîne correspondant au satellite/bouquet actif,
+ * sanitisé dynamiquement pour supprimer le préfixe du satellite s'il est répété
+ * (ex: "Astra Canal+ France" -> "Canal+ France", "Hotbird Bis TV/Rai" -> "Bis TV/Rai").
  */
 export function getActiveBouquetBadgeForChannel(
   ch: EpgChannel,
   activeSatellite?: SatelliteFilter,
   activeBouquet?: BouquetFilter
 ): string | undefined {
+  const resolvedSat = getSingleSatelliteBadgeForChannel(ch, activeSatellite);
   const chBouquets = ch.bouquets || [];
-  if (chBouquets.length === 0) return undefined;
 
   if (
     activeBouquet &&
     activeBouquet !== 'Tous' &&
     channelMatchesBouquetFilter(ch, activeBouquet, activeSatellite || 'Tous')
   ) {
-    return activeBouquet;
+    return sanitizeBouquetDisplayName(activeBouquet, resolvedSat);
   }
 
   if (activeSatellite && activeSatellite !== 'Tous') {
     const allowedForSat = getBouquetsForSatellite(activeSatellite);
     const matching = chBouquets.find((b) => allowedForSat.includes(b));
-    if (matching) return matching;
+    if (matching) {
+      return sanitizeBouquetDisplayName(matching, resolvedSat);
+    }
   }
 
-  return chBouquets[0];
+  if (chBouquets.length > 0) {
+    return sanitizeBouquetDisplayName(chBouquets[0], resolvedSat);
+  }
+
+  // Fallback dynamique basé sur le bouquetId si ch.bouquets est vide
+  const fallbackBouquetId = resolveChannelBouquetId(ch);
+  const fallbackNames: Partial<Record<EpgBouquetId, string>> = {
+    astra_canal_fr: 'Canal+ France',
+    astra_tnt_fr: 'TNT France',
+    tnt_fr: 'TNT France',
+    hotbird_bis_fr: 'Bis TV/Rai',
+    movistar_es: 'Movistar+ España',
+    hispasat_meo_nos: 'Meo/NOS/Movistar',
+    sky_de: 'Sky DE / DAZN DE',
+    sky_it: 'Bis TV/Rai',
+    canal_pl: 'Polsat/Cyfra+',
+    nilesat_osn_mbc: 'MBC/OSN/Rotana',
+    badr_bein_ssc: 'beIN (Sports & Movies)',
+    eutelsat_16e_digitalb: 'DigitAlb (Albanie)',
+    trt_network: 'TRT Network',
+    thor_08w_focussat: 'Focus Sat (Roumanie)',
+    turkmenalem_52e_alem: 'Alem TV',
+    monacosat_52e_persiana: 'Groupe Persiana',
+    starone_70w_claro_br: 'Claro TV Brasil',
+    amazonas_61w_latam: 'Vivo TV / Movistar LATAM',
+    intelsat_43w_directv: 'DirecTV LATAM / Sky Brasil',
+  };
+  const fallback = fallbackNames[fallbackBouquetId];
+  return fallback
+    ? sanitizeBouquetDisplayName(fallback, resolvedSat)
+    : undefined;
 }
 
 export interface BouquetOptionSpec {
@@ -853,7 +893,7 @@ export const EPG_BOUQUET_CATALOG: BouquetOptionSpec[] = [
   {
     id: 'hotbird_bis_fr',
     flag: '🇫🇷',
-    label: 'Bis TV France (Hotbird 13°E)',
+    label: 'Bis TV/Rai',
     satellite: 'Hotbird 13°E',
     description:
       'Bouquet Bis TV sur Hotbird 13°E : TF1, France 2–5, M6, Arte, W9, TMC, TFX, Gulli, RTL9, Action, Téva, Mangas, Science & Vie TV, Toute l’Histoire',
@@ -875,13 +915,13 @@ export const EPG_BOUQUET_CATALOG: BouquetOptionSpec[] = [
   {
     id: 'hispasat_meo_nos',
     flag: '🇵🇹/🇪🇸',
-    label: 'Meo, NOS & Movistar (Hispasat 30°W)',
+    label: 'Meo/NOS/Movistar',
     satellite: 'Hispasat 30°W',
     description:
       'MEO & NOS Portugal (TVCine Top/Edition/Emotion/Action, Canal Hollywood, AXN PT, Star Channel, Sport TV 1–5, BTV) & Movistar 30°W',
     estRamMb: 2.8,
     estimatedRamMb: 2.8,
-    sampleChannels: ['MEO / NOS', 'TVCine / Hollywood', 'Sport TV 1–5', 'Movistar 30°W'],
+    sampleChannels: ['MEO / NOS', 'TVCine / Hollywood', 'Sport TV 1–5', 'Movistar'],
   },
   {
     id: 'eutelsat_16e_digitalb',
@@ -3830,3 +3870,203 @@ export function clearRecentSearches(): void {
     // Ignore
   }
 }
+
+// ============================================================================
+// TRI INTELLIGENT ANDROID TV BOX (FRÉQUENCE DE VISIONNAGE + ORDRE LCN OFFICIEL)
+// ============================================================================
+
+export type TvSortMode = 'lcn' | 'smart' | 'alpha_asc' | 'alpha_desc' | 'genre';
+
+export interface ChannelWatchHabit {
+  channelId: string;
+  viewCount: number;
+  dwellSeconds: number;
+  lastViewedAtMs: number;
+}
+
+const LS_TV_SORT_MODE_KEY = 'pulseepg_tv_sort_mode_v1';
+const LS_CHANNEL_WATCH_HABITS_KEY = 'pulseepg_tv_channel_watch_habits_v1';
+
+export function loadTvSortMode(): TvSortMode {
+  try {
+    if (typeof localStorage === 'undefined') return 'lcn';
+    const raw = localStorage.getItem(LS_TV_SORT_MODE_KEY);
+    if (
+      raw === 'lcn' ||
+      raw === 'smart' ||
+      raw === 'alpha_asc' ||
+      raw === 'alpha_desc' ||
+      raw === 'genre'
+    ) {
+      return raw;
+    }
+    return 'lcn';
+  } catch {
+    return 'lcn';
+  }
+}
+
+export function saveTvSortMode(mode: TvSortMode): void {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(LS_TV_SORT_MODE_KEY, mode);
+    }
+  } catch {
+    // Ignore
+  }
+}
+
+export function loadChannelWatchHabits(): Record<string, ChannelWatchHabit> {
+  try {
+    if (typeof localStorage === 'undefined') return {};
+    const raw = localStorage.getItem(LS_CHANNEL_WATCH_HABITS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, ChannelWatchHabit>;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return {};
+    }
+    return parsed;
+  } catch {
+    return {};
+  }
+}
+
+export function saveChannelWatchHabits(
+  habits: Record<string, ChannelWatchHabit>
+): void {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(LS_CHANNEL_WATCH_HABITS_KEY, JSON.stringify(habits));
+    }
+  } catch {
+    // Ignore quota error
+  }
+  void (async () => {
+    try {
+      const cap = getCapacitorPreferencesPlugin();
+      if (cap?.set) {
+        await cap.set({
+          key: LS_CHANNEL_WATCH_HABITS_KEY,
+          value: JSON.stringify(habits),
+        });
+      }
+    } catch {
+      // Ignore Capacitor bridge error
+    }
+  })();
+}
+
+export function recordChannelViewHabit(
+  channelId: string,
+  options?: {
+    viewIncrement?: number;
+    dwellSecondsIncrement?: number;
+    existing?: Record<string, ChannelWatchHabit>;
+  }
+): Record<string, ChannelWatchHabit> {
+  const cleanId = cleanXmltvChannelId(channelId);
+  if (!cleanId) return options?.existing ?? loadChannelWatchHabits();
+
+  const current = options?.existing
+    ? { ...options.existing }
+    : loadChannelWatchHabits();
+  const prev = current[cleanId] ||
+    current[channelId] || {
+      channelId: cleanId,
+      viewCount: 0,
+      dwellSeconds: 0,
+      lastViewedAtMs: 0,
+    };
+
+  const viewInc = options?.viewIncrement ?? 1;
+  const dwellInc = options?.dwellSecondsIncrement ?? 0;
+
+  const updatedEntry: ChannelWatchHabit = {
+    channelId: cleanId,
+    viewCount: Math.round((prev.viewCount + viewInc) * 100) / 100,
+    dwellSeconds: Math.max(0, Math.round(prev.dwellSeconds + dwellInc)),
+    lastViewedAtMs: Date.now(),
+  };
+
+  current[cleanId] = updatedEntry;
+  if (channelId !== cleanId) {
+    current[channelId] = updatedEntry;
+  }
+
+  saveChannelWatchHabits(current);
+  return current;
+}
+
+export function clearChannelWatchHabits(): Record<string, ChannelWatchHabit> {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(LS_CHANNEL_WATCH_HABITS_KEY);
+    }
+  } catch {
+    // Ignore
+  }
+  return {};
+}
+
+/**
+ * Calcule le score hybride pour le 'Tri intelligent' sur Android TV Box :
+ * Combine la fréquence de visionnage (ouvertures, durée de consultation, récence,
+ * affinité favoris/rappels) avec l'ordre LCN officiel du bouquet/satellite.
+ */
+export function computeSmartChannelSortScore(
+  channelId: string,
+  lcn: number,
+  habits: Record<string, ChannelWatchHabit>,
+  options?: {
+    isFavorite?: boolean;
+    hasReminder?: boolean;
+    nowMs?: number;
+  }
+): {
+  hasHabit: boolean;
+  habitScore: number;
+  hybridRank: number;
+  viewCount: number;
+} {
+  const cleanId = cleanXmltvChannelId(channelId);
+  const entry = habits[cleanId] || habits[channelId];
+  const now = options?.nowMs ?? Date.now();
+
+  const rawViews = entry?.viewCount ?? 0;
+  const dwellMins = (entry?.dwellSeconds ?? 0) / 60;
+  const ageDays =
+    entry?.lastViewedAtMs && entry.lastViewedAtMs > 0
+      ? Math.max(0, (now - entry.lastViewedAtMs) / 86400000)
+      : 30;
+
+  // Pondération de récence douce sur 14 jours (conserve au moins 55% du poids historique)
+  const recencyFactor =
+    rawViews > 0 ? 0.55 + 0.45 * Math.exp(-ageDays / 14) : 0;
+
+  const frequencyPoints = rawViews * 14 * recencyFactor;
+  const dwellPoints = Math.min(dwellMins, 45) * 3.5;
+  const favBonus = options?.isFavorite ? 22 : 0;
+  const reminderBonus = options?.hasReminder ? 12 : 0;
+
+  const habitScore =
+    Math.round((frequencyPoints + dwellPoints + favBonus + reminderBonus) * 10) /
+    10;
+  const hasHabit = habitScore > 0;
+
+  // Combinaison hybride :
+  // - Chaque point d'habitude remonte prioritairement la chaîne selon sa fréquence de visionnage
+  // - À fréquence similaire, l'ordre LCN officiel départage naturellement les chaînes (poids LCN progressif)
+  // - Les chaînes non visionnées conservent strictement leur ordre LCN officiel
+  const safeLcn = Number.isFinite(lcn) && lcn > 0 ? lcn : 9999;
+  const hybridRank = hasHabit
+    ? -10000 - habitScore * 25 + safeLcn * 0.15
+    : safeLcn;
+
+  return {
+    hasHabit,
+    habitScore,
+    hybridRank,
+    viewCount: Math.ceil(rawViews),
+  };
+}
+

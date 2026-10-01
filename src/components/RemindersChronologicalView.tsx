@@ -38,7 +38,11 @@ import {
   isPlaceholderProgrammeTitle,
 } from '../utils/xmltvParser';
 import { translateEpgTextToFrenchSync } from '../utils/metadataResolverCore';
-import { translateDynamicGenre } from '../utils/i18n';
+import { cleanBouquetName, translateDynamicGenre } from '../utils/i18n';
+import {
+  getActiveBouquetBadgeForChannel,
+  getSingleSatelliteBadgeForChannel,
+} from '../services/storageService';
 
 interface RemindersChronologicalViewProps {
   reminders: ProgrammeReminder[];
@@ -363,8 +367,15 @@ export const RemindersChronologicalView: React.FC<
               ensureHttpsUrl(rawLogo.replace(/^http:\/\//i, 'https://')) ||
               buildCleanFallbackLogoDataUri(rem.channelName, rem.channelId);
 
-            const satLabel =
-              rem.orbitalPosition || ch?.orbitalPosition || 'Satellite';
+            const satLabel = ch
+              ? getSingleSatelliteBadgeForChannel(ch, 'Tous')
+              : rem.orbitalPosition || 'Satellite';
+            const bouquetLabel = ch
+              ? cleanBouquetName(
+                  getActiveBouquetBadgeForChannel(ch, 'Tous', 'Tous') || '',
+                  satLabel
+                )
+              : '';
 
             const displayTitle =
               language === 'fr'
@@ -419,9 +430,14 @@ export const RemindersChronologicalView: React.FC<
                           <BellRing className="w-2.5 h-2.5" />
                           Rappel Actif
                         </span>
-                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50">
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50 uppercase">
                           {satLabel}
                         </span>
+                        {bouquetLabel && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#ec4899]/20 text-[#ffffff] border border-[#ec4899]/60">
+                            {bouquetLabel}
+                          </span>
+                        )}
                       </div>
                       <h3 className="font-bold text-[#ffffff] text-sm sm:text-base truncate mt-1">
                         {cleanOfficialChannelName(rem.channelName)}

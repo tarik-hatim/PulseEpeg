@@ -60,8 +60,11 @@ import {
   buildSourcesSignature,
   CHANNEL_COUNTRY_FILTER_OPTIONS,
   channelMatchesCountryFilter,
+  ChannelWatchHabit,
+  clearChannelWatchHabits,
   clearEpgCache,
   clearRecentSearches,
+  computeSmartChannelSortScore,
   DEFAULT_EPG_SOURCES,
   DEFAULT_SETTINGS,
   detectInitialTvProfileFromSystemLanguage,
@@ -76,13 +79,16 @@ import {
   isSatelliteFilterAllowedBySettings,
   loadAppSettings,
   loadAppSettingsAsync,
+  loadChannelWatchHabits,
   loadEpgFromCache,
   loadFavoriteChannels,
   loadRecentSearches,
   loadReminders,
+  loadTvSortMode,
   MAX_ACTIVE_BOUQUETS,
   pruneSchedulesToActiveWindow,
   RAM_LIMIT_WARNING_MESSAGE,
+  recordChannelViewHabit,
   removeRecentSearch,
   resolveGlobalFavoriteChannels,
   SAT_TO_BOUQUETS_MAP,
@@ -90,11 +96,13 @@ import {
   saveEpgToCache,
   saveFavoriteChannels,
   saveReminders,
+  saveTvSortMode,
   STRICT_SAT_FILTER_LIST,
   syncAppSettingsFromCapacitorPreferences,
   syncGlobalFavoritesFromDb,
   syncSourcesWithSelectedBouquets,
   TV_PROFILES_CATALOG,
+  TvSortMode,
 } from './services/storageService';
 import {
   APP_TIMEZONE_LABEL,
@@ -259,7 +267,25 @@ export function App() {
   const [isSearchInputFocused, setIsSearchInputFocused] =
     useState<boolean>(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchDpadTriggerRef = useRef<HTMLDivElement>(null);
   const isTypingSessionRef = useRef<boolean>(false);
+
+  // Force un réalignement fluide du conteneur parent et du header principal en haut de page
+  const realignHeaderAndTopScroll = useCallback(() => {
+    const headerEl = document.querySelector<HTMLElement>(
+      '[data-tv-zone="header"]'
+    );
+    if (headerEl) {
+      headerEl.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (document.scrollingElement) {
+      document.scrollingElement.scrollTop = 0;
+    }
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, []);
 
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
   const [timeOffsetMinutes, setTimeOffsetMinutes] = useState<number>(0);
@@ -286,6 +312,61 @@ export function App() {
   const [settingsInitialTab, setSettingsInitialTab] = useState<
     'filters' | 'sources' | 'legal'
   >('filters');
+  const [isSettingsBtnDpadFocused, setIsSettingsBtnDpadFocused] =
+    useState<boolean>(false);
+  const settingsBtnRef = useRef<HTMLButtonElement>(null);
+  const refreshBtnRef = useRef<HTMLButtonElement>(null);
+  const lastInputWasDpadRef = useRef<boolean>(false);
+
+  // Réinitialise strictement tout état focus / actif parasite sur le bouton Réglages (Engrenage) du Header
+  const clearHeaderActionButtonsFocus = useCallback(() => {
+    setIsSettingsBtnDpadFocused(false);
+    [settingsBtnRef.current, refreshBtnRef.current].forEach((btn) => {
+      if (btn) {
+        btn.classList.remove('focused', 'active');
+        btn.removeAttribute('data-dpad-focused');
+        if (document.activeElement === btn) {
+          btn.blur();
+        }
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    clearHeaderActionButtonsFocus();
+  }, [
+    viewMode,
+    isSettingsOpen,
+    selectedCategory,
+    selectedSatellite,
+    selectedBouquet,
+    selectedCountry,
+    selectedGroup,
+    clearHeaderActionButtonsFocus,
+  ]);
+
+  useEffect(() => {
+    const handlePointerActivity = () => {
+      lastInputWasDpadRef.current = false;
+      setIsSettingsBtnDpadFocused(false);
+      [settingsBtnRef.current, refreshBtnRef.current].forEach((btn) => {
+        if (btn) {
+          btn.classList.remove('focused', 'active');
+          btn.removeAttribute('data-dpad-focused');
+        }
+      });
+    };
+    window.addEventListener('mousedown', handlePointerActivity, {
+      passive: true,
+    });
+    window.addEventListener('touchstart', handlePointerActivity, {
+      passive: true,
+    });
+    return () => {
+      window.removeEventListener('mousedown', handlePointerActivity);
+      window.removeEventListener('touchstart', handlePointerActivity);
+    };
+  }, []);
 
   // Session utilisateur optionnelle (Mode Invité par défaut : isLoggedIn = false, isPremium = false)
   const [authState, setAuthState] = useState<AuthSessionState>(() =>
@@ -2000,10 +2081,13 @@ export function App() {
     [groupCounts]
   );
 
-  // Filtrage final dynamique des chaînes + Options de Tri TV (LCN, Alphabétique A-Z / Z-A, Genre / Thématique) :
-  const [tvSortMode, setTvSortMode] = useState<
-    'lcn' | 'alpha_asc' | 'alpha_desc' | 'genre'
-  >('lcn');
+  // Filtrage final dynamique des chaînes + Options de Tri TV (LCN, Tri intelligent, Alphabétique A-Z / Z-A, Genre / Thématique) :
+  const [tvSortMode, setTvSortMode] = useState<TvSortMode>(() =>
+    loadTvSortMode()
+  );
+  const [channelWatchHabits, setChannelWatchHabits] = useState<
+    Record<string, ChannelWatchHabit>
+  >(() => loadChannelWatchHabits());
   const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
   const [isQuickJumpDrawerOpen, setIsQuickJumpDrawerOpen] = useState(false);
   const [quickJumpTab, setQuickJumpTab] = useState<'ranges' | 'alpha'>('ranges');
@@ -2041,6 +2125,60 @@ export function App() {
     return map;
   }, [settingsAllowedChannels, channels]);
 
+  // Enregistrement des habitudes de visionnage (ouverture de chaîne, saut direct et durée de lecture)
+  const recordChannelHabit = useCallback(
+    (
+      channelId: string,
+      options?: { viewIncrement?: number; dwellSecondsIncrement?: number }
+    ) => {
+      if (!channelId) return;
+      setChannelWatchHabits((prev) =>
+        recordChannelViewHabit(channelId, {
+          ...options,
+          existing: prev,
+        })
+      );
+    },
+    []
+  );
+
+  // Mesure automatique du temps de consultation (dwell time) à la fermeture de la fiche chaîne
+  useEffect(() => {
+    if (!selectedChannel?.id) return;
+    const chId = selectedChannel.id;
+    const openedAtMs = Date.now();
+    return () => {
+      const elapsedSeconds = Math.round((Date.now() - openedAtMs) / 1000);
+      if (elapsedSeconds >= 3) {
+        recordChannelHabit(chId, {
+          viewIncrement: 0,
+          dwellSecondsIncrement: Math.min(elapsedSeconds, 1800),
+        });
+      }
+    };
+  }, [selectedChannel?.id, recordChannelHabit]);
+
+  const reminderChannelIdsSet = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of reminders) {
+      if (r.channelId) {
+        set.add(r.channelId);
+        set.add(cleanXmltvChannelId(r.channelId));
+      }
+    }
+    return set;
+  }, [reminders]);
+
+  const learnedHabitsCount = useMemo(
+    () =>
+      new Set(
+        Object.values(channelWatchHabits)
+          .filter((h) => h && (h.viewCount > 0 || h.dwellSeconds > 0))
+          .map((h) => cleanXmltvChannelId(h.channelId))
+      ).size,
+    [channelWatchHabits]
+  );
+
   const filteredChannels = useMemo(() => {
     const rawList =
       viewMode === 'favorites'
@@ -2059,6 +2197,37 @@ export function App() {
         (a, b) =>
           (channelLcnMap.get(a.id) ?? 9999) - (channelLcnMap.get(b.id) ?? 9999)
       );
+    }
+
+    if (tvSortMode === 'smart') {
+      const scoreCache = new Map<
+        string,
+        ReturnType<typeof computeSmartChannelSortScore>
+      >();
+      for (const ch of rawList) {
+        const lcn = channelLcnMap.get(ch.id) ?? 9999;
+        const cleanId = cleanXmltvChannelId(ch.id);
+        scoreCache.set(
+          ch.id,
+          computeSmartChannelSortScore(ch.id, lcn, channelWatchHabits, {
+            isFavorite: favoriteSet.has(ch.id) || favoriteSet.has(cleanId),
+            hasReminder:
+              reminderChannelIdsSet.has(ch.id) ||
+              reminderChannelIdsSet.has(cleanId),
+            nowMs,
+          })
+        );
+      }
+
+      return [...rawList].sort((a, b) => {
+        const sA = scoreCache.get(a.id);
+        const sB = scoreCache.get(b.id);
+        const rankDiff = (sA?.hybridRank ?? 9999) - (sB?.hybridRank ?? 9999);
+        if (Math.abs(rankDiff) > 0.001) return rankDiff;
+        return (
+          (channelLcnMap.get(a.id) ?? 9999) - (channelLcnMap.get(b.id) ?? 9999)
+        );
+      });
     }
 
     if (tvSortMode === 'alpha_asc') {
@@ -2124,6 +2293,10 @@ export function App() {
     matchesGroup,
     tvSortMode,
     channelLcnMap,
+    channelWatchHabits,
+    favoriteSet,
+    reminderChannelIdsSet,
+    nowMs,
     currentAndNextByChannel,
   ]);
 
@@ -2336,9 +2509,15 @@ export function App() {
 
       setSelectedChannel(foundChannel);
       setSelectedModalProgramme(matchedProg);
+      recordChannelHabit(foundChannel.id, { viewIncrement: 1 });
       handleDismissBannerAlert(rem.id);
     },
-    [channels, activeSchedulesByChannel, handleDismissBannerAlert]
+    [
+      channels,
+      activeSchedulesByChannel,
+      handleDismissBannerAlert,
+      recordChannelHabit,
+    ]
   );
 
   const handleTriggerTestAlertBanner = useCallback(() => {
@@ -2819,10 +2998,11 @@ export function App() {
 
   const handleSelectChannelFromRow = useCallback(
     (channel: EpgChannel, currentProg?: EpgProgramme | null) => {
+      recordChannelHabit(channel.id, { viewIncrement: 1 });
       setSelectedChannel(channel);
       setSelectedModalProgramme(currentProg ?? null);
     },
-    []
+    [recordChannelHabit]
   );
 
   // Initialisation du ResizeObserver partagé pour mesurer dynamiquement la hauteur réelle des cartes visibles
@@ -3273,16 +3453,18 @@ export function App() {
         direction?: 'up' | 'down' | 'left' | 'right' | 'jump';
       }
     ): boolean => {
-      const filterZone = document.querySelector<HTMLElement>(
-        '[data-tv-zone="filters"]'
+      const filterZones = Array.from(
+        document.querySelectorAll<HTMLElement>('[data-tv-zone="filters"]')
       );
-      if (!filterZone) return false;
+      if (filterZones.length === 0) return false;
 
       const selector =
-        'button:not([disabled]), [role="button"]:not([tabindex="-1"]), a[href], select:not([disabled]), input:not([disabled])';
+        'button:not([disabled]):not([tabindex="-1"]), [role="button"]:not([tabindex="-1"]), [role="checkbox"]:not([tabindex="-1"]), [role="menuitemradio"]:not([tabindex="-1"]), a[href]:not([tabindex="-1"]), select:not([disabled]):not([tabindex="-1"]), input:not([disabled]):not([tabindex="-1"])';
 
       const visibleRows = Array.from(
-        filterZone.querySelectorAll<HTMLElement>('[data-tv-row]')
+        document.querySelectorAll<HTMLElement>(
+          '[data-tv-zone="filters"] [data-tv-row]'
+        )
       ).filter((row) => {
         const r = row.getBoundingClientRect();
         if (r.width <= 0 || r.height <= 0) return false;
@@ -3368,14 +3550,23 @@ export function App() {
       }));
 
       chosenItem.focus({ preventScroll: true });
-      chosenItem.scrollIntoView({
-        behavior: 'smooth',
-        block: 'nearest',
-        inline: 'nearest',
-      });
+      if (rowIdx <= 1 || options?.direction === 'up') {
+        realignHeaderAndTopScroll();
+        chosenItem.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest',
+          inline: 'nearest',
+        });
+      } else {
+        chosenItem.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest',
+          inline: 'nearest',
+        });
+      }
       return true;
     },
-    [triggerZoneTransition]
+    [triggerZoneTransition, realignHeaderAndTopScroll]
   );
 
   // ==========================================================================
@@ -3483,6 +3674,7 @@ export function App() {
         rawDigitsStr || String(channelNumber)
       );
       if (targetCh) {
+        recordChannelHabit(targetCh.id, { viewIncrement: 0.5 });
         showQuickJumpOsdBadge({
           digits: rawDigitsStr || String(channelNumber),
           label: badgeText,
@@ -3496,6 +3688,7 @@ export function App() {
       channelLcnMap,
       activeLang,
       jumpToChannelAtIndex,
+      recordChannelHabit,
       showQuickJumpOsdBadge,
     ]
   );
@@ -3518,16 +3711,14 @@ export function App() {
   );
 
   const handleSelectTvSortMode = useCallback(
-    (
-      nextMode: 'lcn' | 'alpha_asc' | 'alpha_desc' | 'genre',
-      optionBtnEl?: HTMLElement | null
-    ) => {
+    (nextMode: TvSortMode, optionBtnEl?: HTMLElement | null) => {
       const currentFocusedCh =
         filteredChannels[lastFocusedChannelIndexRef.current];
       if (currentFocusedCh) {
         pendingSortedChannelIdRef.current = currentFocusedCh.id;
       }
       setTvSortMode(nextMode);
+      saveTvSortMode(nextMode);
       if (optionBtnEl) {
         window.requestAnimationFrame(() => {
           optionBtnEl.focus({ preventScroll: true });
@@ -3596,6 +3787,19 @@ export function App() {
       const target = e.target as HTMLElement | null;
       if (!target) return;
 
+      if (target !== settingsBtnRef.current) {
+        setIsSettingsBtnDpadFocused(false);
+        if (settingsBtnRef.current) {
+          settingsBtnRef.current.classList.remove('focused', 'active');
+          settingsBtnRef.current.removeAttribute('data-dpad-focused');
+        }
+      }
+
+      if (target !== refreshBtnRef.current && refreshBtnRef.current) {
+        refreshBtnRef.current.classList.remove('focused', 'active');
+        refreshBtnRef.current.removeAttribute('data-dpad-focused');
+      }
+
       const channelCard = target.closest<HTMLElement>('[data-channel-card="true"]');
       if (channelCard) {
         const prevZone = activeDpadZoneRef.current;
@@ -3637,22 +3841,25 @@ export function App() {
         const colIdx = Math.max(0, rowItems.indexOf(target));
         filterRowColMemoryRef.current[rowName] = colIdx;
 
-        if (rowName === 'header-tabs' || rowName === 'header-actions') {
+        if (
+          rowName === 'header-tabs' ||
+          rowName === 'header-top' ||
+          rowName === 'header-actions'
+        ) {
           const prevZone = activeDpadZoneRef.current;
           setFocusedChannelIndex(null);
           setActiveFilterRow(null);
           triggerZoneTransition(prevZone, 'header', 'up');
         } else {
           const prevZone = activeDpadZoneRef.current;
-          const filterZone = tvRow.closest<HTMLElement>('[data-tv-zone="filters"]');
-          const visibleRows = filterZone
-            ? Array.from(
-                filterZone.querySelectorAll<HTMLElement>('[data-tv-row]')
-              ).filter((rEl) => {
-                const r = rEl.getBoundingClientRect();
-                return r.width > 0 && r.height > 0;
-              })
-            : [];
+          const visibleRows = Array.from(
+            document.querySelectorAll<HTMLElement>(
+              '[data-tv-zone="filters"] [data-tv-row]'
+            )
+          ).filter((rEl) => {
+            const r = rEl.getBoundingClientRect();
+            return r.width > 0 && r.height > 0;
+          });
           const rIdx = Math.max(0, visibleRows.indexOf(tvRow));
           setFocusedChannelIndex(null);
           setActiveFilterRow(rowName);
@@ -3841,6 +4048,8 @@ export function App() {
         return;
       }
 
+      lastInputWasDpadRef.current = true;
+
       // Laisser l'utilisateur déplacer son curseur dans un champ texte avec Gauche/Droite
       if (isTextInput && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
         return;
@@ -3850,9 +4059,18 @@ export function App() {
       // laisser le gestionnaire dédié de TimeGridView agir
       if (activeEl?.getAttribute('data-grid-focusable') === 'true') {
         const gridRow = Number(activeEl.getAttribute('data-grid-row') || '0');
-        if (!(e.key === 'ArrowUp' && gridRow === 0)) {
-          return;
+        if (e.key === 'ArrowUp' && gridRow === 0) {
+          if (
+            focusFilterGridRow('last', {
+              preferRememberedCol: true,
+              direction: 'up',
+            })
+          ) {
+            e.preventDefault();
+            return;
+          }
         }
+        return;
       }
 
       function modalScopeExists() {
@@ -4070,7 +4288,251 @@ export function App() {
       }
 
       const selector =
-        'button:not([disabled]), [role="button"]:not([tabindex="-1"]), a[href], select:not([disabled]), input:not([disabled])';
+        'button:not([disabled]):not([tabindex="-1"]), [role="button"]:not([tabindex="-1"]), [role="checkbox"]:not([tabindex="-1"]), [role="menuitemradio"]:not([tabindex="-1"]), a[href]:not([tabindex="-1"]), select:not([disabled]):not([tabindex="-1"]), input:not([disabled]):not([tabindex="-1"])';
+
+      // ========================================================================
+      // ÉTAT MODAL : CHAÎNAGE SÉQUENTIEL D-PAD DANS LES MODALS (PARAMÈTRES, AUTH, ETC.)
+      // Empêche le saut prématuré vers le bouton "Annuler" du footer et scrolle
+      // fluidement à travers toutes les cartes visibles et cachées de haut en bas.
+      // ========================================================================
+      if (modalScope) {
+        const scrollModalElementIntoView = (
+          targetEl: HTMLElement,
+          scrollContainer: HTMLElement | null
+        ) => {
+          if (scrollContainer && scrollContainer.contains(targetEl)) {
+            const sRect = scrollContainer.getBoundingClientRect();
+            const tRect = targetEl.getBoundingClientRect();
+            const topClearance = 28;
+            const bottomClearance = 108;
+            if (tRect.bottom > sRect.bottom - bottomClearance) {
+              scrollContainer.scrollBy({
+                top: tRect.bottom - (sRect.bottom - bottomClearance),
+                behavior: 'smooth',
+              });
+            } else if (tRect.top < sRect.top + topClearance) {
+              scrollContainer.scrollBy({
+                top: tRect.top - (sRect.top + topClearance),
+                behavior: 'smooth',
+              });
+            }
+          } else {
+            targetEl.scrollIntoView({
+              behavior: 'smooth',
+              block: 'nearest',
+              inline: 'nearest',
+            });
+          }
+        };
+
+        const rawModalNodes = Array.from(
+          modalScope.querySelectorAll<HTMLElement>(selector)
+        ).filter((el) => {
+          const r = el.getBoundingClientRect();
+          return r.width > 0 && r.height > 0;
+        });
+
+        // Exclut les éléments imbriqués dans un parent déjà focusable pour éviter tout piège D-Pad
+        const modalNodes = rawModalNodes.filter(
+          (el) =>
+            !rawModalNodes.some((other) => other !== el && other.contains(el))
+        );
+
+        if (modalNodes.length === 0) return;
+
+        if (!activeEl || !modalScope.contains(activeEl)) {
+          e.preventDefault();
+          const firstModalTarget = modalNodes[0];
+          firstModalTarget.focus({ preventScroll: true });
+          return;
+        }
+
+        const scrollContainer = modalScope.querySelector<HTMLElement>(
+          '[data-tv-modal-scroll="true"]'
+        );
+        const scrollRect = scrollContainer?.getBoundingClientRect();
+
+        const getZoneRank = (el: HTMLElement): number => {
+          if (
+            el.closest(
+              '[data-tv-modal-zone="header"], [data-tv-row="settings-header"], [data-tv-row="auth-header"], [data-tv-row="modal-header"]'
+            )
+          ) {
+            return 0;
+          }
+          if (
+            el.closest(
+              '[data-tv-modal-zone="tabs"], [data-tv-row="settings-tabs"]'
+            )
+          ) {
+            return 1;
+          }
+          if (
+            el.closest(
+              '[data-tv-modal-zone="footer"], [data-tv-row="settings-footer"]'
+            )
+          ) {
+            return 3;
+          }
+          return 2;
+        };
+
+        const getDocCoords = (el: HTMLElement) => {
+          const r = el.getBoundingClientRect();
+          const rank = getZoneRank(el);
+          if (
+            rank === 2 &&
+            scrollContainer &&
+            scrollRect &&
+            scrollContainer.contains(el)
+          ) {
+            const top = r.top - scrollRect.top + scrollContainer.scrollTop;
+            const left = r.left - scrollRect.left + scrollContainer.scrollLeft;
+            return {
+              rank,
+              top,
+              bottom: top + r.height,
+              cy: top + r.height / 2,
+              left,
+              right: left + r.width,
+              cx: left + r.width / 2,
+            };
+          }
+          return {
+            rank,
+            top: r.top,
+            bottom: r.bottom,
+            cy: r.top + r.height / 2,
+            left: r.left,
+            right: r.right,
+            cx: r.left + r.width / 2,
+          };
+        };
+
+        // Construction des lignes séquentielles par zone (0: Header, 1: Tabs, 2: Scroll Body, 3: Footer)
+        // et par groupe DOM logique ([data-tv-modal-group]) pour un chaînage naturel sans saut de carte
+        const getGroupId = (el: HTMLElement): string => {
+          const grp = el.closest<HTMLElement>('[data-tv-modal-group]');
+          return grp?.getAttribute('data-tv-modal-group') || 'default';
+        };
+
+        const modalRows: HTMLElement[][] = [];
+        for (const zoneRank of [0, 1, 2, 3]) {
+          const zoneItems = modalNodes
+            .filter((el) => getZoneRank(el) === zoneRank)
+            .map((el) => ({
+              el,
+              groupId: getGroupId(el),
+              coords: getDocCoords(el),
+            }));
+
+          let currentRow: {
+            el: HTMLElement;
+            groupId: string;
+            coords: ReturnType<typeof getDocCoords>;
+          }[] = [];
+          for (const item of zoneItems) {
+            if (currentRow.length === 0) {
+              currentRow.push(item);
+            } else {
+              const firstInRow = currentRow[0];
+              const sameGroup = item.groupId === firstInRow.groupId;
+              if (
+                sameGroup &&
+                Math.abs(item.coords.top - firstInRow.coords.top) <= 28
+              ) {
+                currentRow.push(item);
+              } else {
+                currentRow.sort((a, b) => a.coords.left - b.coords.left);
+                modalRows.push(currentRow.map((x) => x.el));
+                currentRow = [item];
+              }
+            }
+          }
+          if (currentRow.length > 0) {
+            currentRow.sort((a, b) => a.coords.left - b.coords.left);
+            modalRows.push(currentRow.map((x) => x.el));
+          }
+        }
+
+        const currentModalEl =
+          modalNodes.find((el) => el === activeEl || el.contains(activeEl)) ||
+          activeEl;
+        const curRowIdx = modalRows.findIndex((row) =>
+          row.includes(currentModalEl)
+        );
+
+        if (curRowIdx !== -1) {
+          const curRow = modalRows[curRowIdx];
+          const curColIdx = curRow.indexOf(currentModalEl);
+          const curCoords = getDocCoords(currentModalEl);
+          const isRtl = document.documentElement.dir === 'rtl';
+          const horizStep =
+            (e.key === 'ArrowRight' ? 1 : -1) * (isRtl ? -1 : 1);
+
+          if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+            const nextInSameRow = curRow[curColIdx + horizStep];
+            if (nextInSameRow) {
+              e.preventDefault();
+              nextInSameRow.focus({ preventScroll: true });
+              scrollModalElementIntoView(nextInSameRow, scrollContainer);
+              return;
+            }
+            // Chaînage naturel en fin/début de ligne à l'intérieur du corps défilant
+            const adjacentRowIdx = curRowIdx + horizStep;
+            if (
+              adjacentRowIdx >= 0 &&
+              adjacentRowIdx < modalRows.length &&
+              getZoneRank(currentModalEl) === 2 &&
+              getZoneRank(modalRows[adjacentRowIdx][0]) === 2
+            ) {
+              const adjRow = modalRows[adjacentRowIdx];
+              const wrappedTarget =
+                horizStep > 0 ? adjRow[0] : adjRow[adjRow.length - 1];
+              if (wrappedTarget) {
+                e.preventDefault();
+                wrappedTarget.focus({ preventScroll: true });
+                scrollModalElementIntoView(wrappedTarget, scrollContainer);
+                return;
+              }
+            }
+            return;
+          }
+
+          if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            const nextRowIdx =
+              e.key === 'ArrowDown' ? curRowIdx + 1 : curRowIdx - 1;
+            if (nextRowIdx >= 0 && nextRowIdx < modalRows.length) {
+              e.preventDefault();
+              const targetRow = modalRows[nextRowIdx];
+              // Choisit l'élément de la ligne suivante/précédente le plus aligné horizontalement
+              let bestRowTarget = targetRow[0];
+              let bestHorizDist = Infinity;
+              for (const candidate of targetRow) {
+                const candCoords = getDocCoords(candidate);
+                const dist = Math.abs(candCoords.cx - curCoords.cx);
+                if (dist < bestHorizDist) {
+                  bestHorizDist = dist;
+                  bestRowTarget = candidate;
+                }
+              }
+              bestRowTarget.focus({ preventScroll: true });
+              if (
+                e.key === 'ArrowUp' &&
+                getZoneRank(bestRowTarget) <= 1 &&
+                scrollContainer
+              ) {
+                scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
+              } else {
+                scrollModalElementIntoView(bestRowTarget, scrollContainer);
+              }
+              return;
+            }
+            return;
+          }
+        }
+        return;
+      }
 
       // ========================================================================
       // ÉTAT 2 : NAVIGATION HORIZONTALE DANS LES LIGNES ([data-tv-row])
@@ -4214,7 +4676,9 @@ export function App() {
         (e.key === 'ArrowDown' || e.key === 'ArrowUp')
       ) {
         const filterRows = Array.from(
-          parentFilterZone.querySelectorAll<HTMLElement>('[data-tv-row]')
+          document.querySelectorAll<HTMLElement>(
+            '[data-tv-zone="filters"] [data-tv-row]'
+          )
         ).filter((row) => {
           const r = row.getBoundingClientRect();
           if (r.width <= 0 || r.height <= 0) return false;
@@ -4240,8 +4704,25 @@ export function App() {
             });
             return;
           } else {
-            // Sortie de la dernière ligne de filtres (ou du bouton Reset) ->
-            // Atterrissage PRÉCIS sur le dernier index focalisé de la liste des chaînes (lastFocusedChannelIndex)
+            // Sortie de la dernière ligne de filtres ->
+            // Si Grille TV active, focalise la 1re cellule de la grille ; sinon atterrissage PRÉCIS sur lastFocusedChannelIndex
+            if (viewMode === 'grid') {
+              const firstGridCell = document.querySelector<HTMLElement>(
+                '[data-grid-focusable="true"]'
+              );
+              if (firstGridCell) {
+                e.preventDefault();
+                setActiveFilterRow(null);
+                triggerZoneTransition('filters', 'channels', 'down');
+                firstGridCell.focus({ preventScroll: true });
+                firstGridCell.scrollIntoView({
+                  behavior: 'smooth',
+                  block: 'nearest',
+                  inline: 'nearest',
+                });
+                return;
+              }
+            }
             if (
               focusChannelAtIndex(
                 lastFocusedChannelIndexRef.current,
@@ -4254,6 +4735,7 @@ export function App() {
             }
           }
         } else if (e.key === 'ArrowUp') {
+          realignHeaderAndTopScroll();
           if (currentRowIdx > 0) {
             e.preventDefault();
             focusFilterGridRow(currentRowIdx - 1, {
@@ -4269,7 +4751,7 @@ export function App() {
             });
             return;
           } else if (currentRowIdx === 0) {
-            // Remontée de la 1re ligne de filtres vers la barre d'en-tête (Header)
+            // Remontée de la 1re ligne de filtres vers la barre d'en-tête (Header) sur l'onglet actif
             const headerTabsRow = document.querySelector<HTMLElement>(
               '[data-tv-row="header-tabs"]'
             );
@@ -4282,18 +4764,20 @@ export function App() {
               });
               if (headerBtns.length > 0) {
                 e.preventDefault();
+                const activeTabIdx = headerBtns.findIndex(
+                  (btn) => btn.getAttribute('data-view-active') === 'true'
+                );
                 const rememberedIdx =
-                  filterRowColMemoryRef.current['header-tabs'] ?? 0;
+                  filterRowColMemoryRef.current['header-tabs'] ??
+                  (activeTabIdx !== -1 ? activeTabIdx : 0);
                 const targetHeaderBtn =
                   headerBtns[
                     Math.max(0, Math.min(headerBtns.length - 1, rememberedIdx))
                   ] || headerBtns[0];
+                clearHeaderActionButtonsFocus();
                 triggerZoneTransition('filters', 'header', 'up');
                 targetHeaderBtn.focus({ preventScroll: true });
-                targetHeaderBtn.scrollIntoView({
-                  behavior: 'smooth',
-                  block: 'nearest',
-                });
+                realignHeaderAndTopScroll();
                 return;
               }
             }
@@ -4400,11 +4884,19 @@ export function App() {
           return;
         }
         bestCandidate.focus({ preventScroll: true });
-        bestCandidate.scrollIntoView({
-          behavior: 'smooth',
-          block: 'nearest',
-          inline: 'nearest',
-        });
+        if (
+          e.key === 'ArrowUp' &&
+          (bestCandidate.closest('[data-tv-zone="header"]') ||
+            bestCandidate.closest('[data-tv-zone="filters"]'))
+        ) {
+          realignHeaderAndTopScroll();
+        } else {
+          bestCandidate.scrollIntoView({
+            behavior: 'smooth',
+            block: 'nearest',
+            inline: 'nearest',
+          });
+        }
       }
     };
 
@@ -4471,7 +4963,9 @@ export function App() {
           >
             <button
               type="button"
+              data-view-active={viewMode === 'live' ? 'true' : undefined}
               onClick={() => {
+                clearHeaderActionButtonsFocus();
                 setSelectedEpgDayOffset(0);
                 setIsReplayMode(false);
                 setNowMs(Date.now());
@@ -4497,7 +4991,11 @@ export function App() {
 
             <button
               type="button"
-              onClick={() => setViewMode('grid')}
+              data-view-active={viewMode === 'grid' ? 'true' : undefined}
+              onClick={() => {
+                clearHeaderActionButtonsFocus();
+                setViewMode('grid');
+              }}
               className={`tv-nav-tab-btn text-xs transition-all cursor-pointer shrink-0 ${
                 viewMode === 'grid'
                   ? 'bg-[#e11d48] border border-[#ff0033] text-[#ffffff] font-bold shadow-[0_0_14px_rgba(225,29,72,0.5)]'
@@ -4510,7 +5008,9 @@ export function App() {
 
             <button
               type="button"
+              data-view-active={viewMode === 'favorites' ? 'true' : undefined}
               onClick={() => {
+                clearHeaderActionButtonsFocus();
                 setSelectedSatellite('Tous');
                 setSelectedBouquet('Tous');
                 setSelectedBouquetsList([]);
@@ -4550,7 +5050,11 @@ export function App() {
 
             <button
               type="button"
-              onClick={() => setViewMode('reminders')}
+              data-view-active={viewMode === 'reminders' ? 'true' : undefined}
+              onClick={() => {
+                clearHeaderActionButtonsFocus();
+                setViewMode('reminders');
+              }}
               className={`tv-nav-tab-btn text-xs transition-all cursor-pointer shrink-0 ${
                 viewMode === 'reminders'
                   ? 'bg-gradient-to-r from-[#0055ff] to-[#ec4899] border border-[#ec4899] text-[#ffffff] font-bold shadow-[0_0_14px_rgba(236,72,153,0.55)]'
@@ -4708,8 +5212,27 @@ export function App() {
             </button>
 
             <button
+              ref={refreshBtnRef}
               type="button"
-              onClick={() => triggerEpgSync(settings)}
+              onFocus={(e) => {
+                if (lastInputWasDpadRef.current && !isSettingsOpen) {
+                  e.currentTarget.setAttribute('data-dpad-focused', 'true');
+                  e.currentTarget.classList.add('focused');
+                } else {
+                  e.currentTarget.classList.remove('focused', 'active');
+                  e.currentTarget.removeAttribute('data-dpad-focused');
+                }
+              }}
+              onBlur={(e) => {
+                e.currentTarget.classList.remove('focused', 'active');
+                e.currentTarget.removeAttribute('data-dpad-focused');
+              }}
+              onClick={(e) => {
+                e.currentTarget.classList.remove('focused', 'active');
+                e.currentTarget.removeAttribute('data-dpad-focused');
+                e.currentTarget.blur();
+                triggerEpgSync(settings);
+              }}
               disabled={isSyncing}
               className="tv-fixed-action-btn shrink-0 w-9 h-9 inline-flex items-center justify-center rounded-lg bg-[#141a26] hover:bg-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#0055ff]/60 transition-colors cursor-pointer disabled:opacity-50"
               title={isSyncing ? tr.refreshingBtn : tr.refreshBtn}
@@ -4723,12 +5246,39 @@ export function App() {
             </button>
 
             <button
+              ref={settingsBtnRef}
+              id="header-settings-btn"
               type="button"
-              onClick={() => {
+              data-header-settings-btn="true"
+              data-dpad-focused={
+                isSettingsBtnDpadFocused && !isSettingsOpen ? 'true' : undefined
+              }
+              onFocus={(e) => {
+                if (lastInputWasDpadRef.current && !isSettingsOpen) {
+                  setIsSettingsBtnDpadFocused(true);
+                  e.currentTarget.setAttribute('data-dpad-focused', 'true');
+                } else {
+                  setIsSettingsBtnDpadFocused(false);
+                  e.currentTarget.classList.remove('focused', 'active');
+                  e.currentTarget.removeAttribute('data-dpad-focused');
+                }
+              }}
+              onBlur={(e) => {
+                setIsSettingsBtnDpadFocused(false);
+                e.currentTarget.classList.remove('focused', 'active');
+                e.currentTarget.removeAttribute('data-dpad-focused');
+              }}
+              onClick={(e) => {
+                setIsSettingsBtnDpadFocused(false);
+                e.currentTarget.classList.remove('focused', 'active');
+                e.currentTarget.removeAttribute('data-dpad-focused');
+                e.currentTarget.blur();
                 setSettingsInitialTab('filters');
                 setIsSettingsOpen(true);
               }}
-              className="tv-fixed-action-btn shrink-0 w-9 h-9 inline-flex items-center justify-center rounded-lg bg-[#141a26] hover:bg-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#0055ff]/60 transition-colors cursor-pointer"
+              className={`tv-fixed-action-btn shrink-0 w-9 h-9 inline-flex items-center justify-center rounded-lg bg-[#141a26] hover:bg-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#0055ff]/60 transition-colors cursor-pointer ${
+                isSettingsBtnDpadFocused && !isSettingsOpen ? 'focused' : ''
+              }`}
               title={tr.settingsTitle}
               aria-label={tr.settingsTitle}
             >
@@ -4770,54 +5320,118 @@ export function App() {
             }
             className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3"
           >
-            {/* Search Input & Recent Searches Dropdown (Isolation stricte en overlay absolu uniquement au focus) */}
+            {/* Search Input & Recent Searches Dropdown (Focus direct au survol D-Pad désactivé : ouverture clavier uniquement sur clic / OK / Enter) */}
             <div
               ref={searchContainerRef}
               className="search-bar-container relative flex-1"
             >
-              <Search className="w-4 h-4 text-[#cbd5e1] absolute start-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <input
-                type="text"
-                value={searchQuery}
-                onFocus={() => {
+              <div
+                ref={searchDpadTriggerRef}
+                role="button"
+                tabIndex={0}
+                data-search-dpad-trigger="true"
+                aria-label={tr.searchPlaceholder}
+                onClick={() => {
                   setIsSearchInputFocused(true);
                   setIsSearchDropdownOpen(true);
-                }}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (!val.trim()) {
-                    isTypingSessionRef.current = false;
-                  }
-                  setSearchQuery(val);
-                  setIsSearchInputFocused(true);
-                  setIsSearchDropdownOpen(true);
+                  window.requestAnimationFrame(() => {
+                    searchInputRef.current?.focus();
+                  });
                 }}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && searchQuery.trim()) {
-                    commitSearchToRecent(
-                      searchQuery,
-                      isTypingSessionRef.current
-                    );
-                    isTypingSessionRef.current = false;
-                    setIsSearchDropdownOpen(false);
-                  } else if (e.key === 'Escape') {
-                    setIsSearchDropdownOpen(false);
+                  if (
+                    e.target === e.currentTarget &&
+                    (e.key === 'Enter' ||
+                      e.key === ' ' ||
+                      e.key === 'Select' ||
+                      e.keyCode === 23 ||
+                      e.keyCode === 66)
+                  ) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsSearchInputFocused(true);
+                    setIsSearchDropdownOpen(true);
+                    window.requestAnimationFrame(() => {
+                      searchInputRef.current?.focus();
+                    });
                   }
                 }}
-                onBlur={() => {
-                  if (searchQuery.trim()) {
-                    commitSearchToRecent(
-                      searchQuery,
-                      isTypingSessionRef.current
-                    );
-                    isTypingSessionRef.current = false;
-                  }
-                  setIsSearchInputFocused(false);
-                  setIsSearchDropdownOpen(false);
-                }}
-                placeholder={tr.searchPlaceholder}
-                className="w-full ps-10 pe-9 py-2 rounded-lg bg-[#0a0e17] border border-[#1a202c] text-xs sm:text-sm text-[#ffffff] placeholder-[#cbd5e1]/70 focus:outline-none focus:border-[#0055ff] transition-colors"
-              />
+                className="tv-dpad-btn relative w-full rounded-lg cursor-pointer"
+              >
+                <Search className="w-4 h-4 text-[#cbd5e1] absolute start-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+                <input
+                  ref={searchInputRef}
+                  id="search-input"
+                  type="text"
+                  tabIndex={-1}
+                  readOnly={!isSearchInputFocused}
+                  value={searchQuery}
+                  onMouseDown={() => {
+                    if (!isSearchInputFocused) {
+                      setIsSearchInputFocused(true);
+                      setIsSearchDropdownOpen(true);
+                    }
+                  }}
+                  onFocus={() => {
+                    setIsSearchInputFocused(true);
+                    setIsSearchDropdownOpen(true);
+                  }}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (!val.trim()) {
+                      isTypingSessionRef.current = false;
+                    }
+                    setSearchQuery(val);
+                    setIsSearchInputFocused(true);
+                    setIsSearchDropdownOpen(true);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      if (searchQuery.trim()) {
+                        commitSearchToRecent(
+                          searchQuery,
+                          isTypingSessionRef.current
+                        );
+                      }
+                      isTypingSessionRef.current = false;
+                      setIsSearchDropdownOpen(false);
+                      setIsSearchInputFocused(false);
+                      searchInputRef.current?.blur();
+                      searchDpadTriggerRef.current?.focus({
+                        preventScroll: true,
+                      });
+                      realignHeaderAndTopScroll();
+                    } else if (
+                      e.key === 'Escape' ||
+                      e.key === 'ArrowUp' ||
+                      e.key === 'ArrowDown'
+                    ) {
+                      e.preventDefault();
+                      setIsSearchDropdownOpen(false);
+                      setIsSearchInputFocused(false);
+                      searchInputRef.current?.blur();
+                      searchDpadTriggerRef.current?.focus({
+                        preventScroll: true,
+                      });
+                      realignHeaderAndTopScroll();
+                    }
+                  }}
+                  onBlur={() => {
+                    if (searchQuery.trim()) {
+                      commitSearchToRecent(
+                        searchQuery,
+                        isTypingSessionRef.current
+                      );
+                      isTypingSessionRef.current = false;
+                    }
+                    setIsSearchInputFocused(false);
+                    setIsSearchDropdownOpen(false);
+                    realignHeaderAndTopScroll();
+                  }}
+                  placeholder={tr.searchPlaceholder}
+                  className="w-full ps-10 pe-9 py-2 rounded-lg bg-[#0a0e17] border border-[#1a202c] text-xs sm:text-sm text-[#ffffff] placeholder-[#cbd5e1]/70 focus:outline-none focus:border-[#0055ff] transition-colors cursor-pointer"
+                />
+              </div>
               {searchQuery && (
                 <button
                   type="button"
@@ -4936,12 +5550,20 @@ export function App() {
                       : 'bg-[#0a0e17] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c]'
                   }`}
                 >
-                  <ArrowUpDown className="w-3.5 h-3.5 text-[#38bdf8] shrink-0" />
+                  {tvSortMode === 'smart' ? (
+                    <Sparkles className="w-3.5 h-3.5 text-[#ec4899] shrink-0" />
+                  ) : (
+                    <ArrowUpDown className="w-3.5 h-3.5 text-[#38bdf8] shrink-0" />
+                  )}
                   <span>
                     {tvSortMode === 'lcn'
                       ? activeLang === 'fr'
                         ? 'Tri : N° LCN'
                         : 'Sort: LCN'
+                      : tvSortMode === 'smart'
+                      ? activeLang === 'fr'
+                        ? 'Tri : Intelligent'
+                        : 'Sort: Smart'
                       : tvSortMode === 'alpha_asc'
                       ? activeLang === 'fr'
                         ? 'Tri : A → Z'
@@ -5005,6 +5627,23 @@ export function App() {
                               : 'Official satellite / bouquet order',
                         },
                         {
+                          id: 'smart' as const,
+                          label:
+                            activeLang === 'fr'
+                              ? 'Tri intelligent (Fréquence + LCN)'
+                              : 'Smart Sort (Watch Frequency + LCN)',
+                          desc:
+                            activeLang === 'fr'
+                              ? 'Habitudes de visionnage combinées à l’ordre LCN officiel'
+                              : 'Viewing habits combined with official LCN order',
+                          badge:
+                            learnedHabitsCount > 0
+                              ? activeLang === 'fr'
+                                ? `${learnedHabitsCount} ch.`
+                                : `${learnedHabitsCount} ch.`
+                              : 'Auto',
+                        },
+                        {
                           id: 'alpha_asc' as const,
                           label:
                             activeLang === 'fr'
@@ -5040,6 +5679,7 @@ export function App() {
                       ]
                     ).map((opt) => {
                       const active = tvSortMode === opt.id;
+                      const isSmartOpt = opt.id === 'smart';
                       return (
                         <button
                           key={opt.id}
@@ -5052,26 +5692,64 @@ export function App() {
                           }
                           className={`tv-dpad-btn w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-start transition-all cursor-pointer ${
                             active
-                              ? 'bg-[#2563eb]/25 border border-[#60a5fa] text-[#ffffff]'
+                              ? isSmartOpt
+                                ? 'bg-[#ec4899]/25 border border-[#ec4899] text-[#ffffff]'
+                                : 'bg-[#2563eb]/25 border border-[#60a5fa] text-[#ffffff]'
                               : 'bg-[#0a0e17]/70 border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff]'
                           }`}
                         >
                           <div className="min-w-0">
-                            <div className="text-xs font-bold text-[#ffffff]">
-                              {opt.label}
+                            <div className="flex items-center gap-1.5 text-xs font-bold text-[#ffffff]">
+                              {isSmartOpt && (
+                                <Sparkles className="w-3.5 h-3.5 text-[#ec4899] shrink-0" />
+                              )}
+                              <span className="truncate">{opt.label}</span>
+                              {'badge' in opt && opt.badge && (
+                                <span className="px-1.5 py-0.2 rounded bg-[#141a26] text-[#38bdf8] border border-[#334155] font-mono text-[10px] font-bold shrink-0">
+                                  {opt.badge}
+                                </span>
+                              )}
                             </div>
                             <div className="text-[10px] text-[#cbd5e1] truncate">
                               {opt.desc}
                             </div>
                           </div>
                           {active && (
-                            <span className="w-5 h-5 rounded-full bg-[#2563eb] text-[#ffffff] flex items-center justify-center shrink-0">
+                            <span
+                              className={`w-5 h-5 rounded-full text-[#ffffff] flex items-center justify-center shrink-0 ${
+                                isSmartOpt ? 'bg-[#ec4899]' : 'bg-[#2563eb]'
+                              }`}
+                            >
                               <Check className="w-3 h-3" />
                             </span>
                           )}
                         </button>
                       );
                     })}
+
+                    {learnedHabitsCount > 0 && (
+                      <div className="pt-1.5 mt-1 border-t border-[#334155]/70">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setChannelWatchHabits(clearChannelWatchHabits());
+                          }}
+                          className="tv-dpad-btn w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-[#0a0e17]/80 border border-[#1a202c] text-[11px] font-semibold text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#e11d48]/60 transition-colors cursor-pointer"
+                        >
+                          <span className="inline-flex items-center gap-1.5 truncate">
+                            <RotateCcw className="w-3 h-3 text-[#ec4899] shrink-0" />
+                            <span className="truncate">
+                              {activeLang === 'fr'
+                                ? 'Réinitialiser les habitudes de lecture'
+                                : 'Reset viewing habits'}
+                            </span>
+                          </span>
+                          <span className="font-mono text-[10px] text-[#cbd5e1] shrink-0">
+                            {learnedHabitsCount}
+                          </span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -5318,7 +5996,11 @@ export function App() {
                         : selectedBouquet === bq ||
                           selectedBouquetsList.includes(bq);
                     const count = bouquetCounts[bq] ?? 0;
-                    const label = translateBouquetFilter(bq, activeLang);
+                    const label = translateBouquetFilter(
+                      bq,
+                      activeLang,
+                      selectedSatellite
+                    );
                     return (
                       <div
                         key={bq}
@@ -5625,6 +6307,7 @@ export function App() {
             favorites={favorites}
             onToggleFavorite={handleToggleFavorite}
             onSelectChannel={(ch, prog) => {
+              recordChannelHabit(ch.id, { viewIncrement: 1 });
               setSelectedChannel(ch);
               setSelectedModalProgramme(prog || null);
             }}
