@@ -192,6 +192,7 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
       >
         {/* Header Modal avec bouton X de fermeture */}
         <div
+          data-tv-modal-zone="header"
           data-tv-row="auth-header"
           className="px-5 py-4 bg-[#0b0f19] border-b border-[#1a202c] flex items-center justify-between gap-3 shrink-0 w-full"
         >
@@ -226,6 +227,7 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
 
           <button
             type="button"
+            data-tv-focusable="true"
             onClick={onClose}
             aria-label={t('auth.close', language)}
             title={t('auth.close', language)}
@@ -254,6 +256,7 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
               </div>
               <button
                 type="button"
+                data-tv-focusable="true"
                 onClick={onClose}
                 className="tv-dpad-btn px-3 py-1.5 rounded-lg bg-[#0055ff] hover:bg-[#1d4ed8] text-[11px] font-bold text-[#ffffff] shrink-0 cursor-pointer"
               >
@@ -265,10 +268,17 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
           {/* Bandeau d'information si l'utilisateur tente de consulter un jour verrouillé (J+1..J+7 / Catch-up) ou de cocher un 4ème bouquet */}
           {proFeatureReason && (
             <div
-              className="pro-feature-card w-full max-w-full p-4 rounded-xl bg-gradient-to-r from-[#ec4899]/25 to-[#8b5cf6]/25 border-2 border-[#ec4899] flex items-start gap-3 shadow-[0_0_18px_rgba(236,72,153,0.3)] box-border"
+              style={{
+                display: 'flex',
+                flexDirection: 'row',
+                WebkitBoxOrient: 'horizontal',
+                WebkitFlexDirection: 'row',
+                textAlign: isRtl ? 'right' : 'left',
+              }}
+              className="pro-feature-card w-full max-w-full p-4 rounded-xl bg-gradient-to-r from-[#ec4899]/25 to-[#8b5cf6]/25 border-2 border-[#ec4899] flex flex-row items-start gap-3 space-x-3 rtl:space-x-reverse shadow-[0_0_18px_rgba(236,72,153,0.3)] box-border overflow-hidden"
             >
               <Crown className="w-5 h-5 text-[#fde047] shrink-0 mt-0.5" />
-              <div className="w-full flex-1 min-w-0 text-xs text-[#ffffff] leading-relaxed space-y-1.5 whitespace-normal break-words text-start">
+              <div className="w-full flex-1 min-w-0 text-xs text-[#ffffff] leading-relaxed space-y-1.5 whitespace-normal break-words text-start overflow-hidden">
                 <p className="font-extrabold text-[#fde047] text-xs sm:text-sm leading-snug w-full whitespace-normal break-words">
                   {getProReasonDisplay()}
                 </p>
@@ -285,11 +295,17 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
           )}
 
           {authState.isLoggedIn && authState.user ? (
-            <div className="space-y-4 w-full">
+            <div className="space-y-4 w-full overflow-hidden">
               {/* Carte Profil Connecté */}
-              <div className="auth-profile-card p-4 rounded-xl bg-[#0a0e17] border border-[#1a202c] space-y-3.5 w-full box-border">
+              <div
+                style={{
+                  textAlign: isRtl ? 'right' : 'left',
+                  boxSizing: 'border-box',
+                }}
+                className="auth-profile-card p-4 rounded-xl bg-[#0a0e17] border border-[#1a202c] space-y-3.5 w-full box-border overflow-hidden"
+              >
                 <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-0 flex-1 overflow-hidden">
                     <p className="text-xs text-[#cbd5e1] whitespace-normal">
                       {t('auth.signedInAs', language)}
                     </p>
@@ -340,19 +356,21 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
               </div>
 
               {/* Sélecteur de statut Gratuit / PulseEPG Pro 👑 */}
-              <div className="space-y-2.5 w-full">
+              <div className="space-y-2.5 w-full overflow-hidden">
                 <p className="text-xs font-bold uppercase tracking-wider text-[#cbd5e1] whitespace-normal text-start">
                   {t('auth.subscriptionStatus', language)}
                 </p>
                 <div
                   data-tv-row="auth-plan-toggle"
-                  className="grid grid-cols-2 gap-3 w-full"
+                  className="grid grid-cols-2 gap-3 w-full overflow-hidden"
                 >
                   <button
                     type="button"
+                    data-tv-focusable="true"
                     disabled={isLoading}
                     onClick={() => handleTogglePro(false)}
-                    className={`auth-tier-card tv-dpad-btn p-3.5 rounded-xl border text-start transition-all cursor-pointer w-full box-border ${
+                    style={{ textAlign: isRtl ? 'right' : 'left' }}
+                    className={`auth-tier-card tv-dpad-btn p-3.5 rounded-xl border text-start transition-all cursor-pointer w-full box-border overflow-hidden ${
                       !authState.isPremium
                         ? 'bg-[#2563eb]/25 border-[#60a5fa] text-[#ffffff]'
                         : 'bg-[#0a0e17] border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff]'
@@ -373,9 +391,11 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
 
                   <button
                     type="button"
+                    data-tv-focusable="true"
                     disabled={isLoading}
                     onClick={() => handleTogglePro(true)}
-                    className={`auth-tier-card tv-dpad-btn p-3.5 rounded-xl border text-start transition-all cursor-pointer w-full box-border ${
+                    style={{ textAlign: isRtl ? 'right' : 'left' }}
+                    className={`auth-tier-card tv-dpad-btn p-3.5 rounded-xl border text-start transition-all cursor-pointer w-full box-border overflow-hidden ${
                       authState.isPremium
                         ? 'bg-gradient-to-br from-[#ec4899]/30 to-[#8b5cf6]/30 border-[#ec4899] text-[#ffffff]'
                         : 'bg-[#0a0e17] border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff]'
@@ -397,11 +417,13 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
               </div>
 
               <div
+                data-tv-modal-zone="footer"
                 data-tv-row="auth-logged-actions"
-                className="pt-2 flex items-center justify-between gap-3 w-full"
+                className="pt-2 flex items-center justify-between gap-3 w-full overflow-hidden"
               >
                 <button
                   type="button"
+                  data-tv-focusable="true"
                   onClick={handleSignOut}
                   disabled={isLoading}
                   className="tv-dpad-btn inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-[#0a0e17] border border-[#334155] text-xs font-semibold text-[#cbd5e1] hover:text-[#e11d48] hover:border-[#e11d48] transition-colors cursor-pointer"
@@ -414,6 +436,7 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
 
                 <button
                   type="button"
+                  data-tv-focusable="true"
                   onClick={onClose}
                   className="tv-dpad-btn px-4 py-2.5 rounded-xl bg-[#0055ff] hover:bg-[#1d4ed8] text-xs font-bold text-[#ffffff] transition-colors cursor-pointer"
                 >
@@ -422,9 +445,18 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
               </div>
             </div>
           ) : (
-            <div className="space-y-4 w-full">
+            <div className="space-y-4 w-full overflow-hidden">
               {/* Rappel du Mode Invité sans blocage */}
-              <div className="guest-info-box w-full max-w-full p-3.5 rounded-xl bg-[#0a0e17] border border-[#1a202c] flex items-center gap-3 text-xs text-[#cbd5e1] leading-relaxed box-border">
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'row',
+                  WebkitBoxOrient: 'horizontal',
+                  WebkitFlexDirection: 'row',
+                  textAlign: isRtl ? 'right' : 'left',
+                }}
+                className="guest-info-box w-full max-w-full p-3.5 rounded-xl bg-[#0a0e17] border border-[#1a202c] flex flex-row items-center gap-3 space-x-3 rtl:space-x-reverse text-xs text-[#cbd5e1] leading-relaxed box-border overflow-hidden"
+              >
                 <ShieldCheck className="w-4 h-4 text-[#38bdf8] shrink-0" />
                 <span className="w-full flex-1 min-w-0 whitespace-normal break-words text-start">
                   {t('auth.guestAccessInfo', language)}
@@ -433,11 +465,13 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
 
               {/* Onglets Connexion (signInWithPassword) / Inscription (signUp) */}
               <div
+                data-tv-modal-zone="tabs"
                 data-tv-row="auth-mode-tabs"
-                className="grid grid-cols-2 gap-2.5 p-1.5 rounded-xl bg-[#0a0e17] border border-[#1a202c] w-full"
+                className="grid grid-cols-2 gap-2.5 p-1.5 rounded-xl bg-[#0a0e17] border border-[#1a202c] w-full overflow-hidden"
               >
                 <button
                   type="button"
+                  data-tv-focusable="true"
                   onClick={() => setMode('login')}
                   className={`tv-dpad-btn inline-flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer w-full ${
                     mode === 'login'
@@ -452,6 +486,7 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
                 </button>
                 <button
                   type="button"
+                  data-tv-focusable="true"
                   onClick={() => setMode('register')}
                   className={`tv-dpad-btn inline-flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer w-full ${
                     mode === 'register'
@@ -467,9 +502,10 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
               </div>
 
               {/* Bouton d'authentification sociale rapide "Continuer avec Google" */}
-              <div data-tv-row="auth-google-oauth" className="space-y-3 w-full">
+              <div data-tv-row="auth-google-oauth" className="space-y-3 w-full overflow-hidden">
                 <button
                   type="button"
+                  data-tv-focusable="true"
                   disabled={isLoading}
                   onClick={handleGoogleSignIn}
                   className="tv-dpad-btn w-full py-3 px-4 rounded-xl bg-[#ffffff] hover:bg-[#f8fafc] text-[#0f172a] border-2 border-[#ffffff] font-bold text-xs sm:text-sm flex items-center justify-center gap-2.5 shadow-[0_0_16px_rgba(255,255,255,0.2)] transition-all cursor-pointer"
@@ -517,6 +553,7 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
                   </label>
                   <input
                     type="text"
+                    data-tv-focusable="true"
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
                     placeholder={t('auth.displayNamePlaceholder', language)}
@@ -539,6 +576,7 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
                     />
                     <input
                       type="email"
+                      data-tv-focusable="true"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="nom@exemple.com"
@@ -563,6 +601,7 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
                     />
                     <input
                       type="password"
+                      data-tv-focusable="true"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="••••••••"
@@ -581,6 +620,7 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
                 >
                   <button
                     type="button"
+                    data-tv-focusable="true"
                     onClick={() => setSelectProOnSubmit(false)}
                     className={`auth-tier-card tv-dpad-btn p-3 rounded-xl border text-start transition-all cursor-pointer w-full box-border ${
                       !selectProOnSubmit
@@ -598,6 +638,7 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
 
                   <button
                     type="button"
+                    data-tv-focusable="true"
                     onClick={() => setSelectProOnSubmit(true)}
                     className={`auth-tier-card tv-dpad-btn p-3 rounded-xl border text-start transition-all cursor-pointer w-full box-border ${
                       selectProOnSubmit
@@ -621,11 +662,13 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
                 )}
 
                 <div
+                  data-tv-modal-zone="footer"
                   data-tv-row="auth-submit-row"
                   className="pt-1.5 flex flex-col gap-2 w-full"
                 >
                   <button
                     type="submit"
+                    data-tv-focusable="true"
                     disabled={isLoading}
                     className="tv-dpad-btn w-full py-3 rounded-xl bg-gradient-to-r from-[#0055ff] to-[#ec4899] text-xs sm:text-sm font-bold text-[#ffffff] shadow-[0_0_15px_rgba(236,72,153,0.4)] cursor-pointer"
                   >

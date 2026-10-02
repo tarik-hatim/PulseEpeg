@@ -349,11 +349,15 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
       {/* Conteneur principal du modal avec défilement vertical garanti sur mobile & navigation D-Pad TV */}
       <div
         data-tv-modal="true"
+        data-tv-modal-scroll="true"
         className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-[#141a26] border border-[#1a202c] rounded-xl shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* En-tête simplifié et collant : Nom de chaîne + Actions (Bouton X Fermer toujours visible) */}
-        <div className="sticky top-0 z-30 px-4 py-3 bg-[#0b0f19] border-b border-[#1a202c] flex items-center justify-between gap-3">
+        <div
+          data-tv-modal-zone="header"
+          className="sticky top-0 z-30 px-4 py-3 bg-[#0b0f19] border-b border-[#1a202c] flex items-center justify-between gap-3"
+        >
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 rounded-lg bg-[#0a0e17] border border-[#1a202c] flex items-center justify-center p-1.5 shrink-0">
               <img
@@ -439,6 +443,7 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
           >
             <button
               type="button"
+              data-tv-focusable="true"
               onClick={() => onToggleFavorite(channel.id)}
               className={`p-2 rounded-lg transition-all cursor-pointer ${
                 isFavorite
@@ -451,6 +456,7 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
             </button>
             <button
               type="button"
+              data-tv-focusable="true"
               onClick={onClose}
               aria-label={tr.close}
               className="tv-dpad-btn inline-flex items-center justify-center w-9 h-9 rounded-lg bg-[#e11d48]/20 border border-[#e11d48]/70 text-[#ffffff] hover:bg-[#e11d48] transition-colors cursor-pointer shrink-0"
@@ -536,6 +542,7 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                   {displayProg.stopMs > nowMs && (
                     <button
                       type="button"
+                      data-tv-focusable="true"
                       onClick={() => onToggleReminder(displayProg, channel)}
                       className={`tv-focusable inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer shrink-0 ${
                         reminderIds.has(displayProg.id)
@@ -559,6 +566,7 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
 
                   <button
                     type="button"
+                    data-tv-focusable="true"
                     onClick={onClose}
                     aria-label={tr.close}
                     title={tr.close}
@@ -724,7 +732,10 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
           )}
 
           {/* Sélecteur de Jour 7 Jours & Tranche Horaire — Cadenas 🔒 sur J+1..J+7 et Catch-up en Mode Invité / Gratuit */}
-          <div className="rounded-lg bg-[#0a0e17] border border-[#1a202c] p-3 space-y-2.5">
+          <div
+            data-tv-modal-zone="tabs"
+            className="rounded-lg bg-[#0a0e17] border border-[#1a202c] p-3 space-y-2.5"
+          >
             <div
               data-tv-row="modal-days"
               className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 px-0.5"
@@ -736,6 +747,7 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                   <button
                     key={tab.offset}
                     type="button"
+                    data-tv-focusable="true"
                     onClick={() => {
                       if (tab.isLocked) {
                         setPendingLockedOffset(tab.offset);
@@ -800,6 +812,7 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                   <button
                     key={period.id}
                     type="button"
+                    data-tv-focusable="true"
                     onClick={() => setPeriodFilter(period.id)}
                     className={`px-2.5 py-1 rounded-lg text-[11px] transition-all cursor-pointer ${
                       active
@@ -978,6 +991,7 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                         {prog.stopMs > nowMs && (
                           <button
                             type="button"
+                            data-tv-focusable="true"
                             onClick={(e) => {
                               e.stopPropagation();
                               onToggleReminder(prog, channel);

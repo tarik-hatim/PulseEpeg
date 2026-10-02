@@ -282,6 +282,7 @@ export const LauncherIconsPreviewCard: React.FC<{ language: AppLanguage }> = ({
         {deferredPrompt && (
           <button
             type="button"
+            data-tv-focusable="true"
             onClick={handleInstall}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-[#e11d48] text-[#ffffff] border border-[#ff0033] hover:bg-[#be123c] transition-all cursor-pointer"
           >
@@ -300,6 +301,7 @@ export const LauncherIconsPreviewCard: React.FC<{ language: AppLanguage }> = ({
             <button
               key={spec.id}
               type="button"
+              data-tv-focusable="true"
               onClick={() => setActiveTerminal(spec.id)}
               className={`flex items-center gap-2 px-2.5 py-2 rounded-lg border text-left transition-all cursor-pointer ${
                 isActive

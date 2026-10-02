@@ -1704,10 +1704,14 @@ const TimeGridViewInner: React.FC<TimeGridViewProps> = ({
           {/* Lignes virtualisées des chaînes filtrées et de leurs programmes (8 à 12 lignes dans le DOM) */}
           <div
             style={{
-              paddingTop: topVirtualPadding > 0 ? `${topVirtualPadding}px` : undefined,
+              paddingTop:
+                topVirtualPadding > 0 ? `${topVirtualPadding}px` : undefined,
               paddingBottom:
-                bottomVirtualPadding > 0 ? `${bottomVirtualPadding}px` : undefined,
+                bottomVirtualPadding > 0
+                  ? `${bottomVirtualPadding}px`
+                  : undefined,
             }}
+            className="w-full"
           >
             {virtualRows.map((virtualRow) => {
               const rowIdx = virtualRow.index;
@@ -1718,28 +1722,34 @@ const TimeGridViewInner: React.FC<TimeGridViewProps> = ({
               const progs = visibleWindowProgrammesMap.get(ch.id) || [];
 
               return (
-                <MemoizedGridChannelRow
+                <div
                   key={ch.id}
-                  ch={ch}
-                  rowIdx={rowIdx}
-                  lcn={lcn}
-                  isFav={isFav}
-                  progs={progs}
-                  windowStartMs={windowStartMs}
-                  windowEndMs={windowEndMs}
-                  nowMs={nowMs}
-                  baseRealNowMs={baseRealNowMs}
-                  nowOffsetPx={nowOffsetPx}
-                  selectedSatellite={selectedSatellite}
-                  selectedBouquet={selectedBouquet}
-                  activeLang={activeLang}
-                  reminderIdSet={reminderIdSet}
-                  cancelReminderLabel={tr.cancelReminder}
-                  remindProgramLabel={tr.remindProgram}
-                  onSelectChannel={onSelectChannel}
-                  onToggleFavorite={onToggleFavorite}
-                  onToggleReminder={onToggleReminder}
-                />
+                  data-index={virtualRow.index}
+                  ref={rowVirtualizer.measureElement}
+                  className="w-full"
+                >
+                  <MemoizedGridChannelRow
+                    ch={ch}
+                    rowIdx={rowIdx}
+                    lcn={lcn}
+                    isFav={isFav}
+                    progs={progs}
+                    windowStartMs={windowStartMs}
+                    windowEndMs={windowEndMs}
+                    nowMs={nowMs}
+                    baseRealNowMs={baseRealNowMs}
+                    nowOffsetPx={nowOffsetPx}
+                    selectedSatellite={selectedSatellite}
+                    selectedBouquet={selectedBouquet}
+                    activeLang={activeLang}
+                    reminderIdSet={reminderIdSet}
+                    cancelReminderLabel={tr.cancelReminder}
+                    remindProgramLabel={tr.remindProgram}
+                    onSelectChannel={onSelectChannel}
+                    onToggleFavorite={onToggleFavorite}
+                    onToggleReminder={onToggleReminder}
+                  />
+                </div>
               );
             })}
           </div>

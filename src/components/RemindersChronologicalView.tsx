@@ -226,26 +226,22 @@ export const RemindersChronologicalView: React.FC<
   return (
     <div
       dir={isRtl ? 'rtl' : 'ltr'}
-      className={`reminders-view-root w-full space-y-4 ${
-        isRtl ? 'text-right' : 'text-left'
-      } text-start`}
+      className="reminders-view-root w-full space-y-4"
     >
       {/* En-tête de la vue "Mes Rappels" & Filtres Chronologiques */}
       <div
         dir={isRtl ? 'rtl' : 'ltr'}
-        className={`reminders-header-card w-full rounded-lg bg-[#141a26] border border-[#1a202c] p-4 sm:p-5 space-y-4 ${
-          isRtl ? 'text-right' : 'text-left'
-        } text-start`}
+        className="reminders-header-card w-full rounded-lg bg-[#141a26] border border-[#1a202c] p-4 sm:p-5 space-y-4"
       >
         <div className="w-full flex flex-col gap-3">
           {/* Ligne supérieure : Icône + Titre + Badge compteur & Boutons d'action */}
           <div className="w-full flex flex-row flex-wrap items-center justify-between gap-4">
-            <div className="flex flex-row items-center gap-3 flex-wrap min-w-[240px] flex-1">
+            <div className="flex items-center gap-3 flex-wrap">
               <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#0055ff] to-[#ec4899] flex items-center justify-center text-[#ffffff] shadow-[0_0_16px_rgba(236,72,153,0.45)] shrink-0">
                 <BellRing className="w-5 h-5 shrink-0" />
               </div>
-              <div className="flex flex-row items-center gap-2.5 flex-wrap">
-                <h2 className="text-base sm:text-lg font-bold text-[#ffffff] whitespace-normal">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h2 className="text-base sm:text-lg font-bold text-[#ffffff]">
                   {t('reminders.title', language)}
                 </h2>
                 <span
@@ -261,7 +257,7 @@ export const RemindersChronologicalView: React.FC<
 
             <div
               data-tv-row="reminders-actions"
-              className="flex flex-row flex-wrap items-center gap-3 shrink-0 my-0.5"
+              className="flex items-center gap-3 shrink-0 my-0.5"
             >
               <button
                 type="button"
@@ -292,11 +288,7 @@ export const RemindersChronologicalView: React.FC<
 
           {/* Conteneur de description pleine largeur (empêche tout retour à la ligne vertical mot par mot en RTL) */}
           <div className="w-full">
-            <p
-              className={`reminders-header-desc w-full whitespace-normal break-normal text-xs sm:text-sm text-[#cbd5e1] leading-relaxed ${
-                isRtl ? 'text-right' : 'text-left'
-              } text-start`}
-            >
+            <p className="reminders-header-desc w-full whitespace-normal break-normal text-xs sm:text-sm text-[#cbd5e1] leading-relaxed">
               {t('reminders.description', language)}
             </p>
           </div>
@@ -305,7 +297,7 @@ export const RemindersChronologicalView: React.FC<
         {/* Barre de sous-filtres rapides (Tous / En cours & Imminent / Sport / Cinéma) */}
         <div
           data-tv-row="reminders-subfilters"
-          className="pt-3 border-t border-[#1a202c] flex flex-row flex-wrap sm:flex-nowrap items-center gap-2.5 overflow-x-auto no-scrollbar py-1 px-0.5"
+          className="pt-3 border-t border-[#1a202c] flex items-center gap-2.5 overflow-x-auto no-scrollbar py-1 px-0.5"
         >
           <button
             type="button"
@@ -468,8 +460,6 @@ export const RemindersChronologicalView: React.FC<
                   }
                 }}
                 className={`tv-card-focusable group relative w-full rounded-lg p-3.5 sm:p-4 border transition-all cursor-pointer ${
-                  isRtl ? 'text-right' : 'text-left'
-                } text-start ${
                   isLive || isImminent
                     ? 'bg-[#141a26] border-[1.5px] border-[#ec4899] shadow-[0_0_18px_rgba(236,72,153,0.35)]'
                     : 'bg-[#141a26] border-[#0055ff]/50 hover:border-[#ec4899]'
@@ -477,7 +467,7 @@ export const RemindersChronologicalView: React.FC<
               >
                 <div className="w-full flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                   {/* Gauche (ou Droite en RTL) : Horaire Chronologique + Chaîne */}
-                  <div className="flex flex-row items-center gap-3 w-full lg:w-auto lg:min-w-[280px] shrink-0">
+                  <div className="flex items-center gap-3 w-full lg:w-auto lg:min-w-[280px] shrink-0">
                     <div className="w-12 h-12 rounded-lg bg-[#0a0e17] border border-[#1a202c] flex items-center justify-center p-1.5 shrink-0">
                       {logoUrl ? (
                         <img

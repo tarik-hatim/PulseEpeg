@@ -459,6 +459,8 @@ const ChannelRowCardInner: React.FC<ChannelRowCardProps> = ({
       : ensureHttpsUrl(rawLogoUrl.replace(/^http:\/\//i, 'https://')) ||
         buildCleanFallbackLogoDataUri(channel.displayName, channel.id);
 
+  const isRtl = activeLang === 'ar';
+
   return (
     <div
       ref={measureRef}
@@ -482,7 +484,7 @@ const ChannelRowCardInner: React.FC<ChannelRowCardProps> = ({
           onSelectChannel(channel, currentProgramme);
         }
       }}
-      className={`tv-card-focusable group relative rounded-lg border cursor-pointer overflow-hidden transition-all ${
+      className={`tv-card-focusable group relative rounded-lg border cursor-pointer transition-all ${
         isSelected
           ? 'selected-program bg-[#1a202c] border-2 border-[#ec4899] shadow-[0_0_15px_rgba(236,72,153,0.4)]'
           : `bg-[#141a26] border-[#1a202c] ${accent.border} hover:bg-[#1a202c]`

@@ -429,6 +429,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
           <button
             type="button"
+            data-tv-focusable="true"
             onClick={onClose}
             className="tv-dpad-btn p-2.5 rounded-xl bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#e11d48]/60 transition-colors cursor-pointer shrink-0"
             title={tr.close}
@@ -445,6 +446,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         >
           <button
             type="button"
+            data-tv-focusable="true"
             onClick={() => setActiveTab('filters')}
             className={`tv-dpad-btn inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm transition-all cursor-pointer shrink-0 ${
               activeTab === 'filters'
@@ -458,6 +460,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
           <button
             type="button"
+            data-tv-focusable="true"
             onClick={() => setActiveTab('sources')}
             className={`tv-dpad-btn inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm transition-all cursor-pointer shrink-0 ${
               activeTab === 'sources'
@@ -471,6 +474,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
           <button
             type="button"
+            data-tv-focusable="true"
             onClick={() => setActiveTab('legal')}
             className={`tv-dpad-btn inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm transition-all cursor-pointer shrink-0 ${
               activeTab === 'legal'
@@ -515,6 +519,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <button
                     key={opt.code}
                     type="button"
+                    data-tv-focusable="true"
                     onClick={() => handleSelectLanguage(opt.code)}
                     className={`tv-dpad-btn flex items-center justify-between gap-2 px-3.5 py-3 rounded-xl text-xs transition-all cursor-pointer ${
                       isSelected
@@ -550,6 +555,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <div className="flex items-center gap-2.5 flex-wrap">
                     <button
                       type="button"
+                      data-tv-focusable="true"
                       onClick={handleAutoDetectTvProfile}
                       className="tv-dpad-btn inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#141a26] hover:bg-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#0055ff]/60 text-xs font-medium transition-colors cursor-pointer"
                       title="Réappliquer la détection automatique selon la langue du système"
@@ -577,6 +583,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       <button
                         key={profile.id}
                         type="button"
+                        data-tv-focusable="true"
                         onClick={() => handleSelectTvProfile(profile.id)}
                         className={`tv-dpad-btn flex flex-col items-start justify-between gap-3 p-4 sm:p-5 rounded-xl text-start transition-all cursor-pointer min-h-[112px] ${
                           isSelected
@@ -635,6 +642,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           <button
                             key={ext.id}
                             type="button"
+                            data-tv-focusable="true"
                             onClick={() => {
                               toggleSatelliteGroup(ext.bouquetIds);
                             }}
@@ -690,6 +698,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </span>
                     <button
                       type="button"
+                      data-tv-focusable="true"
                       onClick={selectAllBouquets}
                       className="tv-dpad-btn px-2.5 py-1 rounded-lg bg-gradient-to-r from-[#ec4899]/25 to-[#8b5cf6]/25 border border-[#ec4899] text-[11px] font-bold text-[#fde047] hover:bg-[#ec4899]/40 transition-all cursor-pointer"
                     >
@@ -709,6 +718,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     {!isPremium && onRequestProUpgrade && (
                       <button
                         type="button"
+                        data-tv-focusable="true"
                         onClick={onRequestProUpgrade}
                         className="tv-dpad-btn px-2.5 py-1 rounded-lg bg-[#ec4899] text-[#ffffff] text-xs font-bold cursor-pointer shrink-0"
                       >
@@ -750,6 +760,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         <div className="flex items-start justify-between gap-3 pb-4 border-b border-[#1a202c]">
                           <button
                             type="button"
+                            data-tv-focusable="true"
                             onClick={() => {
                               toggleSatelliteGroup(groupIds);
                             }}
@@ -810,6 +821,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 role="checkbox"
                                 aria-checked={checked}
                                 tabIndex={0}
+                                data-tv-focusable="true"
                                 onClick={() => toggleBouquet(bq.id)}
                                 onKeyDown={(e) => {
                                   if (
@@ -906,6 +918,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         key={cat.id}
                         tabIndex={0}
                         role="button"
+                        data-tv-focusable="true"
                         onClick={() => toggleCategory(cat.id)}
                         onKeyDown={(e) => {
                           if (
@@ -963,6 +976,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <div
                     tabIndex={0}
                     role="button"
+                    data-tv-focusable="true"
                     onClick={() =>
                       setDraft((prev) => ({
                         ...prev,
@@ -1013,6 +1027,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <div
                     tabIndex={0}
                     role="button"
+                    data-tv-focusable="true"
                     onClick={() =>
                       setDraft((prev) => ({
                         ...prev,
@@ -1092,6 +1107,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                   <button
                     type="button"
+                    data-tv-focusable="true"
                     onClick={() => {
                       onResetWatchHabits?.();
                       setHabitsResetFeedback(true);
@@ -1153,6 +1169,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <label className="flex items-center gap-2 text-xs text-[#ffffff] cursor-pointer">
                     <input
                       type="checkbox"
+                      data-tv-focusable="true"
                       checked={draft.autoRefreshHours > 0}
                       onChange={(e) =>
                         setDraft((prev) => ({
@@ -1167,6 +1184,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                   <button
                     type="button"
+                    data-tv-focusable="true"
                     onClick={onClearCache}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#141a26] hover:bg-[#1a202c] text-[#ffffff] border border-[#1a202c] text-xs font-medium transition-colors cursor-pointer"
                   >
@@ -1187,6 +1205,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </h3>
                   <button
                     type="button"
+                    data-tv-focusable="true"
                     onClick={onResetDefaults}
                     className="inline-flex items-center gap-1 text-xs text-[#cbd5e1] hover:text-[#ffffff] cursor-pointer"
                   >
@@ -1208,6 +1227,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       <label className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer">
                         <input
                           type="checkbox"
+                          data-tv-focusable="true"
                           checked={source.enabled}
                           onChange={() => handleToggleSource(source.id)}
                           className="w-4 h-4 rounded border-[#1a202c] bg-[#141a26] text-[#e11d48] focus:ring-[#e11d48]"
@@ -1230,6 +1250,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       {source.id.startsWith('custom-') && (
                         <button
                           type="button"
+                          data-tv-focusable="true"
                           onClick={() => handleDeleteSource(source.id)}
                           className="p-1.5 rounded-lg text-[#cbd5e1] hover:text-[#ffffff] hover:bg-[#141a26] transition-colors cursor-pointer"
                         >
@@ -1254,6 +1275,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
                   <select
                     value={newCountry}
+                    data-tv-focusable="true"
                     onChange={(e) =>
                       setNewCountry(
                         e.target.value as Exclude<CountryCode, 'Tous'>
@@ -1274,6 +1296,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                   <input
                     type="text"
+                    data-tv-focusable="true"
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
                     placeholder={tr.sourceNamePlaceholder}
@@ -1282,6 +1305,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                   <input
                     type="url"
+                    data-tv-focusable="true"
                     value={newUrl}
                     onChange={(e) => setNewUrl(e.target.value)}
                     placeholder="https://.../epg.xml.gz"
@@ -1292,6 +1316,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div className="flex justify-end">
                   <button
                     type="submit"
+                    data-tv-focusable="true"
                     className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#e11d48] hover:bg-[#ff0033] border-[1.5px] border-[#ff0033] text-xs font-bold text-[#ffffff] shadow-[0_0_12px_rgba(225,29,72,0.45)] transition-colors cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" />
@@ -1341,6 +1366,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     href="https://www.themoviedb.org/"
                     target="_blank"
                     rel="noopener noreferrer"
+                    data-tv-focusable="true"
                     className="inline-flex items-center gap-1.5 text-[#cbd5e1] hover:text-[#ffffff] font-semibold"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
@@ -1351,6 +1377,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     href="https://www.tvmaze.com/"
                     target="_blank"
                     rel="noopener noreferrer"
+                    data-tv-focusable="true"
                     className="inline-flex items-center gap-1.5 text-[#cbd5e1] hover:text-[#ffffff] font-semibold"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
@@ -1397,6 +1424,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         >
           <button
             type="button"
+            data-tv-focusable="true"
             onClick={onClose}
             className="tv-dpad-btn px-4 py-2.5 rounded-xl bg-[#141a26] hover:bg-[#1a202c] text-xs font-semibold text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] transition-colors cursor-pointer"
           >
@@ -1406,6 +1434,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <div className="flex items-center gap-2.5">
             <button
               type="button"
+              data-tv-focusable="true"
               onClick={() => {
                 onSaveSettings(draft, false);
                 onClose();
@@ -1418,6 +1447,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
             <button
               type="button"
+              data-tv-focusable="true"
               onClick={() => {
                 onSaveSettings(draft, true);
                 onClose();

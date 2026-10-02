@@ -139,6 +139,8 @@ export const InAppReminderBanner: React.FC<InAppReminderBannerProps> = ({
         bottom: '24px',
         left: '50%',
         transform: 'translateX(-50%)',
+        WebkitTransform: 'translateX(-50%)',
+        msTransform: 'translateX(-50%)',
         zIndex: 9999,
         background: '#1e293b',
         color: '#ffffff',
@@ -146,11 +148,8 @@ export const InAppReminderBanner: React.FC<InAppReminderBannerProps> = ({
         borderRadius: '12px',
         padding: '12px 24px',
         boxShadow: '0 10px 25px rgba(0,0,0,0.85)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '12px',
       }}
-      className="toast-notification in-app-toast-banner pointer-events-auto w-auto min-w-[290px] max-w-[calc(100vw-24px)] sm:max-w-xl transition-all"
+      className="toast-notification in-app-toast-banner pointer-events-auto flex items-center gap-3 w-auto min-w-[290px] max-w-[calc(100vw-24px)] sm:max-w-xl transition-all"
     >
       {/* Bouton principal immédiatement sélectionnable via OK / Enter sur la télécommande */}
       <button

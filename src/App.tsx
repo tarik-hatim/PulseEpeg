@@ -4832,23 +4832,37 @@ export function App() {
       }
 
       const selector =
-        'button:not([disabled]):not([tabindex="-1"]), [role="button"]:not([tabindex="-1"]), [role="checkbox"]:not([tabindex="-1"]), [role="menuitemradio"]:not([tabindex="-1"]), a[href]:not([tabindex="-1"]), select:not([disabled]):not([tabindex="-1"]), input:not([disabled]):not([tabindex="-1"])';
+        '[data-tv-focusable="true"]:not([disabled]):not([tabindex="-1"]), button:not([disabled]):not([tabindex="-1"]), [role="button"]:not([tabindex="-1"]), [role="checkbox"]:not([tabindex="-1"]), [role="menuitemradio"]:not([tabindex="-1"]), a[href]:not([tabindex="-1"]), select:not([disabled]):not([tabindex="-1"]), input:not([disabled]):not([tabindex="-1"])';
 
       // ========================================================================
-      // ÉTAT MODAL : CHAÎNAGE SÉQUENTIEL D-PAD DANS LES MODALS (PARAMÈTRES, AUTH, ETC.)
-      // Empêche le saut prématuré vers le bouton "Annuler" du footer et scrolle
-      // fluidement à travers toutes les cartes visibles et cachées de haut en bas.
+      // ÉTAT MODAL : CHAÎNAGE SÉQUENTIEL D-PAD DANS LES MODALES (PARAMÈTRES, AUTH, QUICK-JUMP, ETC.)
+      // Empêche tout saut parasite vers le footer et scrolle fluidement à travers
+      // toutes les cartes et éléments visibles et cachés de haut en bas.
       // ========================================================================
       if (modalScope) {
+        // Intercepte systématiquement les touches de direction D-Pad dans une modale
+        // pour empêcher le moteur spatial natif du navigateur de sauter vers le footer
+        if (
+          e.key === 'ArrowUp' ||
+          e.key === 'ArrowDown' ||
+          e.key === 'ArrowLeft' ||
+          e.key === 'ArrowRight'
+        ) {
+          e.preventDefault();
+        }
+
         const scrollModalElementIntoView = (
           targetEl: HTMLElement,
           scrollContainer: HTMLElement | null
         ) => {
-          if (scrollContainer && scrollContainer.contains(targetEl)) {
+          if (
+            scrollContainer &&
+            (scrollContainer.contains(targetEl) || scrollContainer === targetEl)
+          ) {
             const sRect = scrollContainer.getBoundingClientRect();
             const tRect = targetEl.getBoundingClientRect();
-            const topClearance = 28;
-            const bottomClearance = 108;
+            const topClearance = 32;
+            const bottomClearance = 110;
             if (tRect.bottom > sRect.bottom - bottomClearance) {
               scrollContainer.scrollBy({
                 top: tRect.bottom - (sRect.bottom - bottomClearance),
@@ -4873,7 +4887,10 @@ export function App() {
           modalScope.querySelectorAll<HTMLElement>(selector)
         ).filter((el) => {
           const r = el.getBoundingClientRect();
-          return r.width > 0 && r.height > 0;
+          return (
+            (r.width > 0 && r.height > 0) ||
+            (el.offsetWidth > 0 && el.offsetHeight > 0)
+          );
         });
 
         // Exclut les éléments imbriqués dans un parent déjà focusable pour éviter tout piège D-Pad
@@ -4884,16 +4901,16 @@ export function App() {
 
         if (modalNodes.length === 0) return;
 
-        if (!activeEl || !modalScope.contains(activeEl)) {
-          e.preventDefault();
-          const firstModalTarget = modalNodes[0];
-          firstModalTarget.focus({ preventScroll: true });
-          return;
-        }
-
-        const scrollContainer = modalScope.querySelector<HTMLElement>(
-          '[data-tv-modal-scroll="true"]'
-        );
+        const scrollContainer =
+          modalScope.querySelector<HTMLElement>(
+            '[data-tv-modal-scroll="true"]'
+          ) ||
+          (modalScope.getAttribute('data-tv-modal-scroll') === 'true'
+            ? modalScope
+            : null) ||
+          (modalScope.classList.contains('overflow-y-auto')
+            ? modalScope
+            : null);
         const scrollRect = scrollContainer?.getBoundingClientRect();
 
         const getZoneRank = (el: HTMLElement): number => {
@@ -4906,14 +4923,14 @@ export function App() {
           }
           if (
             el.closest(
-              '[data-tv-modal-zone="tabs"], [data-tv-row="settings-tabs"]'
+              '[data-tv-modal-zone="tabs"], [data-tv-row="settings-tabs"], [data-tv-row="auth-mode-tabs"], [data-tv-row="modal-days"], [data-tv-row="modal-periods"], [data-tv-row="qj-tabs"]'
             )
           ) {
             return 1;
           }
           if (
             el.closest(
-              '[data-tv-modal-zone="footer"], [data-tv-row="settings-footer"]'
+              '[data-tv-modal-zone="footer"], [data-tv-row="settings-footer"], [data-tv-row="auth-logged-actions"], [data-tv-row="auth-submit-row"], [data-tv-row="exit-modal-actions"]'
             )
           ) {
             return 3;
@@ -4928,7 +4945,7 @@ export function App() {
             rank === 2 &&
             scrollContainer &&
             scrollRect &&
-            scrollContainer.contains(el)
+            (scrollContainer.contains(el) || scrollContainer === el)
           ) {
             const top = r.top - scrollRect.top + scrollContainer.scrollTop;
             const left = r.left - scrollRect.left + scrollContainer.scrollLeft;
@@ -4970,11 +4987,14 @@ export function App() {
               coords: getDocCoords(el),
             }));
 
-          let currentRow: {
-            el: HTMLElement;
-            groupId: string;
-            coords: ReturnType<typeof getDocCoords>;
-          }[] = [];
+          // Tri déterministe vertical d'abord, puis horizontal dans la zone
+          zoneItems.sort((a, b) => {
+            const dy = a.coords.top - b.coords.top;
+            if (Math.abs(dy) > 16) return dy;
+            return a.coords.left - b.coords.left;
+          });
+
+          let currentRow: typeof zoneItems = [];
           for (const item of zoneItems) {
             if (currentRow.length === 0) {
               currentRow.push(item);
@@ -4983,7 +5003,7 @@ export function App() {
               const sameGroup = item.groupId === firstInRow.groupId;
               if (
                 sameGroup &&
-                Math.abs(item.coords.top - firstInRow.coords.top) <= 28
+                Math.abs(item.coords.top - firstInRow.coords.top) <= 24
               ) {
                 currentRow.push(item);
               } else {
@@ -4999,9 +5019,31 @@ export function App() {
           }
         }
 
-        const currentModalEl =
+        let currentModalEl =
           modalNodes.find((el) => el === activeEl || el.contains(activeEl)) ||
-          activeEl;
+          null;
+
+        if (!currentModalEl && activeEl && modalScope.contains(activeEl)) {
+          // Résolution de secours si l'élément actif est dans un conteneur imbriqué de la modale
+          currentModalEl =
+            modalNodes.find(
+              (el) =>
+                activeEl.contains(el) ||
+                (activeEl.closest('[data-tv-row]') &&
+                  el.closest('[data-tv-row]') === activeEl.closest('[data-tv-row]'))
+            ) || null;
+        }
+
+        if (!currentModalEl) {
+          const defaultTarget =
+            modalNodes.find(
+              (el) => el.getAttribute('data-tv-focusable') === 'true'
+            ) || modalNodes[0];
+          defaultTarget.focus({ preventScroll: true });
+          scrollModalElementIntoView(defaultTarget, scrollContainer);
+          return;
+        }
+
         const curRowIdx = modalRows.findIndex((row) =>
           row.includes(currentModalEl)
         );
@@ -5017,12 +5059,12 @@ export function App() {
           if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
             const nextInSameRow = curRow[curColIdx + horizStep];
             if (nextInSameRow) {
-              e.preventDefault();
               nextInSameRow.focus({ preventScroll: true });
               scrollModalElementIntoView(nextInSameRow, scrollContainer);
               return;
             }
-            // Chaînage naturel en fin/début de ligne à l'intérieur du corps défilant
+            // Chaînage horizontal naturel : en bout de ligne dans le scroll body, passe à la ligne adjacente
+            // mais STRICTEMENT confiné au scroll body (Zone 2) pour empêcher tout saut parasite vers le footer
             const adjacentRowIdx = curRowIdx + horizStep;
             if (
               adjacentRowIdx >= 0 &&
@@ -5034,7 +5076,6 @@ export function App() {
               const wrappedTarget =
                 horizStep > 0 ? adjRow[0] : adjRow[adjRow.length - 1];
               if (wrappedTarget) {
-                e.preventDefault();
                 wrappedTarget.focus({ preventScroll: true });
                 scrollModalElementIntoView(wrappedTarget, scrollContainer);
                 return;
@@ -5047,7 +5088,6 @@ export function App() {
             const nextRowIdx =
               e.key === 'ArrowDown' ? curRowIdx + 1 : curRowIdx - 1;
             if (nextRowIdx >= 0 && nextRowIdx < modalRows.length) {
-              e.preventDefault();
               const targetRow = modalRows[nextRowIdx];
               // Choisit l'élément de la ligne suivante/précédente le plus aligné horizontalement
               let bestRowTarget = targetRow[0];
@@ -6137,6 +6177,7 @@ export function App() {
                       </span>
                       <button
                         type="button"
+                        data-tv-focusable="true"
                         onClick={() => {
                           setIsSortMenuOpen(false);
                           window.requestAnimationFrame(() => {
@@ -6225,6 +6266,7 @@ export function App() {
                           type="button"
                           role="menuitemradio"
                           aria-checked={active}
+                          data-tv-focusable="true"
                           data-sort-active={active ? 'true' : undefined}
                           onClick={(e) =>
                             handleSelectTvSortMode(opt.id, e.currentTarget)
@@ -7170,6 +7212,7 @@ export function App() {
               </div>
               <button
                 type="button"
+                data-tv-focusable="true"
                 onClick={() => {
                   setIsQuickJumpDrawerOpen(false);
                   window.requestAnimationFrame(() => {
@@ -7203,6 +7246,7 @@ export function App() {
                   {quickJumpKeypadValue && (
                     <button
                       type="button"
+                      data-tv-focusable="true"
                       onClick={() => {
                         const num = parseInt(quickJumpKeypadValue, 10);
                         if (!Number.isNaN(num) && num >= 1) {
@@ -7218,6 +7262,7 @@ export function App() {
                   {quickJumpKeypadValue && (
                     <button
                       type="button"
+                      data-tv-focusable="true"
                       onClick={() => setQuickJumpKeypadValue('')}
                       className="tv-dpad-btn px-2 py-1 rounded-md bg-[#141a26] border border-[#334155] text-[#cbd5e1] text-[10px] cursor-pointer"
                     >
@@ -7236,6 +7281,7 @@ export function App() {
                     <button
                       key={digit}
                       type="button"
+                      data-tv-focusable="true"
                       onClick={() => {
                         const nextVal = (quickJumpKeypadValue + digit).slice(
                           0,
@@ -7262,6 +7308,7 @@ export function App() {
               >
                 <button
                   type="button"
+                  data-tv-focusable="true"
                   onClick={() => {
                     const nextIdx = Math.max(
                       0,
@@ -7281,6 +7328,7 @@ export function App() {
                 </button>
                 <button
                   type="button"
+                  data-tv-focusable="true"
                   onClick={() => {
                     const nextIdx = Math.min(
                       Math.max(0, filteredChannels.length - 1),
@@ -7303,11 +7351,13 @@ export function App() {
 
             {/* Sélecteur de Mode : Tranches de chaînes vs Lettre Alphabétique A-Z */}
             <div
+              data-tv-modal-zone="tabs"
               data-tv-row="qj-tabs"
               className="grid grid-cols-2 gap-2 px-4 pt-3 pb-2"
             >
               <button
                 type="button"
+                data-tv-focusable="true"
                 onClick={() => setQuickJumpTab('ranges')}
                 className={`tv-dpad-btn py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   quickJumpTab === 'ranges'
@@ -7321,6 +7371,7 @@ export function App() {
               </button>
               <button
                 type="button"
+                data-tv-focusable="true"
                 onClick={() => setQuickJumpTab('alpha')}
                 className={`tv-dpad-btn py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   quickJumpTab === 'alpha'
@@ -7333,7 +7384,7 @@ export function App() {
             </div>
 
             {/* Contenu Défilable : Tranches de chaînes OU Grille Alphabétique */}
-            <div className="flex-1 overflow-y-auto px-4 py-2 space-y-2">
+            <div data-tv-modal-scroll="true" className="flex-1 overflow-y-auto px-4 py-2 space-y-2">
               {quickJumpTab === 'ranges' ? (
                 <div className="grid grid-cols-2 gap-2">
                   {quickJumpRanges.map((slice) => {
@@ -7344,6 +7395,7 @@ export function App() {
                       <button
                         key={slice.label}
                         type="button"
+                        data-tv-focusable="true"
                         onClick={() => {
                           setIsQuickJumpDrawerOpen(false);
                           jumpToChannelAtIndex(
@@ -7413,6 +7465,7 @@ export function App() {
                       <button
                         key={letter}
                         type="button"
+                        data-tv-focusable="true"
                         disabled={!hasChannels}
                         onClick={() => {
                           if (!info) return;
