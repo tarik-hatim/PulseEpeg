@@ -161,6 +161,7 @@ import {
   getTranslations,
   LANGUAGE_OPTIONS,
   setActiveLanguage,
+  t,
   translateBouquetFilter,
   translateCategoryFilter,
   translateChannelCountryFilter,
@@ -2994,16 +2995,9 @@ export function App() {
       channelName: sampleChannel.displayName,
       channelIcon: sampleChannel.icon,
       orbitalPosition: sampleChannel.orbitalPosition,
-      title:
-        sampleProg?.title ||
-        (activeLang === 'fr'
-          ? 'Soirée Ligue des Champions / Grand Cinéma HD'
-          : 'Champions League Night / Prime Cinema HD'),
+      title: sampleProg?.title || t('reminders.demoAlertTitle', activeLang),
       subTitle:
-        sampleProg?.subTitle ||
-        (activeLang === 'fr'
-          ? 'Diffusion Imminente (Test Bandeau TV)'
-          : 'Starting Soon (TV Banner Test)'),
+        sampleProg?.subTitle || t('reminders.demoAlertSubTitle', activeLang),
       description: sampleProg?.description,
       icon: sampleProg?.icon,
       startMs: currentNow + 3 * 60 * 1000,
@@ -5627,15 +5621,7 @@ export function App() {
                   }`}
                 />
               )}
-              <span>
-                {activeLang === 'fr'
-                  ? 'Mes Rappels'
-                  : activeLang === 'es'
-                  ? 'Mis Recordatorios'
-                  : activeLang === 'ar'
-                  ? 'تذكيراتي'
-                  : 'My Reminders'}
-              </span>
+              <span>{t('reminders.tabLabel', activeLang)}</span>
               {reminders.length > 0 && (
                 <span
                   className={`px-1.5 py-0.2 rounded text-[10px] font-mono ${
@@ -6465,15 +6451,7 @@ export function App() {
                 >
                   <span className="filter-label">
                     <BellRing className="w-3.5 h-3.5 text-[#ec4899]" />
-                    <span>
-                      {activeLang === 'fr'
-                        ? 'Mes Rappels'
-                        : activeLang === 'es'
-                        ? 'Mis Recordatorios'
-                        : activeLang === 'ar'
-                        ? 'تذكيراتي'
-                        : 'My Reminders'}
-                    </span>
+                    <span>{t('reminders.tabLabel', activeLang)}</span>
                   </span>
                   <span className="filter-count">
                     {activeRemindersCount || reminders.length}

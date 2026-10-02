@@ -1199,6 +1199,935 @@ export function getTranslations(lang?: AppLanguage): Translations {
   return TRANSLATIONS[target] || TRANSLATIONS.en || TRANSLATIONS.fr;
 }
 
+export type ReminderTranslationKey =
+  | 'reminders.tabLabel'
+  | 'reminders.title'
+  | 'reminders.programmed'
+  | 'reminders.description'
+  | 'reminders.clearAll'
+  | 'reminders.testAlert'
+  | 'reminders.testAlertTooltip'
+  | 'reminders.filterAll'
+  | 'reminders.filterImminent'
+  | 'reminders.filterSport'
+  | 'reminders.filterCinema'
+  | 'reminders.activeBadge'
+  | 'reminders.removeBtn'
+  | 'reminders.removeTooltip'
+  | 'reminders.emptyTitle'
+  | 'reminders.emptyCategoryTitle'
+  | 'reminders.emptyDescPrefix'
+  | 'reminders.emptyDescBadge'
+  | 'reminders.emptyDescSuffix'
+  | 'reminders.suggestionsTitle'
+  | 'reminders.suggestionsHintPrefix'
+  | 'reminders.suggestionsHintKey'
+  | 'reminders.suggestionsHintSuffix'
+  | 'reminders.addReminderBtn'
+  | 'reminders.countdownEnded'
+  | 'reminders.countdownLive'
+  | 'reminders.countdownImminent'
+  | 'reminders.countdownInMinutes'
+  | 'reminders.countdownInHours'
+  | 'reminders.countdownInHoursMinutes'
+  | 'reminders.satelliteFallback'
+  | 'reminders.bannerAriaLabel'
+  | 'reminders.bannerLive'
+  | 'reminders.bannerInMinutes'
+  | 'reminders.bannerSaved'
+  | 'reminders.bannerOpenTab'
+  | 'reminders.bannerOpenTabTitle'
+  | 'reminders.bannerDismissTitle'
+  | 'reminders.demoAlertTitle'
+  | 'reminders.demoAlertSubTitle';
+
+const REMINDERS_I18N: Record<
+  ReminderTranslationKey,
+  Record<AppLanguage, string>
+> = {
+  'reminders.tabLabel': {
+    fr: 'Mes Rappels',
+    ar: 'تذكيراتي',
+    en: 'My Reminders',
+    es: 'Mis Recordatorios',
+    de: 'Erinnerungen',
+    pt: 'Meus Lembretes',
+    it: 'Promemoria',
+    tr: 'Hatırlatıcılarım',
+  },
+  'reminders.title': {
+    fr: 'Mes Rappels & Notifications Système',
+    ar: 'تذكيراتي وإشعارات النظام',
+    en: 'My Reminders & System Notifications',
+    es: 'Mis Recordatorios y Notificaciones del Sistema',
+    de: 'Meine Erinnerungen & Systembenachrichtigungen',
+    pt: 'Meus Lembretes e Notificações do Sistema',
+    it: 'I Miei Promemoria e Notifiche di Sistema',
+    tr: 'Hatırlatıcılarım ve Sistem Bildirimleri',
+  },
+  'reminders.programmed': {
+    fr: 'programmé',
+    ar: 'مجدول',
+    en: 'scheduled',
+    es: 'programado',
+    de: 'geplant',
+    pt: 'agendado',
+    it: 'programmato',
+    tr: 'planlandı',
+  },
+  'reminders.description': {
+    fr: 'Agenda chronologique de vos matchs, films et émissions · Notification système Android avec son (même application fermée) + bandeau visuel In-App 5 min avant le début.',
+    ar: 'جدول زمني لمبارياتك، أفلامك وبرامجك. إشعارات نظام Android مع صوت (حتى عند إغلاق التطبيق) + شريط تنبيه داخل التطبيق قبل 5 دقائق من البداية.',
+    en: 'Chronological schedule of your matches, movies, and shows · Android system notification with sound (even when app is closed) + in-app alert banner 5 min before start.',
+    es: 'Agenda cronológica de tus partidos, películas y programas · Notificación del sistema Android con sonido (incluso con la app cerrada) + aviso visual en la app 5 min antes del inicio.',
+    de: 'Chronologischer Zeitplan Ihrer Spiele, Filme und Sendungen · Android-Systembenachrichtigung mit Ton (auch bei geschlossener App) + In-App-Banner 5 Min. vor Beginn.',
+    pt: 'Agenda cronológica dos seus jogos, filmes e programas · Notificação do sistema Android com som (mesmo com o app fechado) + alerta visual no app 5 min antes do início.',
+    it: 'Agenda cronologica di partite, film e programmi · Notifica di sistema Android con audio (anche ad app chiusa) + banner visivo In-App 5 min prima dell’inizio.',
+    tr: 'Maçlarınızın, filmlerinizin ve programlarınızın kronolojik takvimi · Sesli Android sistem bildirimi (uygulama kapalıyken bile) + başlamadan 5 dk önce uygulama içi uyarı bandı.',
+  },
+  'reminders.clearAll': {
+    fr: 'Tout effacer',
+    ar: 'مسح الكل',
+    en: 'Clear all',
+    es: 'Borrar todo',
+    de: 'Alle löschen',
+    pt: 'Limpar tudo',
+    it: 'Cancella tutto',
+    tr: 'Tümünü temizle',
+  },
+  'reminders.testAlert': {
+    fr: "Tester l'alerte TV (≤ 5 min)",
+    ar: 'اختبار تنبيه التلفزيون (≤ 5 دقائق)',
+    en: 'Test TV Alert (≤ 5 min)',
+    es: 'Probar alerta TV (≤ 5 min)',
+    de: 'TV-Alarm testen (≤ 5 Min.)',
+    pt: 'Testar alerta TV (≤ 5 min)',
+    it: 'Testa avviso TV (≤ 5 min)',
+    tr: 'TV Uyarısını Test Et (≤ 5 dk)',
+  },
+  'reminders.testAlertTooltip': {
+    fr: "Simuler un rappel commençant dans moins de 5 minutes pour tester le bandeau d'alerte TV",
+    ar: 'محاكاة تذكير يبدأ خلال أقل من 5 دقائق لاختبار شريط تنبيه التلفزيون',
+    en: 'Simulate a reminder starting in less than 5 minutes to test the TV alert banner',
+    es: 'Simular un recordatorio que comienza en menos de 5 minutos para probar el aviso de TV',
+    de: 'Eine Erinnerung in weniger als 5 Minuten simulieren, um das TV-Banner zu testen',
+    pt: 'Simular um lembrete começando em menos de 5 minutos para testar o alerta de TV',
+    it: 'Simula un promemoria che inizia tra meno di 5 minuti per testare il banner TV',
+    tr: 'TV uyarı bandını test etmek için 5 dakikadan kısa sürede başlayan bir hatırlatıcı simüle edin',
+  },
+  'reminders.filterAll': {
+    fr: 'Tous les rappels',
+    ar: 'جميع التذكيرات',
+    en: 'All reminders',
+    es: 'Todos los recordatorios',
+    de: 'Alle Erinnerungen',
+    pt: 'Todos os lembretes',
+    it: 'Tutti i promemoria',
+    tr: 'Tüm hatırlatıcılar',
+  },
+  'reminders.filterImminent': {
+    fr: 'Imminent ≤ 5 min / En Direct',
+    ar: 'قريباً ≤ 5 دقائق / مباشر',
+    en: 'Imminent ≤ 5 min / Live',
+    es: 'Inminente ≤ 5 min / En Vivo',
+    de: 'Gleich ≤ 5 Min. / Live',
+    pt: 'Iminente ≤ 5 min / Ao Vivo',
+    it: 'Imminente ≤ 5 min / In Diretta',
+    tr: 'Yakında ≤ 5 dk / Canlı',
+  },
+  'reminders.filterSport': {
+    fr: 'Matchs & Sport',
+    ar: 'مباريات ورياضة',
+    en: 'Matches & Sports',
+    es: 'Partidos y Deporte',
+    de: 'Spiele & Sport',
+    pt: 'Jogos e Esportes',
+    it: 'Partite e Sport',
+    tr: 'Maçlar ve Spor',
+  },
+  'reminders.filterCinema': {
+    fr: 'Films, Séries & Docs',
+    ar: 'أفلام، مسلسلات ووثائقيات',
+    en: 'Movies, Series & Docs',
+    es: 'Cine, Series y Docs',
+    de: 'Filme, Serien & Dokus',
+    pt: 'Filmes, Séries e Docs',
+    it: 'Film, Serie e Doc',
+    tr: 'Filmler, Diziler ve Belgesel',
+  },
+  'reminders.activeBadge': {
+    fr: 'RAPPEL ACTIF',
+    ar: 'تذكير نشط',
+    en: 'ACTIVE REMINDER',
+    es: 'RECORDATORIO ACTIVO',
+    de: 'ERINNERUNG AKTIV',
+    pt: 'LEMBRETE ATIVO',
+    it: 'PROMEMORIA ATTIVO',
+    tr: 'AKTİF HATIRLATICI',
+  },
+  'reminders.removeBtn': {
+    fr: 'Retirer',
+    ar: 'إزالة',
+    en: 'Remove',
+    es: 'Quitar',
+    de: 'Entfernen',
+    pt: 'Remover',
+    it: 'Rimuovi',
+    tr: 'Kaldır',
+  },
+  'reminders.removeTooltip': {
+    fr: 'Retirer ce rappel',
+    ar: 'إزالة هذا التذكير',
+    en: 'Remove this reminder',
+    es: 'Quitar este recordatorio',
+    de: 'Diese Erinnerung entfernen',
+    pt: 'Remover este lembrete',
+    it: 'Rimuovi questo promemoria',
+    tr: 'Bu hatırlatıcıyı kaldır',
+  },
+  'reminders.emptyTitle': {
+    fr: 'Aucun rappel programmé pour le moment',
+    ar: 'لا يوجد أي تذكير مجدول حالياً',
+    en: 'No reminders scheduled yet',
+    es: 'No hay recordatorios programados por el momento',
+    de: 'Derzeit sind keine Erinnerungen geplant',
+    pt: 'Nenhum lembrete agendado no momento',
+    it: 'Nessun promemoria programmato al momento',
+    tr: 'Şu anda planlanmış hatırlatıcı yok',
+  },
+  'reminders.emptyCategoryTitle': {
+    fr: 'Aucun rappel dans cette catégorie',
+    ar: 'لا توجد تذكيرات في هذه الفئة',
+    en: 'No reminders in this category',
+    es: 'No hay recordatorios en esta categoría',
+    de: 'Keine Erinnerungen in dieser Kategorie',
+    pt: 'Nenhum lembrete nesta categoria',
+    it: 'Nessun promemoria in questa categoria',
+    tr: 'Bu kategoride hatırlatıcı yok',
+  },
+  'reminders.emptyDescPrefix': {
+    fr: "Cliquez sur l'icône cloche",
+    ar: 'اضغط على أيقونة الجرس',
+    en: 'Click the bell icon',
+    es: 'Pulsa en el icono de campana',
+    de: 'Klicken Sie auf das Glockensymbol',
+    pt: 'Clique no ícone de sino',
+    it: "Clicca sull'icona della campana",
+    tr: 'Başlamadan 5 dakika önce uyarı almak için yaklaşan herhangi bir programdaki',
+  },
+  'reminders.emptyDescBadge': {
+    fr: 'Rappel',
+    ar: 'تذكير',
+    en: 'Remind Me',
+    es: 'Recordar',
+    de: 'Erinnerung',
+    pt: 'Lembrar',
+    it: 'Promemoria',
+    tr: 'Hatırlat',
+  },
+  'reminders.emptyDescSuffix': {
+    fr: "sur n'importe quel programme à venir (dans En Direct, la Grille TV ou ci-dessous) pour être alerté visuellement 5 minutes avant le coup d'envoi.",
+    ar: 'على أي برنامج قادم (في المباشر الآن، شبكة البرامج أو أدناه) لتلقي تنبيه مرئي وصوتي قبل 5 دقائق من البداية.',
+    en: 'on any upcoming programme (in Live Now, TV Grid, or below) to receive a visual alert 5 minutes before kick-off.',
+    es: 'en cualquier programa próximo (en En Vivo, Parrilla TV o abajo) para recibir una alerta visual 5 minutos antes del inicio.',
+    de: 'bei einer kommenden Sendung (in Live TV, TV-Programm oder unten), um 5 Minuten vor Beginn benachrichtigt zu werden.',
+    pt: 'em qualquer programa futuro (em Ao Vivo, Grade de TV ou abaixo) para receber um alerta visual 5 minutos antes do início.',
+    it: 'su qualsiasi programma in arrivo (in Diretta, Griglia TV o qui sotto) per ricevere un avviso 5 minuti prima dell’inizio.',
+    tr: 'zil simgesine tıklayın.',
+  },
+  'reminders.suggestionsTitle': {
+    fr: 'Événements, Matchs & Films à venir · Programmer en 1 clic',
+    ar: 'أحداث، مباريات وأفلام قادمة · جدولة بنقرة واحدة',
+    en: 'Upcoming Events, Matches & Movies · 1-Click Schedule',
+    es: 'Próximos Eventos, Partidos y Películas · Programar en 1 clic',
+    de: 'Kommende Events, Spiele & Filme · Mit 1 Klick planen',
+    pt: 'Próximos Eventos, Jogos e Filmes · Agendar em 1 clique',
+    it: 'Prossimi Eventi, Partite e Film · Programma in 1 clic',
+    tr: 'Yaklaşan Etkinlikler, Maçlar ve Filmler · Tek Tıkla Planla',
+  },
+  'reminders.suggestionsHintPrefix': {
+    fr: 'Appuyez sur',
+    ar: 'اضغط على',
+    en: 'Press',
+    es: 'Pulsa',
+    de: 'Drücken Sie',
+    pt: 'Pressione',
+    it: 'Premi',
+    tr: 'Hatırlatıcılarınıza eklemek için',
+  },
+  'reminders.suggestionsHintKey': {
+    fr: 'OK / Enter',
+    ar: 'OK / Enter',
+    en: 'OK / Enter',
+    es: 'OK / Enter',
+    de: 'OK / Enter',
+    pt: 'OK / Enter',
+    it: 'OK / Enter',
+    tr: 'OK / Enter',
+  },
+  'reminders.suggestionsHintSuffix': {
+    fr: 'pour ajouter à vos rappels',
+    ar: 'للإضافة إلى تذكيراتك',
+    en: 'to add to your reminders',
+    es: 'para añadir a tus recordatorios',
+    de: 'um zu Ihren Erinnerungen hinzuzufügen',
+    pt: 'para adicionar aos seus lembretes',
+    it: 'per aggiungere ai tuoi promemoria',
+    tr: 'tuşuna basın',
+  },
+  'reminders.addReminderBtn': {
+    fr: '+ Rappel',
+    ar: '+ تذكير',
+    en: '+ Remind',
+    es: '+ Recordar',
+    de: '+ Erinnerung',
+    pt: '+ Lembrete',
+    it: '+ Promemoria',
+    tr: '+ Hatırlat',
+  },
+  'reminders.countdownEnded': {
+    fr: 'Terminé',
+    ar: 'انتهى',
+    en: 'Ended',
+    es: 'Finalizado',
+    de: 'Beendet',
+    pt: 'Encerrado',
+    it: 'Terminato',
+    tr: 'Bitti',
+  },
+  'reminders.countdownLive': {
+    fr: 'EN DIRECT · Reste {min} min',
+    ar: 'مباشر الآن · متبقي {min} دقيقة',
+    en: 'LIVE NOW · {min} min left',
+    es: 'EN VIVO · Quedan {min} min',
+    de: 'LIVE · Noch {min} Min.',
+    pt: 'AO VIVO · Restam {min} min',
+    it: 'IN DIRETTA · Restano {min} min',
+    tr: 'CANLI · {min} dk kaldı',
+  },
+  'reminders.countdownImminent': {
+    fr: 'IMMINENT · Dans {min} min',
+    ar: 'وشيك · خلال {min} دقائق',
+    en: 'IMMINENT · In {min} min',
+    es: 'INMINENTE · En {min} min',
+    de: 'GLEICH · In {min} Min.',
+    pt: 'IMINENTE · Em {min} min',
+    it: 'IMMINENTE · Tra {min} min',
+    tr: 'YAKINDA · {min} dk içinde',
+  },
+  'reminders.countdownInMinutes': {
+    fr: 'Dans {min} min',
+    ar: 'خلال {min} دقيقة',
+    en: 'In {min} min',
+    es: 'En {min} min',
+    de: 'In {min} Min.',
+    pt: 'Em {min} min',
+    it: 'Tra {min} min',
+    tr: '{min} dk içinde',
+  },
+  'reminders.countdownInHours': {
+    fr: 'Dans {hours}h',
+    ar: 'خلال {hours} س',
+    en: 'In {hours}h',
+    es: 'En {hours}h',
+    de: 'In {hours} Std.',
+    pt: 'Em {hours}h',
+    it: 'Tra {hours}h',
+    tr: '{hours} sa içinde',
+  },
+  'reminders.countdownInHoursMinutes': {
+    fr: 'Dans {hours}h {min}min',
+    ar: 'خلال {hours} س و {min} د',
+    en: 'In {hours}h {min}min',
+    es: 'En {hours}h {min}min',
+    de: 'In {hours} Std. {min} Min.',
+    pt: 'Em {hours}h {min}min',
+    it: 'Tra {hours}h {min}min',
+    tr: '{hours} sa {min} dk içinde',
+  },
+  'reminders.satelliteFallback': {
+    fr: 'Satellite',
+    ar: 'قمر صناعي',
+    en: 'Satellite',
+    es: 'Satélite',
+    de: 'Satellit',
+    pt: 'Satélite',
+    it: 'Satellite',
+    tr: 'Uydu',
+  },
+  'reminders.bannerAriaLabel': {
+    fr: 'Alerte Rappel Programme TV',
+    ar: 'تنبيه تذكير برنامج التلفزيون',
+    en: 'TV Programme Reminder Alert',
+    es: 'Alerta de Recordatorio de Programa TV',
+    de: 'TV-Programmerinnerung',
+    pt: 'Alerta de Lembrete de Programa de TV',
+    it: 'Avviso Promemoria Programma TV',
+    tr: 'TV Programı Hatırlatma Uyarısı',
+  },
+  'reminders.bannerLive': {
+    fr: 'EN COURS · DIRECT',
+    ar: 'يُعرض الآن · مباشر',
+    en: 'LIVE NOW',
+    es: 'EN CURSO · EN VIVO',
+    de: 'JETZT LIVE',
+    pt: 'EM EXIBIÇÃO · AO VIVO',
+    it: 'IN CORSO · DIRETTA',
+    tr: 'ŞU AN CANLI',
+  },
+  'reminders.bannerInMinutes': {
+    fr: 'DANS {min} MIN',
+    ar: 'خلال {min} دقائق',
+    en: 'IN {min} MIN',
+    es: 'EN {min} MIN',
+    de: 'IN {min} MIN.',
+    pt: 'EM {min} MIN',
+    it: 'TRA {min} MIN',
+    tr: '{min} DK İÇİNDE',
+  },
+  'reminders.bannerSaved': {
+    fr: 'RAPPEL ENREGISTRÉ (-5 MIN)',
+    ar: 'تم حفظ التذكير (-5 دقائق)',
+    en: 'REMINDER SAVED (-5 MIN)',
+    es: 'RECORDATORIO GUARDADO (-5 MIN)',
+    de: 'ERINNERUNG GESPEICHERT (-5 MIN.)',
+    pt: 'LEMBRETE SALVO (-5 MIN)',
+    it: 'PROMEMORIA SALVATO (-5 MIN)',
+    tr: 'HATIRLATICI KAYDEDİLDİ (-5 DK)',
+  },
+  'reminders.bannerOpenTab': {
+    fr: 'Rappels ({count})',
+    ar: 'تذكيراتي ({count})',
+    en: 'Reminders ({count})',
+    es: 'Recordatorios ({count})',
+    de: 'Erinnerungen ({count})',
+    pt: 'Lembretes ({count})',
+    it: 'Promemoria ({count})',
+    tr: 'Hatırlatıcılar ({count})',
+  },
+  'reminders.bannerOpenTabTitle': {
+    fr: "Ouvrir l'onglet Mes Rappels",
+    ar: 'فتح تبويب تذكيراتي',
+    en: 'Open My Reminders tab',
+    es: 'Abrir pestaña Mis Recordatorios',
+    de: 'Tab Meine Erinnerungen öffnen',
+    pt: 'Abrir aba Meus Lembretes',
+    it: 'Apri scheda I Miei Promemoria',
+    tr: 'Hatırlatıcılarım sekmesini aç',
+  },
+  'reminders.bannerDismissTitle': {
+    fr: "Masquer l'alerte",
+    ar: 'إخفاء التنبيه',
+    en: 'Dismiss alert',
+    es: 'Ocultar alerta',
+    de: 'Hinweis ausblenden',
+    pt: 'Ocultar alerta',
+    it: 'Nascondi avviso',
+    tr: 'Uyarıyı gizle',
+  },
+  'reminders.demoAlertTitle': {
+    fr: 'Soirée Ligue des Champions / Grand Cinéma HD',
+    ar: 'سهرة دوري أبطال أوروبا / السينما الكبرى HD',
+    en: 'Champions League Night / Prime Cinema HD',
+    es: 'Noche de Champions League / Gran Cine HD',
+    de: 'Champions-League-Abend / Prime Kino HD',
+    pt: 'Noite de Champions League / Grande Cinema HD',
+    it: 'Serata Champions League / Grande Cinema HD',
+    tr: 'Şampiyonlar Ligi Gecesi / Sinema HD',
+  },
+  'reminders.demoAlertSubTitle': {
+    fr: 'Diffusion Imminente (Test Bandeau TV)',
+    ar: 'بث وشيك (اختبار تنبيه التلفزيون)',
+    en: 'Starting Soon (TV Banner Test)',
+    es: 'Emisión Inminente (Prueba de Alerta TV)',
+    de: 'Sendung beginnt gleich (TV-Banner-Test)',
+    pt: 'Transmissão Iminente (Teste de Alerta TV)',
+    it: 'Inizio Imminente (Test Avviso TV)',
+    tr: 'Yakında Başlıyor (TV Uyarı Testi)',
+  },
+};
+
+export type AuthTranslationKey =
+  | 'auth.guestMode'
+  | 'auth.proBadge'
+  | 'auth.myAccount'
+  | 'auth.signInSignUp'
+  | 'auth.subtitle'
+  | 'auth.proReasonEpg7Days'
+  | 'auth.proReasonBouquets'
+  | 'auth.proBullet1'
+  | 'auth.proBullet2'
+  | 'auth.guestAccessInfo'
+  | 'auth.signIn'
+  | 'auth.signUp'
+  | 'auth.continueWithGoogle'
+  | 'auth.orWithEmail'
+  | 'auth.displayName'
+  | 'auth.displayNamePlaceholder'
+  | 'auth.email'
+  | 'auth.password'
+  | 'auth.free'
+  | 'auth.tierFree3Bouquets'
+  | 'auth.tierPro7Days'
+  | 'auth.createAccountBtn'
+  | 'auth.signedInAs'
+  | 'auth.epgGuideReplayLabel'
+  | 'auth.epgGuideReplayPro'
+  | 'auth.epgGuideReplayFree'
+  | 'auth.simultaneousBouquetsLabel'
+  | 'auth.bouquetsUnlimitedPro'
+  | 'auth.bouquets3Free'
+  | 'auth.subscriptionStatus'
+  | 'auth.planFreeDesc'
+  | 'auth.planProDesc'
+  | 'auth.signOutGuest'
+  | 'auth.continueBtn'
+  | 'auth.close'
+  | 'auth.errorInvalidEmail'
+  | 'auth.errorGoogleOAuth'
+  | 'auth.errorSupabase';
+
+const AUTH_I18N: Record<AuthTranslationKey, Record<AppLanguage, string>> = {
+  'auth.guestMode': {
+    fr: 'Mode Invité',
+    ar: 'وضع الزائر',
+    en: 'Guest Mode',
+    es: 'Modo Invitado',
+    de: 'Gastmodus',
+    pt: 'Modo Convidado',
+    it: 'Modalità Ospite',
+    tr: 'Misafir Modu',
+  },
+  'auth.proBadge': {
+    fr: 'PulseEPG Pro 👑',
+    ar: 'PulseEPG برو 👑',
+    en: 'PulseEPG Pro 👑',
+    es: 'PulseEPG Pro 👑',
+    de: 'PulseEPG Pro 👑',
+    pt: 'PulseEPG Pro 👑',
+    it: 'PulseEPG Pro 👑',
+    tr: 'PulseEPG Pro 👑',
+  },
+  'auth.myAccount': {
+    fr: 'Mon Compte PulseEPG',
+    ar: 'حسابي في PulseEPG',
+    en: 'My PulseEPG Account',
+    es: 'Mi Cuenta PulseEPG',
+    de: 'Mein PulseEPG-Konto',
+    pt: 'Minha Conta PulseEPG',
+    it: 'Il Mio Account PulseEPG',
+    tr: 'PulseEPG Hesabım',
+  },
+  'auth.signInSignUp': {
+    fr: "Se connecter / S'inscrire",
+    ar: 'تسجيل الدخول / إنشاء حساب',
+    en: 'Sign In / Sign Up',
+    es: 'Iniciar sesión / Registrarse',
+    de: 'Anmelden / Registrieren',
+    pt: 'Entrar / Cadastrar-se',
+    it: 'Accedi / Registrati',
+    tr: 'Giriş Yap / Kaydol',
+  },
+  'auth.subtitle': {
+    fr: 'Synchronisation cloud, EPG 7 jours & multi-bouquets',
+    ar: 'مزامنة سحابية، دليل EPG 7 أيام وباقات متعددة',
+    en: 'Cloud sync, 7-day EPG & multi-bouquets',
+    es: 'Sincronización en la nube, EPG 7 días y multi-bouquets',
+    de: 'Cloud-Sync, 7-Tage-EPG & Multi-Bouquets',
+    pt: 'Sincronização em nuvem, EPG 7 dias e multi-bouquets',
+    it: 'Sincronizzazione cloud, EPG 7 giorni e multi-bouquet',
+    tr: 'Bulut senkronizasyonu, 7 günlük EPG ve çoklu paketler',
+  },
+  'auth.proReasonEpg7Days': {
+    fr: 'Débloquez le Guide EPG étendu 7 jours (J+1 à J+7) et le mode Catch-up / Replay avec PulseEPG Pro (Connexion / Inscription requise)',
+    ar: 'فتح دليل EPG الممتد 7 أيام (اليوم +1 إلى اليوم +7) ووضع Replay / Catch-up مع PulseEPG Pro (يتطلب التسجيل / الدخول)',
+    en: 'Unlock 7-day extended EPG Guide (D+1 to D+7) & Catch-up / Replay mode with PulseEPG Pro (Sign In / Sign Up required)',
+    es: 'Desbloquea la Guía EPG extendida de 7 días (D+1 a D+7) y modo Replay con PulseEPG Pro (Registro / Acceso requerido)',
+    de: '7-Tage-EPG-Guide (T+1 bis T+7) & Replay-Modus mit PulseEPG Pro freischalten (Anmeldung erforderlich)',
+    pt: 'Desbloqueie o Guia EPG de 7 dias (D+1 a D+7) e modo Replay com PulseEPG Pro (Login / Cadastro necessário)',
+    it: 'Sblocca la Guida EPG 7 giorni (G+1 a G+7) e Catch-up / Replay con PulseEPG Pro (Accesso / Registrazione richiesta)',
+    tr: 'PulseEPG Pro ile 7 günlük genişletilmiş EPG Rehberini ve Replay modunu açın (Giriş / Kayıt gereklidir)',
+  },
+  'auth.proReasonBouquets': {
+    fr: 'Débloquez tous les bouquets avec PulseEPG Pro (Connexion / Inscription requise)',
+    ar: 'فتح جميع الباقات مع PulseEPG Pro (يتطلب التسجيل / الدخول)',
+    en: 'Unlock all bouquets with PulseEPG Pro (Sign In / Sign Up required)',
+    es: 'Desbloquea todos los bouquets con PulseEPG Pro (Registro / Acceso requerido)',
+    de: 'Alle Bouquets mit PulseEPG Pro freischalten (Anmeldung erforderlich)',
+    pt: 'Desbloqueie todos os bouquets com PulseEPG Pro (Login / Cadastro necessário)',
+    it: 'Sblocca tutti i bouquet con PulseEPG Pro (Accesso / Registrazione richiesta)',
+    tr: 'PulseEPG Pro ile tüm paketleri açın (Giriş / Kayıt gereklidir)',
+  },
+  'auth.proBullet1': {
+    fr: 'Guide EPG étendu 7 jours complets (J+1 à J+7) & Mode Catch-up / Replay',
+    ar: 'دليل EPG الممتد 7 أيام كاملة (اليوم +1 إلى اليوم +7) ووضع Replay / Catch-up',
+    en: 'Full 7-day extended EPG Guide (D+1 to D+7) & Catch-up / Replay Mode',
+    es: 'Guía EPG extendida de 7 días completos (D+1 a D+7) y Modo Replay',
+    de: 'Vollständiger 7-Tage-EPG-Guide (T+1 bis T+7) & Replay-Modus',
+    pt: 'Guia EPG estendido de 7 dias completos (D+1 a D+7) e Modo Replay',
+    it: 'Guida EPG estesa a 7 giorni completi (G+1 a G+7) e Modalità Replay',
+    tr: 'Tam 7 günlük genişletilmiş EPG Rehberi ve Catch-up / Replay Modu',
+  },
+  'auth.proBullet2': {
+    fr: 'Débloquez tous les bouquets avec PulseEPG Pro (Synchronisation multi-satellites)',
+    ar: 'فتح جميع الباقات مع PulseEPG Pro (مزامنة سحابية متعددة الأقمار)',
+    en: 'Unlock all bouquets with PulseEPG Pro (Multi-satellite sync)',
+    es: 'Desbloquea todos los bouquets con PulseEPG Pro (Sincronización multi-satélite)',
+    de: 'Alle Bouquets mit PulseEPG Pro freischalten (Multi-Satelliten-Sync)',
+    pt: 'Desbloqueie todos os bouquets com PulseEPG Pro (Sincronização multi-satélite)',
+    it: 'Sblocca tutti i bouquet con PulseEPG Pro (Sincronizzazione multi-satellite)',
+    tr: 'PulseEPG Pro ile tüm paketleri açın (Çoklu uydu senkronizasyonu)',
+  },
+  'auth.guestAccessInfo': {
+    fr: 'Accès Invité actif : la grille TV (24h) et 3 bouquets restent 100% accessibles sans compte.',
+    ar: 'وصول الزائر نشط: شبكة التلفزيون (24 ساعة) و 3 باقات متاحة 100% بدون حساب.',
+    en: 'Guest Access active: TV grid (24h) and 3 bouquets remain 100% accessible without an account.',
+    es: 'Acceso de Invitado activo: la parrilla TV (24h) y 3 bouquets siguen 100% accesibles sin cuenta.',
+    de: 'Gastzugang aktiv: TV-Guide (24h) und 3 Bouquets bleiben 100% ohne Konto verfügbar.',
+    pt: 'Acesso de Convidado ativo: grade de TV (24h) e 3 bouquets continuam 100% acessíveis sem conta.',
+    it: 'Accesso Ospite attivo: la guida TV (24h) e 3 bouquet rimangono accessibili al 100% senza account.',
+    tr: 'Misafir Erişimi aktif: TV ızgarası (24 saat) ve 3 paket hesapsız %100 erişilebilir kalır.',
+  },
+  'auth.signIn': {
+    fr: 'Se connecter',
+    ar: 'تسجيل الدخول',
+    en: 'Sign In',
+    es: 'Iniciar sesión',
+    de: 'Anmelden',
+    pt: 'Entrar',
+    it: 'Accedi',
+    tr: 'Giriş Yap',
+  },
+  'auth.signUp': {
+    fr: "S'inscrire",
+    ar: 'إنشاء حساب',
+    en: 'Sign Up',
+    es: 'Registrarse',
+    de: 'Registrieren',
+    pt: 'Cadastrar-se',
+    it: 'Registrati',
+    tr: 'Kaydol',
+  },
+  'auth.continueWithGoogle': {
+    fr: 'Continuer avec Google',
+    ar: 'المتابعة باستخدام Google',
+    en: 'Continue with Google',
+    es: 'Continuar con Google',
+    de: 'Weiter mit Google',
+    pt: 'Continuar com o Google',
+    it: 'Continua con Google',
+    tr: 'Google ile Devam Et',
+  },
+  'auth.orWithEmail': {
+    fr: 'ou par e-mail',
+    ar: 'أو بواسطة البريد الإلكتروني',
+    en: 'or with email',
+    es: 'o por correo electrónico',
+    de: 'oder per E-Mail',
+    pt: 'ou por e-mail',
+    it: 'oppure via email',
+    tr: 'veya e-posta ile',
+  },
+  'auth.displayName': {
+    fr: "Nom d'affichage",
+    ar: 'اسم العرض',
+    en: 'Display Name',
+    es: 'Nombre para mostrar',
+    de: 'Anzeigename',
+    pt: 'Nome de exibição',
+    it: 'Nome visualizzato',
+    tr: 'Görünen Ad',
+  },
+  'auth.displayNamePlaceholder': {
+    fr: 'Ex: Tarik',
+    ar: 'مثال: طارق',
+    en: 'Ex: Tarik',
+    es: 'Ej: Tarik',
+    de: 'Z.B.: Tarik',
+    pt: 'Ex: Tarik',
+    it: 'Es: Tarik',
+    tr: 'Örn: Tarik',
+  },
+  'auth.email': {
+    fr: 'Adresse e-mail',
+    ar: 'البريد الإلكتروني',
+    en: 'Email address',
+    es: 'Dirección de correo',
+    de: 'E-Mail-Adresse',
+    pt: 'Endereço de e-mail',
+    it: 'Indirizzo email',
+    tr: 'E-posta adresi',
+  },
+  'auth.password': {
+    fr: 'Mot de passe',
+    ar: 'كلمة المرور',
+    en: 'Password',
+    es: 'Contraseña',
+    de: 'Passwort',
+    pt: 'Senha',
+    it: 'Password',
+    tr: 'Şifre',
+  },
+  'auth.free': {
+    fr: 'Gratuit',
+    ar: 'مجاني',
+    en: 'Free',
+    es: 'Gratis',
+    de: 'Kostenlos',
+    pt: 'Grátis',
+    it: 'Gratis',
+    tr: 'Ücretsiz',
+  },
+  'auth.tierFree3Bouquets': {
+    fr: '3 bouquets inclus',
+    ar: '3 باقات مشمولة',
+    en: '3 bouquets included',
+    es: '3 bouquets incluidos',
+    de: '3 Bouquets enthalten',
+    pt: '3 bouquets inclusos',
+    it: '3 bouquet inclusi',
+    tr: '3 paket dahil',
+  },
+  'auth.tierPro7Days': {
+    fr: 'EPG 7 jours & illimité',
+    ar: 'دليل 7 أيام وباقات غير محدودة',
+    en: '7-day EPG & unlimited',
+    es: 'EPG 7 días e ilimitado',
+    de: '7-Tage-EPG & unbegrenzt',
+    pt: 'EPG 7 dias e ilimitado',
+    it: 'EPG 7 giorni e illimitato',
+    tr: '7 günlük EPG ve sınırsız',
+  },
+  'auth.createAccountBtn': {
+    fr: 'Créer mon compte',
+    ar: 'إنشاء حساب',
+    en: 'Create Account',
+    es: 'Crear mi cuenta',
+    de: 'Konto erstellen',
+    pt: 'Criar minha conta',
+    it: 'Crea account',
+    tr: 'Hesap Oluştur',
+  },
+  'auth.signedInAs': {
+    fr: 'Utilisateur connecté',
+    ar: 'المستخدم المتصل',
+    en: 'Signed in as',
+    es: 'Conectado como',
+    de: 'Angemeldet als',
+    pt: 'Conectado como',
+    it: 'Connesso come',
+    tr: 'Olarak giriş yapıldı',
+  },
+  'auth.epgGuideReplayLabel': {
+    fr: 'Guide EPG & Replay :',
+    ar: 'دليل EPG والإعادة :',
+    en: 'EPG Guide & Replay:',
+    es: 'Guía EPG y Replay:',
+    de: 'EPG-Guide & Replay:',
+    pt: 'Guia EPG e Replay:',
+    it: 'Guida EPG & Replay:',
+    tr: 'EPG Rehberi ve Replay:',
+  },
+  'auth.epgGuideReplayPro': {
+    fr: '7 Jours complets + Replay (Pro 👑)',
+    ar: '7 أيام كاملة + الإعادة (برو 👑)',
+    en: 'Full 7 Days + Replay (Pro 👑)',
+    es: '7 días completos + Replay (Pro 👑)',
+    de: 'Vollständige 7 Tage + Replay (Pro 👑)',
+    pt: '7 dias completos + Replay (Pro 👑)',
+    it: '7 giorni completi + Replay (Pro 👑)',
+    tr: 'Tam 7 Gün + Replay (Pro 👑)',
+  },
+  'auth.epgGuideReplayFree': {
+    fr: 'Journée en cours (24h)',
+    ar: 'اليوم الحالي (24 ساعة)',
+    en: 'Current day (24h)',
+    es: 'Día actual (24h)',
+    de: 'Aktueller Tag (24h)',
+    pt: 'Dia atual (24h)',
+    it: 'Giorno corrente (24h)',
+    tr: 'Mevcut gün (24 saat)',
+  },
+  'auth.simultaneousBouquetsLabel': {
+    fr: 'Bouquets simultanés :',
+    ar: 'الباقات المتزامنة :',
+    en: 'Simultaneous bouquets:',
+    es: 'Bouquets simultáneos:',
+    de: 'Gleichzeitige Bouquets:',
+    pt: 'Bouquets simultâneos:',
+    it: 'Bouquet simultanei:',
+    tr: 'Eşzamanlı paketler:',
+  },
+  'auth.bouquetsUnlimitedPro': {
+    fr: 'Illimités (Pro 👑)',
+    ar: 'غير محدودة (برو 👑)',
+    en: 'Unlimited (Pro 👑)',
+    es: 'Ilimitados (Pro 👑)',
+    de: 'Unbegrenzt (Pro 👑)',
+    pt: 'Ilimitados (Pro 👑)',
+    it: 'Illimitati (Pro 👑)',
+    tr: 'Sınırsız (Pro 👑)',
+  },
+  'auth.bouquets3Free': {
+    fr: '3 Bouquets Gratuits',
+    ar: '3 باقات مجانية',
+    en: '3 Free Bouquets',
+    es: '3 Bouquets Gratuitos',
+    de: '3 kostenlose Bouquets',
+    pt: '3 Bouquets Gratuitos',
+    it: '3 Bouquet Gratuiti',
+    tr: '3 Ücretsiz Paket',
+  },
+  'auth.subscriptionStatus': {
+    fr: 'Statut de votre abonnement',
+    ar: 'حالة اشتراكك',
+    en: 'Subscription Status',
+    es: 'Estado de su suscripción',
+    de: 'Abonnementstatus',
+    pt: 'Status da assinatura',
+    it: 'Stato dell’abbonamento',
+    tr: 'Abonelik Durumu',
+  },
+  'auth.planFreeDesc': {
+    fr: 'Grille 24h + 3 bouquets actifs',
+    ar: 'شبكة 24 ساعة + 3 باقات نشطة',
+    en: '24h TV Grid + 3 active bouquets',
+    es: 'Parrilla 24h + 3 bouquets activos',
+    de: '24h TV-Raster + 3 aktive Bouquets',
+    pt: 'Grade 24h + 3 bouquets ativos',
+    it: 'Guida 24h + 3 bouquet attivi',
+    tr: '24 saatlik TV ızgarası + 3 aktif paket',
+  },
+  'auth.planProDesc': {
+    fr: 'EPG 7 jours + Replay + Tous les bouquets',
+    ar: 'دليل 7 أيام + الإعادة + جميع الباقات',
+    en: '7-day EPG + Replay + All bouquets',
+    es: 'EPG 7 días + Replay + Todos los bouquets',
+    de: '7-Tage-EPG + Replay + Alle Bouquets',
+    pt: 'EPG 7 dias + Replay + Todos os bouquets',
+    it: 'EPG 7 giorni + Replay + Tutti i bouquet',
+    tr: '7 günlük EPG + Replay + Tüm paketler',
+  },
+  'auth.signOutGuest': {
+    fr: 'Se déconnecter (Mode Invité)',
+    ar: 'تسجيل الخروج (وضع الزائر)',
+    en: 'Sign out (Guest Mode)',
+    es: 'Cerrar sesión (Modo Invitado)',
+    de: 'Abmelden (Gastmodus)',
+    pt: 'Sair (Modo Convidado)',
+    it: 'Esci (Modalità Ospite)',
+    tr: 'Çıkış Yap (Misafir Modu)',
+  },
+  'auth.continueBtn': {
+    fr: 'Continuer',
+    ar: 'متابعة',
+    en: 'Continue',
+    es: 'Continuar',
+    de: 'Weiter',
+    pt: 'Continuar',
+    it: 'Continua',
+    tr: 'Devam Et',
+  },
+  'auth.close': {
+    fr: 'Fermer',
+    ar: 'إغلاق',
+    en: 'Close',
+    es: 'Cerrar',
+    de: 'Schließen',
+    pt: 'Fechar',
+    it: 'Chiudi',
+    tr: 'Kapat',
+  },
+  'auth.errorInvalidEmail': {
+    fr: 'Veuillez saisir une adresse e-mail valide.',
+    ar: 'يرجى إدخال عنوان بريد إلكتروني صالح.',
+    en: 'Please enter a valid email address.',
+    es: 'Por favor, introduce un correo electrónico válido.',
+    de: 'Bitte geben Sie eine gültige E-Mail-Adresse ein.',
+    pt: 'Por favor, insira um endereço de e-mail válido.',
+    it: 'Inserisci un indirizzo email valido.',
+    tr: 'Lütfen geçerli bir e-posta adresi girin.',
+  },
+  'auth.errorGoogleOAuth': {
+    fr: 'Erreur lors de la connexion Google OAuth.',
+    ar: 'حدث خطأ أثناء تسجيل الدخول عبر Google OAuth.',
+    en: 'Google OAuth sign-in error.',
+    es: 'Error al iniciar sesión con Google OAuth.',
+    de: 'Fehler bei der Google OAuth-Anmeldung.',
+    pt: 'Erro ao fazer login com Google OAuth.',
+    it: 'Errore durante l’accesso Google OAuth.',
+    tr: 'Google OAuth ile giriş yaparken hata oluştu.',
+  },
+  'auth.errorSupabase': {
+    fr: 'Erreur lors de la connexion Supabase.',
+    ar: 'حدث خطأ أثناء الاتصال بالخادم.',
+    en: 'Supabase sign-in error.',
+    es: 'Error al conectar con Supabase.',
+    de: 'Fehler bei der Supabase-Verbindung.',
+    pt: 'Erro ao conectar ao Supabase.',
+    it: 'Errore di connessione a Supabase.',
+    tr: 'Sunucu bağlantısında hata oluştu.',
+  },
+};
+
+/**
+ * Fonction globale de traduction i18n dynamique (supporte les clés `auth.*`, `reminders.*` et les clés `Translations`)
+ */
+export function t(
+  key: ReminderTranslationKey | AuthTranslationKey | keyof Translations,
+  lang?: AppLanguage,
+  params?: Record<string, string | number>
+): string {
+  const targetLang = lang || currentActiveLanguage;
+
+  if (key === 'reminders.programmed' && params?.count !== undefined) {
+    const countNum = Number(params.count) || 0;
+    const baseWord =
+      REMINDERS_I18N['reminders.programmed'][targetLang] ||
+      REMINDERS_I18N['reminders.programmed'].fr;
+    if (targetLang === 'ar') {
+      return `${baseWord} ${countNum}`;
+    }
+    if (targetLang === 'fr') {
+      return `${countNum} programmé${countNum > 1 ? 's' : ''}`;
+    }
+    if (targetLang === 'es') {
+      return `${countNum} programado${countNum > 1 ? 's' : ''}`;
+    }
+    if (targetLang === 'pt') {
+      return `${countNum} agendado${countNum > 1 ? 's' : ''}`;
+    }
+    if (targetLang === 'it') {
+      return `${countNum} programmat${countNum > 1 ? 'i' : 'o'}`;
+    }
+    return `${countNum} ${baseWord}`;
+  }
+
+  const authEntry =
+    AUTH_I18N[key as AuthTranslationKey]?.[targetLang] ||
+    AUTH_I18N[key as AuthTranslationKey]?.en ||
+    AUTH_I18N[key as AuthTranslationKey]?.fr;
+
+  const reminderEntry =
+    REMINDERS_I18N[key as ReminderTranslationKey]?.[targetLang] ||
+    REMINDERS_I18N[key as ReminderTranslationKey]?.en ||
+    REMINDERS_I18N[key as ReminderTranslationKey]?.fr;
+
+  let template =
+    authEntry ??
+    reminderEntry ??
+    getTranslations(targetLang)[key as keyof Translations] ??
+    String(key);
+
+  if (params) {
+    for (const [k, v] of Object.entries(params)) {
+      template = template.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v));
+    }
+  }
+
+  return template;
+}
+
 const CATEGORY_FILTER_LABELS: Record<
   ContentCategoryFilter,
   Partial<Record<AppLanguage, string>>

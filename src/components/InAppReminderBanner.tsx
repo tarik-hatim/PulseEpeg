@@ -16,6 +16,7 @@ import {
 } from '../utils/channelLogoResolver';
 import { cleanOfficialChannelName, ensureHttpsUrl } from '../utils/xmltvParser';
 import { translateEpgTextToFrenchSync } from '../utils/metadataResolverCore';
+import { getLanguageOption, t } from '../utils/i18n';
 import { playInAppNotificationSound } from '../services/nativeNotificationsService';
 
 interface InAppReminderBannerProps {
@@ -123,12 +124,15 @@ export const InAppReminderBanner: React.FC<InAppReminderBannerProps> = ({
     language === 'fr'
       ? translateEpgTextToFrenchSync(primaryAlert.title)
       : primaryAlert.title;
+  const langDir = getLanguageOption(language).dir;
+  const isRtl = langDir === 'rtl';
 
   return (
     <div
+      dir={langDir}
       role="region"
       aria-live="polite"
-      aria-label="Alerte Rappel Programme TV"
+      aria-label={t('reminders.bannerAriaLabel', language)}
       data-tv-row="in-app-alert-banner"
       style={{
         position: 'fixed',
@@ -185,7 +189,7 @@ export const InAppReminderBanner: React.FC<InAppReminderBannerProps> = ({
               )}
             </div>
           </div>
-          <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#2563eb] border border-[#ffffff] flex items-center justify-center">
+          <span className="absolute -top-1 -end-1 w-4 h-4 rounded-full bg-[#2563eb] border border-[#ffffff] flex items-center justify-center">
             <BellRing className="w-2.5 h-2.5 text-[#ffffff] animate-bounce" />
           </span>
         </div>
@@ -196,19 +200,23 @@ export const InAppReminderBanner: React.FC<InAppReminderBannerProps> = ({
             {isImminentOrLive ? (
               isLiveNow ? (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-[#e11d48] text-[#ffffff]">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#ffffff] animate-pulse" />
-                  EN COURS · DIRECT
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#ffffff] animate-pulse shrink-0" />
+                  <span>{t('reminders.bannerLive', language)}</span>
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-gradient-to-r from-[#2563eb] to-[#ec4899] text-[#ffffff]">
-                  <Clock className="w-3 h-3 text-[#ffffff]" />
-                  DANS {diffMinutes} MIN
+                  <Clock className="w-3 h-3 text-[#ffffff] shrink-0" />
+                  <span>
+                    {t('reminders.bannerInMinutes', language, {
+                      min: diffMinutes,
+                    })}
+                  </span>
                 </span>
               )
             ) : (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-[#2563eb] text-[#ffffff]">
-                <BellRing className="w-3 h-3 text-[#ffffff]" />
-                RAPPEL ENREGISTRÉ (-5 MIN)
+                <BellRing className="w-3 h-3 text-[#ffffff] shrink-0" />
+                <span>{t('reminders.bannerSaved', language)}</span>
               </span>
             )}
 
@@ -216,13 +224,19 @@ export const InAppReminderBanner: React.FC<InAppReminderBannerProps> = ({
               {cleanOfficialChannelName(primaryAlert.channelName)}
             </span>
 
-            <span className="text-[11px] font-mono text-[#cbd5e1]">
+            <span
+              dir="ltr"
+              className="text-[11px] font-mono text-[#cbd5e1] inline-block"
+            >
               {formatTimeShort(primaryAlert.startMs)} –{' '}
               {formatTimeShort(primaryAlert.stopMs)}
             </span>
 
             {activeAlerts.length > 1 && (
-              <span className="px-1.5 py-0.2 rounded-full bg-[#1d4ed8]/40 border border-[#3b82f6] text-[10px] font-mono font-bold text-[#ffffff]">
+              <span
+                dir="ltr"
+                className="px-1.5 py-0.2 rounded-full bg-[#1d4ed8]/40 border border-[#3b82f6] text-[10px] font-mono font-bold text-[#ffffff]"
+              >
                 +{activeAlerts.length - 1}
               </span>
             )}
@@ -234,7 +248,11 @@ export const InAppReminderBanner: React.FC<InAppReminderBannerProps> = ({
             </p>
             <span className="hidden md:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#ec4899]/20 border border-[#ec4899] text-[10px] font-mono font-bold text-[#ffffff] shrink-0">
               <span>OK</span>
-              <ChevronRight className="w-3 h-3" />
+              <ChevronRight
+                className={`w-3 h-3 transition-transform ${
+                  isRtl ? 'rotate-180' : ''
+                }`}
+              />
             </span>
           </div>
 
@@ -255,10 +273,14 @@ export const InAppReminderBanner: React.FC<InAppReminderBannerProps> = ({
           type="button"
           onClick={onOpenRemindersTab}
           className="tv-focusable inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#1d4ed8]/30 hover:bg-[#2563eb] border border-[#3b82f6] text-xs font-bold text-[#ffffff] transition-colors cursor-pointer"
-          title="Ouvrir l'onglet Mes Rappels"
+          title={t('reminders.bannerOpenTabTitle', language)}
         >
-          <ListChecks className="w-3.5 h-3.5 text-[#60a5fa]" />
-          <span className="hidden sm:inline">Rappels ({reminders.length})</span>
+          <ListChecks className="w-3.5 h-3.5 text-[#60a5fa] shrink-0" />
+          <span className="hidden sm:inline">
+            {t('reminders.bannerOpenTab', language, {
+              count: reminders.length,
+            })}
+          </span>
         </button>
 
         <button
@@ -270,8 +292,8 @@ export const InAppReminderBanner: React.FC<InAppReminderBannerProps> = ({
               onDismissRecentToast();
             }
           }}
-          aria-label="Masquer l'alerte de rappel"
-          title="Masquer l'alerte"
+          aria-label={t('reminders.bannerDismissTitle', language)}
+          title={t('reminders.bannerDismissTitle', language)}
           className="tv-focusable p-1.5 rounded-lg bg-[#0a0e17] hover:bg-[#e11d48] border border-[#1a202c] hover:border-[#ff0033] text-[#cbd5e1] hover:text-[#ffffff] transition-colors cursor-pointer"
         >
           <X className="w-4 h-4" />

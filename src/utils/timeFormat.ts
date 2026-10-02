@@ -344,8 +344,19 @@ export function calculateProgress(
   return Math.min(100, Math.max(0, Math.round(((nowMs - startMs) / total) * 100)));
 }
 
-export function formatDurationMinutes(startMs: number, stopMs: number): string {
+export function formatDurationMinutes(
+  startMs: number,
+  stopMs: number,
+  lang?: AppLanguage
+): string {
+  const activeLang = lang || getActiveLanguage();
   const mins = Math.max(1, Math.round((stopMs - startMs) / 60000));
+  if (activeLang === 'ar') {
+    if (mins < 60) return `${mins} دقيقة`;
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return m > 0 ? `${h} س ${m} د` : `${h} س`;
+  }
   if (mins < 60) return `${mins} min`;
   const h = Math.floor(mins / 60);
   const m = mins % 60;

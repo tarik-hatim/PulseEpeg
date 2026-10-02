@@ -779,8 +779,107 @@ input[type="search"]:focus-visible {
 }
 
 /* ==========================================================================
-   BANDEAU / TOAST DE NOTIFICATION IN-APP ("RAPPEL ENREGISTRÉ")
+   BANDEAU / TOAST DE NOTIFICATION IN-APP ("RAPPEL ENREGISTRÉ") & VUE RAPPELS RTL
    ========================================================================== */
+.reminders-view-root[dir="rtl"],
+.reminders-header-card[dir="rtl"] {
+  direction: rtl;
+  text-align: right;
+}
+
+.reminders-header-desc {
+  width: 100% !important;
+  max-width: none !important;
+  white-space: normal !important;
+  word-break: normal !important;
+  overflow-wrap: break-word !important;
+  display: block;
+}
+
+[data-tv-row="reminders-actions"] {
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-box-orient: horizontal;
+  -webkit-box-direction: normal;
+  -webkit-flex-direction: row;
+  flex-direction: row;
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+  -webkit-box-align: center;
+  -webkit-align-items: center;
+  align-items: center;
+  gap: 12px;
+}
+
+/* ==========================================================================
+   MODALE D'AUTHENTIFICATION & PULSEEPG PRO — PRÉVENTION DU BOGUE TEXTE VERTICAL RTL
+   ========================================================================== */
+.auth-modal-root {
+  width: 100% !important;
+  max-width: 28rem !important; /* max-w-md */
+  box-sizing: border-box !important;
+}
+
+[dir="rtl"] .auth-modal-root,
+.auth-modal-root[dir="rtl"] {
+  direction: rtl !important;
+  text-align: right !important;
+}
+
+.pro-feature-card,
+.guest-info-box,
+.auth-profile-card,
+.auth-plan-box,
+.auth-tier-card {
+  width: 100% !important;
+  max-width: 100% !important;
+  white-space: normal !important;
+  word-break: normal !important;
+  overflow-wrap: break-word !important;
+  box-sizing: border-box !important;
+}
+
+.pro-feature-card p,
+.pro-feature-card span,
+.pro-feature-card div,
+.guest-info-box p,
+.guest-info-box span,
+.guest-info-box div,
+.auth-header-text,
+.auth-header-text p,
+.auth-header-text h2,
+.auth-header-text span {
+  width: 100% !important;
+  max-width: 100% !important;
+  white-space: normal !important;
+  word-break: normal !important;
+  overflow-wrap: break-word !important;
+}
+
+[dir="rtl"] .pro-feature-card,
+[dir="rtl"] .guest-info-box,
+[dir="rtl"] .auth-header-text,
+[dir="rtl"] .auth-form-label,
+[dir="rtl"] .auth-tier-card,
+.auth-modal-root[dir="rtl"] .pro-feature-card,
+.auth-modal-root[dir="rtl"] .guest-info-box,
+.auth-modal-root[dir="rtl"] .auth-header-text,
+.auth-modal-root[dir="rtl"] .auth-form-label,
+.auth-modal-root[dir="rtl"] .auth-tier-card {
+  text-align: right !important;
+}
+
+[dir="rtl"] .pro-feature-card,
+.auth-modal-root[dir="rtl"] .pro-feature-card,
+[dir="rtl"] .guest-info-box,
+.auth-modal-root[dir="rtl"] .guest-info-box {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: flex-start !important;
+  gap: 12px !important;
+}
+
 .toast-notification,
 .in-app-toast-banner {
   position: fixed !important;

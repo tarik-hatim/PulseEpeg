@@ -16,6 +16,7 @@ import {
   AuthSessionState,
   supabaseService,
 } from '../services/supabaseService';
+import { getLanguageOption, t } from '../utils/i18n';
 
 interface AuthAccountModalProps {
   authState: AuthSessionState;
@@ -43,7 +44,8 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [infoNotification, setInfoNotification] = useState<string | null>(null);
 
-  const isFr = language === 'fr';
+  const langOption = getLanguageOption(language);
+  const isRtl = langOption.dir === 'rtl';
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
@@ -65,9 +67,7 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
       setErrorMessage(
         err instanceof Error
           ? err.message
-          : isFr
-          ? 'Erreur lors de la connexion Google OAuth.'
-          : 'Google OAuth sign-in error.'
+          : t('auth.errorGoogleOAuth', language)
       );
     } finally {
       setIsLoading(false);
@@ -77,11 +77,7 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) {
-      setErrorMessage(
-        isFr
-          ? 'Veuillez saisir une adresse e-mail valide.'
-          : 'Please enter a valid email address.'
-      );
+      setErrorMessage(t('auth.errorInvalidEmail', language));
       return;
     }
 
@@ -89,7 +85,7 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
     setErrorMessage(null);
     try {
       if (mode === 'register') {
-        // 1. Inscription via supabase.auth.signUp() (ou simulation locale réussie si clefs manquantes)
+        // Inscription via supabase.auth.signUp() (ou simulation locale réussie si clefs manquantes)
         await supabaseService.signUp({
           email: email.trim(),
           password: password || undefined,
@@ -97,7 +93,7 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
           activatePro: selectProOnSubmit,
         });
       } else {
-        // 2. Connexion via supabase.auth.signInWithPassword() (ou simulation locale réussie si clefs manquantes)
+        // Connexion via supabase.auth.signInWithPassword() (ou simulation locale réussie si clefs manquantes)
         await supabaseService.signInWithPassword({
           email: email.trim(),
           password: password || undefined,
@@ -110,9 +106,7 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
       setErrorMessage(
         err instanceof Error
           ? err.message
-          : isFr
-          ? 'Erreur lors de la connexion Supabase.'
-          : 'Supabase sign-in error.'
+          : t('auth.errorSupabase', language)
       );
     } finally {
       setIsLoading(false);
@@ -141,6 +135,47 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
     }
   };
 
+  // Titre principal et badge dynamiques
+  const modalHeaderTitle = proFeatureReason
+    ? t('auth.proBadge', language)
+    : authState.isLoggedIn
+    ? t('auth.myAccount', language)
+    : t('auth.signInSignUp', language);
+
+  const badgeLabel = authState.isLoggedIn
+    ? authState.isPremium
+      ? t('auth.proBadge', language)
+      : t('auth.free', language)
+    : t('auth.guestMode', language);
+
+  const modalSubtitle = authState.isLoggedIn
+    ? `${authState.user?.displayName} • ${authState.user?.email}`
+    : t('auth.subtitle', language);
+
+  // Message explicatif dans l'encadré rose Pro
+  const getProReasonDisplay = () => {
+    if (!proFeatureReason) return null;
+    const lower = proFeatureReason.toLowerCase();
+    const isBouquet =
+      lower.includes('bouquet') || lower.includes('باقات');
+    if (language === 'ar') {
+      return isBouquet
+        ? t('auth.proReasonBouquets', language)
+        : t('auth.proReasonEpg7Days', language);
+    }
+    if (language === 'en') {
+      return isBouquet
+        ? t('auth.proReasonBouquets', language)
+        : t('auth.proReasonEpg7Days', language);
+    }
+    if (language === 'fr') {
+      return proFeatureReason;
+    }
+    return isBouquet
+      ? t('auth.proReasonBouquets', language)
+      : t('auth.proReasonEpg7Days', language);
+  };
+
   return (
     <div
       data-tv-modal-overlay="true"
@@ -149,15 +184,18 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
     >
       <div
         data-tv-modal="true"
-        className="w-full max-w-md bg-[#141a26] border border-[#1a202c] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]"
+        dir={isRtl ? 'rtl' : 'ltr'}
+        className={`auth-modal-root w-full max-w-md bg-[#141a26] border border-[#1a202c] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] ${
+          isRtl ? 'text-right' : 'text-left'
+        } box-border`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header Modal avec bouton X de fermeture */}
         <div
           data-tv-row="auth-header"
-          className="px-5 py-4 bg-[#0b0f19] border-b border-[#1a202c] flex items-center justify-between gap-3 shrink-0"
+          className="px-5 py-4 bg-[#0b0f19] border-b border-[#1a202c] flex items-center justify-between gap-3 shrink-0 w-full"
         >
-          <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#0055ff] to-[#ec4899] flex items-center justify-center text-[#ffffff] shrink-0 shadow-[0_0_14px_rgba(236,72,153,0.4)]">
               {authState.isPremium ? (
                 <Crown className="w-5 h-5 text-[#fde047]" />
@@ -165,18 +203,10 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
                 <User className="w-5 h-5" />
               )}
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1 auth-header-text">
               <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-sm sm:text-base font-bold text-[#ffffff] truncate">
-                  {proFeatureReason
-                    ? 'PulseEPG Pro 👑'
-                    : authState.isLoggedIn
-                    ? isFr
-                      ? 'Mon Compte PulseEPG'
-                      : 'My PulseEPG Account'
-                    : isFr
-                    ? "Se connecter / S'inscrire"
-                    : 'Sign In / Sign Up'}
+                <h2 className="text-sm sm:text-base font-bold text-[#ffffff] whitespace-normal">
+                  {modalHeaderTitle}
                 </h2>
                 <span
                   className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold shrink-0 ${
@@ -185,23 +215,11 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
                       : 'bg-[#1d4ed8]/25 text-[#38bdf8] border border-[#0055ff]/50'
                   }`}
                 >
-                  {authState.isLoggedIn
-                    ? authState.isPremium
-                      ? 'PulseEPG Pro 👑'
-                      : isFr
-                      ? 'Gratuit'
-                      : 'Free'
-                    : isFr
-                    ? 'Mode Invité'
-                    : 'Guest Mode'}
+                  {badgeLabel}
                 </span>
               </div>
-              <p className="text-[11px] text-[#cbd5e1] truncate mt-0.5">
-                {authState.isLoggedIn
-                  ? `${authState.user?.displayName} • ${authState.user?.email}`
-                  : isFr
-                  ? 'Synchronisation cloud, EPG 7 jours & multi-bouquets'
-                  : 'Cloud sync, 7-day EPG & multi-bouquets'}
+              <p className="text-[11px] text-[#cbd5e1] mt-0.5 w-full whitespace-normal break-words leading-tight">
+                {modalSubtitle}
               </p>
             </div>
           </div>
@@ -209,8 +227,8 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            aria-label={isFr ? 'Fermer' : 'Close'}
-            title={isFr ? 'Fermer' : 'Close'}
+            aria-label={t('auth.close', language)}
+            title={t('auth.close', language)}
             className="tv-dpad-btn inline-flex items-center justify-center w-9 h-9 rounded-lg bg-[#e11d48]/20 border border-[#e11d48]/70 text-[#ffffff] hover:bg-[#e11d48] transition-colors cursor-pointer shrink-0"
           >
             <X className="w-5 h-5" />
@@ -220,17 +238,17 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
         {/* Corps du Modal */}
         <div
           data-tv-modal-scroll="true"
-          className="p-5 sm:p-6 pb-8 overflow-y-auto space-y-4 flex-1"
+          className="p-5 sm:p-6 pb-8 overflow-y-auto space-y-4 flex-1 w-full box-border"
         >
           {infoNotification && (
             <div
               role="status"
               data-tv-row="auth-notification"
-              className="p-3.5 rounded-xl bg-[#1d4ed8]/25 border border-[#60a5fa] text-xs text-[#ffffff] flex items-start justify-between gap-3 shadow-[0_0_14px_rgba(37,99,235,0.3)]"
+              className="p-3.5 rounded-xl bg-[#1d4ed8]/25 border border-[#60a5fa] text-xs text-[#ffffff] flex items-start justify-between gap-3 shadow-[0_0_14px_rgba(37,99,235,0.3)] w-full box-border"
             >
-              <div className="flex items-start gap-2.5">
+              <div className="flex items-start gap-2.5 min-w-0 flex-1">
                 <ShieldCheck className="w-4 h-4 text-[#38bdf8] shrink-0 mt-0.5" />
-                <span className="font-semibold leading-relaxed">
+                <span className="font-semibold leading-relaxed whitespace-normal break-words">
                   {infoNotification}
                 </span>
               </div>
@@ -246,24 +264,20 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
 
           {/* Bandeau d'information si l'utilisateur tente de consulter un jour verrouillé (J+1..J+7 / Catch-up) ou de cocher un 4ème bouquet */}
           {proFeatureReason && (
-            <div className="p-4 rounded-xl bg-gradient-to-r from-[#ec4899]/25 to-[#8b5cf6]/25 border-2 border-[#ec4899] flex items-start gap-3 shadow-[0_0_18px_rgba(236,72,153,0.3)]">
+            <div
+              className="pro-feature-card w-full max-w-full p-4 rounded-xl bg-gradient-to-r from-[#ec4899]/25 to-[#8b5cf6]/25 border-2 border-[#ec4899] flex items-start gap-3 shadow-[0_0_18px_rgba(236,72,153,0.3)] box-border"
+            >
               <Crown className="w-5 h-5 text-[#fde047] shrink-0 mt-0.5" />
-              <div className="text-xs text-[#ffffff] leading-relaxed space-y-1.5">
-                <p className="font-extrabold text-[#fde047] text-xs sm:text-sm">
-                  {proFeatureReason}
+              <div className="w-full flex-1 min-w-0 text-xs text-[#ffffff] leading-relaxed space-y-1.5 whitespace-normal break-words text-start">
+                <p className="font-extrabold text-[#fde047] text-xs sm:text-sm leading-snug w-full whitespace-normal break-words">
+                  {getProReasonDisplay()}
                 </p>
-                <div className="text-[11px] text-[#cbd5e1] space-y-1">
-                  <p>
-                    •{' '}
-                    {isFr
-                      ? 'Guide EPG étendu 7 jours complets (J+1 à J+7) & Mode Catch-up / Replay'
-                      : 'Full 7-day extended EPG Guide (D+1 to D+7) & Catch-up / Replay Mode'}
+                <div className="text-[11px] text-[#cbd5e1] space-y-1 w-full whitespace-normal break-words">
+                  <p className="w-full whitespace-normal break-words">
+                    • {t('auth.proBullet1', language)}
                   </p>
-                  <p>
-                    •{' '}
-                    {isFr
-                      ? 'Débloquez tous les bouquets avec PulseEPG Pro (Synchronisation multi-satellites)'
-                      : 'Unlock all bouquets with PulseEPG Pro (Multi-satellite sync)'}
+                  <p className="w-full whitespace-normal break-words">
+                    • {t('auth.proBullet2', language)}
                   </p>
                 </div>
               </div>
@@ -271,18 +285,18 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
           )}
 
           {authState.isLoggedIn && authState.user ? (
-            <div className="space-y-4">
+            <div className="space-y-4 w-full">
               {/* Carte Profil Connecté */}
-              <div className="p-4 rounded-xl bg-[#0a0e17] border border-[#1a202c] space-y-3.5">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-xs text-[#cbd5e1]">
-                      {isFr ? 'Utilisateur connecté' : 'Signed in as'}
+              <div className="auth-profile-card p-4 rounded-xl bg-[#0a0e17] border border-[#1a202c] space-y-3.5 w-full box-border">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-[#cbd5e1] whitespace-normal">
+                      {t('auth.signedInAs', language)}
                     </p>
-                    <p className="text-base font-extrabold text-[#ffffff] truncate mt-0.5">
+                    <p className="text-base font-extrabold text-[#ffffff] break-words mt-0.5 whitespace-normal">
                       {authState.user.displayName}
                     </p>
-                    <p className="text-xs font-mono text-[#cbd5e1] truncate">
+                    <p className="text-xs font-mono text-[#cbd5e1] break-all whitespace-normal">
                       {authState.user.email}
                     </p>
                   </div>
@@ -294,72 +308,66 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
                     }`}
                   >
                     <span>
-                      {authState.isPremium ? 'PulseEPG Pro 👑' : 'Gratuit'}
+                      {authState.isPremium
+                        ? t('auth.proBadge', language)
+                        : t('auth.free', language)}
                     </span>
                   </span>
                 </div>
 
                 <div className="pt-3 border-t border-[#1a202c] space-y-2 text-xs text-[#cbd5e1]">
-                  <div className="flex items-center justify-between gap-2">
-                    <span>
-                      {isFr ? 'Guide EPG & Replay :' : 'EPG Guide & Replay:'}
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <span className="whitespace-normal">
+                      {t('auth.epgGuideReplayLabel', language)}
                     </span>
-                    <span className="font-bold text-[#ffffff]">
+                    <span className="font-bold text-[#ffffff] whitespace-normal">
                       {authState.isPremium
-                        ? isFr
-                          ? '7 Jours complets + Replay (Pro 👑)'
-                          : 'Full 7 Days + Replay (Pro 👑)'
-                        : isFr
-                        ? 'Journée en cours (24h)'
-                        : 'Current day (24h)'}
+                        ? t('auth.epgGuideReplayPro', language)
+                        : t('auth.epgGuideReplayFree', language)}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <span>
-                      {isFr ? 'Bouquets simultanés :' : 'Simultaneous bouquets:'}
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <span className="whitespace-normal">
+                      {t('auth.simultaneousBouquetsLabel', language)}
                     </span>
-                    <span className="font-bold text-[#ffffff]">
+                    <span className="font-bold text-[#ffffff] whitespace-normal">
                       {authState.isPremium
-                        ? isFr
-                          ? 'Illimités (Pro 👑)'
-                          : 'Unlimited (Pro 👑)'
-                        : isFr
-                        ? '3 Bouquets Gratuits'
-                        : '3 Free Bouquets'}
+                        ? t('auth.bouquetsUnlimitedPro', language)
+                        : t('auth.bouquets3Free', language)}
                     </span>
                   </div>
                 </div>
               </div>
 
               {/* Sélecteur de statut Gratuit / PulseEPG Pro 👑 */}
-              <div className="space-y-2.5">
-                <p className="text-xs font-bold uppercase tracking-wider text-[#cbd5e1]">
-                  {isFr ? 'Statut de votre abonnement' : 'Subscription Status'}
+              <div className="space-y-2.5 w-full">
+                <p className="text-xs font-bold uppercase tracking-wider text-[#cbd5e1] whitespace-normal text-start">
+                  {t('auth.subscriptionStatus', language)}
                 </p>
                 <div
                   data-tv-row="auth-plan-toggle"
-                  className="grid grid-cols-2 gap-3"
+                  className="grid grid-cols-2 gap-3 w-full"
                 >
                   <button
                     type="button"
                     disabled={isLoading}
                     onClick={() => handleTogglePro(false)}
-                    className={`tv-dpad-btn p-3.5 rounded-xl border text-start transition-all cursor-pointer ${
+                    className={`auth-tier-card tv-dpad-btn p-3.5 rounded-xl border text-start transition-all cursor-pointer w-full box-border ${
                       !authState.isPremium
                         ? 'bg-[#2563eb]/25 border-[#60a5fa] text-[#ffffff]'
                         : 'bg-[#0a0e17] border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff]'
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold">Gratuit</span>
+                      <span className="text-xs font-bold whitespace-normal">
+                        {t('auth.free', language)}
+                      </span>
                       {!authState.isPremium && (
-                        <Check className="w-4 h-4 text-[#38bdf8]" />
+                        <Check className="w-4 h-4 text-[#38bdf8] shrink-0" />
                       )}
                     </div>
-                    <p className="text-[11px] text-[#cbd5e1] mt-1.5 leading-snug">
-                      {isFr
-                        ? 'Grille 24h + 3 bouquets actifs'
-                        : '24h TV Grid + 3 active bouquets'}
+                    <p className="text-[11px] text-[#cbd5e1] mt-1.5 leading-snug whitespace-normal break-words">
+                      {t('auth.planFreeDesc', language)}
                     </p>
                   </button>
 
@@ -367,24 +375,22 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
                     type="button"
                     disabled={isLoading}
                     onClick={() => handleTogglePro(true)}
-                    className={`tv-dpad-btn p-3.5 rounded-xl border text-start transition-all cursor-pointer ${
+                    className={`auth-tier-card tv-dpad-btn p-3.5 rounded-xl border text-start transition-all cursor-pointer w-full box-border ${
                       authState.isPremium
                         ? 'bg-gradient-to-br from-[#ec4899]/30 to-[#8b5cf6]/30 border-[#ec4899] text-[#ffffff]'
                         : 'bg-[#0a0e17] border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff]'
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-extrabold text-[#fde047]">
-                        PulseEPG Pro 👑
+                      <span className="text-xs font-extrabold text-[#fde047] whitespace-normal">
+                        {t('auth.proBadge', language)}
                       </span>
                       {authState.isPremium && (
-                        <Check className="w-4 h-4 text-[#fde047]" />
+                        <Check className="w-4 h-4 text-[#fde047] shrink-0" />
                       )}
                     </div>
-                    <p className="text-[11px] text-[#cbd5e1] mt-1.5 leading-snug">
-                      {isFr
-                        ? 'EPG 7 jours + Replay + Tous les bouquets'
-                        : '7-day EPG + Replay + All bouquets'}
+                    <p className="text-[11px] text-[#cbd5e1] mt-1.5 leading-snug whitespace-normal break-words">
+                      {t('auth.planProDesc', language)}
                     </p>
                   </button>
                 </div>
@@ -392,7 +398,7 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
 
               <div
                 data-tv-row="auth-logged-actions"
-                className="pt-2 flex items-center justify-between gap-3"
+                className="pt-2 flex items-center justify-between gap-3 w-full"
               >
                 <button
                   type="button"
@@ -400,11 +406,9 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
                   disabled={isLoading}
                   className="tv-dpad-btn inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-[#0a0e17] border border-[#334155] text-xs font-semibold text-[#cbd5e1] hover:text-[#e11d48] hover:border-[#e11d48] transition-colors cursor-pointer"
                 >
-                  <LogOut className="w-3.5 h-3.5" />
-                  <span>
-                    {isFr
-                      ? 'Se déconnecter (Mode Invité)'
-                      : 'Sign out (Guest Mode)'}
+                  <LogOut className={`w-3.5 h-3.5 shrink-0 ${isRtl ? 'rotate-180' : ''}`} />
+                  <span className="whitespace-normal">
+                    {t('auth.signOutGuest', language)}
                   </span>
                 </button>
 
@@ -413,55 +417,57 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
                   onClick={onClose}
                   className="tv-dpad-btn px-4 py-2.5 rounded-xl bg-[#0055ff] hover:bg-[#1d4ed8] text-xs font-bold text-[#ffffff] transition-colors cursor-pointer"
                 >
-                  {isFr ? 'Continuer' : 'Continue'}
+                  {t('auth.continueBtn', language)}
                 </button>
               </div>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-4 w-full">
               {/* Rappel du Mode Invité sans blocage */}
-              <div className="p-3.5 rounded-xl bg-[#0a0e17] border border-[#1a202c] flex items-center gap-3 text-xs text-[#cbd5e1] leading-relaxed">
+              <div className="guest-info-box w-full max-w-full p-3.5 rounded-xl bg-[#0a0e17] border border-[#1a202c] flex items-center gap-3 text-xs text-[#cbd5e1] leading-relaxed box-border">
                 <ShieldCheck className="w-4 h-4 text-[#38bdf8] shrink-0" />
-                <span>
-                  {isFr
-                    ? 'Accès Invité actif : la grille TV (24h) et 3 bouquets restent 100% accessibles sans compte.'
-                    : 'Guest Access active: TV grid (24h) and 3 bouquets remain 100% accessible without an account.'}
+                <span className="w-full flex-1 min-w-0 whitespace-normal break-words text-start">
+                  {t('auth.guestAccessInfo', language)}
                 </span>
               </div>
 
               {/* Onglets Connexion (signInWithPassword) / Inscription (signUp) */}
               <div
                 data-tv-row="auth-mode-tabs"
-                className="grid grid-cols-2 gap-2.5 p-1.5 rounded-xl bg-[#0a0e17] border border-[#1a202c]"
+                className="grid grid-cols-2 gap-2.5 p-1.5 rounded-xl bg-[#0a0e17] border border-[#1a202c] w-full"
               >
                 <button
                   type="button"
                   onClick={() => setMode('login')}
-                  className={`tv-dpad-btn inline-flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  className={`tv-dpad-btn inline-flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer w-full ${
                     mode === 'login'
                       ? 'bg-[#e11d48] text-[#ffffff]'
                       : 'text-[#cbd5e1] hover:text-[#ffffff]'
                   }`}
                 >
-                  <LogIn className="w-3.5 h-3.5" />
-                  <span>{isFr ? 'Se connecter' : 'Sign In'}</span>
+                  <LogIn className="w-3.5 h-3.5 shrink-0" />
+                  <span className="whitespace-normal">
+                    {t('auth.signIn', language)}
+                  </span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setMode('register')}
-                  className={`tv-dpad-btn inline-flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  className={`tv-dpad-btn inline-flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer w-full ${
                     mode === 'register'
                       ? 'bg-[#e11d48] text-[#ffffff]'
                       : 'text-[#cbd5e1] hover:text-[#ffffff]'
                   }`}
                 >
-                  <UserPlus className="w-3.5 h-3.5" />
-                  <span>{isFr ? "S'inscrire" : 'Sign Up'}</span>
+                  <UserPlus className="w-3.5 h-3.5 shrink-0" />
+                  <span className="whitespace-normal">
+                    {t('auth.signUp', language)}
+                  </span>
                 </button>
               </div>
 
-              {/* Bouton d'authentification sociale rapide "Continuer avec Google" (Supabase OAuth : supabase.auth.signInWithOAuth({ provider: 'google' })) */}
-              <div data-tv-row="auth-google-oauth" className="space-y-3">
+              {/* Bouton d'authentification sociale rapide "Continuer avec Google" */}
+              <div data-tv-row="auth-google-oauth" className="space-y-3 w-full">
                 <button
                   type="button"
                   disabled={isLoading}
@@ -490,61 +496,80 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
                       d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.6l3.99 3.09c.95-2.85 3.6-4.94 6.72-4.94z"
                     />
                   </svg>
-                  <span>
-                    {isFr ? 'Continuer avec Google' : 'Continue with Google'}
+                  <span className="whitespace-normal">
+                    {t('auth.continueWithGoogle', language)}
                   </span>
                 </button>
 
-                <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-wider text-[#cbd5e1]/70">
+                <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-wider text-[#cbd5e1]/70 w-full">
                   <div className="h-px flex-1 bg-[#1a202c]" />
-                  <span>{isFr ? 'ou par e-mail' : 'or with email'}</span>
+                  <span className="shrink-0 whitespace-nowrap">
+                    {t('auth.orWithEmail', language)}
+                  </span>
                   <div className="h-px flex-1 bg-[#1a202c]" />
                 </div>
               </div>
 
-              <form onSubmit={handleAuthSubmit} className="space-y-3.5">
-                <div>
-                  <label className="block text-[11px] font-semibold text-[#cbd5e1] mb-1.5">
-                    {isFr ? "Nom d'affichage" : 'Display Name'}
+              <form onSubmit={handleAuthSubmit} className="space-y-3.5 w-full">
+                <div className="w-full">
+                  <label className="auth-form-label block text-[11px] font-semibold text-[#cbd5e1] mb-1.5 text-start w-full">
+                    {t('auth.displayName', language)}
                   </label>
                   <input
                     type="text"
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
-                    placeholder={isFr ? 'Ex: Tarik' : 'Ex: Tarik'}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#0a0e17] border border-[#334155] text-xs text-[#ffffff] placeholder-[#cbd5e1]/50"
+                    placeholder={t('auth.displayNamePlaceholder', language)}
+                    dir={isRtl ? 'rtl' : 'ltr'}
+                    className={`w-full px-3.5 py-2.5 rounded-xl bg-[#0a0e17] border border-[#334155] text-xs text-[#ffffff] placeholder-[#cbd5e1]/50 ${
+                      isRtl ? 'text-right' : 'text-left'
+                    }`}
                   />
                 </div>
 
-                <div>
-                  <label className="block text-[11px] font-semibold text-[#cbd5e1] mb-1.5">
-                    {isFr ? 'Adresse e-mail' : 'Email address'}
+                <div className="w-full">
+                  <label className="auth-form-label block text-[11px] font-semibold text-[#cbd5e1] mb-1.5 text-start w-full">
+                    {t('auth.email', language)}
                   </label>
-                  <div className="relative">
-                    <Mail className="w-3.5 h-3.5 text-[#cbd5e1] absolute start-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <div className="relative w-full">
+                    <Mail
+                      className={`w-3.5 h-3.5 text-[#cbd5e1] absolute top-1/2 -translate-y-1/2 pointer-events-none ${
+                        isRtl ? 'right-3.5' : 'left-3.5'
+                      }`}
+                    />
                     <input
-                      type="text"
+                      type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="nom@exemple.com"
                       required
-                      className="w-full ps-9 pe-3.5 py-2.5 rounded-xl bg-[#0a0e17] border border-[#334155] text-xs text-[#ffffff] placeholder-[#cbd5e1]/50"
+                      dir="ltr"
+                      className={`w-full ${
+                        isRtl ? 'pr-9 pl-3.5 text-right' : 'pl-9 pr-3.5 text-left'
+                      } py-2.5 rounded-xl bg-[#0a0e17] border border-[#334155] text-xs text-[#ffffff] placeholder-[#cbd5e1]/50`}
                     />
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-[11px] font-semibold text-[#cbd5e1] mb-1.5">
-                    {isFr ? 'Mot de passe' : 'Password'}
+                <div className="w-full">
+                  <label className="auth-form-label block text-[11px] font-semibold text-[#cbd5e1] mb-1.5 text-start w-full">
+                    {t('auth.password', language)}
                   </label>
-                  <div className="relative">
-                    <KeyRound className="w-3.5 h-3.5 text-[#cbd5e1] absolute start-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <div className="relative w-full">
+                    <KeyRound
+                      className={`w-3.5 h-3.5 text-[#cbd5e1] absolute top-1/2 -translate-y-1/2 pointer-events-none ${
+                        isRtl ? 'right-3.5' : 'left-3.5'
+                      }`}
+                    />
                     <input
                       type="password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="••••••••"
-                      className="w-full ps-9 pe-3.5 py-2.5 rounded-xl bg-[#0a0e17] border border-[#334155] text-xs text-[#ffffff] placeholder-[#cbd5e1]/50"
+                      dir="ltr"
+                      className={`w-full ${
+                        isRtl ? 'pr-9 pl-3.5 text-right' : 'pl-9 pr-3.5 text-left'
+                      } py-2.5 rounded-xl bg-[#0a0e17] border border-[#334155] text-xs text-[#ffffff] placeholder-[#cbd5e1]/50`}
                     />
                   </div>
                 </div>
@@ -552,52 +577,52 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
                 {/* Choix du Statut (Gratuit ou PulseEPG Pro 👑) */}
                 <div
                   data-tv-row="auth-tier-choice"
-                  className="grid grid-cols-2 gap-3 pt-1"
+                  className="grid grid-cols-2 gap-3 pt-1 w-full"
                 >
                   <button
                     type="button"
                     onClick={() => setSelectProOnSubmit(false)}
-                    className={`tv-dpad-btn p-3 rounded-xl border text-start transition-all cursor-pointer ${
+                    className={`auth-tier-card tv-dpad-btn p-3 rounded-xl border text-start transition-all cursor-pointer w-full box-border ${
                       !selectProOnSubmit
                         ? 'bg-[#2563eb]/25 border-[#60a5fa] text-[#ffffff]'
                         : 'bg-[#0a0e17] border-[#1a202c] text-[#cbd5e1]'
                     }`}
                   >
-                    <div className="text-xs font-bold">Gratuit</div>
-                    <div className="text-[11px] text-[#cbd5e1] mt-1">
-                      {isFr ? '3 bouquets inclus' : '3 bouquets included'}
+                    <div className="text-xs font-bold whitespace-normal">
+                      {t('auth.free', language)}
+                    </div>
+                    <div className="text-[11px] text-[#cbd5e1] mt-1 whitespace-normal leading-snug">
+                      {t('auth.tierFree3Bouquets', language)}
                     </div>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setSelectProOnSubmit(true)}
-                    className={`tv-dpad-btn p-3 rounded-xl border text-start transition-all cursor-pointer ${
+                    className={`auth-tier-card tv-dpad-btn p-3 rounded-xl border text-start transition-all cursor-pointer w-full box-border ${
                       selectProOnSubmit
                         ? 'bg-gradient-to-br from-[#ec4899]/30 to-[#8b5cf6]/30 border-[#ec4899] text-[#ffffff]'
                         : 'bg-[#0a0e17] border-[#1a202c] text-[#cbd5e1]'
                     }`}
                   >
-                    <div className="text-xs font-extrabold text-[#fde047]">
-                      PulseEPG Pro 👑
+                    <div className="text-xs font-extrabold text-[#fde047] whitespace-normal">
+                      {t('auth.proBadge', language)}
                     </div>
-                    <div className="text-[11px] text-[#cbd5e1] mt-1">
-                      {isFr
-                        ? 'EPG 7 jours & illimité'
-                        : '7-day EPG & unlimited'}
+                    <div className="text-[11px] text-[#cbd5e1] mt-1 whitespace-normal leading-snug">
+                      {t('auth.tierPro7Days', language)}
                     </div>
                   </button>
                 </div>
 
                 {errorMessage && (
-                  <p className="text-xs text-[#e11d48] font-medium">
+                  <p className="text-xs text-[#e11d48] font-medium whitespace-normal break-words text-start">
                     {errorMessage}
                   </p>
                 )}
 
                 <div
                   data-tv-row="auth-submit-row"
-                  className="pt-1.5 flex flex-col gap-2"
+                  className="pt-1.5 flex flex-col gap-2 w-full"
                 >
                   <button
                     type="submit"
@@ -605,12 +630,8 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
                     className="tv-dpad-btn w-full py-3 rounded-xl bg-gradient-to-r from-[#0055ff] to-[#ec4899] text-xs sm:text-sm font-bold text-[#ffffff] shadow-[0_0_15px_rgba(236,72,153,0.4)] cursor-pointer"
                   >
                     {mode === 'login'
-                      ? isFr
-                        ? 'Se connecter'
-                        : 'Sign In'
-                      : isFr
-                      ? 'Créer mon compte'
-                      : 'Create Account'}
+                      ? t('auth.signIn', language)
+                      : t('auth.createAccountBtn', language)}
                   </button>
                 </div>
               </form>

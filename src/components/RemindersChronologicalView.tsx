@@ -38,7 +38,12 @@ import {
   isPlaceholderProgrammeTitle,
 } from '../utils/xmltvParser';
 import { translateEpgTextToFrenchSync } from '../utils/metadataResolverCore';
-import { cleanBouquetName, translateDynamicGenre } from '../utils/i18n';
+import {
+  cleanBouquetName,
+  getLanguageOption,
+  t,
+  translateDynamicGenre,
+} from '../utils/i18n';
 import {
   getActiveBouquetBadgeForChannel,
   getSingleSatelliteBadgeForChannel,
@@ -59,28 +64,48 @@ interface RemindersChronologicalViewProps {
 
 type ReminderSubFilter = 'all' | 'imminent' | 'sport' | 'cinema';
 
-function formatCountdownLabel(startMs: number, stopMs: number, nowMs: number): {
+function formatCountdownLabel(
+  startMs: number,
+  stopMs: number,
+  nowMs: number,
+  language: AppLanguage
+): {
   label: string;
   state: 'live' | 'imminent' | 'upcoming' | 'ended';
 } {
   if (stopMs <= nowMs) {
-    return { label: 'Terminé', state: 'ended' };
+    return { label: t('reminders.countdownEnded', language), state: 'ended' };
   }
   if (startMs <= nowMs && stopMs > nowMs) {
     const remMins = Math.max(1, Math.ceil((stopMs - nowMs) / 60000));
-    return { label: `EN DIRECT · Reste ${remMins} min`, state: 'live' };
+    return {
+      label: t('reminders.countdownLive', language, { min: remMins }),
+      state: 'live',
+    };
   }
   const diffMins = Math.max(1, Math.ceil((startMs - nowMs) / 60000));
   if (diffMins <= 5) {
-    return { label: `IMMINENT · Dans ${diffMins} min`, state: 'imminent' };
+    return {
+      label: t('reminders.countdownImminent', language, { min: diffMins }),
+      state: 'imminent',
+    };
   }
   if (diffMins < 60) {
-    return { label: `Dans ${diffMins} min`, state: 'upcoming' };
+    return {
+      label: t('reminders.countdownInMinutes', language, { min: diffMins }),
+      state: 'upcoming',
+    };
   }
   const hours = Math.floor(diffMins / 60);
   const mins = diffMins % 60;
   return {
-    label: mins > 0 ? `Dans ${hours}h ${mins}min` : `Dans ${hours}h`,
+    label:
+      mins > 0
+        ? t('reminders.countdownInHoursMinutes', language, {
+            hours,
+            min: mins,
+          })
+        : t('reminders.countdownInHours', language, { hours }),
     state: 'upcoming',
   };
 }
@@ -100,6 +125,8 @@ export const RemindersChronologicalView: React.FC<
   onSimulateImminentAlert,
 }) => {
   const [subFilter, setSubFilter] = useState<ReminderSubFilter>('all');
+  const langDir = getLanguageOption(language).dir;
+  const isRtl = langDir === 'rtl';
 
   const channelMap = useMemo(() => {
     const map = new Map<string, EpgChannel>();
@@ -197,74 +224,102 @@ export const RemindersChronologicalView: React.FC<
   }, [channels, schedulesByChannel, nowMs, reminderIdSet]);
 
   return (
-    <div className="space-y-4">
+    <div
+      dir={isRtl ? 'rtl' : 'ltr'}
+      className={`reminders-view-root w-full space-y-4 ${
+        isRtl ? 'text-right' : 'text-left'
+      } text-start`}
+    >
       {/* En-tête de la vue "Mes Rappels" & Filtres Chronologiques */}
-      <div className="rounded-lg bg-[#141a26] border border-[#1a202c] p-4 space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#0055ff] to-[#ec4899] flex items-center justify-center text-[#ffffff] shadow-[0_0_16px_rgba(236,72,153,0.45)] shrink-0">
-              <BellRing className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-base sm:text-lg font-bold text-[#ffffff]">
-                  Mes Rappels &amp; Notifications Système
+      <div
+        dir={isRtl ? 'rtl' : 'ltr'}
+        className={`reminders-header-card w-full rounded-lg bg-[#141a26] border border-[#1a202c] p-4 sm:p-5 space-y-4 ${
+          isRtl ? 'text-right' : 'text-left'
+        } text-start`}
+      >
+        <div className="w-full flex flex-col gap-3">
+          {/* Ligne supérieure : Icône + Titre + Badge compteur & Boutons d'action */}
+          <div className="w-full flex flex-row flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-row items-center gap-3 flex-wrap min-w-[240px] flex-1">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#0055ff] to-[#ec4899] flex items-center justify-center text-[#ffffff] shadow-[0_0_16px_rgba(236,72,153,0.45)] shrink-0">
+                <BellRing className="w-5 h-5 shrink-0" />
+              </div>
+              <div className="flex flex-row items-center gap-2.5 flex-wrap">
+                <h2 className="text-base sm:text-lg font-bold text-[#ffffff] whitespace-normal">
+                  {t('reminders.title', language)}
                 </h2>
-                <span className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-gradient-to-r from-[#0055ff] to-[#ec4899] text-[#ffffff] border border-[#ec4899]">
-                  {reminders.length} programmé{reminders.length > 1 ? 's' : ''}
+                <span
+                  dir={isRtl ? 'rtl' : 'ltr'}
+                  className="px-2.5 py-0.5 rounded text-[11px] font-mono font-bold bg-gradient-to-r from-[#0055ff] to-[#ec4899] text-[#ffffff] border border-[#ec4899] shrink-0"
+                >
+                  {t('reminders.programmed', language, {
+                    count: reminders.length,
+                  })}
                 </span>
               </div>
-              <p className="text-xs text-[#cbd5e1] mt-0.5">
-                Agenda chronologique de vos matchs, films et émissions ·
-                Notification système Android avec son (même application fermée)
-                + bandeau visuel In-App 5 min avant le début.
-              </p>
+            </div>
+
+            <div
+              data-tv-row="reminders-actions"
+              className="flex flex-row flex-wrap items-center gap-3 shrink-0 my-0.5"
+            >
+              <button
+                type="button"
+                onClick={onSimulateImminentAlert}
+                className="tv-focusable inline-flex flex-row items-center gap-2 px-3.5 py-2 rounded-lg bg-gradient-to-r from-[#0055ff] to-[#ec4899] hover:opacity-95 text-[#ffffff] border border-[#ec4899] text-xs font-bold shadow-[0_0_12px_rgba(236,72,153,0.45)] transition-all cursor-pointer shrink-0"
+                title={t('reminders.testAlertTooltip', language)}
+              >
+                <BellRing className="w-3.5 h-3.5 shrink-0" />
+                <span className="whitespace-normal sm:whitespace-nowrap">
+                  {t('reminders.testAlert', language)}
+                </span>
+              </button>
+
+              {reminders.length > 0 && (
+                <button
+                  type="button"
+                  onClick={onClearAllReminders}
+                  className="tv-focusable inline-flex flex-row items-center gap-2 px-3.5 py-2 rounded-lg bg-[#0a0e17] hover:bg-[#e11d48]/20 text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#e11d48] text-xs font-semibold transition-colors cursor-pointer shrink-0"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-[#e11d48] shrink-0" />
+                  <span className="whitespace-nowrap">
+                    {t('reminders.clearAll', language)}
+                  </span>
+                </button>
+              )}
             </div>
           </div>
 
-          <div
-            data-tv-row="reminders-actions"
-            className="flex items-center gap-2 flex-wrap"
-          >
-            <button
-              type="button"
-              onClick={onSimulateImminentAlert}
-              className="tv-focusable inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#0055ff] to-[#ec4899] hover:opacity-95 text-[#ffffff] border border-[#ec4899] text-xs font-bold shadow-[0_0_12px_rgba(236,72,153,0.45)] transition-all cursor-pointer"
-              title="Simuler un rappel commençant dans moins de 5 minutes pour tester le bandeau d'alerte TV"
+          {/* Conteneur de description pleine largeur (empêche tout retour à la ligne vertical mot par mot en RTL) */}
+          <div className="w-full">
+            <p
+              className={`reminders-header-desc w-full whitespace-normal break-normal text-xs sm:text-sm text-[#cbd5e1] leading-relaxed ${
+                isRtl ? 'text-right' : 'text-left'
+              } text-start`}
             >
-              <BellRing className="w-3.5 h-3.5" />
-              <span>Tester l&apos;alerte TV (≤ 5 min)</span>
-            </button>
-
-            {reminders.length > 0 && (
-              <button
-                type="button"
-                onClick={onClearAllReminders}
-                className="tv-focusable inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0a0e17] hover:bg-[#e11d48]/20 text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#e11d48] text-xs font-semibold transition-colors cursor-pointer"
-              >
-                <Trash2 className="w-3.5 h-3.5 text-[#e11d48]" />
-                <span>Tout effacer</span>
-              </button>
-            )}
+              {t('reminders.description', language)}
+            </p>
           </div>
         </div>
 
         {/* Barre de sous-filtres rapides (Tous / En cours & Imminent / Sport / Cinéma) */}
         <div
           data-tv-row="reminders-subfilters"
-          className="pt-2.5 border-t border-[#1a202c] flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 px-0.5"
+          className="pt-3 border-t border-[#1a202c] flex flex-row flex-wrap sm:flex-nowrap items-center gap-2.5 overflow-x-auto no-scrollbar py-1 px-0.5"
         >
           <button
             type="button"
             onClick={() => setSubFilter('all')}
-            className={`tv-focusable inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all shrink-0 cursor-pointer ${
+            className={`tv-focusable inline-flex flex-row items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs transition-all shrink-0 cursor-pointer ${
               subFilter === 'all'
                 ? 'bg-gradient-to-r from-[#0055ff] to-[#ec4899] border border-[#ec4899] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(236,72,153,0.45)]'
                 : 'bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] font-medium'
             }`}
           >
-            <Calendar className="w-3.5 h-3.5" />
-            <span>Tous les rappels</span>
+            <Calendar className="w-3.5 h-3.5 shrink-0" />
+            <span className="whitespace-nowrap">
+              {t('reminders.filterAll', language)}
+            </span>
             <span className="px-1.5 py-0.2 rounded bg-[#0a0e17]/80 text-[#ffffff] font-mono text-[10px] font-bold">
               {counts.all}
             </span>
@@ -273,14 +328,16 @@ export const RemindersChronologicalView: React.FC<
           <button
             type="button"
             onClick={() => setSubFilter('imminent')}
-            className={`tv-focusable inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all shrink-0 cursor-pointer ${
+            className={`tv-focusable inline-flex flex-row items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs transition-all shrink-0 cursor-pointer ${
               subFilter === 'imminent'
                 ? 'bg-[#e11d48] border border-[#ff0033] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(225,29,72,0.45)]'
                 : 'bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] font-medium'
             }`}
           >
-            <Radio className="w-3.5 h-3.5 text-[#ec4899]" />
-            <span>Imminent ≤ 5 min / En Direct</span>
+            <Radio className="w-3.5 h-3.5 text-[#ec4899] shrink-0" />
+            <span className="whitespace-nowrap">
+              {t('reminders.filterImminent', language)}
+            </span>
             <span className="px-1.5 py-0.2 rounded bg-[#141a26] text-[#ffffff] font-mono text-[10px] font-bold">
               {counts.imminent}
             </span>
@@ -289,14 +346,16 @@ export const RemindersChronologicalView: React.FC<
           <button
             type="button"
             onClick={() => setSubFilter('sport')}
-            className={`tv-focusable inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all shrink-0 cursor-pointer ${
+            className={`tv-focusable inline-flex flex-row items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs transition-all shrink-0 cursor-pointer ${
               subFilter === 'sport'
                 ? 'bg-[#1d4ed8] border border-[#0055ff] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(0,85,255,0.45)]'
                 : 'bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] font-medium'
             }`}
           >
-            <Trophy className="w-3.5 h-3.5 text-[#60a5fa]" />
-            <span>Matchs & Sport</span>
+            <Trophy className="w-3.5 h-3.5 text-[#60a5fa] shrink-0" />
+            <span className="whitespace-nowrap">
+              {t('reminders.filterSport', language)}
+            </span>
             <span className="px-1.5 py-0.2 rounded bg-[#141a26] text-[#ffffff] font-mono text-[10px] font-bold">
               {counts.sport}
             </span>
@@ -305,14 +364,16 @@ export const RemindersChronologicalView: React.FC<
           <button
             type="button"
             onClick={() => setSubFilter('cinema')}
-            className={`tv-focusable inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all shrink-0 cursor-pointer ${
+            className={`tv-focusable inline-flex flex-row items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs transition-all shrink-0 cursor-pointer ${
               subFilter === 'cinema'
                 ? 'bg-[#1d4ed8] border border-[#0055ff] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(0,85,255,0.45)]'
                 : 'bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] font-medium'
             }`}
           >
-            <Film className="w-3.5 h-3.5 text-[#ec4899]" />
-            <span>Films, Séries & Docs</span>
+            <Film className="w-3.5 h-3.5 text-[#ec4899] shrink-0" />
+            <span className="whitespace-nowrap">
+              {t('reminders.filterCinema', language)}
+            </span>
             <span className="px-1.5 py-0.2 rounded bg-[#141a26] text-[#ffffff] font-mono text-[10px] font-bold">
               {counts.cinema}
             </span>
@@ -322,32 +383,35 @@ export const RemindersChronologicalView: React.FC<
 
       {/* Liste Chronologique des Événements / Matchs Programmés */}
       {filteredReminders.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-[#1a202c] bg-[#141a26] p-8 text-center max-w-2xl mx-auto">
+        <div
+          dir={isRtl ? 'rtl' : 'ltr'}
+          className="w-full rounded-lg border border-dashed border-[#1a202c] bg-[#141a26] p-8 text-center"
+        >
           <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#0055ff]/25 to-[#ec4899]/25 border border-[#ec4899]/50 flex items-center justify-center mx-auto mb-3">
             <Bell className="w-6 h-6 text-[#ec4899]" />
           </div>
-          <h3 className="text-base font-bold text-[#ffffff]">
+          <h3 className="w-full whitespace-normal text-base font-bold text-[#ffffff]">
             {reminders.length === 0
-              ? 'Aucun rappel programmé pour le moment'
-              : 'Aucun rappel dans cette catégorie'}
+              ? t('reminders.emptyTitle', language)
+              : t('reminders.emptyCategoryTitle', language)}
           </h3>
-          <p className="text-xs text-[#cbd5e1] mt-1 leading-relaxed max-w-lg mx-auto">
-            Cliquez sur l&apos;icône cloche{' '}
+          <p className="w-full whitespace-normal text-xs sm:text-sm text-[#cbd5e1] mt-1.5 leading-relaxed">
+            {t('reminders.emptyDescPrefix', language)}{' '}
             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gradient-to-r from-[#0055ff] to-[#ec4899] text-[#ffffff] font-bold text-[10px]">
-              <Bell className="w-2.5 h-2.5" /> Rappel
+              <Bell className="w-2.5 h-2.5 shrink-0" />{' '}
+              {t('reminders.emptyDescBadge', language)}
             </span>{' '}
-            sur n&apos;importe quel programme à venir (dans En Direct, la Grille
-            TV ou ci-dessous) pour être alerté visuellement 5 minutes avant le
-            coup d&apos;envoi.
+            {t('reminders.emptyDescSuffix', language)}
           </p>
         </div>
       ) : (
-        <div data-tv-list="reminders" className="space-y-2.5">
+        <div data-tv-list="reminders" className="w-full space-y-2.5">
           {filteredReminders.map((rem) => {
             const countdown = formatCountdownLabel(
               rem.startMs,
               rem.stopMs,
-              nowMs
+              nowMs,
+              language
             );
             const isLive = countdown.state === 'live';
             const isImminent = countdown.state === 'imminent';
@@ -369,7 +433,7 @@ export const RemindersChronologicalView: React.FC<
 
             const satLabel = ch
               ? getSingleSatelliteBadgeForChannel(ch, 'Tous')
-              : rem.orbitalPosition || 'Satellite';
+              : rem.orbitalPosition || t('reminders.satelliteFallback', language);
             const bouquetLabel = ch
               ? cleanBouquetName(
                   getActiveBouquetBadgeForChannel(ch, 'Tous', 'Tous') || '',
@@ -385,6 +449,7 @@ export const RemindersChronologicalView: React.FC<
             return (
               <div
                 key={rem.id}
+                dir={isRtl ? 'rtl' : 'ltr'}
                 tabIndex={0}
                 role="button"
                 data-channel-card="true"
@@ -402,15 +467,17 @@ export const RemindersChronologicalView: React.FC<
                     onSelectReminder(rem);
                   }
                 }}
-                className={`tv-card-focusable group relative rounded-lg p-3.5 sm:p-4 border transition-all cursor-pointer ${
+                className={`tv-card-focusable group relative w-full rounded-lg p-3.5 sm:p-4 border transition-all cursor-pointer ${
+                  isRtl ? 'text-right' : 'text-left'
+                } text-start ${
                   isLive || isImminent
                     ? 'bg-[#141a26] border-[1.5px] border-[#ec4899] shadow-[0_0_18px_rgba(236,72,153,0.35)]'
                     : 'bg-[#141a26] border-[#0055ff]/50 hover:border-[#ec4899]'
                 }`}
               >
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3.5">
-                  {/* Gauche : Horaire Chronologique + Chaîne */}
-                  <div className="flex items-center gap-3 lg:w-80 shrink-0 min-w-0">
+                <div className="w-full flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                  {/* Gauche (ou Droite en RTL) : Horaire Chronologique + Chaîne */}
+                  <div className="flex flex-row items-center gap-3 w-full lg:w-auto lg:min-w-[280px] shrink-0">
                     <div className="w-12 h-12 rounded-lg bg-[#0a0e17] border border-[#1a202c] flex items-center justify-center p-1.5 shrink-0">
                       {logoUrl ? (
                         <img
@@ -424,29 +491,35 @@ export const RemindersChronologicalView: React.FC<
                       )}
                     </div>
 
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider bg-gradient-to-r from-[#0055ff] to-[#ec4899] text-[#ffffff] border border-[#ec4899] shadow-[0_0_8px_rgba(236,72,153,0.4)]">
-                          <BellRing className="w-2.5 h-2.5" />
-                          Rappel Actif
+                    <div className="flex-1 min-w-[180px]">
+                      <div className="flex flex-row items-center gap-2 flex-wrap">
+                        <span className="inline-flex flex-row items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider bg-gradient-to-r from-[#0055ff] to-[#ec4899] text-[#ffffff] border border-[#ec4899] shadow-[0_0_8px_rgba(236,72,153,0.4)] shrink-0">
+                          <BellRing className="w-2.5 h-2.5 shrink-0" />
+                          <span>{t('reminders.activeBadge', language)}</span>
                         </span>
-                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50 uppercase">
+                        <span
+                          dir="ltr"
+                          className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50 uppercase shrink-0"
+                        >
                           {satLabel}
                         </span>
                         {bouquetLabel && (
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#ec4899]/20 text-[#ffffff] border border-[#ec4899]/60">
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#ec4899]/20 text-[#ffffff] border border-[#ec4899]/60 shrink-0">
                             {bouquetLabel}
                           </span>
                         )}
                       </div>
-                      <h3 className="font-bold text-[#ffffff] text-sm sm:text-base truncate mt-1">
+                      <h3 className="w-full font-bold text-[#ffffff] text-sm sm:text-base whitespace-normal mt-1">
                         {cleanOfficialChannelName(rem.channelName)}
                       </h3>
-                      <div className="flex items-center gap-1.5 text-[11px] font-mono text-[#cbd5e1] mt-0.5">
-                        <Clock className="w-3 h-3 text-[#60a5fa]" />
+                      <div className="flex flex-row items-center gap-1.5 text-[11px] font-mono text-[#cbd5e1] mt-0.5 flex-wrap">
+                        <Clock className="w-3 h-3 text-[#60a5fa] shrink-0" />
                         <span>{formatDayLabel(rem.startMs, language)}</span>
                         <span>·</span>
-                        <span className="font-bold text-[#ffffff]">
+                        <span
+                          dir="ltr"
+                          className="font-bold text-[#ffffff] inline-block"
+                        >
                           {formatTimeShort(rem.startMs)} –{' '}
                           {formatTimeShort(rem.stopMs)}
                         </span>
@@ -455,22 +528,22 @@ export const RemindersChronologicalView: React.FC<
                   </div>
 
                   {/* Centre : Détails de l'événement / match programmé */}
-                  <div className="flex-1 min-w-0 lg:ps-4 lg:border-s lg:border-[#1a202c]">
-                    <div className="flex items-center gap-2 flex-wrap">
+                  <div className="w-full flex-1 min-w-[220px] lg:ps-4 lg:border-s lg:border-[#1a202c]">
+                    <div className="flex flex-row items-center gap-2 flex-wrap">
                       {isLive ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider bg-[#e11d48] text-[#ffffff] border border-[#ff0033] shadow-[0_0_10px_rgba(225,29,72,0.5)]">
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#ffffff] animate-pulse" />
-                          {countdown.label}
+                        <span className="inline-flex flex-row items-center gap-1.5 px-2.5 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider bg-[#e11d48] text-[#ffffff] border border-[#ff0033] shadow-[0_0_10px_rgba(225,29,72,0.5)]">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#ffffff] animate-pulse shrink-0" />
+                          <span>{countdown.label}</span>
                         </span>
                       ) : isImminent ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider bg-gradient-to-r from-[#0055ff] to-[#ec4899] text-[#ffffff] border border-[#ec4899] animate-pulse">
-                          <BellRing className="w-3 h-3" />
-                          {countdown.label}
+                        <span className="inline-flex flex-row items-center gap-1.5 px-2.5 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider bg-gradient-to-r from-[#0055ff] to-[#ec4899] text-[#ffffff] border border-[#ec4899] animate-pulse">
+                          <BellRing className="w-3 h-3 shrink-0" />
+                          <span>{countdown.label}</span>
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-[#1d4ed8]/25 text-[#60a5fa] border border-[#0055ff]/50">
-                          <Clock className="w-3 h-3" />
-                          {countdown.label}
+                        <span className="inline-flex flex-row items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-[#1d4ed8]/25 text-[#60a5fa] border border-[#0055ff]/50">
+                          <Clock className="w-3 h-3 shrink-0" />
+                          <span>{countdown.label}</span>
                         </span>
                       )}
 
@@ -481,16 +554,20 @@ export const RemindersChronologicalView: React.FC<
                       )}
 
                       <span className="text-[10px] font-mono text-[#cbd5e1]">
-                        {formatDurationMinutes(rem.startMs, rem.stopMs)}
+                        {formatDurationMinutes(
+                          rem.startMs,
+                          rem.stopMs,
+                          language
+                        )}
                       </span>
                     </div>
 
-                    <h4 className="font-extrabold text-[#ffffff] text-sm sm:text-base 2xl:text-lg truncate mt-1">
+                    <h4 className="w-full whitespace-normal font-extrabold text-[#ffffff] text-sm sm:text-base 2xl:text-lg mt-1">
                       {displayTitle}
                     </h4>
 
                     {rem.description && (
-                      <p className="text-xs text-[#cbd5e1] line-clamp-1 mt-0.5">
+                      <p className="w-full whitespace-normal text-xs text-[#cbd5e1] line-clamp-2 mt-0.5 leading-relaxed">
                         {rem.description}
                       </p>
                     )}
@@ -505,8 +582,8 @@ export const RemindersChronologicalView: React.FC<
                     )}
                   </div>
 
-                  {/* Droite : Actions (Retirer le rappel / Voir la fiche) */}
-                  <div className="flex items-center justify-end gap-2 shrink-0 pt-2 lg:pt-0 border-t border-[#1a202c] lg:border-t-0">
+                  {/* Droite (ou Gauche en RTL) : Actions (Retirer le rappel / Voir la fiche) */}
+                  <div className="flex flex-row flex-wrap items-center justify-end gap-3 shrink-0 pt-2 lg:pt-0 border-t border-[#1a202c] lg:border-t-0">
                     <button
                       type="button"
                       data-channel-fav="true"
@@ -514,15 +591,21 @@ export const RemindersChronologicalView: React.FC<
                         e.stopPropagation();
                         onRemoveReminder(rem.id);
                       }}
-                      className="tv-focusable inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#0a0e17] hover:bg-[#e11d48] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#ff0033] text-xs font-semibold transition-colors cursor-pointer"
-                      title="Retirer ce rappel"
+                      className="tv-focusable inline-flex flex-row items-center gap-2 px-3.5 py-2 rounded-lg bg-[#0a0e17] hover:bg-[#e11d48] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#ff0033] text-xs font-semibold transition-colors cursor-pointer shrink-0"
+                      title={t('reminders.removeTooltip', language)}
                     >
-                      <BellOff className="w-3.5 h-3.5 text-[#ec4899]" />
-                      <span>Retirer</span>
+                      <BellOff className="w-3.5 h-3.5 text-[#ec4899] shrink-0" />
+                      <span className="whitespace-nowrap">
+                        {t('reminders.removeBtn', language)}
+                      </span>
                     </button>
 
-                    <div className="p-2 rounded-lg bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1] group-hover:text-[#ffffff] group-hover:border-[#ec4899] transition-colors">
-                      <ChevronRight className="w-4 h-4 rtl:rotate-180" />
+                    <div className="p-2 rounded-lg bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1] group-hover:text-[#ffffff] group-hover:border-[#ec4899] transition-colors shrink-0">
+                      <ChevronRight
+                        className={`w-4 h-4 transition-transform ${
+                          isRtl ? 'rotate-180' : ''
+                        }`}
+                      />
                     </div>
                   </div>
                 </div>
@@ -534,30 +617,40 @@ export const RemindersChronologicalView: React.FC<
 
       {/* Suggestions d'événements / matchs / films à venir (Programmation en 1 clic à la télécommande) */}
       {upcomingSuggestions.length > 0 && (
-        <div className="rounded-lg bg-[#141a26] border border-[#1a202c] p-4 space-y-3">
-          <div className="flex items-center justify-between gap-2 flex-wrap">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-[#ec4899]" />
-              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-[#ffffff]">
-                Événements, Matchs & Films à venir · Programmer en 1 clic
+        <div
+          dir={isRtl ? 'rtl' : 'ltr'}
+          className={`w-full rounded-lg bg-[#141a26] border border-[#1a202c] p-4 space-y-3 ${
+            isRtl ? 'text-right' : 'text-left'
+          } text-start`}
+        >
+          <div className="w-full flex flex-row items-center justify-between gap-3 flex-wrap">
+            <div className="flex flex-row items-center gap-2">
+              <Sparkles className="w-4 h-4 text-[#ec4899] shrink-0" />
+              <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-[#ffffff] whitespace-normal">
+                {t('reminders.suggestionsTitle', language)}
               </h3>
             </div>
-            <span className="text-[11px] text-[#cbd5e1]">
-              Appuyez sur <strong className="text-[#ffffff]">OK / Enter</strong>{' '}
-              pour ajouter à vos rappels
+            <span className="text-[11px] text-[#cbd5e1] whitespace-normal">
+              {t('reminders.suggestionsHintPrefix', language)}{' '}
+              <strong dir="ltr" className="text-[#ffffff] inline-block">
+                {t('reminders.suggestionsHintKey', language)}
+              </strong>{' '}
+              {t('reminders.suggestionsHintSuffix', language)}
             </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {upcomingSuggestions.map(({ channel: ch, programme: prog }) => {
               const countdown = formatCountdownLabel(
                 prog.startMs,
                 prog.stopMs,
-                nowMs
+                nowMs,
+                language
               );
               return (
                 <div
                   key={prog.id}
+                  dir={isRtl ? 'rtl' : 'ltr'}
                   tabIndex={0}
                   role="button"
                   data-tv-focusable="true"
@@ -574,15 +667,20 @@ export const RemindersChronologicalView: React.FC<
                       onToggleReminder(prog, ch);
                     }
                   }}
-                  className="tv-card-focusable rounded-lg p-3 bg-[#0a0e17] border border-[#1a202c] hover:border-[#ec4899] flex items-center justify-between gap-3 cursor-pointer transition-all"
+                  className={`tv-card-focusable w-full rounded-lg p-3.5 bg-[#0a0e17] border border-[#1a202c] hover:border-[#ec4899] flex flex-row flex-wrap sm:flex-nowrap items-center justify-between gap-3 cursor-pointer transition-all ${
+                    isRtl ? 'text-right' : 'text-left'
+                  } text-start`}
                 >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 flex-wrap text-[10px]">
+                  <div className="flex-1 min-w-[180px]">
+                    <div className="flex flex-row items-center gap-1.5 flex-wrap text-[10px]">
                       <span className="font-bold text-[#60a5fa]">
                         {cleanOfficialChannelName(ch.displayName)}
                       </span>
                       <span className="text-[#cbd5e1]">•</span>
-                      <span className="font-mono font-semibold text-[#ffffff]">
+                      <span
+                        dir="ltr"
+                        className="font-mono font-semibold text-[#ffffff] inline-block"
+                      >
                         {formatTimeShort(prog.startMs)} –{' '}
                         {formatTimeShort(prog.stopMs)}
                       </span>
@@ -590,16 +688,18 @@ export const RemindersChronologicalView: React.FC<
                         {countdown.label}
                       </span>
                     </div>
-                    <p className="text-xs sm:text-sm font-bold text-[#ffffff] truncate mt-1">
+                    <p className="w-full whitespace-normal text-xs sm:text-sm font-bold text-[#ffffff] line-clamp-1 mt-1">
                       {language === 'fr'
                         ? translateEpgTextToFrenchSync(prog.title)
                         : prog.title}
                     </p>
                   </div>
 
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-[#0055ff] to-[#ec4899] text-[#ffffff] border border-[#ec4899] text-xs font-bold shrink-0 shadow-[0_0_10px_rgba(236,72,153,0.35)]">
-                    <Bell className="w-3.5 h-3.5" />
-                    <span>+ Rappel</span>
+                  <span className="inline-flex flex-row items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#0055ff] to-[#ec4899] text-[#ffffff] border border-[#ec4899] text-xs font-bold shrink-0 shadow-[0_0_10px_rgba(236,72,153,0.35)]">
+                    <Bell className="w-3.5 h-3.5 shrink-0" />
+                    <span className="whitespace-nowrap">
+                      {t('reminders.addReminderBtn', language)}
+                    </span>
                   </span>
                 </div>
               );
@@ -610,3 +710,5 @@ export const RemindersChronologicalView: React.FC<
     </div>
   );
 };
+
+export const RemindersView = RemindersChronologicalView;
