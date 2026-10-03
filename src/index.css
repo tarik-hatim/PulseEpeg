@@ -977,6 +977,45 @@ input[type="search"]:focus-visible {
   scrollbar-width: none;
 }
 
+/* ==========================================================================
+   Conteneur unifié et lisible pour logos de chaînes (Channel Logos Container Fix)
+   - Fond neutre propre (#f8fafc) assurant la lisibilité des logos noirs (Canal+, BeIN)
+   - Élimine l'effet "bloc blanc découpé" et les bordures sombres opaques
+   - Padding propre de 4px et object-fit contain (100% width/height)
+   ========================================================================== */
+.channel-logo-container {
+  background-color: #f8fafc !important;
+  background: #f8fafc !important;
+  border: 1px solid rgba(226, 232, 240, 0.85) !important;
+  border-radius: 0.5rem !important; /* rounded-lg */
+  padding: 4px !important;
+  display: -webkit-box !important;
+  display: -webkit-flex !important;
+  display: flex !important;
+  -webkit-box-align: center !important;
+  -webkit-align-items: center !important;
+  align-items: center !important;
+  -webkit-box-pack: center !important;
+  -webkit-justify-content: center !important;
+  justify-content: center !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+  flex-shrink: 0 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12) !important;
+}
+
+.channel-logo-container img,
+.channel-logo-img {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: contain !important;
+  display: block !important;
+  border: none !important;
+  outline: none !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -468,16 +468,16 @@ export const RemindersChronologicalView: React.FC<
                 <div className="w-full flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                   {/* Gauche (ou Droite en RTL) : Horaire Chronologique + Chaîne */}
                   <div className="flex items-center gap-3 w-full lg:w-auto lg:min-w-[280px] shrink-0">
-                    <div className="w-12 h-12 rounded-lg bg-[#0a0e17] border border-[#1a202c] flex items-center justify-center p-1.5 shrink-0">
+                    <div className="channel-logo-container w-12 h-12 rounded-lg bg-[#f8fafc] border border-[#e2e8f0]/85 flex items-center justify-center p-1 shrink-0 shadow-sm overflow-hidden">
                       {logoUrl ? (
                         <img
                           src={logoUrl}
                           alt={rem.channelName}
-                          className="max-w-full max-h-full object-contain"
+                          className="channel-logo-img w-full h-full object-contain"
                           loading="lazy"
                         />
                       ) : (
-                        <Tv className="w-5 h-5 text-[#cbd5e1]" />
+                        <Tv className="w-5 h-5 text-[#475569]" />
                       )}
                     </div>
 

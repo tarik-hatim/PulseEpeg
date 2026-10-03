@@ -359,7 +359,7 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
           className="sticky top-0 z-30 px-4 py-3 bg-[#0b0f19] border-b border-[#1a202c] flex items-center justify-between gap-3"
         >
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-lg bg-[#0a0e17] border border-[#1a202c] flex items-center justify-center p-1.5 shrink-0">
+            <div className="channel-logo-container w-10 h-10 rounded-lg bg-[#f8fafc] border border-[#e2e8f0]/85 flex items-center justify-center p-1 shrink-0 shadow-sm overflow-hidden">
               <img
                 src={
                   ensureHttpsUrl(
@@ -374,7 +374,7 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                   buildCleanFallbackLogoDataUri(channel.displayName, channel.id)
                 }
                 alt={channel.displayName}
-                className="max-w-full max-h-full object-contain"
+                className="channel-logo-img w-full h-full object-contain"
                 onError={(e) => {
                   const candidates = getChannelLogoCandidates(
                     channel.id,

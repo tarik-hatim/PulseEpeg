@@ -268,7 +268,7 @@ const GridChannelRowInner: React.FC<GridChannelRowProps> = ({
         className="tv-focusable sticky left-0 z-20 w-52 sm:w-64 shrink-0 border-r border-[#1a202c] bg-[#0a0e17] px-2.5 flex items-center justify-between gap-2 hover:bg-[#141a26] transition-colors cursor-pointer group select-none"
       >
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-9 h-9 rounded-lg bg-[#141a26] border border-[#1a202c] flex items-center justify-center p-1 shrink-0">
+          <div className="channel-logo-container w-9 h-9 rounded-lg bg-[#f8fafc] border border-[#e2e8f0]/85 flex items-center justify-center p-1 shrink-0 shadow-sm overflow-hidden">
             <img
               src={
                 ensureHttpsUrl(
@@ -279,7 +279,7 @@ const GridChannelRowInner: React.FC<GridChannelRowProps> = ({
                 ) || buildCleanFallbackLogoDataUri(ch.displayName, ch.id)
               }
               alt={ch.displayName}
-              className="max-w-full max-h-full object-contain"
+              className="channel-logo-img w-full h-full object-contain"
               loading="lazy"
               onError={(e) => {
                 const candidates = getChannelLogoCandidates(

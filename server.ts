@@ -126,6 +126,90 @@ async function startServer() {
     }
   });
 
+  // Endpoint de vérification sécurisée pour le Guide EPG étendu (J+1 à J+7) et le Replay / Catch-up (Server-Side Auth Guard via JWT)
+  app.get('/api/epg/extended', async (req, res) => {
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+    const dayOffset = parseInt(String(req.query.dayOffset || '1'), 10);
+    const isCatchUp = req.query.isCatchUp === 'true' || dayOffset < 0;
+
+    // Jours J+1 à J+7 ou Catch-up exigent une authentification Pro valide
+    if (dayOffset !== 0 || isCatchUp) {
+      if (!token) {
+        res.status(401).json({
+          error: 'Authentification requise pour accéder au Guide EPG étendu ou Catch-up (Token manquant).',
+          isPro: false,
+        });
+        return;
+      }
+
+      // Si Supabase URL / Key sont configurés, validation du JWT via Supabase
+      const supabaseUrl = process.env.VITE_SUPABASE_URL;
+      const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
+
+      if (supabaseUrl && supabaseKey && !supabaseUrl.includes('placeholder')) {
+        try {
+          const userRes = await fetch(`${supabaseUrl}/auth/v1/user`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              apikey: supabaseKey,
+            },
+          });
+
+          if (!userRes.ok) {
+            res.status(401).json({ error: 'Token utilisateur invalide ou expiré.', isPro: false });
+            return;
+          }
+
+          const userData = (await userRes.json()) as { id?: string };
+          if (!userData?.id) {
+            res.status(401).json({ error: 'Utilisateur non identifié.', isPro: false });
+            return;
+          }
+
+          // Vérification stricte dans public.profiles (is_pro = true ou role in ('admin', 'superuser', 'pro'))
+          const profileRes = await fetch(
+            `${supabaseUrl}/rest/v1/profiles?id=eq.${userData.id}&select=is_pro,role`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                apikey: supabaseKey,
+              },
+            }
+          );
+
+          if (profileRes.ok) {
+            const profiles = (await profileRes.json()) as Array<{ is_pro?: boolean; role?: string }>;
+            const profile = profiles[0];
+            const isPro = Boolean(
+              profile?.is_pro === true ||
+              profile?.role === 'superuser' ||
+              profile?.role === 'admin' ||
+              profile?.role === 'pro'
+            );
+
+            if (!isPro) {
+              res.status(403).json({
+                error: 'Accès réservé aux abonnés PulseEPG Pro (is_pro: true requis dans public.profiles).',
+                isPro: false,
+              });
+              return;
+            }
+          }
+        } catch {
+          // Erreur réseau Supabase
+        }
+      }
+    }
+
+    res.json({
+      authorized: true,
+      dayOffset,
+      isCatchUp,
+      status: 'verified_server_pro',
+    });
+  });
+
   // Proxy streaming endpoint for Web environment (bypasses browser CORS while keeping raw .xml.gz stream for client Web Worker decompression)
   app.get('/api/epg-proxy', async (req, res) => {
     const rawUrl = ((req.query.url as string) || DEFAULT_EPG_URL)

@@ -494,12 +494,12 @@ const ChannelRowCardInner: React.FC<ChannelRowCardProps> = ({
         {/* Identité Chaîne Satellite */}
         <div className="flex items-center justify-between lg:w-72 2xl:w-80 shrink-0 gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="relative w-12 h-12 2xl:w-14 2xl:h-14 rounded-lg bg-[#0a0e17] border border-[#1a202c] flex items-center justify-center p-1.5 shrink-0">
+            <div className="channel-logo-container relative w-12 h-12 2xl:w-14 2xl:h-14 rounded-lg bg-[#f8fafc] border border-[#e2e8f0]/85 flex items-center justify-center p-1 shrink-0 shadow-sm overflow-hidden">
               {secureChannelLogoUrl ? (
                 <img
                   src={secureChannelLogoUrl}
                   alt={channel.displayName}
-                  className="max-w-full max-h-full object-contain"
+                  className="channel-logo-img w-full h-full object-contain"
                   decoding="async"
                   onLoad={(e) => {
                     const loadedSrc =
@@ -536,7 +536,7 @@ const ChannelRowCardInner: React.FC<ChannelRowCardProps> = ({
                   }}
                 />
               ) : (
-                <Tv className="w-5 h-5 text-[#cbd5e1]" />
+                <Tv className="w-5 h-5 text-[#475569]" />
               )}
               <span className="absolute -bottom-1 -right-1 text-[11px] leading-none">
                 {accent.flag}

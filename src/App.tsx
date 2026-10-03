@@ -141,6 +141,8 @@ import {
   PRO_BOUQUETS_UPGRADE_MESSAGE,
   PRO_EPG_7DAYS_UPGRADE_MESSAGE,
   supabaseService,
+  subscriptionService,
+  authService,
 } from './services/supabaseService';
 import {
   cancelProgrammeNotification,
@@ -514,6 +516,7 @@ export function App() {
 
   useEffect(() => {
     return supabaseService.subscribe((nextState) => {
+      subscriptionService.invalidateCache();
       setAuthState(nextState);
     });
   }, []);
@@ -7048,19 +7051,24 @@ export function App() {
         ) : filteredChannels.length === 0 ? (
           <div className="rounded-lg border border-dashed border-[#1a202c] bg-[#141a26] p-10 text-center max-w-lg mx-auto my-8">
             {isProfileBootstrapping || (isSyncing && channels.length === 0) ? (
-              <>
-                <RefreshCw className="w-10 h-10 text-[#38bdf8] mx-auto mb-3 animate-spin" />
-                <h3 className="text-base font-bold text-[#ffffff]">
+              <div className="flex flex-col items-center justify-center p-4 text-center">
+                <div className="w-16 h-16 rounded-2xl bg-[#0f172a] border border-[#1e293b] p-2 shadow-[0_0_24px_rgba(225,29,72,0.35)] mb-3 flex items-center justify-center">
+                  <PulseEpgLogo adaptiveTerminalSize={false} className="w-12 h-12" />
+                </div>
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <RefreshCw className="w-4 h-4 text-[#38bdf8] animate-spin" />
+                  <h3 className="text-base font-bold text-[#ffffff]">
+                    {activeLang === 'fr'
+                      ? 'Chargement de PulseEPG...'
+                      : 'Loading PulseEPG...'}
+                  </h3>
+                </div>
+                <p className="text-xs text-[#cbd5e1] mt-1 leading-relaxed max-w-sm">
                   {activeLang === 'fr'
-                    ? 'Chargement...'
-                    : 'Loading...'}
-                </h3>
-                <p className="text-xs text-[#cbd5e1] mt-1 leading-relaxed">
-                  {activeLang === 'fr'
-                    ? 'Initialisation asynchrone du profil TV et des chaînes en cours...'
-                    : 'Asynchronously initializing TV profile and channels...'}
+                    ? 'Initialisation asynchrone du profil TV et synchronisation des chaînes...'
+                    : 'Asynchronously initializing TV profile and syncing channels...'}
                 </p>
-              </>
+              </div>
             ) : epgError ? (
               <>
                 <AlertTriangle className="w-10 h-10 text-[#e11d48] mx-auto mb-3" />

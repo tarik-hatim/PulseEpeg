@@ -174,15 +174,15 @@ export const InAppReminderBanner: React.FC<InAppReminderBannerProps> = ({
         {/* Icône Cloche & Logo Chaîne */}
         <div className="relative shrink-0 flex items-center">
           <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#2563eb] to-[#ec4899] p-0.5 flex items-center justify-center">
-            <div className="w-full h-full rounded-[6px] bg-[#0a0e17] flex items-center justify-center p-1">
+            <div className="channel-logo-container w-full h-full rounded-[6px] bg-[#f8fafc] flex items-center justify-center p-1 overflow-hidden">
               {logoUrl ? (
                 <img
                   src={logoUrl}
                   alt={primaryAlert.channelName}
-                  className="max-w-full max-h-full object-contain"
+                  className="channel-logo-img w-full h-full object-contain"
                 />
               ) : (
-                <Tv className="w-4 h-4 text-[#ffffff]" />
+                <Tv className="w-4 h-4 text-[#475569]" />
               )}
             </div>
           </div>

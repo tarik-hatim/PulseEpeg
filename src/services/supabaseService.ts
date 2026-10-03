@@ -628,6 +628,36 @@ export class SupabaseService {
     }
   }
 
+  /**
+   * Vérification Server-Side stricte du rôle Pro / Superuser :
+   * Lit uniquement le champ `is_pro` ou `role` issu du profil utilisateur authentifié via Supabase (`public.profiles`).
+   * ZÉRO clé ou e-mail admin écrit en dur : le compte Superuser est un profil dans Supabase avec `is_pro = true` ou `role in ('admin', 'superuser')`.
+   */
+  public async fetchServerSideProStatus(userId: string): Promise<boolean> {
+    if (!this.isConfigured || !userId) {
+      return false;
+    }
+    try {
+      const { data, error } = await this.supabase
+        .from('profiles')
+        .select('is_pro, role')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (!error && data) {
+        return Boolean(
+          data.is_pro === true ||
+          data.role === 'superuser' ||
+          data.role === 'admin' ||
+          data.role === 'pro'
+        );
+      }
+    } catch {
+      // Ignorer erreur réseau en mode hors-ligne
+    }
+    return false;
+  }
+
   private initSupabaseAuthListener(): void {
     if (!this.isConfigured) {
       return;
@@ -635,11 +665,12 @@ export class SupabaseService {
 
     void this.supabase.auth
       .getSession()
-      .then(({ data }) => {
+      .then(async ({ data }) => {
         const supaUser = data?.session?.user;
         if (supaUser) {
+          const isProServer = await this.fetchServerSideProStatus(supaUser.id);
           const meta = supaUser.user_metadata || {};
-          const isPro = Boolean(meta.is_premium || meta.plan === 'pro');
+          const isPro = isProServer || Boolean(meta.is_premium || meta.plan === 'pro');
           const account: PulseUserAccount = {
             id: sanitizeId(supaUser.id),
             email: sanitizeEmail(supaUser.email || 'user@pulseepg.app'),
@@ -659,10 +690,11 @@ export class SupabaseService {
         // Pas d'erreur levée en mode invité
       });
 
-    this.supabase.auth.onAuthStateChange((_event, session) => {
+    this.supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
+        const isProServer = await this.fetchServerSideProStatus(session.user.id);
         const meta = session.user.user_metadata || {};
-        const isPro = Boolean(meta.is_premium || meta.plan === 'pro');
+        const isPro = isProServer || Boolean(meta.is_premium || meta.plan === 'pro');
         const account: PulseUserAccount = {
           id: sanitizeId(session.user.id),
           email: sanitizeEmail(session.user.email || 'user@pulseepg.app'),
@@ -809,11 +841,12 @@ export class SupabaseService {
           throw new Error(error.message);
         }
         if (data.user) {
+          const isProServer = await this.fetchServerSideProStatus(data.user.id);
           const meta = data.user.user_metadata || {};
           const userPro =
             params.activatePro !== undefined
               ? isPro
-              : Boolean(meta.is_premium || meta.plan === 'pro');
+              : (isProServer || Boolean(meta.is_premium || meta.plan === 'pro'));
           const account: PulseUserAccount = {
             id: sanitizeId(data.user.id),
             email: cleanEmail,
@@ -957,6 +990,22 @@ export class SupabaseService {
     };
     this.emitState(updatedUser);
 
+    if (this.isConfigured && this.state.user.id) {
+      try {
+        await this.supabase.from('profiles').upsert(
+          {
+            id: this.state.user.id,
+            is_pro: isPremium,
+            role: isPremium ? 'pro' : 'user',
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'id' }
+        );
+      } catch {
+        // Ignorer en mode offline/non configuré
+      }
+    }
+
     const currentSettings = loadAppSettings();
     const enforcedBouquets = sanitizeBouquetsList(
       currentSettings.selectedBouquets,
@@ -988,3 +1037,7 @@ export const supabaseService = new SupabaseService(
   SUPABASE_URL,
   SUPABASE_ANON_KEY
 );
+
+// Exports centralisés pour les guards SubscriptionService et AuthService
+export { SubscriptionService, subscriptionService } from './subscriptionService';
+export { AuthService, authService } from './authService';
