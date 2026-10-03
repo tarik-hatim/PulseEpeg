@@ -880,8 +880,7 @@ input[type="search"]:focus-visible {
   gap: 12px !important;
 }
 
-.toast-notification,
-.in-app-toast-banner {
+.toast-notification {
   position: fixed !important;
   bottom: 24px !important;
   left: 50% !important;
@@ -902,6 +901,36 @@ input[type="search"]:focus-visible {
   align-items: center;
   gap: 12px;
   max-width: calc(100vw - 24px);
+}
+
+.in-app-toast-banner {
+  position: fixed !important;
+  bottom: 24px !important;
+  right: 24px !important;
+  left: auto !important;
+  -webkit-transform: none !important;
+  transform: none !important;
+  z-index: 50 !important;
+  background: #1e293b !important;
+  color: #ffffff !important;
+  border: 1px solid #3b82f6 !important;
+  border-radius: 12px !important;
+  padding: 12px 16px !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.85) !important;
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-box-align: center;
+  -webkit-align-items: center;
+  align-items: center;
+  gap: 12px;
+  max-width: min(480px, calc(100vw - 32px)) !important;
+  width: auto !important;
+}
+
+[dir="rtl"] .in-app-toast-banner {
+  right: auto !important;
+  left: 24px !important;
 }
 
 .tabular-nums {

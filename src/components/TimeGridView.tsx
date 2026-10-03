@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   Baby,
@@ -140,9 +140,8 @@ interface TimeGridViewProps {
 }
 
 const PIXELS_PER_MINUTE = 4.6;
-const WINDOW_HOURS = 4;
-const WINDOW_MINUTES = WINDOW_HOURS * 60;
-const TOTAL_TIMELINE_WIDTH = WINDOW_MINUTES * PIXELS_PER_MINUTE;
+const DEFAULT_WINDOW_HOURS = 4;
+const MAX_WINDOW_HOURS = 24;
 
 const CATEGORY_OPTIONS: {
   code: ContentCategoryFilter;
@@ -191,6 +190,7 @@ interface GridChannelRowProps {
   progs: EpgProgramme[];
   windowStartMs: number;
   windowEndMs: number;
+  timelineWidth?: number;
   nowMs: number;
   baseRealNowMs: number;
   nowOffsetPx: number | null;
@@ -213,6 +213,7 @@ const GridChannelRowInner: React.FC<GridChannelRowProps> = ({
   progs,
   windowStartMs,
   windowEndMs,
+  timelineWidth,
   nowMs,
   baseRealNowMs,
   nowOffsetPx,
@@ -236,6 +237,10 @@ const GridChannelRowInner: React.FC<GridChannelRowProps> = ({
   const cleanedBouquetBadge = rawBouquetBadge
     ? cleanBouquetName(rawBouquetBadge, satBadge)
     : '';
+
+  const timelineMinutes = Math.max(60, (windowEndMs - windowStartMs) / 60000);
+  const effectiveTimelineWidth =
+    timelineWidth ?? Math.round(timelineMinutes * PIXELS_PER_MINUTE);
 
   return (
     <div className="flex h-20 2xl:h-24 border-b border-[#1a202c]">
@@ -337,7 +342,7 @@ const GridChannelRowInner: React.FC<GridChannelRowProps> = ({
 
       {/* Cellule Timeline Programmes */}
       <div
-        style={{ width: `${TOTAL_TIMELINE_WIDTH}px` }}
+        style={{ width: `${effectiveTimelineWidth}px` }}
         className="h-20 2xl:h-24 relative shrink-0 bg-[#0a0e17]"
       >
         {nowOffsetPx !== null && (
@@ -514,6 +519,7 @@ const MemoizedGridChannelRow = React.memo(
     prev.progs === next.progs &&
     prev.windowStartMs === next.windowStartMs &&
     prev.windowEndMs === next.windowEndMs &&
+    prev.timelineWidth === next.timelineWidth &&
     prev.selectedSatellite === next.selectedSatellite &&
     prev.selectedBouquet === next.selectedBouquet &&
     prev.activeLang === next.activeLang &&
@@ -585,7 +591,14 @@ const TimeGridViewInner: React.FC<TimeGridViewProps> = ({
   const [activeTimeBtn, setActiveTimeBtn] = useState<
     'minus' | 'now' | 'prime' | 'plus'
   >(activeTimePreset);
+  const [visibleHours, setVisibleHours] = useState<number>(DEFAULT_WINDOW_HOURS);
+  const visibleMinutes = visibleHours * 60;
+  const totalTimelineWidth = Math.round(visibleMinutes * PIXELS_PER_MINUTE);
+  const windowEndMs = windowStartMs + visibleMinutes * 60000;
+
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const lastScrollLeftRef = useRef<number>(0);
+  const isExpandingRangeRef = useRef<boolean>(false);
 
   // Keep TimeGridView synchronized when parent time offset / preset or Sync to Live triggers
   useEffect(() => {
@@ -596,9 +609,12 @@ const TimeGridViewInner: React.FC<TimeGridViewProps> = ({
       setWindowStartMs(floorToHalfHourCasablanca(nowMs - 30 * 60000));
       setActiveTimeBtn(activeTimePreset);
     }
+    setVisibleHours(DEFAULT_WINDOW_HOURS);
   }, [nowMs, timeOffsetMinutes, activeTimePreset, liveSyncCount]);
 
-  const windowEndMs = windowStartMs + WINDOW_MINUTES * 60000;
+  useEffect(() => {
+    setVisibleHours(DEFAULT_WINDOW_HOURS);
+  }, [selectedEpgDayOffset, isReplayMode]);
 
   // Barre de dates 7 jours : Catch-up (-1), Aujourd'hui (0 - 24h), et J+1 à J+7 (1..7)
   const sevenDayBarItems = useMemo(() => {
@@ -651,12 +667,12 @@ const TimeGridViewInner: React.FC<TimeGridViewProps> = ({
 
   const timeSlots = useMemo(() => {
     const slots: number[] = [];
-    const count = WINDOW_HOURS * 2;
+    const count = visibleHours * 2;
     for (let i = 0; i < count; i++) {
       slots.push(windowStartMs + i * 30 * 60000);
     }
     return slots;
-  }, [windowStartMs]);
+  }, [windowStartMs, visibleHours]);
 
   const nowOffsetPx = useMemo(() => {
     if (baseRealNowMs < windowStartMs || baseRealNowMs > windowEndMs) return null;
@@ -838,9 +854,9 @@ const TimeGridViewInner: React.FC<TimeGridViewProps> = ({
       ensureSchedulesCoverTargetTime(
         visibleSliceChannels,
         programmesByChannel,
-        windowStartMs + 30 * 60000
+        windowStartMs + (visibleHours / 2) * 3600000
       ),
-    [visibleSliceChannels, programmesByChannel, windowStartMs]
+    [visibleSliceChannels, programmesByChannel, windowStartMs, visibleHours]
   );
 
   // Pré-filtre mémoïsé des programmes de la fenêtre horaire pour les seules lignes visibles
@@ -875,6 +891,48 @@ const TimeGridViewInner: React.FC<TimeGridViewProps> = ({
       scrollContainerRef.current.scrollLeft = targetScroll;
     }
   }, [liveSyncCount]);
+
+  // Détection du défilement horizontal et chargement dynamique progressif (+2h / +4h jusqu'à 24h)
+  const handleGridScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.currentTarget;
+    const { scrollLeft, clientWidth, scrollWidth } = target;
+
+    // Détection du sens de défilement vers la droite
+    const isScrollingRight = scrollLeft > lastScrollLeftRef.current;
+    lastScrollLeftRef.current = scrollLeft;
+
+    // Détection d'approche du bord visible droit (- 200px)
+    if (
+      isScrollingRight &&
+      !isExpandingRangeRef.current &&
+      scrollLeft + clientWidth >= scrollWidth - 200
+    ) {
+      setVisibleHours((prevHours) => {
+        if (prevHours >= MAX_WINDOW_HOURS) return prevHours;
+        const nextHours = Math.min(MAX_WINDOW_HOURS, prevHours + 4);
+        if (nextHours !== prevHours) {
+          isExpandingRangeRef.current = true;
+          window.requestAnimationFrame(() => {
+            isExpandingRangeRef.current = false;
+          });
+          return nextHours;
+        }
+        return prevHours;
+      });
+    }
+  }, []);
+
+  // Assure une largeur de timeline suffisante sur très grands écrans / TV 4K
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    if (
+      container.clientWidth >= container.scrollWidth - 200 &&
+      visibleHours < MAX_WINDOW_HOURS
+    ) {
+      setVisibleHours((prev) => Math.min(MAX_WINDOW_HOURS, prev + 4));
+    }
+  }, [visibleHours, gridVisibleChannels.length]);
 
   const scrollGridElementIntoView = (el: HTMLElement) => {
     const container = scrollContainerRef.current;
@@ -1002,6 +1060,12 @@ const TimeGridViewInner: React.FC<TimeGridViewProps> = ({
               rowProgs.find(
                 (el) => Number(el.getAttribute('data-grid-col')) === colIdx + 1
               ) || null;
+
+            // Détection D-Pad : si l'utilisateur est sur le dernier programme visible de la ligne,
+            // charge la tranche horaire suivante (+4h jusqu'à 24h)
+            if (!targetEl && visibleHours < MAX_WINDOW_HOURS) {
+              setVisibleHours((prev) => Math.min(MAX_WINDOW_HOURS, prev + 4));
+            }
           }
         } else if (e.key === 'ArrowLeft') {
           if (currentCol !== 'channel') {
@@ -1669,11 +1733,12 @@ const TimeGridViewInner: React.FC<TimeGridViewProps> = ({
           ref={scrollContainerRef}
           tabIndex={0}
           onKeyDown={handleGridKeyDown}
+          onScroll={handleGridScroll}
           aria-label="TV Programme Grid"
           className="relative overflow-x-auto overflow-y-auto max-h-[70vh] 2xl:max-h-[74vh] focus:outline-none"
         >
         <div
-          style={{ minWidth: `calc(13rem + ${TOTAL_TIMELINE_WIDTH}px)` }}
+          style={{ minWidth: `calc(13rem + ${totalTimelineWidth}px)` }}
           className="relative"
         >
           {/* En-tête collant : Colonne Chaînes + Axe temporel gradué toutes les 30 minutes */}
@@ -1686,7 +1751,7 @@ const TimeGridViewInner: React.FC<TimeGridViewProps> = ({
             </div>
 
             <div
-              style={{ width: `${TOTAL_TIMELINE_WIDTH}px` }}
+              style={{ width: `${totalTimelineWidth}px` }}
               className="relative flex shrink-0 bg-[#0a0e17]/95"
             >
               {timeSlots.map((slotMs) => (
@@ -1736,6 +1801,7 @@ const TimeGridViewInner: React.FC<TimeGridViewProps> = ({
                     progs={progs}
                     windowStartMs={windowStartMs}
                     windowEndMs={windowEndMs}
+                    timelineWidth={totalTimelineWidth}
                     nowMs={nowMs}
                     baseRealNowMs={baseRealNowMs}
                     nowOffsetPx={nowOffsetPx}

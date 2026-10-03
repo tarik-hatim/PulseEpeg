@@ -137,19 +137,17 @@ export const InAppReminderBanner: React.FC<InAppReminderBannerProps> = ({
       style={{
         position: 'fixed',
         bottom: '24px',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        WebkitTransform: 'translateX(-50%)',
-        msTransform: 'translateX(-50%)',
-        zIndex: 9999,
+        right: isRtl ? 'auto' : '24px',
+        left: isRtl ? '24px' : 'auto',
+        zIndex: 50,
         background: '#1e293b',
         color: '#ffffff',
         border: '1px solid #3b82f6',
         borderRadius: '12px',
-        padding: '12px 24px',
+        padding: '12px 16px',
         boxShadow: '0 10px 25px rgba(0,0,0,0.85)',
       }}
-      className="toast-notification in-app-toast-banner pointer-events-auto flex items-center gap-3 w-auto min-w-[290px] max-w-[calc(100vw-24px)] sm:max-w-xl transition-all"
+      className="in-app-toast-banner pointer-events-auto flex items-center gap-3 w-auto min-w-[300px] max-w-[calc(100vw-32px)] sm:max-w-lg transition-all"
     >
       {/* Bouton principal immédiatement sélectionnable via OK / Enter sur la télécommande */}
       <button
@@ -171,11 +169,11 @@ export const InAppReminderBanner: React.FC<InAppReminderBannerProps> = ({
             onSelectReminder(primaryAlert);
           }
         }}
-        className="tv-focusable flex-1 flex items-center gap-3 text-start rounded-lg p-1 bg-transparent hover:bg-[#0f172a]/70 border border-transparent transition-all cursor-pointer min-w-0 group"
+        className="tv-focusable flex-1 min-w-0 flex items-center gap-3 text-start rounded-lg p-1 bg-transparent hover:bg-[#0f172a]/70 border border-transparent transition-all cursor-pointer group"
       >
         {/* Icône Cloche & Logo Chaîne */}
-        <div className="relative shrink-0 flex items-center gap-2">
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-[#2563eb] to-[#ec4899] p-0.5 flex items-center justify-center">
+        <div className="relative shrink-0 flex items-center">
+          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#2563eb] to-[#ec4899] p-0.5 flex items-center justify-center">
             <div className="w-full h-full rounded-[6px] bg-[#0a0e17] flex items-center justify-center p-1">
               {logoUrl ? (
                 <img
@@ -193,17 +191,18 @@ export const InAppReminderBanner: React.FC<InAppReminderBannerProps> = ({
           </span>
         </div>
 
-        {/* Détails de l'alerte programme */}
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5 flex-wrap">
+        {/* Détails structurés de l'alerte programme : évite tout chevauchement */}
+        <div className="min-w-0 flex-1 flex flex-col gap-1">
+          {/* Ligne 1 : Statut / Temps restant + Nom Chaîne + Horaires */}
+          <div className="flex items-center gap-1.5 flex-nowrap overflow-hidden">
             {isImminentOrLive ? (
               isLiveNow ? (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-[#e11d48] text-[#ffffff]">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-[#e11d48] text-[#ffffff] shrink-0">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#ffffff] animate-pulse shrink-0" />
                   <span>{t('reminders.bannerLive', language)}</span>
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-gradient-to-r from-[#2563eb] to-[#ec4899] text-[#ffffff]">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-gradient-to-r from-[#2563eb] to-[#ec4899] text-[#ffffff] shrink-0">
                   <Clock className="w-3 h-3 text-[#ffffff] shrink-0" />
                   <span>
                     {t('reminders.bannerInMinutes', language, {
@@ -213,19 +212,19 @@ export const InAppReminderBanner: React.FC<InAppReminderBannerProps> = ({
                 </span>
               )
             ) : (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-[#2563eb] text-[#ffffff]">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-[#2563eb] text-[#ffffff] shrink-0">
                 <BellRing className="w-3 h-3 text-[#ffffff] shrink-0" />
                 <span>{t('reminders.bannerSaved', language)}</span>
               </span>
             )}
 
-            <span className="text-xs font-bold text-[#60a5fa] truncate">
+            <span className="text-xs font-bold text-[#60a5fa] truncate shrink-1">
               {cleanOfficialChannelName(primaryAlert.channelName)}
             </span>
 
             <span
               dir="ltr"
-              className="text-[11px] font-mono text-[#cbd5e1] inline-block"
+              className="text-[11px] font-mono text-[#cbd5e1] shrink-0"
             >
               {formatTimeShort(primaryAlert.startMs)} –{' '}
               {formatTimeShort(primaryAlert.stopMs)}
@@ -234,18 +233,19 @@ export const InAppReminderBanner: React.FC<InAppReminderBannerProps> = ({
             {activeAlerts.length > 1 && (
               <span
                 dir="ltr"
-                className="px-1.5 py-0.2 rounded-full bg-[#1d4ed8]/40 border border-[#3b82f6] text-[10px] font-mono font-bold text-[#ffffff]"
+                className="px-1.5 py-0.2 rounded-full bg-[#1d4ed8]/40 border border-[#3b82f6] text-[10px] font-mono font-bold text-[#ffffff] shrink-0"
               >
                 +{activeAlerts.length - 1}
               </span>
             )}
           </div>
 
-          <div className="mt-0.5 flex items-center justify-between gap-2">
-            <p className="text-xs sm:text-sm font-extrabold text-[#ffffff] truncate">
+          {/* Ligne 2 : Titre du programme avec badge OK bien espacé */}
+          <div className="flex items-center justify-between gap-2 min-w-0">
+            <p className="text-xs sm:text-sm font-extrabold text-[#ffffff] truncate flex-1 min-w-0">
               {displayTitle}
             </p>
-            <span className="hidden md:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#ec4899]/20 border border-[#ec4899] text-[10px] font-mono font-bold text-[#ffffff] shrink-0">
+            <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#ec4899]/20 border border-[#ec4899] text-[10px] font-mono font-bold text-[#ffffff] shrink-0">
               <span>OK</span>
               <ChevronRight
                 className={`w-3 h-3 transition-transform ${
@@ -256,7 +256,7 @@ export const InAppReminderBanner: React.FC<InAppReminderBannerProps> = ({
           </div>
 
           {isLiveNow && (
-            <div className="mt-1.5 h-1 w-full bg-[#0a0e17] rounded-full overflow-hidden">
+            <div className="h-1 w-full bg-[#0a0e17] rounded-full overflow-hidden">
               <div
                 className="h-full bg-gradient-to-r from-[#2563eb] via-[#ec4899] to-[#e11d48] rounded-full"
                 style={{ width: `${progress}%` }}
@@ -266,7 +266,7 @@ export const InAppReminderBanner: React.FC<InAppReminderBannerProps> = ({
         </div>
       </button>
 
-      {/* Actions secondaires (Voir Mes Rappels / Fermer) */}
+      {/* Actions secondaires (Voir Mes Rappels / Fermer X) */}
       <div className="flex items-center justify-end gap-1.5 shrink-0">
         <button
           type="button"

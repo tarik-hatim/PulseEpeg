@@ -5902,7 +5902,7 @@ export function App() {
             {/* Search Input & Recent Searches Dropdown (Focus direct au survol D-Pad désactivé : ouverture clavier uniquement sur clic / OK / Enter) */}
             <div
               ref={searchContainerRef}
-              className="search-bar-container relative flex-1"
+              className="search-bar-container relative flex-1 max-w-xs md:max-w-[280px] w-full"
             >
               <div
                 ref={searchDpadTriggerRef}
@@ -5937,7 +5937,7 @@ export function App() {
                 }}
                 className="tv-dpad-btn relative w-full rounded-lg cursor-pointer"
               >
-                <Search className="w-4 h-4 text-[#cbd5e1] absolute start-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10" />
+                <Search className="w-4 h-4 text-[#cbd5e1] absolute start-0 top-1/2 -translate-y-1/2 pointer-events-none z-10 pl-3 box-content" />
                 <input
                   ref={searchInputRef}
                   id="search-input"
@@ -7556,7 +7556,9 @@ export function App() {
                 id="exit-confirm-modal-title"
                 className="text-base sm:text-lg font-extrabold text-[#ffffff] leading-snug"
               >
-                Voulez-vous vraiment quitter l&apos;application ?
+                {activeLang === 'fr'
+                  ? 'Voulez-vous vraiment quitter PulseEPG ?'
+                  : 'Do you really want to exit PulseEPG?'}
               </h2>
               <p className="text-xs sm:text-sm text-[#cbd5e1]">
                 {activeLang === 'fr'

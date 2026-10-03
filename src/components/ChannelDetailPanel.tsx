@@ -472,7 +472,7 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
           {displayProg && displayMetadata && (
             <div className="rounded-lg bg-[#0a0e17] border border-[#1a202c] p-3.5 sm:p-4">
               {/* En-tête épuré : Horaires/Progression + Badge 1 Satellite + Badge 2 Bouquet nettoyé + Bouton Rappel & Fermer (X) */}
-              <div className="flex items-center justify-between gap-2 flex-wrap mb-3">
+              <div className="flex items-center justify-between gap-2 flex-wrap mb-4">
                 <div className="flex items-center gap-2 flex-wrap">
                   {isLiveActiveProg ? (
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[11px] font-extrabold uppercase tracking-wider bg-[#e11d48] text-[#ffffff] border border-[#ff0033] shadow-[0_0_12px_rgba(225,29,72,0.5)]">
@@ -532,7 +532,7 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
 
                   {reminderIds.has(displayProg.id) && (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider bg-gradient-to-r from-[#0055ff] to-[#ec4899] text-[#ffffff] border border-[#ec4899] shadow-[0_0_10px_rgba(236,72,153,0.45)]">
-                      <BellRing className="w-3 h-3 text-[#ffffff]" />
+                      <BellRing className="w-3.5 h-3.5 text-[#ffffff]" />
                       {tr.reminderActive}
                     </span>
                   )}
@@ -579,7 +579,7 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
 
               {/* Barre de progression temporelle colorée En Direct (#ec4899 -> #8b5cf6 sur rail rgba(255,255,255,0.1)) */}
               {isLiveActiveProg && (
-                <div className="mb-3.5">
+                <div className="mb-4">
                   <div className="live-progress-rail w-full overflow-hidden">
                     <div
                       className="live-progress-fill h-full transition-all duration-500"
@@ -589,19 +589,19 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                 </div>
               )}
 
-              {/* Disposition compacte Side-by-Side (Gauche : Affiche 115px | Droite : Métadonnées) */}
-              <div className="flex flex-row gap-3.5 sm:gap-4 items-start">
+              {/* Disposition compacte Side-by-Side (Gauche : Affiche 120px max | Droite : Métadonnées avec gap-4) */}
+              <div className="flex flex-row gap-4 items-start mb-4">
                 {ensureHttpsUrl(displayProg.icon) ? (
-                  <div className="w-[112px] sm:w-[120px] shrink-0">
+                  <div className="w-32 max-w-[120px] shrink-0">
                     <img
                       src={ensureHttpsUrl(displayProg.icon)}
                       alt={displayMetadata.mainTitle}
-                      className="w-[112px] sm:w-[120px] h-[164px] sm:h-[176px] rounded-lg object-cover bg-[#141a26] border border-[#1a202c]"
+                      className="w-32 max-w-[120px] h-[176px] rounded-lg object-cover bg-[#141a26] border border-[#1a202c]"
                       loading="lazy"
                     />
                   </div>
                 ) : (
-                  <div className="w-[112px] sm:w-[120px] h-[164px] sm:h-[176px] rounded-lg bg-[#141a26] border border-[#1a202c] flex flex-col items-center justify-center p-2.5 text-center shrink-0">
+                  <div className="w-32 max-w-[120px] h-[176px] rounded-lg bg-[#141a26] border border-[#1a202c] flex flex-col items-center justify-center p-2.5 text-center shrink-0">
                     <Film className="w-7 h-7 text-[#cbd5e1] mb-1.5" />
                     <span className="text-[10px] font-semibold text-[#cbd5e1] line-clamp-3">
                       {displayMetadata.mainTitle}
@@ -609,16 +609,16 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                   </div>
                 )}
 
-                {/* Droite : Bloc d'informations aligné à côté de l'affiche */}
+                {/* Droite : Bloc d'informations aligné à côté de l'affiche avec gap-4 */}
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-base sm:text-lg font-extrabold text-[#ffffff] leading-snug">
+                  <h3 className="text-base sm:text-lg font-extrabold text-[#ffffff] leading-snug mb-3">
                     {displayMetadata.mainTitle}
                   </h3>
 
                   {displayMetadata.allowSeasonEpisode &&
                     (displayMetadata.formattedSE ||
                       displayMetadata.cleanEpisodeTitle) && (
-                      <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                      <div className="mt-1 mb-2.5 flex items-center gap-1.5 flex-wrap">
                         {displayMetadata.formattedSE && (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50">
                             {displayMetadata.formattedSE}
@@ -738,7 +738,7 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
           >
             <div
               data-tv-row="modal-days"
-              className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 px-0.5"
+              className="flex items-center gap-2 flex-wrap py-1 px-0.5"
             >
               <Calendar className="w-4 h-4 text-[#0055ff] shrink-0 me-1" />
               {dayTabs.map((tab) => {
@@ -797,7 +797,7 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
 
             <div
               data-tv-row="modal-periods"
-              className="flex items-center gap-1.5 flex-wrap"
+              className="flex items-center gap-2 flex-wrap pt-1"
             >
               {(
                 [

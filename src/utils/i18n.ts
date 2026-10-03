@@ -315,8 +315,7 @@ const TRANSLATIONS: Partial<Record<AppLanguage, Translations>> & {
     settingsTitle: 'Paramètres & Satellites',
     installApp: 'Installer l’App',
     pwaActive: 'Mode App Actif',
-    searchPlaceholder:
-      'Rechercher un film, une série, un match (ex: Real Madrid, The Rookie, Dune) ou une chaîne (OSN, MBC, Canal+, Movistar, Sky, Claro)...',
+    searchPlaceholder: 'Recherche (ex: Canal+, Dune, Real...)',
     presetMinus1h: '-1h',
     presetNow: 'Maintenant',
     presetPrime: 'Prime 20h45',
@@ -466,8 +465,7 @@ const TRANSLATIONS: Partial<Record<AppLanguage, Translations>> & {
     settingsTitle: 'Settings & Satellites',
     installApp: 'Install App',
     pwaActive: 'App Mode Active',
-    searchPlaceholder:
-      'Search a movie, TV show, live match (e.g., Real Madrid, The Rookie, Dune) or channel (OSN, MBC, Canal+, Movistar, Sky, Claro)...',
+    searchPlaceholder: 'Search (e.g. Canal+, Dune, Real...)',
     presetMinus1h: '-1h',
     presetNow: 'Now',
     presetPrime: 'Prime 20:45',
@@ -613,8 +611,7 @@ const TRANSLATIONS: Partial<Record<AppLanguage, Translations>> & {
     settingsTitle: 'الإعدادات والأقمار الصناعية',
     installApp: 'تثبيت التطبيق',
     pwaActive: 'وضع التطبيق مفعل',
-    searchPlaceholder:
-      'ابحث عن فيلم، مسلسل، مباراة مباشرة (مثل: ريال مدريد، The Rookie) أو قناة (OSN، MBC، beIN، SSC، Canal+، Movistar)...',
+    searchPlaceholder: 'بحث (مثل: Canal+, Dune, Real...)',
     presetMinus1h: '-1 سا',
     presetNow: 'الآن',
     presetPrime: 'السهرة 20:45',
@@ -757,8 +754,7 @@ const TRANSLATIONS: Partial<Record<AppLanguage, Translations>> & {
     settingsTitle: 'Ajustes y Satélites',
     installApp: 'Instalar App',
     pwaActive: 'Modo App Activo',
-    searchPlaceholder:
-      'Buscar película, serie, partido en vivo (ej: Real Madrid, The Rookie, Dune) o canal (Movistar+, DAZN, Canal+, OSN, MBC, Claro, DirecTV)...',
+    searchPlaceholder: 'Buscar (ej: Canal+, Dune, Real...)',
     presetMinus1h: '-1h',
     presetNow: 'Ahora',
     presetPrime: 'Prime 20:45',
@@ -906,8 +902,7 @@ const TRANSLATIONS: Partial<Record<AppLanguage, Translations>> & {
     settingsTitle: 'Einstellungen & Satelliten',
     installApp: 'App Installieren',
     pwaActive: 'App-Modus Aktiv',
-    searchPlaceholder:
-      'Film, Serie, Live-Spiel (z.B. Bayern, Real Madrid, The Rookie) oder Sender (Sky DE, DAZN, Canal+, Movistar, OSN) suchen...',
+    searchPlaceholder: 'Suche (z.B. Canal+, Dune, Real...)',
     presetMinus1h: '-1 Std',
     presetNow: 'Jetzt',
     presetPrime: 'Prime 20:45',
@@ -1055,8 +1050,7 @@ const TRANSLATIONS: Partial<Record<AppLanguage, Translations>> & {
     settingsTitle: 'Configurações e Satélites',
     installApp: 'Instalar App',
     pwaActive: 'Modo App Ativo',
-    searchPlaceholder:
-      'Buscar filme, série, jogo ao vivo (ex: Flamengo, Real Madrid, The Rookie) ou canal (Claro TV, Sky Brasil, Vivo, DirecTV, OSN, Canal+)...',
+    searchPlaceholder: 'Buscar (ex: Canal+, Dune, Real...)',
     presetMinus1h: '-1h',
     presetNow: 'Agora',
     presetPrime: 'Prime 20:45',
