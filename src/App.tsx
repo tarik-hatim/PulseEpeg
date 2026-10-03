@@ -2419,6 +2419,26 @@ export function App() {
   );
   const pendingSortedChannelIdRef = useRef<string | null>(null);
 
+  // Focus D-Pad automatique dès l'ouverture de la modale de tri sur l'option active ou le premier bouton
+  useEffect(() => {
+    if (!isSortMenuOpen) return;
+    const focusTimer = window.setTimeout(() => {
+      const sortModal = document.querySelector<HTMLElement>(
+        '[data-tv-modal-group="sort-modal"]'
+      );
+      if (!sortModal) return;
+      const activeOpt = sortModal.querySelector<HTMLElement>(
+        '[data-sort-active="true"]'
+      );
+      const firstFocusable = sortModal.querySelector<HTMLElement>(
+        '[data-tv-focusable="true"]'
+      );
+      const target = activeOpt || firstFocusable;
+      target?.focus({ preventScroll: true });
+    }, 40);
+    return () => clearTimeout(focusTimer);
+  }, [isSortMenuOpen]);
+
   // Numérotation officielle LCN (Logical Channel Number) du bouquet/satellite
   const channelLcnMap = useMemo(() => {
     const map = new Map<string, number>();
@@ -4617,6 +4637,69 @@ export function App() {
         return;
       }
 
+      // ========================================================================
+      // PIÈGE D-PAD DÉDIÉ : MODALE DE TRI (data-tv-modal-group="sort-modal")
+      // Empêche strictement le focus de fuiter vers la grille EPG en arrière-plan
+      // ========================================================================
+      if (isSortMenuOpen) {
+        const sortModal = document.querySelector<HTMLElement>(
+          '[data-tv-modal-group="sort-modal"]'
+        );
+        if (sortModal) {
+          e.preventDefault();
+          e.stopPropagation();
+
+          const sortSelector =
+            '[data-tv-focusable="true"]:not([disabled]):not([tabindex="-1"]), button:not([disabled]):not([tabindex="-1"]), [role="menuitemradio"]:not([tabindex="-1"])';
+          const sortFocusables = Array.from(
+            sortModal.querySelectorAll<HTMLElement>(sortSelector)
+          ).filter((el) => {
+            const r = el.getBoundingClientRect();
+            return (
+              (r.width > 0 && r.height > 0) ||
+              (el.offsetWidth > 0 && el.offsetHeight > 0)
+            );
+          });
+
+          if (sortFocusables.length === 0) return;
+
+          let curIdx = sortFocusables.findIndex(
+            (el) => el === activeEl || el.contains(activeEl)
+          );
+
+          if (curIdx === -1) {
+            const activeOpt = sortFocusables.find(
+              (el) => el.getAttribute('data-sort-active') === 'true'
+            );
+            const target = activeOpt || sortFocusables[0];
+            target?.focus({ preventScroll: true });
+            return;
+          }
+
+          if (e.key === 'ArrowDown') {
+            const nextIdx = (curIdx + 1) % sortFocusables.length;
+            sortFocusables[nextIdx].focus({ preventScroll: true });
+            return;
+          } else if (e.key === 'ArrowUp') {
+            const prevIdx =
+              (curIdx - 1 + sortFocusables.length) % sortFocusables.length;
+            sortFocusables[prevIdx].focus({ preventScroll: true });
+            return;
+          } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+            const isRtl = document.documentElement.dir === 'rtl';
+            const forward =
+              (e.key === 'ArrowRight' && !isRtl) ||
+              (e.key === 'ArrowLeft' && isRtl);
+            const nextIdx = forward
+              ? (curIdx + 1) % sortFocusables.length
+              : (curIdx - 1 + sortFocusables.length) % sortFocusables.length;
+            sortFocusables[nextIdx].focus({ preventScroll: true });
+            return;
+          }
+          return;
+        }
+      }
+
       function modalScopeExists() {
         return Boolean(
           document.querySelector<HTMLElement>('[data-tv-modal="true"]')
@@ -6166,6 +6249,7 @@ export function App() {
                   <div
                     role="menu"
                     data-tv-modal="true"
+                    data-tv-modal-group="sort-modal"
                     aria-label="Options de tri TV"
                     className="tv-sort-dropdown space-y-1.5"
                   >
@@ -6178,6 +6262,7 @@ export function App() {
                       <button
                         type="button"
                         data-tv-focusable="true"
+                        tabIndex={0}
                         onClick={() => {
                           setIsSortMenuOpen(false);
                           window.requestAnimationFrame(() => {
@@ -6267,6 +6352,7 @@ export function App() {
                           role="menuitemradio"
                           aria-checked={active}
                           data-tv-focusable="true"
+                          tabIndex={0}
                           data-sort-active={active ? 'true' : undefined}
                           onClick={(e) =>
                             handleSelectTvSortMode(opt.id, e.currentTarget)
@@ -6287,7 +6373,7 @@ export function App() {
                               <span className="truncate">{opt.label}</span>
                               {'badge' in opt && opt.badge && (
                                 <span className="px-1.5 py-0.2 rounded bg-[#141a26] text-[#38bdf8] border border-[#334155] font-mono text-[10px] font-bold shrink-0">
-                                  {opt.badge}
+                                   {opt.badge}
                                 </span>
                               )}
                             </div>
@@ -6312,6 +6398,8 @@ export function App() {
                       <div className="pt-1.5 mt-1 border-t border-[#334155]/70">
                         <button
                           type="button"
+                          data-tv-focusable="true"
+                          tabIndex={0}
                           onClick={() => {
                             handleResetWatchHabits();
                           }}
@@ -6331,6 +6419,46 @@ export function App() {
                         </button>
                       </div>
                     )}
+
+                    {/* Boutons d'action Confirmation & Annulation/Fermeture */}
+                    <div
+                      data-tv-modal-zone="footer"
+                      data-tv-row="sort-modal-actions"
+                      className="flex items-center justify-end gap-2 pt-2 mt-1 border-t border-[#334155]/70"
+                    >
+                      <button
+                        type="button"
+                        data-tv-focusable="true"
+                        tabIndex={0}
+                        onClick={() => {
+                          setIsSortMenuOpen(false);
+                          window.requestAnimationFrame(() => {
+                            sortTriggerBtnRef.current?.focus({
+                              preventScroll: true,
+                            });
+                          });
+                        }}
+                        className="tv-dpad-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1e293b] hover:bg-[#334155] text-[#cbd5e1] hover:text-[#ffffff] border border-[#334155] transition-colors cursor-pointer"
+                      >
+                        {activeLang === 'fr' ? 'Annuler' : 'Cancel'}
+                      </button>
+                      <button
+                        type="button"
+                        data-tv-focusable="true"
+                        tabIndex={0}
+                        onClick={() => {
+                          setIsSortMenuOpen(false);
+                          window.requestAnimationFrame(() => {
+                            sortTriggerBtnRef.current?.focus({
+                              preventScroll: true,
+                            });
+                          });
+                        }}
+                        className="tv-dpad-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#2563eb] hover:bg-[#1d4ed8] text-[#ffffff] border border-[#60a5fa] shadow-[0_0_10px_rgba(37,99,235,0.4)] transition-colors cursor-pointer"
+                      >
+                        {activeLang === 'fr' ? 'Confirmer' : 'Confirm'}
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
