@@ -5259,6 +5259,27 @@ export function App() {
           activeRow?.getAttribute('data-tv-row') || '';
 
         if (e.key === 'ArrowDown') {
+          // Si l'élément actif ou son parent possède un data-tv-focus-down explicite (ex: data-tv-focus-down="#filter-category-all")
+          const directFocusDown =
+            activeEl?.getAttribute('data-tv-focus-down') ||
+            activeEl?.closest<HTMLElement>('[data-tv-focus-down]')?.getAttribute('data-tv-focus-down');
+
+          if (directFocusDown) {
+            const targetEl = document.querySelector<HTMLElement>(directFocusDown);
+            if (targetEl) {
+              e.preventDefault();
+              clearHeaderActionButtonsFocus();
+              triggerZoneTransition('header', 'filters', 'down');
+              targetEl.focus({ preventScroll: true });
+              targetEl.scrollIntoView({
+                behavior: 'smooth',
+                block: 'nearest',
+                inline: 'center',
+              });
+              return;
+            }
+          }
+
           if (currentHeaderRowName === 'header-top') {
             const tabsRow = parentHeaderZone.querySelector<HTMLElement>(
               '[data-tv-row="header-tabs"]'
@@ -5635,7 +5656,9 @@ export function App() {
             className="tv-overscan-tabs-row flex items-center gap-3 overflow-x-auto no-scrollbar order-3 lg:order-2 w-full lg:w-auto pt-2 lg:pt-0 border-t lg:border-t-0 border-[#1a202c]"
           >
             <button
+              id="tab-live"
               type="button"
+              data-tv-focus-down="#filter-category-all"
               data-view-active={viewMode === 'live' ? 'true' : undefined}
               onClick={() => {
                 clearHeaderActionButtonsFocus();
@@ -6021,9 +6044,12 @@ export function App() {
                     });
                   }
                 }}
-                className="tv-dpad-btn relative w-full rounded-lg cursor-pointer"
+                className="tv-dpad-btn search-input-box relative w-full rounded-lg cursor-pointer"
               >
-                <Search className="w-4 h-4 text-[#cbd5e1] absolute start-0 top-1/2 -translate-y-1/2 pointer-events-none z-10 pl-3 box-content" />
+                <Search
+                  style={{ left: '14px', top: '50%', transform: 'translateY(-50%)' }}
+                  className="w-4 h-4 text-[#cbd5e1] absolute pointer-events-none z-10"
+                />
                 <input
                   ref={searchInputRef}
                   id="search-input"
@@ -6094,7 +6120,12 @@ export function App() {
                     realignHeaderAndTopScroll();
                   }}
                   placeholder={tr.searchPlaceholder}
-                  className="w-full ps-10 pe-9 py-2 rounded-lg bg-[#0a0e17] border border-[#1a202c] text-xs sm:text-sm text-[#ffffff] placeholder-[#cbd5e1]/70 focus:outline-none focus:border-[#0055ff] transition-colors cursor-pointer"
+                  style={{
+                    paddingLeft: '48px',
+                    paddingRight: '16px',
+                    border: '1.5px solid rgba(255, 255, 255, 0.2)',
+                  }}
+                  className="search-text-input w-full py-2 rounded-lg bg-[#0a0e17] text-xs sm:text-sm text-[#ffffff] placeholder-[#cbd5e1]/70 transition-all cursor-pointer focus:outline-none focus:border-[#38bdf8] focus:shadow-[0_0_15px_rgba(56,189,248,0.45)]"
                 />
               </div>
               {searchQuery && (
@@ -6520,13 +6551,15 @@ export function App() {
                   <Film className="w-3.5 h-3.5 text-[#e11d48]" />
                   {tr.filterCatLabel}
                 </span>
-                {visibleCategoryOptions.map((cat) => {
+                {visibleCategoryOptions.map((cat, catIdx) => {
                   const active = selectedCategory === cat.code;
+                  const isAll = cat.code === 'Tous' || catIdx === 0;
                   const count = categoryCounts[cat.code] ?? 0;
                   const label = translateCategoryFilter(cat.code, activeLang);
                   return (
                     <div
                       key={cat.code}
+                      id={isAll ? 'filter-category-all' : undefined}
                       role="button"
                       tabIndex={0}
                       data-filter-active={active ? 'true' : undefined}

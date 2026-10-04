@@ -589,10 +589,13 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                 </div>
               )}
 
-              {/* Disposition compacte Side-by-Side (Gauche : Affiche 120px max | Droite : Métadonnées avec gap-4) */}
-              <div className="flex flex-row gap-4 items-start mb-4">
+              {/* Disposition compacte Side-by-Side (Gauche : Affiche 120px max | Droite : Métadonnées avec gap-5 et margin-right 20px) */}
+              <div className="flex flex-row gap-5 items-start mb-4">
                 {ensureHttpsUrl(displayProg.icon) ? (
-                  <div className="w-32 max-w-[120px] shrink-0">
+                  <div
+                    style={{ marginRight: '20px' }}
+                    className="w-32 max-w-[120px] shrink-0 me-5"
+                  >
                     <img
                       src={ensureHttpsUrl(displayProg.icon)}
                       alt={displayMetadata.mainTitle}
@@ -601,7 +604,10 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                     />
                   </div>
                 ) : (
-                  <div className="w-32 max-w-[120px] h-[176px] rounded-lg bg-[#141a26] border border-[#1a202c] flex flex-col items-center justify-center p-2.5 text-center shrink-0">
+                  <div
+                    style={{ marginRight: '20px' }}
+                    className="w-32 max-w-[120px] h-[176px] rounded-lg bg-[#141a26] border border-[#1a202c] flex flex-col items-center justify-center p-2.5 text-center shrink-0 me-5"
+                  >
                     <Film className="w-7 h-7 text-[#cbd5e1] mb-1.5" />
                     <span className="text-[10px] font-semibold text-[#cbd5e1] line-clamp-3">
                       {displayMetadata.mainTitle}
@@ -738,7 +744,8 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
           >
             <div
               data-tv-row="modal-days"
-              className="flex items-center gap-2 flex-wrap py-1 px-0.5"
+              style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', margin: '12px 0' }}
+              className="flex items-center gap-2 flex-wrap my-3 py-1 px-0.5"
             >
               <Calendar className="w-4 h-4 text-[#0055ff] shrink-0 me-1" />
               {dayTabs.map((tab) => {

@@ -779,6 +779,50 @@ input[type="search"]:focus-visible {
 }
 
 /* ==========================================================================
+   Barre de recherche TV (Visibility, Border & Focus D-Pad)
+   - Bordure visible 1.5px solid rgba(255, 255, 255, 0.2)
+   - Dégagement net : padding-left 48px, padding-right 16px
+   - Sur focus D-Pad : bordure néon #38bdf8 avec box-shadow luminescent
+   ========================================================================== */
+.search-input-box {
+  border-radius: 0.5rem;
+  transition: all 0.2s ease;
+}
+
+.search-text-input {
+  border: 1.5px solid rgba(255, 255, 255, 0.2) !important;
+  padding-left: 48px !important;
+  padding-right: 16px !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.search-input-box:focus,
+.search-input-box:focus-visible,
+.search-input-box.focused,
+.search-input-box:focus-within,
+.tv-dpad-btn[data-search-dpad-trigger="true"]:focus,
+.tv-dpad-btn[data-search-dpad-trigger="true"]:focus-visible,
+.tv-dpad-btn[data-search-dpad-trigger="true"].focused {
+  outline: none !important;
+  border-color: transparent !important;
+  background: transparent !important;
+}
+
+.search-input-box:focus .search-text-input,
+.search-input-box:focus-visible .search-text-input,
+.search-input-box.focused .search-text-input,
+.search-input-box:focus-within .search-text-input,
+.tv-dpad-btn[data-search-dpad-trigger="true"]:focus .search-text-input,
+.tv-dpad-btn[data-search-dpad-trigger="true"]:focus-visible .search-text-input,
+.tv-dpad-btn[data-search-dpad-trigger="true"].focused .search-text-input,
+.search-text-input:focus,
+.search-text-input:focus-visible {
+  border: 1.5px solid #38bdf8 !important;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.45) !important;
+  outline: none !important;
+}
+
+/* ==========================================================================
    BANDEAU / TOAST DE NOTIFICATION IN-APP ("RAPPEL ENREGISTRÉ") & VUE RAPPELS RTL
    ========================================================================== */
 .reminders-view-root[dir="rtl"],
