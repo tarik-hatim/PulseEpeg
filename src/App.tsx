@@ -85,6 +85,7 @@ import {
   isBouquetFilterAllowedBySettings,
   isCategoryFilterAllowedBySettings,
   isChannelAllowedBySettings,
+  isCountryFilterAllowedBySettings,
   isSatelliteFilterAllowedBySettings,
   loadAppSettings,
   loadAppSettingsAsync,
@@ -136,6 +137,8 @@ import { InAppReminderBanner } from './components/InAppReminderBanner';
 import { RemindersChronologicalView } from './components/RemindersChronologicalView';
 import { PulseEpgLogo } from './components/PulseEpgLogo';
 import { AuthAccountModal } from './components/AuthAccountModal';
+import { ExitConfirmationModal } from './components/ExitConfirmationModal';
+import { App as CapacitorApp } from '@capacitor/app';
 import {
   AuthSessionState,
   PRO_BOUQUETS_UPGRADE_MESSAGE,
@@ -295,12 +298,16 @@ export function App() {
   const [selectedGroup, setSelectedGroup] = useState<ChannelGroup>('Tous');
   const [selectedCountry, setSelectedCountry] =
     useState<ChannelCountryFilter>('Tous');
+  const [selectedSubRegion, setSelectedSubRegion] = useState<
+    'all' | 'europe' | 'latam'
+  >('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [, startFilterTransition] = useTransition();
 
   // Valeurs différées (useDeferredValue) pour ne jamais bloquer le retour visuel immédiat
   // (état actif des boutons cliqués, outline D-Pad, saisie clavier) lors du filtrage lourd
   const deferredCategory = useDeferredValue(selectedCategory);
+  const deferredSubRegion = useDeferredValue(selectedSubRegion);
   const deferredSatellite = useDeferredValue(selectedSatellite);
   const deferredBouquet = useDeferredValue(selectedBouquet);
   const deferredBouquetsList = useDeferredValue(selectedBouquetsList);
@@ -421,8 +428,6 @@ export function App() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [proFeatureReason, setProFeatureReason] = useState<string | null>(null);
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState<boolean>(false);
-  const exitCancelBtnRef = useRef<HTMLButtonElement | null>(null);
-  const exitConfirmBtnRef = useRef<HTMLButtonElement | null>(null);
   const exitPreviousFocusRef = useRef<HTMLElement | null>(null);
 
   const handleCloseExitConfirmModal = useCallback(() => {
@@ -437,6 +442,11 @@ export function App() {
 
   const handleConfirmExitApp = useCallback(() => {
     setIsExitConfirmOpen(false);
+    try {
+      void CapacitorApp.exitApp();
+    } catch {
+      // Ignorer si plateforme non-Capacitor
+    }
     try {
       const navWithApp = navigator as Navigator & {
         app?: { exitApp?: () => void };
@@ -486,21 +496,6 @@ export function App() {
       // Ignore error if browser blocks window.close()
     }
   }, []);
-
-  // Sélectionne par défaut le bouton "Annuler" au D-Pad dès l'ouverture de la modale de sortie
-  useEffect(() => {
-    if (!isExitConfirmOpen) return;
-    const focusCancelBtn = () => {
-      exitCancelBtnRef.current?.focus({ preventScroll: true });
-    };
-    focusCancelBtn();
-    const rafId = window.requestAnimationFrame(focusCancelBtn);
-    const timerId = window.setTimeout(focusCancelBtn, 40);
-    return () => {
-      window.cancelAnimationFrame(rafId);
-      window.clearTimeout(timerId);
-    };
-  }, [isExitConfirmOpen]);
 
   const [selectedEpgDayOffset, setSelectedEpgDayOffset] = useState<number>(0);
   const [isReplayMode, setIsReplayMode] = useState<boolean>(false);
@@ -1329,6 +1324,20 @@ export function App() {
         Boolean(ch.orbitalPosition?.includes('43.1°W'))
       );
     }
+    if (sat === 'Astra 23.5°E') {
+      return (
+        ch.satellites.some((s) => s.includes('23.5')) ||
+        Boolean(ch.orbitalPosition?.includes('23.5')) ||
+        ch.bouquetId === 'astra_235e_skylink' ||
+        ch.bouquetId === 'astra_235e_canaldigitaal' ||
+        ch.bouquets.some(
+          (b) =>
+            b.includes('Skylink') ||
+            b.includes('Canal Digitaal') ||
+            b.includes('M7 Group')
+        )
+      );
+    }
     return ch.satellites.includes(sat) || ch.orbitalPosition === sat;
   };
 
@@ -1338,6 +1347,40 @@ export function App() {
     combinedLower: string
   ): boolean => {
     if (bq === 'Tous') return true;
+
+    if (
+      bq === 'Skylink (Tchéquie / Slovaquie)' ||
+      (bq as string).includes('Skylink')
+    ) {
+      return (
+        rawMatchesSatellite(ch, 'Astra 23.5°E') &&
+        (ch.bouquets.some((b) => b.includes('Skylink')) ||
+          ch.bouquetId === 'astra_235e_skylink' ||
+          /\.(cz|sk)$/i.test(ch.id || ''))
+      );
+    }
+    if (
+      bq === 'Canal Digitaal (Pays-Bas)' ||
+      (bq as string).includes('Canal Digitaal')
+    ) {
+      return (
+        rawMatchesSatellite(ch, 'Astra 23.5°E') &&
+        (ch.bouquets.some((b) => b.includes('Canal Digitaal') || b.includes('Vlaanderen')) ||
+          ch.bouquetId === 'astra_235e_canaldigitaal' ||
+          /\.(nl|be)$/i.test(ch.id || ''))
+      );
+    }
+    if (
+      bq === 'M7 Group (Astra 23.5°E)' ||
+      (bq as string).includes('M7 Group')
+    ) {
+      return (
+        rawMatchesSatellite(ch, 'Astra 23.5°E') ||
+        ch.bouquets.some((b) => b.includes('M7 Group') || b.includes('Skylink') || b.includes('Canal Digitaal')) ||
+        ch.bouquetId === 'astra_235e_skylink' ||
+        ch.bouquetId === 'astra_235e_canaldigitaal'
+      );
+    }
 
     if (bq === 'TRT Network') {
       return (
@@ -1564,6 +1607,38 @@ export function App() {
             ch.bouquets.includes('Information')))
       );
     }
+    if (bq === 'Claro TV Brasil') {
+      return (
+        ch.bouquets.includes('Claro TV Brasil') ||
+        ch.bouquetId === 'starone_70w_claro_br' ||
+        ch.satellites.includes('Star One D2 70°W') ||
+        ch.satellites.includes('Star One 70°W') ||
+        Boolean(ch.orbitalPosition?.includes('70°W'))
+      );
+    }
+    if (
+      bq === 'Vivo TV / Movistar LATAM' ||
+      (bq as string) === 'Vivo TV' ||
+      (bq as string) === 'Movistar TV LATAM'
+    ) {
+      return (
+        ch.bouquets.includes('Vivo TV / Movistar LATAM') ||
+        ch.bouquetId === 'amazonas_61w_latam' ||
+        ch.satellites.includes('Amazonas 61°W') ||
+        Boolean(ch.orbitalPosition?.includes('61°W'))
+      );
+    }
+    if (
+      bq === 'DirecTV LATAM / Sky Brasil' ||
+      (bq as string) === 'DirecTV Latin America' ||
+      (bq as string) === 'Sky Brasil'
+    ) {
+      return (
+        ch.bouquets.includes('DirecTV LATAM / Sky Brasil') ||
+        ch.bouquetId === 'intelsat_43w_directv' ||
+        rawMatchesSatellite(ch, 'Intelsat 43.1°W / SES-6 40.5°W')
+      );
+    }
     return ch.bouquets.includes(bq);
   };
 
@@ -1632,6 +1707,10 @@ export function App() {
     supplementedRef: {},
     entries: new Map(),
   });
+
+  // File d'attente d'enrichissement en arrière-plan avec requestIdleCallback pour préserver la réactivité du thread principal TV
+  const idleEnrichQueueRef = useRef<EpgChannel[]>([]);
+  const idleEnrichCallbackIdRef = useRef<number | null>(null);
 
   const resolveChannelLiveMeta = useCallback(
     (ch: EpgChannel): ChannelLiveEpgMeta => {
@@ -1786,6 +1865,55 @@ export function App() {
         searchProgText,
       };
       cache.entries.set(ch.id, meta);
+
+      // Pré-enrichissement non-bloquant en arrière-plan via requestIdleCallback pour les chaînes voisines
+      if (typeof window !== 'undefined') {
+        const q = idleEnrichQueueRef.current;
+        if (q.length > 0 && idleEnrichCallbackIdRef.current === null) {
+          const runChunk = (deadline?: { timeRemaining: () => number; didTimeout?: boolean }) => {
+            idleEnrichCallbackIdRef.current = null;
+            const cCache = liveEpgCacheRef.current;
+            while (q.length > 0) {
+              if (
+                deadline &&
+                typeof deadline.timeRemaining === 'function' &&
+                deadline.timeRemaining() < 1.5 &&
+                !deadline.didTimeout
+              ) {
+                break;
+              }
+              const nextTarget = q.shift();
+              if (nextTarget && !cCache.entries.has(nextTarget.id)) {
+                resolveChannelLiveMeta(nextTarget);
+              }
+            }
+            if (q.length > 0) {
+              if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+                idleEnrichCallbackIdRef.current = (window as unknown as {
+                  requestIdleCallback: (
+                    cb: (d: { timeRemaining: () => number; didTimeout: boolean }) => void,
+                    opts?: { timeout: number }
+                  ) => number;
+                }).requestIdleCallback(runChunk, { timeout: 1000 });
+              } else {
+                idleEnrichCallbackIdRef.current = setTimeout(() => runChunk(), 40) as unknown as number;
+              }
+            }
+          };
+
+          if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+            idleEnrichCallbackIdRef.current = (window as unknown as {
+              requestIdleCallback: (
+                cb: (d: { timeRemaining: () => number; didTimeout: boolean }) => void,
+                opts?: { timeout: number }
+              ) => number;
+            }).requestIdleCallback(runChunk, { timeout: 1000 });
+          } else {
+            idleEnrichCallbackIdRef.current = setTimeout(() => runChunk(), 40) as unknown as number;
+          }
+        }
+      }
+
       return meta;
     },
     [
@@ -1818,6 +1946,86 @@ export function App() {
     [channelStaticMetaMap, resolveChannelLiveMeta]
   );
 
+  const matchesSubRegion = useCallback(
+    (ch: EpgChannel, subRegion: 'all' | 'europe' | 'latam') => {
+      if (subRegion === 'all') return true;
+      if (activeLang === 'es') {
+        if (subRegion === 'europe') {
+          const isEuropeSat = ch.satellites?.some(
+            (s) => s.includes('Astra 19.2') || s.includes('Hispasat 30')
+          );
+          const isEuropeBq = ch.bouquets?.some(
+            (b) => b.includes('Movistar') || b.includes('Astra')
+          );
+          const isEuropeCountry =
+            ch.country === 'ES' || (ch.id || '').toLowerCase().endsWith('.es');
+          return Boolean(isEuropeSat || isEuropeBq || isEuropeCountry);
+        }
+        if (subRegion === 'latam') {
+          const isLatamSat = ch.satellites?.some(
+            (s) =>
+              s.includes('Amazonas') ||
+              s.includes('61°W') ||
+              s.includes('70°W') ||
+              s.includes('43.1°W') ||
+              s.includes('40.5°W')
+          );
+          const isLatamBq = ch.bouquets?.some(
+            (b) =>
+              b.includes('LATAM') ||
+              b.includes('DirecTV') ||
+              b.includes('Claro TV') ||
+              b.includes('Vivo')
+          );
+          const chId = (ch.id || '').toLowerCase();
+          const isLatamCountry =
+            ch.country === 'LATAM' ||
+            ch.country === 'BR' ||
+            chId.endsWith('.ar') ||
+            chId.endsWith('.cl') ||
+            chId.endsWith('.co') ||
+            chId.endsWith('.mx') ||
+            chId.endsWith('.br');
+          return Boolean(isLatamSat || isLatamBq || isLatamCountry);
+        }
+      } else if (activeLang === 'pt') {
+        if (subRegion === 'europe') {
+          const isEuropeSat = ch.satellites?.some((s) => s.includes('Hispasat 30'));
+          const isEuropeBq = ch.bouquets?.some(
+            (b) => b.includes('Meo') || b.includes('NOS')
+          );
+          const isEuropeCountry =
+            ch.country === 'PT' || (ch.id || '').toLowerCase().endsWith('.pt');
+          return Boolean(isEuropeSat || isEuropeBq || isEuropeCountry);
+        }
+        if (subRegion === 'latam') {
+          const isLatamSat = ch.satellites?.some(
+            (s) =>
+              s.includes('70°W') ||
+              s.includes('Star One') ||
+              s.includes('Amazonas') ||
+              s.includes('61°W') ||
+              s.includes('43.1°W') ||
+              s.includes('40.5°W')
+          );
+          const isLatamBq = ch.bouquets?.some(
+            (b) =>
+              b.includes('Claro TV') ||
+              b.includes('Sky Brasil') ||
+              b.includes('Vivo') ||
+              b.includes('LATAM')
+          );
+          const chId = (ch.id || '').toLowerCase();
+          const isLatamCountry =
+            ch.country === 'BR' || ch.country === 'LATAM' || chId.endsWith('.br');
+          return Boolean(isLatamSat || isLatamBq || isLatamCountry);
+        }
+      }
+      return true;
+    },
+    [activeLang]
+  );
+
   const baseViewChannels = useMemo(() => {
     const q = deferredSearchQuery.trim();
     if (viewMode === 'favorites') {
@@ -1829,6 +2037,7 @@ export function App() {
       });
     }
     return settingsAllowedChannels.filter((ch) => {
+      if (!matchesSubRegion(ch, deferredSubRegion)) return false;
       const liveMeta = resolveChannelLiveMeta(ch);
       if (!liveMeta.hasLiveOrNext) return false;
       if (q && !matchesSearch(ch, q)) return false;
@@ -1840,7 +2049,9 @@ export function App() {
     resolveChannelLiveMeta,
     viewMode,
     deferredSearchQuery,
+    deferredSubRegion,
     matchesSearch,
+    matchesSubRegion,
   ]);
 
   const matchesCategory = useCallback(
@@ -1909,6 +2120,17 @@ export function App() {
     startFilterTransition(() => {
       setSelectedCountry(country);
     });
+  }, []);
+
+  const handleSelectSubRegion = useCallback((sub: 'all' | 'europe' | 'latam') => {
+    setSelectedSubRegion(sub);
+    startFilterTransition(() => {
+      setSelectedSubRegion(sub);
+    });
+    setSelectedSatellite('Tous');
+    setSelectedBouquet('Tous');
+    setSelectedBouquetsList([]);
+    setSelectedCountry('Tous');
   }, []);
 
   const handleSelectGroup = useCallback((grp: ChannelGroup) => {
@@ -1987,6 +2209,38 @@ export function App() {
     [resolveChannelLiveMeta]
   );
 
+  // Compteurs dynamiques des sous-régions (Europe vs LATAM) pour ES et PT
+  const subRegionCounts = useMemo(() => {
+    if (activeLang !== 'es' && activeLang !== 'pt') {
+      return { all: 0, europe: 0, latam: 0 };
+    }
+    const q = deferredSearchQuery.trim();
+    const pool = settingsAllowedChannels.filter((ch) => {
+      const liveMeta = resolveChannelLiveMeta(ch);
+      if (!liveMeta.hasLiveOrNext) return false;
+      if (q && !matchesSearch(ch, q)) return false;
+      return true;
+    });
+    let europe = 0;
+    let latam = 0;
+    for (const ch of pool) {
+      if (matchesSubRegion(ch, 'europe')) europe++;
+      if (matchesSubRegion(ch, 'latam')) latam++;
+    }
+    return {
+      all: pool.length,
+      europe,
+      latam,
+    };
+  }, [
+    activeLang,
+    settingsAllowedChannels,
+    resolveChannelLiveMeta,
+    deferredSearchQuery,
+    matchesSearch,
+    matchesSubRegion,
+  ]);
+
   // Recalcul mémoïsé des compteurs croisés sur les valeurs différées ([CATÉGORIE] -> [SATELLITE / BOUQUET / COUNTRY] -> [GENRE])
   const categoryCounts = useMemo(() => {
     const counts: Record<ContentCategoryFilter, number> = {
@@ -2044,6 +2298,7 @@ export function App() {
       'Badr 26°E': 0,
       "Badr / Es'hailSat 26°E": 0,
       'Astra 19.2°E': 0,
+      'Astra 23.5°E': 0,
       'Hotbird 13°E': 0,
       'Hispasat 30°W': 0,
       'Eutelsat 16°E': 0,
@@ -2268,7 +2523,8 @@ export function App() {
       selectedSatellite !== 'Tous' &&
       (!isSatelliteFilterAllowedBySettings(
         selectedSatellite,
-        settings.selectedBouquets
+        settings.selectedBouquets,
+        settings.language
       ) ||
         (satelliteCounts[selectedSatellite] ?? 0) === 0)
     ) {
@@ -2347,13 +2603,17 @@ export function App() {
       STRICT_SAT_FILTER_LIST.filter((sat) => {
         if (
           sat !== 'Tous' &&
-          !isSatelliteFilterAllowedBySettings(sat, settings.selectedBouquets)
+          !isSatelliteFilterAllowedBySettings(
+            sat,
+            settings.selectedBouquets,
+            settings.language
+          )
         ) {
           return false;
         }
         return (satelliteCounts[sat] ?? 0) > 0;
       }),
-    [settings.selectedBouquets, satelliteCounts]
+    [settings.selectedBouquets, settings.language, satelliteCounts]
   );
 
   // Liaison dynamique stricte + masquage des bouquets inactifs ou avec compteur = 0
@@ -2371,13 +2631,23 @@ export function App() {
     [selectedSatellite, settings.selectedBouquets, bouquetCounts]
   );
 
-  // Liste dynamique des pays disponibles (ex: Turquie pour TRT, Albanie pour DigitAlb, Sénégal pour 2S TV)
+  // Liste dynamique des pays disponibles (strictement filtrée selon les réglages régionaux)
   const visibleCountryOptions = useMemo(
     () =>
-      CHANNEL_COUNTRY_FILTER_OPTIONS.filter(
-        (c) => (countryCounts[c] ?? 0) > 0
-      ),
-    [countryCounts]
+      CHANNEL_COUNTRY_FILTER_OPTIONS.filter((c) => {
+        if (
+          c !== 'Tous' &&
+          !isCountryFilterAllowedBySettings(
+            c,
+            settings.selectedBouquets,
+            settings.language
+          )
+        ) {
+          return false;
+        }
+        return (countryCounts[c] ?? 0) > 0;
+      }),
+    [countryCounts, settings.selectedBouquets, settings.language]
   );
 
   // Masque automatiquement tout bouton de genre dont le compteur est égal à 0
@@ -2552,11 +2822,12 @@ export function App() {
         ? globalFavoriteChannels
         : settingsAllowedChannels;
 
-    // 1. Filtrage structurel O(1) ultra-rapide (Satellite, Bouquet, Zone/Pays) AVANT d'inspecter les programmes EPG
+    // 1. Filtrage structurel O(1) ultra-rapide (Satellite, Bouquet, Zone/Pays, Région) AVANT d'inspecter les programmes EPG
     const rawList =
       viewMode === 'favorites'
         ? candidatePool.filter((ch) => !q || matchesSearch(ch, q))
         : candidatePool.filter((ch) => {
+            if (!matchesSubRegion(ch, deferredSubRegion)) return false;
             if (!matchesSatellite(ch, deferredSatellite)) return false;
             if (!matchesBouquet(ch, deferredBouquet)) return false;
             if (!matchesCountry(ch, deferredCountry)) return false;
@@ -2678,9 +2949,11 @@ export function App() {
     deferredSatellite,
     deferredBouquet,
     deferredCountry,
+    deferredSubRegion,
     deferredGenre,
     deferredSearchQuery,
     deferredTvSortMode,
+    matchesSubRegion,
     matchesSatellite,
     matchesBouquet,
     matchesCountry,
@@ -3068,9 +3341,15 @@ export function App() {
 
   const handleSaveSettings = useCallback(
     async (newSettings: AppSettings, forceReload: boolean) => {
-      const enforcedBouquets = authState.isPremium
-        ? newSettings.selectedBouquets
-        : newSettings.selectedBouquets.slice(0, MAX_ACTIVE_BOUQUETS);
+      const isMultiRegionExempt =
+        newSettings.tvProfile === 'espagne' ||
+        newSettings.tvProfile === 'portugal_brasil' ||
+        newSettings.tvProfile === 'amerique_sud_latam' ||
+        newSettings.tvProfile === 'all_satellites';
+      const enforcedBouquets =
+        authState.isPremium || isMultiRegionExempt
+          ? newSettings.selectedBouquets
+          : newSettings.selectedBouquets.slice(0, MAX_ACTIVE_BOUQUETS);
       const resolvedProfile =
         newSettings.tvProfile ||
         inferTvProfileFromBouquets(
@@ -3104,7 +3383,8 @@ export function App() {
         selectedSatellite !== 'Tous' &&
         !isSatelliteFilterAllowedBySettings(
           selectedSatellite,
-          finalizedSettings.selectedBouquets
+          finalizedSettings.selectedBouquets,
+          finalizedSettings.language
         )
       ) {
         setSelectedSatellite('Tous');
@@ -3217,6 +3497,7 @@ export function App() {
     (newLang: AppLanguage) => {
       setActiveLanguage(newLang);
       clearEnrichedMetadataCache();
+      setSelectedSubRegion('all');
       const dyn = getDynamicProfileForLanguage(newLang);
       const updated: AppSettings = {
         ...settings,
@@ -3240,6 +3521,7 @@ export function App() {
   );
 
   const handleResetDefaults = useCallback(() => {
+    setSelectedSubRegion('all');
     const detected = detectInitialTvProfileFromSystemLanguage();
     const reset: AppSettings = {
       ...DEFAULT_SETTINGS,
@@ -4375,11 +4657,13 @@ export function App() {
     return () => window.removeEventListener('focusin', handleFocusIn);
   }, [triggerZoneTransition]);
 
-  // Interception de l'événement natif Android / Cordova / Capacitor `backbutton` (KEYCODE_BACK)
+  // Interception de l'événement Retour (Capacitor App.addListener('backButton'), D-Pad Escape/Back, et popstate)
   useEffect(() => {
-    const handleNativeBackButton = (e: Event) => {
-      e.preventDefault();
-      e.stopPropagation();
+    const handleNativeBackButton = (e?: Event) => {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
       if (isExitConfirmOpen) {
         handleCloseExitConfirmModal();
         return;
@@ -4415,9 +4699,43 @@ export function App() {
       setIsExitConfirmOpen(true);
     };
 
+    // 1. Écouteur Capacitor Android App.addListener('backButton')
+    let capListenerHandle: { remove: () => Promise<void> } | null = null;
+    try {
+      void CapacitorApp.addListener('backButton', () => {
+        handleNativeBackButton();
+      }).then((handle) => {
+        capListenerHandle = handle;
+      }).catch(() => {
+        // Ignorer si non disponible sur la plateforme web
+      });
+    } catch {
+      // Ignorer si non supporté
+    }
+
+    // 2. Écouteur événement standard document 'backbutton' (Cordova / TV Android WebView)
     document.addEventListener('backbutton', handleNativeBackButton, false);
+
+    // 3. Écouteur événement 'popstate' sur Web/TV pour intercepter le bouton Retour du navigateur/télécommande
+    const handlePopState = (e: PopStateEvent) => {
+      e.preventDefault();
+      // Repousse un état dans l'historique pour ne pas effacer la page
+      window.history.pushState(null, '', window.location.href);
+      handleNativeBackButton();
+    };
+    try {
+      window.history.pushState(null, '', window.location.href);
+    } catch {
+      // Ignorer si restrictions iframe
+    }
+    window.addEventListener('popstate', handlePopState);
+
     return () => {
       document.removeEventListener('backbutton', handleNativeBackButton, false);
+      window.removeEventListener('popstate', handlePopState);
+      if (capListenerHandle) {
+        void capListenerHandle.remove();
+      }
     };
   }, [
     isExitConfirmOpen,
@@ -6665,6 +6983,119 @@ export function App() {
                 </div>
               </div>
 
+              {/* Ligne 1.5 : [SOUS-FILTRAGE RÉGION / SATELLITE (Multi-Region ES / PT si les deux régions sont actives)] */}
+              {subRegionCounts.europe > 0 && subRegionCounts.latam > 0 && (
+                <div
+                  data-tv-row="live-subregions"
+                  data-row-active={
+                    activeFilterRow === 'live-subregions' ? 'true' : undefined
+                  }
+                  className="filter-ribbon no-scrollbar pt-1 border-t border-[#1a202c]"
+                >
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0 select-none">
+                    <Globe className="w-3.5 h-3.5 text-[#0055ff]" />
+                    {activeLang === 'es' ? 'Région / Zona:' : 'Região / Zona:'}
+                  </span>
+
+                  {/* Option 1: Toutes les régions */}
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    data-filter-active={selectedSubRegion === 'all' ? 'true' : undefined}
+                    onClick={() => handleSelectSubRegion('all')}
+                    onKeyDown={(e) => {
+                      if (
+                        e.key === 'Enter' ||
+                        e.key === ' ' ||
+                        e.key === 'Select' ||
+                        e.keyCode === 23 ||
+                        e.keyCode === 66
+                      ) {
+                        e.preventDefault();
+                        handleSelectSubRegion('all');
+                      }
+                    }}
+                    className={`filter-badge ${
+                      selectedSubRegion === 'all' ? 'active selected-filter' : ''
+                    }`}
+                  >
+                    <span className="filter-label">
+                      <span>🌐</span>
+                      <span>
+                        {activeLang === 'es' ? 'Todas las regiones' : 'Todas as regiões'}
+                      </span>
+                    </span>
+                    <span className="filter-count">{subRegionCounts.all}</span>
+                  </div>
+
+                  {/* Option 2: Europe (Espagne / Portugal) */}
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    data-filter-active={selectedSubRegion === 'europe' ? 'true' : undefined}
+                    onClick={() => handleSelectSubRegion('europe')}
+                    onKeyDown={(e) => {
+                      if (
+                        e.key === 'Enter' ||
+                        e.key === ' ' ||
+                        e.key === 'Select' ||
+                        e.keyCode === 23 ||
+                        e.keyCode === 66
+                      ) {
+                        e.preventDefault();
+                        handleSelectSubRegion('europe');
+                      }
+                    }}
+                    className={`filter-badge ${
+                      selectedSubRegion === 'europe' ? 'active selected-filter' : ''
+                    }`}
+                  >
+                    <span className="filter-label">
+                      <span>{activeLang === 'es' ? '🇪🇸' : '🇵🇹'}</span>
+                      <span>
+                        {activeLang === 'es'
+                          ? 'Europa / España · Movistar+ (Astra 19.2°E, Hispasat 30°W)'
+                          : 'Europa / Portugal · MEO, NOS (Hispasat 30°W)'}
+                      </span>
+                    </span>
+                    <span className="filter-count">{subRegionCounts.europe}</span>
+                  </div>
+
+                  {/* Option 3: Amérique du Sud / LATAM / Brésil */}
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    data-filter-active={selectedSubRegion === 'latam' ? 'true' : undefined}
+                    onClick={() => handleSelectSubRegion('latam')}
+                    onKeyDown={(e) => {
+                      if (
+                        e.key === 'Enter' ||
+                        e.key === ' ' ||
+                        e.key === 'Select' ||
+                        e.keyCode === 23 ||
+                        e.keyCode === 66
+                      ) {
+                        e.preventDefault();
+                        handleSelectSubRegion('latam');
+                      }
+                    }}
+                    className={`filter-badge ${
+                      selectedSubRegion === 'latam' ? 'active selected-filter' : ''
+                    }`}
+                  >
+                    <span className="filter-label">
+                      <span>{activeLang === 'es' ? '🌎' : '🇧🇷'}</span>
+                      <span>
+                        {activeLang === 'es'
+                          ? 'Sudamérica / LATAM · DirecTV, Claro TV, Movistar (61°W, 70°W)'
+                          : 'América do Sul / Brasil · Claro TV, SKY (70°W, 61°W)'}
+                      </span>
+                    </span>
+                    <span className="filter-count">{subRegionCounts.latam}</span>
+                  </div>
+                </div>
+              )}
+
               {/* Ligne 2 : [SATELLITE] */}
               {visibleSatelliteOptions.length > 1 && (
                 <div
@@ -7701,105 +8132,13 @@ export function App() {
         />
       )}
 
-      {/* Modale de confirmation de sortie (Touche Retour / Échap / Exit / KEYCODE_BACK) */}
-      {isExitConfirmOpen && (
-        <div
-          data-tv-modal-overlay="true"
-          className="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-[#0a0e17]/90 backdrop-blur-md animate-fadeIn"
-          onClick={handleCloseExitConfirmModal}
-        >
-          <div
-            data-tv-modal="true"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="exit-confirm-modal-title"
-            className="w-full max-w-md rounded-2xl bg-[#141a26] border border-[#334155] p-6 sm:p-7 shadow-[0_24px_60px_rgba(0,0,0,0.85)] text-center space-y-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mx-auto w-12 h-12 rounded-2xl bg-[#e11d48]/15 border border-[#e11d48]/50 flex items-center justify-center text-[#e11d48] shadow-[0_0_20px_rgba(225,29,72,0.25)]">
-              <LogOut className="w-6 h-6" />
-            </div>
-
-            <div className="space-y-2">
-              <h2
-                id="exit-confirm-modal-title"
-                className="text-base sm:text-lg font-extrabold text-[#ffffff] leading-snug"
-              >
-                {activeLang === 'fr'
-                  ? 'Voulez-vous vraiment quitter PulseEPG ?'
-                  : 'Do you really want to exit PulseEPG?'}
-              </h2>
-              <p className="text-xs sm:text-sm text-[#cbd5e1]">
-                {activeLang === 'fr'
-                  ? 'Sélectionnez « Annuler » pour continuer à consulter votre guide TV.'
-                  : 'Select "Annuler" to stay in the TV guide or "Quitter" to exit.'}
-              </p>
-            </div>
-
-            {/* 2 boutons centrés côte à côte : "Annuler" (sélectionné par défaut au D-Pad) et "Quitter" */}
-            <div
-              data-tv-modal-zone="footer"
-              data-tv-row="exit-modal-actions"
-              className="flex items-center justify-center gap-4 pt-1"
-            >
-              <button
-                ref={exitCancelBtnRef}
-                type="button"
-                autoFocus
-                data-tv-focusable="true"
-                onClick={handleCloseExitConfirmModal}
-                onKeyDown={(e) => {
-                  if (e.key === 'ArrowRight') {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    exitConfirmBtnRef.current?.focus({ preventScroll: true });
-                  } else if (
-                    e.key === 'Enter' ||
-                    e.key === ' ' ||
-                    e.key === 'Select' ||
-                    e.keyCode === 23 ||
-                    e.keyCode === 66
-                  ) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleCloseExitConfirmModal();
-                  }
-                }}
-                className="tv-dpad-btn tv-focusable min-w-[130px] px-5 py-2.5 rounded-xl bg-[#1e293b] hover:bg-[#334155] text-[#ffffff] text-xs sm:text-sm font-bold border border-[#60a5fa] shadow-[0_0_14px_rgba(59,130,246,0.35)] transition-all cursor-pointer"
-              >
-                Annuler
-              </button>
-
-              <button
-                ref={exitConfirmBtnRef}
-                type="button"
-                data-tv-focusable="true"
-                onClick={handleConfirmExitApp}
-                onKeyDown={(e) => {
-                  if (e.key === 'ArrowLeft') {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    exitCancelBtnRef.current?.focus({ preventScroll: true });
-                  } else if (
-                    e.key === 'Enter' ||
-                    e.key === ' ' ||
-                    e.key === 'Select' ||
-                    e.keyCode === 23 ||
-                    e.keyCode === 66
-                  ) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleConfirmExitApp();
-                  }
-                }}
-                className="tv-dpad-btn tv-focusable min-w-[130px] px-5 py-2.5 rounded-xl bg-[#e11d48] hover:bg-[#ff0033] text-[#ffffff] text-xs sm:text-sm font-bold border border-[#ff0033] shadow-[0_0_16px_rgba(225,29,72,0.45)] transition-all cursor-pointer"
-              >
-                Quitter
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Modale de confirmation de sortie PulseEPG (Touche Retour / Échap / Exit / KEYCODE_BACK / Capacitor backButton) */}
+      <ExitConfirmationModal
+        isOpen={isExitConfirmOpen}
+        onClose={handleCloseExitConfirmModal}
+        onConfirmExit={handleConfirmExitApp}
+        lang={activeLang}
+      />
     </div>
   );
 }

@@ -1,10 +1,21 @@
-export type AppLanguage = 'fr' | 'en' | 'ar' | 'es' | 'de' | 'pt' | 'it' | 'tr';
+export type AppLanguage =
+  | 'fr'
+  | 'en'
+  | 'ar'
+  | 'es'
+  | 'es_latam'
+  | 'de'
+  | 'pt'
+  | 'pt_br'
+  | 'it'
+  | 'tr';
 
 export type TvProfileId =
   | 'france_europe_fr'
   | 'moyen_orient_golfe'
   | 'maghreb_mena'
   | 'espagne'
+  | 'portugal_brasil'
   | 'italie'
   | 'amerique_sud_latam'
   | 'europe_standard'
@@ -50,7 +61,9 @@ export type EpgBouquetId =
   | 'trt_network'
   | 'starone_70w_claro_br'
   | 'amazonas_61w_latam'
-  | 'intelsat_43w_directv';
+  | 'intelsat_43w_directv'
+  | 'astra_235e_skylink'
+  | 'astra_235e_canaldigitaal';
 
 export type TimeFilterPreset =
   | 'minus2h'
@@ -78,10 +91,16 @@ export type CountryCode =
   | 'Tous'
   | 'PL'
   | 'ES'
+  | 'PT'
   | 'IT'
   | 'DE'
   | 'FR'
   | 'AR'
+  | 'SA'
+  | 'MX'
+  | 'CL'
+  | 'CO'
+  | 'PE'
   | 'EU'
   | 'BR'
   | 'LATAM'
@@ -107,7 +126,12 @@ export type ChannelCountryFilter =
   | 'HR'
   | 'TM'
   | 'IR'
+  | 'SA'
   | 'AR'
+  | 'MX'
+  | 'CL'
+  | 'CO'
+  | 'PE'
   | 'BR'
   | 'LATAM';
 
@@ -117,6 +141,7 @@ export type SatelliteFilter =
   | 'Badr 26°E'
   | "Badr / Es'hailSat 26°E"
   | 'Astra 19.2°E'
+  | 'Astra 23.5°E'
   | 'Hotbird 13°E'
   | 'Hispasat 30°W'
   | 'Eutelsat 16°E'
@@ -135,6 +160,9 @@ export type SatelliteFilter =
 
 export type BouquetFilter =
   | 'Tous'
+  | 'Skylink (Tchéquie / Slovaquie)'
+  | 'Canal Digitaal (Pays-Bas)'
+  | 'M7 Group (Astra 23.5°E)'
   | 'Nilesat MBC/OSN/Rotana'
   | 'TNT Arabe/Égypte'
   | 'Badr beIN (Sports & Movies)'

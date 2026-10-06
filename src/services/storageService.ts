@@ -76,6 +76,7 @@ export const STRICT_SAT_FILTER_LIST: SatelliteFilter[] = [
   'Nilesat 7°W',
   "Badr / Es'hailSat 26°E",
   'Astra 19.2°E',
+  'Astra 23.5°E',
   'Hotbird 13°E',
   'Hispasat 30°W',
   'Eutelsat 16°E',
@@ -108,6 +109,12 @@ export const SAT_TO_BOUQUETS_MAP: Record<string, BouquetFilter[]> = {
     'Astra TNT France',
     'Astra Movistar+ España',
     'Sky DE / DAZN DE',
+  ],
+  'Astra 23.5°E': [
+    'Tous',
+    'Skylink (Tchéquie / Slovaquie)',
+    'Canal Digitaal (Pays-Bas)',
+    'M7 Group (Astra 23.5°E)',
   ],
   'Hotbird 13°E': [
     'Tous',
@@ -169,6 +176,9 @@ export const SAT_TO_BOUQUETS_MAP: Record<string, BouquetFilter[]> = {
     'Astra TNT France',
     'Astra Movistar+ España',
     'Sky DE / DAZN DE',
+    'Skylink (Tchéquie / Slovaquie)',
+    'Canal Digitaal (Pays-Bas)',
+    'M7 Group (Astra 23.5°E)',
     'Hotbird Polsat/Cyfra+',
     'Hotbird Bis TV/Rai',
     'Hispasat Meo/NOS/Movistar',
@@ -199,15 +209,16 @@ export function getBouquetsForSatellite(sat: SatelliteFilter): BouquetFilter[] {
 
 export const CHANNEL_COUNTRY_FILTER_OPTIONS: ChannelCountryFilter[] = [
   'Tous',
-  'TR',
-  'AL',
-  'SN',
-  'CI',
-  'CM',
-  'ML',
-  'FR',
+  'LATAM',
+  'AR',
+  'MX',
+  'CL',
+  'CO',
+  'PE',
+  'BR',
   'ES',
   'PT',
+  'FR',
   'DE',
   'IT',
   'PL',
@@ -215,11 +226,15 @@ export const CHANNEL_COUNTRY_FILTER_OPTIONS: ChannelCountryFilter[] = [
   'HU',
   'RS',
   'HR',
+  'TR',
+  'AL',
+  'SN',
+  'CI',
+  'CM',
+  'ML',
   'TM',
   'IR',
-  'AR',
-  'BR',
-  'LATAM',
+  'SA',
 ];
 
 /**
@@ -428,9 +443,9 @@ export function extractChannelCountries(
     countries.add('PL');
   }
 
-  // 19. Monde Arabe / MENA (Nilesat 7°W, Badr 26°E)
+  // 19. Monde Arabe / MENA (Nilesat 7°W, Badr 26°E) -> SA 🇸🇦
   if (
-    ch.country === 'AR' ||
+    ch.country === 'SA' ||
     ch.bouquetId === 'nilesat_osn_mbc' ||
     ch.bouquetId === 'badr_bein_ssc' ||
     chBouquets.includes('Nilesat MBC/OSN/Rotana') ||
@@ -442,22 +457,96 @@ export function extractChannelCountries(
       combined
     )
   ) {
-    countries.add('AR');
+    countries.add('SA');
   }
 
-  // 20. Brésil & Amérique Latine
+  // 20. Brésil (BR 🇧🇷)
   if (
     ch.country === 'BR' ||
     idLower.endsWith('.br') ||
-    chBouquets.includes('Claro TV Brasil')
+    ch.bouquetId === 'starone_70w_claro_br' ||
+    chBouquets.includes('Claro TV Brasil') ||
+    ch.satellites?.includes('Star One D2 70°W') ||
+    ch.satellites?.includes('Star One 70°W') ||
+    /\b(globo|sportv|telecine|bandeirantes|sbt\b|record\s*tv|claro\s*tv|premiere)\b/i.test(
+      combined
+    )
   ) {
     countries.add('BR');
   }
+
+  // 21. Amérique Latine Hispanophone (LATAM 🌎)
   if (
     ch.country === 'LATAM' ||
+    ch.bouquetId === 'amazonas_61w_latam' ||
+    ch.bouquetId === 'intelsat_43w_directv' ||
     chBouquets.includes('Vivo TV / Movistar LATAM') ||
-    chBouquets.includes('DirecTV LATAM / Sky Brasil')
+    chBouquets.includes('DirecTV LATAM / Sky Brasil') ||
+    ch.satellites?.includes('Amazonas 61°W') ||
+    ch.satellites?.includes('Intelsat 43.1°W / SES-6 40.5°W') ||
+    ch.satellites?.includes('SES-6 40.5°W') ||
+    /\b(latam|directv|dsports|cinecanal|tyc\s*sports|tnt\s*sports)\b/i.test(
+      combined
+    )
   ) {
+    countries.add('LATAM');
+  }
+
+  // 22. Argentine (AR 🇦🇷)
+  if (
+    idLower.endsWith('.ar') ||
+    ch.country === 'AR' ||
+    /\b(argentina|tyc|tyc\s*sports|tnt\s*sports\s*ar|telefe|eltrece|c5n|tn\s*argentina)\b/i.test(
+      combined
+    )
+  ) {
+    countries.add('AR');
+    countries.add('LATAM');
+  }
+
+  // 23. Mexique (MX 🇲🇽)
+  if (
+    idLower.endsWith('.mx') ||
+    ch.country === 'MX' ||
+    /\b(mexico|méxico|azteca|televisa|las\s*estrellas|canal\s*5|adn40)\b/i.test(
+      combined
+    )
+  ) {
+    countries.add('MX');
+    countries.add('LATAM');
+  }
+
+  // 24. Chili (CL 🇨🇱)
+  if (
+    idLower.endsWith('.cl') ||
+    ch.country === 'CL' ||
+    /\b(chile|chilevisión|chilevision|tvn|mega\s*cl|tnt\s*sports\s*cl)\b/i.test(
+      combined
+    )
+  ) {
+    countries.add('CL');
+    countries.add('LATAM');
+  }
+
+  // 25. Colombie (CO 🇨🇴)
+  if (
+    idLower.endsWith('.co') ||
+    ch.country === 'CO' ||
+    /\b(colombia|caracol|rcn|win\s*sports)\b/i.test(combined)
+  ) {
+    countries.add('CO');
+    countries.add('LATAM');
+  }
+
+  // 26. Pérou (PE 🇵🇪)
+  if (
+    idLower.endsWith('.pe') ||
+    ch.country === 'PE' ||
+    /\b(peru|perú|américa\s*tv|america\s*tv|latina\s*tv|panamericana)\b/i.test(
+      combined
+    )
+  ) {
+    countries.add('PE');
     countries.add('LATAM');
   }
 
@@ -1086,6 +1175,38 @@ export const EPG_BOUQUET_CATALOG: BouquetOptionSpec[] = [
     estimatedRamMb: 3.1,
     sampleChannels: ['DirecTV LATAM', 'Sky Brasil', 'Oi TV', 'DSports HD'],
   },
+  {
+    id: 'astra_235e_skylink',
+    flag: '🇨🇿/🇸🇰',
+    label: 'Skylink (Tchéquie / Slovaquie)',
+    satellite: 'Astra 23.5°E',
+    description:
+      'Skylink (Astra 23.5°E) : ČT1, ČT2, ČT Sport, Nova, Prima, Markíza, JOJ, CANAL+ Sport CZ/SK, FilmBox & HBO',
+    estRamMb: 2.5,
+    estimatedRamMb: 2.5,
+    sampleChannels: [
+      'ČT1 HD / ČT Sport HD',
+      'TV Nova HD / Prima',
+      'TV Markíza / JOJ',
+      'CANAL+ Sport CZ/SK',
+    ],
+  },
+  {
+    id: 'astra_235e_canaldigitaal',
+    flag: '🇳🇱/🇧🇪',
+    label: 'Canal Digitaal (Pays-Bas) & M7 Group',
+    satellite: 'Astra 23.5°E',
+    description:
+      'Canal Digitaal & TV Vlaanderen (Astra 23.5°E / M7 Group) : NPO 1–3, RTL 4/5/7/8, SBS6, Veronica, VRT 1, Canvas, VTM, Film1 & ESPN Netherlands',
+    estRamMb: 2.6,
+    estimatedRamMb: 2.6,
+    sampleChannels: [
+      'NPO 1 / 2 / 3 HD',
+      'RTL 4 / RTL 7 / SBS6',
+      'VRT 1 / Canvas / VTM',
+      'ESPN NL / Film1',
+    ],
+  },
 ];
 
 /**
@@ -1116,6 +1237,16 @@ export const SATELLITE_GROUPS_CATALOG: SatelliteGroupSpec[] = [
     subtitle: 'Canal+ France, TNT France, Movistar+ / DAZN ES, Sky DE',
     bouquets: EPG_BOUQUET_CATALOG.filter((b) =>
       ['astra_canal_fr', 'astra_tnt_fr', 'movistar_es', 'sky_de'].includes(b.id)
+    ),
+  },
+  {
+    satelliteId: 'sat_astra_235e',
+    orbitalPosition: 'Astra (23.5°E)',
+    title: 'Astra (23.5°E) — Skylink, Canal Digitaal & M7 Group',
+    flag: '🇨🇿/🇸🇰/🇳🇱/🇧🇪',
+    subtitle: 'Skylink (Tchéquie / Slovaquie), Canal Digitaal (Pays-Bas) & M7 Group',
+    bouquets: EPG_BOUQUET_CATALOG.filter((b) =>
+      ['astra_235e_skylink', 'astra_235e_canaldigitaal'].includes(b.id)
     ),
   },
   {
@@ -1294,14 +1425,49 @@ export const TV_PROFILES_CATALOG: TvProfileSpec[] = [
   },
   {
     id: 'espagne',
-    flag: '🇪🇸',
-    label: 'Espagne & Lusophonie',
-    shortLabel: 'Espagne / PT',
-    satellitesSummary: 'Astra 19.2°E, Hispasat 30°W & Star One 70°W (3 satellites)',
-    satellitesList: ['Astra 19.2°E', 'Hispasat 30°W', 'Star One 70°W'],
+    flag: '🇪🇸/🌎',
+    label: 'Espagne & Amérique Latine (ES)',
+    shortLabel: 'Espagne / LATAM',
+    satellitesSummary:
+      'Astra 19.2°E, Hispasat 30°W, Amazonas 61°W, Star One 70°W & Intelsat 43.1°W',
+    satellitesList: [
+      'Astra 19.2°E',
+      'Hispasat 30°W',
+      'Amazonas 61°W',
+      'Star One D2 70°W',
+      'Intelsat 43.1°W / SES-6 40.5°W',
+    ],
     description:
-      'Charge Astra 19.2°E (Movistar Plus+, DAZN ES), Hispasat 30°W (Meo/NOS/Movistar) et Star One 70°W (Claro TV).',
-    bouquets: ['movistar_es', 'hispasat_meo_nos', 'starone_70w_claro_br'],
+      'Europe / Espagne (Movistar+ Astra 19.2°E, Hispasat 30°W) et Amérique du Sud / LATAM (DirecTV Latam, Claro TV, Movistar Latam sur Amazonas 61°W, Star One 70°W).',
+    bouquets: [
+      'movistar_es',
+      'amazonas_61w_latam',
+      'intelsat_43w_directv',
+      'starone_70w_claro_br',
+      'hispasat_meo_nos',
+    ],
+  },
+  {
+    id: 'portugal_brasil',
+    flag: '🇵🇹/🇧🇷',
+    label: 'Portugal & Brésil (Lusophonie)',
+    shortLabel: 'Portugal / Brésil',
+    satellitesSummary:
+      'Hispasat 30°W, Star One 70°W, Amazonas 61°W & Intelsat 43.1°W',
+    satellitesList: [
+      'Hispasat 30°W',
+      'Star One D2 70°W',
+      'Amazonas 61°W',
+      'Intelsat 43.1°W / SES-6 40.5°W',
+    ],
+    description:
+      'Europe / Portugal (MEO, NOS sur Hispasat 30°W) et Amérique du Sud / Brésil (Claro TV Brasil 70°W, SKY Brasil, Vivo TV sur Star One D2 70°W, Amazonas 61°W).',
+    bouquets: [
+      'hispasat_meo_nos',
+      'starone_70w_claro_br',
+      'intelsat_43w_directv',
+      'amazonas_61w_latam',
+    ],
   },
   {
     id: 'italie',
@@ -1356,6 +1522,7 @@ export const TV_PROFILES_CATALOG: TvProfileSpec[] = [
       'Nilesat 7°W',
       'Badr 26°E',
       'Astra 19.2°E',
+      'Astra 23.5°E',
       'Hotbird 13°E',
       'Hispasat 30°W',
       'Eutelsat 16°E',
@@ -1400,13 +1567,31 @@ export function getDynamicProfileForLanguage(lang: AppLanguage): {
         selectedBouquets: ['nilesat_osn_mbc', 'badr_bein_ssc'],
       };
     case 'es':
-    case 'pt':
       return {
         tvProfile: 'espagne',
+        selectedBouquets: ['movistar_es', 'hispasat_meo_nos'],
+      };
+    case 'es_latam':
+      return {
+        tvProfile: 'amerique_sud_latam',
         selectedBouquets: [
-          'movistar_es',
-          'hispasat_meo_nos',
+          'amazonas_61w_latam',
+          'intelsat_43w_directv',
           'starone_70w_claro_br',
+        ],
+      };
+    case 'pt':
+      return {
+        tvProfile: 'portugal_brasil',
+        selectedBouquets: ['hispasat_meo_nos'],
+      };
+    case 'pt_br':
+      return {
+        tvProfile: 'amerique_sud_latam',
+        selectedBouquets: [
+          'starone_70w_claro_br',
+          'amazonas_61w_latam',
+          'intelsat_43w_directv',
         ],
       };
     case 'de':
@@ -1451,7 +1636,13 @@ export function getBouquetsForTvProfile(
 ): EpgBouquetId[] {
   const found = TV_PROFILES_CATALOG.find((p) => p.id === profileId);
   if (found) {
-    if (isPremium || profileId === 'all_satellites') {
+    if (
+      isPremium ||
+      profileId === 'all_satellites' ||
+      profileId === 'espagne' ||
+      profileId === 'portugal_brasil' ||
+      profileId === 'amerique_sud_latam'
+    ) {
       return [...found.bouquets];
     }
     return [...found.bouquets].slice(0, MAX_ACTIVE_BOUQUETS_STRICT);
@@ -1637,22 +1828,38 @@ export function detectInitialTvProfileFromSystemLanguage(
       };
     }
 
-    // 4. Profil "Amérique du Sud / LATAM" (Langues 'es' LATAM / 'pt')
-    // Charge UNIQUEMENT : Star One 70°W, Amazonas 61°W, SES-6 40.5°W
-    if (
-      langPrefix === 'pt' ||
-      (langPrefix === 'es' &&
-        (LATAM_COUNTRY_CODES.has(regionSubtag) ||
-          (regionSubtag !== 'ES' && isLatamTimezone)))
-    ) {
+    // 3. Portugais Brésil (pt-BR ou fuseau horaire brésilien)
+    if (langPrefix === 'pt' && (regionSubtag === 'BR' || isLatamTimezone)) {
       return {
         tvProfile: 'amerique_sud_latam',
-        language: langPrefix === 'pt' ? 'pt' : 'es',
+        language: 'pt_br',
         selectedBouquets: getBouquetsForTvProfile('amerique_sud_latam'),
       };
     }
 
-    // 5. Profil "Espagne" (Langue 'es')
+    // 4. Portugais Europe (Portugal pt-PT / Hispasat 30°W)
+    if (langPrefix === 'pt') {
+      return {
+        tvProfile: 'portugal_brasil',
+        language: 'pt',
+        selectedBouquets: getBouquetsForTvProfile('portugal_brasil'),
+      };
+    }
+
+    // 5. Espagnol Amérique Latine (es LATAM)
+    if (
+      langPrefix === 'es' &&
+      (LATAM_COUNTRY_CODES.has(regionSubtag) ||
+        (regionSubtag !== 'ES' && isLatamTimezone))
+    ) {
+      return {
+        tvProfile: 'amerique_sud_latam',
+        language: 'es_latam',
+        selectedBouquets: getBouquetsForTvProfile('amerique_sud_latam'),
+      };
+    }
+
+    // 6. Profil "Espagne" (Langue 'es' Europe)
     // Charge UNIQUEMENT : Astra 19.2°E et Hispasat 30°W
     if (langLower.startsWith('es')) {
       return {
@@ -1975,6 +2182,7 @@ export function resolveChannelBouquetId(ch: {
   country: Exclude<CountryCode, 'Tous'>;
   bouquets?: string[];
   satellites?: string[];
+  orbitalPosition?: string;
 }): EpgBouquetId {
   if (ch.bouquetId && ch.bouquetId !== 'eutelsat_16e_thor') return ch.bouquetId;
   if (ch.bouquets?.some((b) => b.includes('TNT France'))) return 'astra_tnt_fr';
@@ -2045,6 +2253,24 @@ export function resolveChannelBouquetId(ch: {
     return 'eutelsat_16e_digitalb';
   }
   if (
+    ch.satellites?.some((s) => s.includes('23.5')) ||
+    ch.orbitalPosition === 'Astra 23.5°E' ||
+    ch.bouquets?.some(
+      (b) =>
+        b.includes('Skylink') ||
+        b.includes('Canal Digitaal') ||
+        b.includes('M7 Group')
+    )
+  ) {
+    if (
+      ch.bouquets?.some((b) => b.includes('Canal Digitaal') || b.includes('Vlaanderen')) ||
+      /\.(nl|be)$/i.test(ch.id || '')
+    ) {
+      return 'astra_235e_canaldigitaal';
+    }
+    return 'astra_235e_skylink';
+  }
+  if (
     ch.satellites?.some((s) => s.includes('Thor')) ||
     ch.bouquets?.some(
       (b) =>
@@ -2056,8 +2282,40 @@ export function resolveChannelBouquetId(ch: {
   ) {
     return 'thor_08w_focussat';
   }
+  if (
+    ch.satellites?.some((s) => s.includes('Star One') || s.includes('70°W')) ||
+    ch.bouquets?.some((b) => b.includes('Claro TV')) ||
+    /\.br$/i.test(ch.id || '') ||
+    ch.country === 'BR'
+  ) {
+    return 'starone_70w_claro_br';
+  }
+  if (
+    ch.satellites?.some((s) => s.includes('Amazonas') || s.includes('61°W')) ||
+    ch.bouquets?.some(
+      (b) =>
+        b.includes('Vivo') ||
+        b.includes('Amazonas') ||
+        b.includes('Movistar LATAM')
+    )
+  ) {
+    return 'amazonas_61w_latam';
+  }
+  if (
+    ch.satellites?.some(
+      (s) =>
+        s.includes('Intelsat') ||
+        s.includes('SES-6') ||
+        s.includes('43.1°W') ||
+        s.includes('40.5°W')
+    ) ||
+    ch.bouquets?.some(
+      (b) => b.includes('DirecTV') || b.includes('Sky Brasil')
+    )
+  ) {
+    return 'intelsat_43w_directv';
+  }
   if (ch.country === 'EU') return 'thor_08w_focussat';
-  if (ch.country === 'BR') return 'starone_70w_claro_br';
   if (ch.country === 'LATAM') {
     if (ch.bouquets?.some((b) => b.includes('Vivo'))) return 'amazonas_61w_latam';
     return 'intelsat_43w_directv';
@@ -2107,7 +2365,20 @@ export function isBouquetFilterAllowedBySettings(
     b === 'MEO / NOS / Movistar (30°W)' ||
     b === 'Meo / NOS / Movistar 30°W'
   ) {
-    return active.includes('hispasat_meo_nos');
+    return (
+      active.includes('hispasat_meo_nos') ||
+      active.includes('movistar_es')
+    );
+  }
+  if (
+    b === 'Skylink (Tchéquie / Slovaquie)' ||
+    b === 'Canal Digitaal (Pays-Bas)' ||
+    b === 'M7 Group (Astra 23.5°E)'
+  ) {
+    return (
+      active.includes('astra_235e_skylink') ||
+      active.includes('astra_235e_canaldigitaal')
+    );
   }
   if (b === 'Sky DE / DAZN DE') {
     return (
@@ -2216,9 +2487,37 @@ export function isBouquetFilterAllowedBySettings(
 
 export function isSatelliteFilterAllowedBySettings(
   sat: SatelliteFilter,
-  selectedBouquets?: EpgBouquetId[]
+  selectedBouquets?: EpgBouquetId[],
+  language?: AppLanguage
 ): boolean {
   if (sat === 'Tous') return true;
+
+  // Filtrage STRICT par langue régionale
+  if (language === 'es_latam') {
+    return (
+      sat === 'Amazonas 61°W' ||
+      sat === 'Star One D2 70°W' ||
+      sat === 'Star One 70°W' ||
+      sat === 'Intelsat 43.1°W / SES-6 40.5°W' ||
+      sat === 'SES-6 40.5°W'
+    );
+  }
+  if (language === 'pt_br') {
+    return (
+      sat === 'Star One D2 70°W' ||
+      sat === 'Star One 70°W' ||
+      sat === 'Amazonas 61°W' ||
+      sat === 'Intelsat 43.1°W / SES-6 40.5°W' ||
+      sat === 'SES-6 40.5°W'
+    );
+  }
+  if (language === 'es') {
+    return sat === 'Astra 19.2°E' || sat === 'Hispasat 30°W';
+  }
+  if (language === 'pt') {
+    return sat === 'Hispasat 30°W';
+  }
+
   const active =
     selectedBouquets && selectedBouquets.length > 0
       ? selectedBouquets
@@ -2238,6 +2537,12 @@ export function isSatelliteFilterAllowedBySettings(
       active.includes('sky_de')
     );
   }
+  if (sat === 'Astra 23.5°E') {
+    return (
+      active.includes('astra_235e_skylink') ||
+      active.includes('astra_235e_canaldigitaal')
+    );
+  }
   if (sat === 'Hotbird 13°E') {
     return (
       active.includes('sky_it') ||
@@ -2246,7 +2551,10 @@ export function isSatelliteFilterAllowedBySettings(
     );
   }
   if (sat === 'Hispasat 30°W') {
-    return active.includes('hispasat_meo_nos');
+    return (
+      active.includes('hispasat_meo_nos') ||
+      active.includes('movistar_es')
+    );
   }
   if (sat === 'Eutelsat 16°E') {
     return (
@@ -2270,7 +2578,10 @@ export function isSatelliteFilterAllowedBySettings(
     return active.includes('monacosat_52e_persiana');
   }
   if (sat === 'Star One D2 70°W' || sat === 'Star One 70°W') {
-    return active.includes('starone_70w_claro_br');
+    return (
+      active.includes('starone_70w_claro_br') ||
+      active.includes('amazonas_61w_latam')
+    );
   }
   if (sat === 'Amazonas 61°W') {
     return active.includes('amazonas_61w_latam');
@@ -2280,16 +2591,51 @@ export function isSatelliteFilterAllowedBySettings(
     sat === 'Intelsat 43.1°W & SES-6 40.5°W' ||
     sat === 'SES-6 40.5°W'
   ) {
-    return active.includes('intelsat_43w_directv');
+    return (
+      active.includes('intelsat_43w_directv') ||
+      active.includes('amazonas_61w_latam')
+    );
   }
   return true;
 }
 
 export function isCountryFilterAllowedBySettings(
-  c: CountryCode,
-  selectedBouquets?: EpgBouquetId[]
+  c: ChannelCountryFilter | CountryCode,
+  selectedBouquets?: EpgBouquetId[],
+  language?: AppLanguage
 ): boolean {
   if (c === 'Tous') return true;
+
+  // Filtrage STRICT lorsque "Español (Latino)" est sélectionné :
+  // N'afficher QUE la région Hispanophone d'Amérique Latine (LATAM, AR, MX, CL, CO, PE)
+  // Masque complètement les pays hors-sujet (FR, CM, SA, PT, DE, IT, etc.)
+  if (language === 'es_latam') {
+    return (
+      c === 'LATAM' ||
+      c === 'AR' ||
+      c === 'MX' ||
+      c === 'CL' ||
+      c === 'CO' ||
+      c === 'PE'
+    );
+  }
+
+  // Filtrage STRICT lorsque "Português (Latino / Brasil)" est sélectionné :
+  // Affiche uniquement 🇧🇷 BR (Brésil), masque Europe/Afrique
+  if (language === 'pt_br') {
+    return c === 'BR';
+  }
+
+  // Filtrage STRICT lorsque "Español (EU)" est sélectionné :
+  if (language === 'es') {
+    return c === 'ES';
+  }
+
+  // Filtrage STRICT lorsque "Português (EU)" est sélectionné :
+  if (language === 'pt') {
+    return c === 'PT';
+  }
+
   const active =
     selectedBouquets && selectedBouquets.length > 0
       ? selectedBouquets
@@ -2305,6 +2651,9 @@ export function isCountryFilterAllowedBySettings(
     return (
       active.includes('movistar_es') || active.includes('hispasat_meo_nos')
     );
+  }
+  if (c === 'PT') {
+    return active.includes('hispasat_meo_nos');
   }
   if (c === 'DE') {
     return (
@@ -2328,13 +2677,22 @@ export function isCountryFilterAllowedBySettings(
         !active.includes('nilesat_osn_mbc'))
     );
   }
-  if (c === 'AR') {
+  if (c === 'SA') {
     return (
-      active.includes('nilesat_osn_mbc') || active.includes('badr_bein_ssc')
+      active.includes('nilesat_osn_mbc') ||
+      active.includes('badr_bein_ssc')
+    );
+  }
+  if (c === 'AR' || c === 'MX' || c === 'CL' || c === 'CO' || c === 'PE') {
+    return (
+      active.includes('intelsat_43w_directv') ||
+      active.includes('amazonas_61w_latam')
     );
   }
   if (c === 'EU') {
     return (
+      active.includes('astra_235e_skylink') ||
+      active.includes('astra_235e_canaldigitaal') ||
       active.includes('eutelsat_16e_digitalb') ||
       active.includes('trt_network') ||
       active.includes('thor_08w_focussat') ||
@@ -2343,11 +2701,17 @@ export function isCountryFilterAllowedBySettings(
       active.includes('eutelsat_16e_thor')
     );
   }
-  if (c === 'BR') return active.includes('starone_70w_claro_br');
+  if (c === 'BR') {
+    return (
+      active.includes('starone_70w_claro_br') ||
+      active.includes('intelsat_43w_directv')
+    );
+  }
   if (c === 'LATAM') {
     return (
       active.includes('amazonas_61w_latam') ||
-      active.includes('intelsat_43w_directv')
+      active.includes('intelsat_43w_directv') ||
+      active.includes('starone_70w_claro_br')
     );
   }
   return true;
@@ -2405,7 +2769,7 @@ export function isChannelAllowedBySettings(
     ch.satellites &&
     ch.satellites.length > 0 &&
     !ch.satellites.some((s) =>
-      isSatelliteFilterAllowedBySettings(s, activeBouquets)
+      isSatelliteFilterAllowedBySettings(s, activeBouquets, settings.language)
     )
   ) {
     return false;
@@ -2500,14 +2864,245 @@ export function isChannelAllowedBySettings(
     }
   }
 
+  // Autoriser les bouquets Amérique du Sud / LATAM & Brésil
+  if (
+    !bouquetAllowed &&
+    (chBouquetId === 'amazonas_61w_latam' ||
+      ch.bouquets?.some((b) => b.includes('Vivo') || b.includes('Movistar LATAM')) ||
+      ch.satellites?.includes('Amazonas 61°W'))
+  ) {
+    bouquetAllowed = activeBouquets.includes('amazonas_61w_latam');
+  }
+  if (
+    !bouquetAllowed &&
+    (chBouquetId === 'intelsat_43w_directv' ||
+      ch.bouquets?.some((b) => b.includes('DirecTV') || b.includes('Sky Brasil')) ||
+      ch.satellites?.some(
+        (s) =>
+          s.includes('Intelsat') ||
+          s.includes('SES-6') ||
+          s.includes('43.1°W') ||
+          s.includes('40.5°W')
+      ))
+  ) {
+    bouquetAllowed = activeBouquets.includes('intelsat_43w_directv');
+  }
+  if (
+    !bouquetAllowed &&
+    (chBouquetId === 'starone_70w_claro_br' ||
+      ch.bouquets?.some((b) => b.includes('Claro TV')) ||
+      ch.satellites?.some((s) => s.includes('Star One') || s.includes('70°W')))
+  ) {
+    bouquetAllowed = activeBouquets.includes('starone_70w_claro_br');
+  }
+
+  // Autoriser Astra 23.5°E (Skylink & Canal Digitaal / M7 Group)
+  if (
+    !bouquetAllowed &&
+    (chBouquetId === 'astra_235e_skylink' ||
+      chBouquetId === 'astra_235e_canaldigitaal' ||
+      ch.satellites?.some((s) => s.includes('23.5')) ||
+      ch.bouquets?.some(
+        (b) =>
+          b.includes('Skylink') ||
+          b.includes('Canal Digitaal') ||
+          b.includes('M7 Group')
+      ))
+  ) {
+    bouquetAllowed =
+      activeBouquets.includes('astra_235e_skylink') ||
+      activeBouquets.includes('astra_235e_canaldigitaal');
+  }
+
   if (!bouquetAllowed) {
     return false;
   }
 
-  // Filtrage strict par profil TV ("Espagne" = Movistar+ & TNT Abertis uniquement, sans chaînes portugaises MEO/NOS)
+  // 1. "Español (EU)" : Filtre uniquement les chaînes/bouquets espagnols d'Europe (Movistar+, Astra 19.2°E, Hispasat 30°W)
+  if (settings.language === 'es') {
+    const isEuropeSat = ch.satellites?.some(
+      (s) => s.includes('Astra 19.2') || s.includes('Hispasat 30')
+    );
+    const isEuropeBq = ch.bouquets?.some(
+      (b) => b.includes('Movistar') || b.includes('Astra')
+    );
+    const isEuropeCountry =
+      ch.country === 'ES' || (ch.id || '').toLowerCase().endsWith('.es');
+    const isLatam =
+      ch.satellites?.some(
+        (s) =>
+          s.includes('Amazonas') ||
+          s.includes('61°W') ||
+          s.includes('70°W') ||
+          s.includes('43.1°W') ||
+          s.includes('40.5°W')
+      ) ||
+      ch.country === 'LATAM' ||
+      ch.country === 'BR';
+
+    if (isLatam || (!isEuropeSat && !isEuropeBq && !isEuropeCountry)) {
+      return false;
+    }
+  }
+
+  // 2. "Español (Latino)" : Filtre STRICTEMENT les zones/pays pour n'afficher QUE la région Hispanophone d'Amérique Latine (LATAM, AR, MX, CL, CO, PE)
+  if (settings.language === 'es_latam') {
+    const chCountries = extractChannelCountries(ch);
+    const isHispanicLatamCountry =
+      chCountries.includes('LATAM') ||
+      chCountries.includes('AR') ||
+      chCountries.includes('MX') ||
+      chCountries.includes('CL') ||
+      chCountries.includes('CO') ||
+      chCountries.includes('PE') ||
+      ch.country === 'LATAM' ||
+      ch.country === 'AR' ||
+      ch.country === 'MX' ||
+      ch.country === 'CL' ||
+      ch.country === 'CO' ||
+      ch.country === 'PE';
+
+    // Rejeter strictement les chaînes brésiliennes pures (en portugais)
+    if (
+      (chCountries.includes('BR') || ch.country === 'BR') &&
+      !isHispanicLatamCountry
+    ) {
+      return false;
+    }
+
+    // Rejeter formellement les pays hors-sujet (FR, CM, SA, PT, DE, IT, etc.)
+    if (
+      chCountries.some((c) =>
+        [
+          'FR',
+          'CM',
+          'SA',
+          'PT',
+          'DE',
+          'IT',
+          'PL',
+          'RO',
+          'HU',
+          'RS',
+          'HR',
+          'TR',
+          'AL',
+          'SN',
+          'CI',
+          'ML',
+          'TM',
+          'IR',
+        ].includes(c)
+      ) &&
+      !isHispanicLatamCountry
+    ) {
+      return false;
+    }
+
+    const isLatamSat = ch.satellites?.some(
+      (s) =>
+        s.includes('Amazonas') ||
+        s.includes('61°W') ||
+        s.includes('70°W') ||
+        s.includes('43.1°W') ||
+        s.includes('40.5°W')
+    );
+    const isLatamBq = ch.bouquets?.some(
+      (b) =>
+        b.includes('LATAM') ||
+        b.includes('DirecTV') ||
+        b.includes('Movistar') ||
+        b.includes('Claro TV')
+    );
+
+    if (!isHispanicLatamCountry && !isLatamSat && !isLatamBq) {
+      return false;
+    }
+  }
+
+  // 3. "Português (EU)" : Filtre uniquement les chaînes/bouquets du Portugal (MEO, NOS, Hispasat 30°W)
+  if (settings.language === 'pt') {
+    const isPtSat = ch.satellites?.some((s) => s.includes('30°W'));
+    const isPtBq = ch.bouquets?.some(
+      (b) => b.includes('MEO') || b.includes('NOS') || b.includes('Meo')
+    );
+    const isPtCountry =
+      ch.country === 'PT' || (ch.id || '').toLowerCase().endsWith('.pt');
+    const isBrazil =
+      ch.satellites?.some(
+        (s) => s.includes('70°W') || s.includes('61°W')
+      ) ||
+      ch.bouquets?.some((b) => b.includes('Claro') || b.includes('Sky Brasil')) ||
+      ch.country === 'BR';
+
+    if (isBrazil || (!isPtSat && !isPtBq && !isPtCountry)) {
+      return false;
+    }
+  }
+
+  // 4. "Português (Latino / Brasil)" : Affiche uniquement 🇧🇷 BR (Brésil) et les satellites associés (Star One D2, Amazonas), masque Europe/Afrique
+  if (settings.language === 'pt_br') {
+    const chCountries = extractChannelCountries(ch);
+    const isBr =
+      chCountries.includes('BR') ||
+      ch.country === 'BR' ||
+      (ch.id || '').toLowerCase().endsWith('.br') ||
+      ch.bouquetId === 'starone_70w_claro_br' ||
+      ch.bouquets?.some(
+        (b) =>
+          b.includes('Claro TV Brasil') ||
+          b.includes('Sky Brasil') ||
+          b.includes('Vivo TV') ||
+          b.includes('Claro TV')
+      );
+
+    const isBrSat = ch.satellites?.some(
+      (s) => s.includes('Star One') || s.includes('70°W') || s.includes('61°W')
+    );
+
+    // Rejeter formellement toute chaîne européenne, africaine ou arabe
+    if (
+      chCountries.some((c) =>
+        [
+          'FR',
+          'CM',
+          'SA',
+          'PT',
+          'ES',
+          'DE',
+          'IT',
+          'PL',
+          'RO',
+          'HU',
+          'RS',
+          'HR',
+          'TR',
+          'AL',
+          'SN',
+          'CI',
+          'ML',
+          'TM',
+          'IR',
+        ].includes(c)
+      )
+    ) {
+      return false;
+    }
+
+    if (!isBr || !isBrSat) {
+      return false;
+    }
+  }
+
+  // Filtrage par profil TV ("Espagne" = Espagne & Amérique Latine / LATAM, sans chaînes portugaises MEO/NOS strictement réservées au Portugal)
   if (settings.tvProfile === 'espagne') {
     const chCountries = extractChannelCountries(ch);
-    if (chCountries.includes('PT') && !chCountries.includes('ES')) {
+    if (
+      chCountries.includes('PT') &&
+      !chCountries.includes('ES') &&
+      !chCountries.includes('LATAM') &&
+      !chCountries.includes('BR')
+    ) {
       return false;
     }
   }
@@ -2693,12 +3288,9 @@ export function syncSourcesWithSelectedBouquets(
         selectedBouquets.includes('movistar_es') ||
         selectedBouquets.includes('hispasat_meo_nos');
     }
-    // PT1 fournit MEO & NOS sur Hispasat 30°W (désactivé si le profil est strictement "Espagne")
+    // PT1 fournit MEO & NOS sur Hispasat 30°W
     else if (u.includes('_pt1')) {
-      enabled =
-        tvProfile === 'espagne'
-          ? false
-          : selectedBouquets.includes('hispasat_meo_nos');
+      enabled = selectedBouquets.includes('hispasat_meo_nos');
     }
     // BEIN1 fournit exclusivement Badr / Es'hailSat 26°E
     else if (u.includes('_bein1')) {

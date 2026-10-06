@@ -63,12 +63,24 @@ export const LANGUAGE_OPTIONS: LanguageOption[] = [
   {
     code: 'es',
     flag: '🇪🇸',
-    label: 'Español (ES)',
-    shortLabel: 'ES',
+    label: 'Español (EU)',
+    shortLabel: 'ES (EU)',
     tmdbLocale: 'es-ES',
     intlLocale: 'es-ES',
     wikiLang: 'es',
     itunesCountry: 'es',
+    translateTarget: 'es',
+    dir: 'ltr',
+  },
+  {
+    code: 'es_latam',
+    flag: '🌎',
+    label: 'Español (Latino)',
+    shortLabel: 'ES (Latino)',
+    tmdbLocale: 'es-MX',
+    intlLocale: 'es-419',
+    wikiLang: 'es',
+    itunesCountry: 'mx',
     translateTarget: 'es',
     dir: 'ltr',
   },
@@ -86,9 +98,21 @@ export const LANGUAGE_OPTIONS: LanguageOption[] = [
   },
   {
     code: 'pt',
+    flag: '🇵🇹',
+    label: 'Português (EU)',
+    shortLabel: 'PT (EU)',
+    tmdbLocale: 'pt-PT',
+    intlLocale: 'pt-PT',
+    wikiLang: 'pt',
+    itunesCountry: 'pt',
+    translateTarget: 'pt',
+    dir: 'ltr',
+  },
+  {
+    code: 'pt_br',
     flag: '🇧🇷',
-    label: 'Português (PT-BR)',
-    shortLabel: 'PT-BR',
+    label: 'Português (Latino / Brasil)',
+    shortLabel: 'PT (Brasil)',
     tmdbLocale: 'pt-BR',
     intlLocale: 'pt-BR',
     wikiLang: 'pt',
@@ -1188,9 +1212,19 @@ const TRANSLATIONS: Partial<Record<AppLanguage, Translations>> & {
   },
 };
 
+TRANSLATIONS.es_latam = TRANSLATIONS.es;
+TRANSLATIONS.pt_br = TRANSLATIONS.pt;
+
 export function getTranslations(lang?: AppLanguage): Translations {
   const target = lang || currentActiveLanguage;
-  return TRANSLATIONS[target] || TRANSLATIONS.en || TRANSLATIONS.fr;
+  const fallback =
+    target === 'es_latam' ? 'es' : target === 'pt_br' ? 'pt' : target;
+  return (
+    TRANSLATIONS[target] ||
+    TRANSLATIONS[fallback] ||
+    TRANSLATIONS.en ||
+    TRANSLATIONS.fr
+  );
 }
 
 export type ReminderTranslationKey =
@@ -1237,7 +1271,7 @@ export type ReminderTranslationKey =
 
 const REMINDERS_I18N: Record<
   ReminderTranslationKey,
-  Record<AppLanguage, string>
+  Partial<Record<AppLanguage, string>>
 > = {
   'reminders.tabLabel': {
     fr: 'Mes Rappels',
@@ -1681,7 +1715,7 @@ export type AuthTranslationKey =
   | 'auth.errorGoogleOAuth'
   | 'auth.errorSupabase';
 
-const AUTH_I18N: Record<AuthTranslationKey, Record<AppLanguage, string>> = {
+const AUTH_I18N: Record<AuthTranslationKey, Partial<Record<AppLanguage, string>>> = {
   'auth.guestMode': {
     fr: 'Mode Invité',
     ar: 'وضع الزائر',
@@ -2073,11 +2107,18 @@ export function t(
   params?: Record<string, string | number>
 ): string {
   const targetLang = lang || currentActiveLanguage;
+  const fallbackLang: AppLanguage =
+    targetLang === 'es_latam'
+      ? 'es'
+      : targetLang === 'pt_br'
+      ? 'pt'
+      : targetLang;
 
   if (key === 'reminders.programmed' && params?.count !== undefined) {
     const countNum = Number(params.count) || 0;
     const baseWord =
       REMINDERS_I18N['reminders.programmed'][targetLang] ||
+      REMINDERS_I18N['reminders.programmed'][fallbackLang] ||
       REMINDERS_I18N['reminders.programmed'].fr;
     if (targetLang === 'ar') {
       return `${baseWord} ${countNum}`;
@@ -2085,10 +2126,10 @@ export function t(
     if (targetLang === 'fr') {
       return `${countNum} programmé${countNum > 1 ? 's' : ''}`;
     }
-    if (targetLang === 'es') {
+    if (targetLang === 'es' || targetLang === 'es_latam') {
       return `${countNum} programado${countNum > 1 ? 's' : ''}`;
     }
-    if (targetLang === 'pt') {
+    if (targetLang === 'pt' || targetLang === 'pt_br') {
       return `${countNum} agendado${countNum > 1 ? 's' : ''}`;
     }
     if (targetLang === 'it') {
@@ -2099,11 +2140,13 @@ export function t(
 
   const authEntry =
     AUTH_I18N[key as AuthTranslationKey]?.[targetLang] ||
+    AUTH_I18N[key as AuthTranslationKey]?.[fallbackLang] ||
     AUTH_I18N[key as AuthTranslationKey]?.en ||
     AUTH_I18N[key as AuthTranslationKey]?.fr;
 
   const reminderEntry =
     REMINDERS_I18N[key as ReminderTranslationKey]?.[targetLang] ||
+    REMINDERS_I18N[key as ReminderTranslationKey]?.[fallbackLang] ||
     REMINDERS_I18N[key as ReminderTranslationKey]?.en ||
     REMINDERS_I18N[key as ReminderTranslationKey]?.fr;
 
@@ -2411,7 +2454,7 @@ export function cleanBouquetName(
   // 4. Suppression des préfixes satellites connus en début de chaîne (FR / EN / ES / AR...)
   cleaned = cleaned
     .replace(
-      /^(?:Astra(?:\s+19\.2°E)?|Hotbird(?:\s+13°E)?|Nilesat(?:\s+7°W)?|Badr(?:\s*\/\s*Es'hailSat)?(?:\s+26°E)?|Hispasat(?:\s+30°W)?|Eutelsat(?:\s+5°W|\s+16°E|\s+7°E)?|Türksat(?:\s+42°E)?|Turksat(?:\s+42°E)?|Thor(?:\s+0\.8°W)?|Intelsat(?:\s+10-02|\s+43\.1°W)?|TurkmenÄlem(?:\s+52°E)?|MonacoSat(?:\s+52°E)?|Star\s+One(?:\s+D2)?(?:\s+70°W)?|Amazonas(?:\s+61°W)?|SES-6(?:\s+40\.5°W)?)\s+/i,
+      /^(?:Astra(?:\s+19\.2°E|\s+23\.5°E)?|Hotbird(?:\s+13°E)?|Nilesat(?:\s+7°W)?|Badr(?:\s*\/\s*Es'hailSat)?(?:\s+26°E)?|Hispasat(?:\s+30°W)?|Eutelsat(?:\s+5°W|\s+16°E|\s+7°E)?|Türksat(?:\s+42°E)?|Turksat(?:\s+42°E)?|Thor(?:\s+0\.8°W)?|Intelsat(?:\s+10-02|\s+43\.1°W)?|TurkmenÄlem(?:\s+52°E)?|MonacoSat(?:\s+52°E)?|Star\s+One(?:\s+D2)?(?:\s+70°W)?|Amazonas(?:\s+61°W)?|SES-6(?:\s+40\.5°W)?)\s+/i,
       ''
     )
     .replace(
@@ -2423,7 +2466,7 @@ export function cleanBouquetName(
   // 5. Suppression des mentions satellites redondantes entre parenthèses en fin de libellé
   cleaned = cleaned
     .replace(
-      /\s*\((?:Hotbird(?:\s*13°E)?|Astra(?:\s*19\.2°E)?|Nilesat(?:\s*7°W)?|Badr(?:\s*26°E)?|Hispasat(?:\s*30°W)?|30°W|19\.2°E|13°E|7°W|26°E|16°E|42°E|52°E|0\.8°W|أسترا\s*19\.2°E|هوت\s*بيرد\s*13°E)\)\s*$/i,
+      /\s*\((?:Hotbird(?:\s*13°E)?|Astra(?:\s*19\.2°E|\s*23\.5°E)?|Nilesat(?:\s*7°W)?|Badr(?:\s*26°E)?|Hispasat(?:\s*30°W)?|30°W|19\.2°E|23\.5°E|13°E|7°W|26°E|16°E|42°E|52°E|0\.8°W|أسترا\s*19\.2°E|هوت\s*بيرد\s*13°E)\)\s*$/i,
       ''
     )
     .replace(/\s+30°W$/i, '')
@@ -2462,12 +2505,52 @@ const COUNTRY_FILTER_LABELS: Record<
       pt: 'Todos',
     },
     AR: {
-      fr: 'Nilesat 7°W & Badr 26°E',
-      en: 'Nilesat 7°W & Badr 26°E',
-      ar: 'نايل سات 7°W وبدر 26°E',
-      es: 'Nilesat 7°W y Badr 26°E',
-      de: 'Nilesat 7°W & Badr 26°E',
-      pt: 'Nilesat 7°W e Badr 26°E',
+      fr: '🇦🇷 Argentine',
+      en: '🇦🇷 Argentina',
+      ar: '🇦🇷 الأرجنتين',
+      es: '🇦🇷 Argentina',
+      de: '🇦🇷 Argentinien',
+      pt: '🇦🇷 Argentina',
+    },
+    SA: {
+      fr: '🇸🇦 Monde Arabe · Nilesat & Badr',
+      en: '🇸🇦 Arab World · Nilesat & Badr',
+      ar: '🇸🇦 نايل سات 7°W وبدر 26°E',
+      es: '🇸🇦 Mundo Árabe · Nilesat y Badr',
+      de: '🇸🇦 Arabische Welt · Nilesat & Badr',
+      pt: '🇸🇦 Mundo Árabe · Nilesat e Badr',
+    },
+    MX: {
+      fr: '🇲🇽 Mexique',
+      en: '🇲🇽 Mexico',
+      ar: '🇲🇽 المكسيك',
+      es: '🇲🇽 México',
+      de: '🇲🇽 Mexiko',
+      pt: '🇲🇽 México',
+    },
+    CL: {
+      fr: '🇨🇱 Chili',
+      en: '🇨🇱 Chile',
+      ar: '🇨🇱 تشيلي',
+      es: '🇨🇱 Chile',
+      de: '🇨🇱 Chile',
+      pt: '🇨🇱 Chile',
+    },
+    CO: {
+      fr: '🇨🇴 Colombie',
+      en: '🇨🇴 Colombia',
+      ar: '🇨🇴 كولومبيا',
+      es: '🇨🇴 Colombia',
+      de: '🇨🇴 Kolumbien',
+      pt: '🇨🇴 Colômbia',
+    },
+    PE: {
+      fr: '🇵🇪 Pérou',
+      en: '🇵🇪 Peru',
+      ar: '🇵🇪 بيرو',
+      es: '🇵🇪 Perú',
+      de: '🇵🇪 Peru',
+      pt: '🇵🇪 Peru',
     },
     FR: {
       fr: 'FR · Astra Canal+',
@@ -2484,6 +2567,14 @@ const COUNTRY_FILTER_LABELS: Record<
       es: 'ES · Movistar+ / MEO / NOS',
       de: 'ES · Movistar+ / MEO / NOS',
       pt: 'ES · Movistar+ / MEO / NOS',
+    },
+    PT: {
+      fr: 'PT · Hispasat MEO / NOS',
+      en: 'PT · Hispasat MEO / NOS',
+      ar: 'البرتغال · MEO / NOS',
+      es: 'PT · Hispasat MEO / NOS',
+      de: 'PT · Hispasat MEO / NOS',
+      pt: 'PT · Hispasat MEO / NOS',
     },
     DE: {
       fr: 'DE · Sky DE / DAZN',
@@ -2571,7 +2662,12 @@ export const CHANNEL_COUNTRY_FLAGS: Record<ChannelCountryFilter, string> = {
   HR: '🇭🇷',
   TM: '🇹🇲',
   IR: '🇮🇷',
-  AR: '🇸🇦',
+  SA: '🇸🇦',
+  AR: '🇦🇷',
+  MX: '🇲🇽',
+  CL: '🇨🇱',
+  CO: '🇨🇴',
+  PE: '🇵🇪',
   BR: '🇧🇷',
   LATAM: '🌎',
 };
@@ -2733,12 +2829,52 @@ const CHANNEL_COUNTRY_LABELS: Record<
     pt: 'Irã / Persa',
   },
   AR: {
-    fr: 'Monde Arabe',
-    en: 'Arab World',
-    ar: 'العالم العربي',
-    es: 'Mundo Árabe',
-    de: 'Arabische Welt',
-    pt: 'Mundo Árabe',
+    fr: 'Argentine',
+    en: 'Argentina',
+    ar: 'الأرجنتين',
+    es: 'Argentina',
+    de: 'Argentinien',
+    pt: 'Argentina',
+  },
+  SA: {
+    fr: 'Arabie Saoudite / Monde Arabe',
+    en: 'Saudi Arabia / Arab World',
+    ar: 'المملكة العربية السعودية / العالم العربي',
+    es: 'Arabia Saudita / Mundo Árabe',
+    de: 'Saudi-Arabien / Arabische Welt',
+    pt: 'Arábia Saudita / Mundo Árabe',
+  },
+  MX: {
+    fr: 'Mexique',
+    en: 'Mexico',
+    ar: 'المكسيك',
+    es: 'México',
+    de: 'Mexiko',
+    pt: 'México',
+  },
+  CL: {
+    fr: 'Chili',
+    en: 'Chile',
+    ar: 'تشيلي',
+    es: 'Chile',
+    de: 'Chile',
+    pt: 'Chile',
+  },
+  CO: {
+    fr: 'Colombie',
+    en: 'Colombia',
+    ar: 'كولومبيا',
+    es: 'Colombia',
+    de: 'Kolumbien',
+    pt: 'Colômbia',
+  },
+  PE: {
+    fr: 'Pérou',
+    en: 'Peru',
+    ar: 'بيرو',
+    es: 'Perú',
+    de: 'Peru',
+    pt: 'Peru',
   },
   BR: {
     fr: 'Brésil',
