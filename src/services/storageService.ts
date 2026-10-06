@@ -1512,6 +1512,17 @@ export const TV_PROFILES_CATALOG: TvProfileSpec[] = [
     ],
   },
   {
+    id: 'pays_bas_benelux',
+    flag: '🇳🇱/🇧🇪',
+    label: 'Pays-Bas & Benelux (Astra 23.5°E)',
+    shortLabel: 'Pays-Bas / Benelux',
+    satellitesSummary: 'Astra 23.5°E (Canal Digitaal, TV Vlaanderen & Skylink)',
+    satellitesList: ['Astra 23.5°E'],
+    description:
+      'Charge par défaut le satellite Astra 23.5°E avec Canal Digitaal (Pays-Bas / TV Vlaanderen) et Skylink.',
+    bouquets: ['astra_235e_canaldigitaal', 'astra_235e_skylink'],
+  },
+  {
     id: 'all_satellites',
     flag: '🛰️',
     label: 'Tous les satellites',
@@ -1608,6 +1619,11 @@ export function getDynamicProfileForLanguage(lang: AppLanguage): {
       return {
         tvProfile: 'custom',
         selectedBouquets: ['trt_network'],
+      };
+    case 'nl':
+      return {
+        tvProfile: 'pays_bas_benelux',
+        selectedBouquets: ['astra_235e_canaldigitaal', 'astra_235e_skylink'],
       };
     case 'en':
     default:
@@ -2517,6 +2533,9 @@ export function isSatelliteFilterAllowedBySettings(
   if (language === 'pt') {
     return sat === 'Hispasat 30°W';
   }
+  if (language === 'nl') {
+    return sat === 'Astra 23.5°E';
+  }
 
   const active =
     selectedBouquets && selectedBouquets.length > 0
@@ -2634,6 +2653,11 @@ export function isCountryFilterAllowedBySettings(
   // Filtrage STRICT lorsque "Português (EU)" est sélectionné :
   if (language === 'pt') {
     return c === 'PT';
+  }
+
+  // Filtrage STRICT lorsque "Nederlands (NL)" est sélectionné :
+  if (language === 'nl') {
+    return c === 'EU';
   }
 
   const active =
@@ -3110,6 +3134,25 @@ export function isChannelAllowedBySettings(
   // Filtrage strict par profil TV ("Italie" = Tivùsat & Sky Italia uniquement)
   if (settings.tvProfile === 'italie') {
     if (chBouquetId !== 'sky_it' && ch.country !== 'IT') {
+      return false;
+    }
+  }
+
+  // Filtrage strict par profil TV ("Pays-Bas & Benelux" = Astra 23.5°E uniquement)
+  if (settings.tvProfile === 'pays_bas_benelux' || settings.language === 'nl') {
+    const isAstra235 =
+      ch.satellites?.some((s) => s.includes('23.5')) ||
+      Boolean(ch.orbitalPosition?.includes('23.5')) ||
+      ch.bouquetId === 'astra_235e_canaldigitaal' ||
+      ch.bouquetId === 'astra_235e_skylink' ||
+      ch.bouquets?.some(
+        (b) =>
+          b.includes('Canal Digitaal') ||
+          b.includes('Vlaanderen') ||
+          b.includes('Skylink') ||
+          b.includes('M7 Group')
+      );
+    if (!isAstra235) {
       return false;
     }
   }

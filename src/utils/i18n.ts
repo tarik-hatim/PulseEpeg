@@ -144,6 +144,18 @@ export const LANGUAGE_OPTIONS: LanguageOption[] = [
     translateTarget: 'tr',
     dir: 'ltr',
   },
+  {
+    code: 'nl',
+    flag: '🇳🇱',
+    label: 'Nederlands (NL)',
+    shortLabel: 'NL',
+    tmdbLocale: 'nl-NL',
+    intlLocale: 'nl-NL',
+    wikiLang: 'nl',
+    itunesCountry: 'nl',
+    translateTarget: 'nl',
+    dir: 'ltr',
+  },
 ];
 
 export const SUPPORTED_LANGUAGES = LANGUAGE_OPTIONS;
@@ -1210,6 +1222,149 @@ const TRANSLATIONS: Partial<Record<AppLanguage, Translations>> & {
     understood: 'Entendi',
     savedRemindersTitle: 'Lembretes de programas salvos',
   },
+  nl: {
+    appSubtitle:
+      'Wereldwijde TV-gids · Satellieten · Films/Series & Live Sport',
+    liveTab: 'Live',
+    gridTab: 'TV-Gids',
+    favoritesTab: 'Favorieten',
+    sourcesTab: 'Bronnen & APK',
+    refreshBtn: 'EPG Vernieuwen',
+    refreshingBtn: 'Sync...',
+    settingsTitle: 'Instellingen & Satellieten',
+    installApp: 'App Installeren',
+    pwaActive: 'App-modus actief',
+    searchPlaceholder: 'Zoeken (bijv. NPO, RTL, ESPN...)',
+    presetMinus1h: '-1u',
+    presetNow: 'Nu',
+    presetPrime: 'Primetime 20:30',
+    presetPlus1h: '+1u',
+    filterCatLabel: 'Categorie :',
+    filterSatLabel: 'Sat :',
+    filterBouquetLabel: 'Boeket :',
+    filterZoneLabel: 'Regio :',
+    filterCountryLabel: 'Land :',
+    filterGenreLabel: 'Genre :',
+    resetFiltersBtn: 'Filters resetten',
+    channelsDisplayed: 'zenders weergegeven van',
+    activeProgrammes: 'actieve programma’s',
+    noChannelsFoundTitle: 'Geen zenders gevonden voor uw filters',
+    noChannelsFoundDesc:
+      'Probeer « Alle » te selecteren in de satellietbalk of controleer uw boeketten in Instellingen.',
+    showAllSatellitesBtn: 'Toon alle satellieten',
+    loadMoreChannels: 'Meer zenders laden',
+    remainingLabel: 'resterend',
+    liveBadge: 'Live',
+    slotBadge: 'Tijdslot',
+    upNext: 'Hierna',
+    unspecified: 'Niet opgegeven',
+    noProgramCommunicated: 'Geen programma-informatie voor dit tijdslot',
+    addToFavorites: 'Aan favorieten toevoegen',
+    removeFromFavorites: 'Uit favorieten verwijderen',
+    favLabel: 'Favoriet',
+    close: 'Sluiten',
+    ended: 'Afgelopen',
+    remainingPrefix: 'nog',
+    minUnit: 'min',
+    badgeOriginalAudio: 'Originele Audio',
+    badgeSubtitles: 'Ondertiteling',
+    badgeAudioStadium: 'Stadioneffect',
+    badgeFootballLive: 'Live Voetbal',
+    badgeVoEnglish: 'Engelse Audio',
+    badgeSubDvb: 'DVB Ondertitels',
+    modalOriginalTitle: 'Oorspronkelijke titel :',
+    modalReleaseDate: 'Jaar van uitgave :',
+    modalGenre: 'Genre :',
+    modalOrigin: 'Land van herkomst :',
+    modalNotProvided: 'Niet opgegeven',
+    modalInternationalProd: 'Internationale productie',
+    modalSummary: 'Samenvatting',
+    modalVerifiedSummary: 'Geverifieerde samenvatting (TMDB)',
+    modalNoDescription: 'Geen beschrijving verstrekt door de zender.',
+    modalDirectedBy: 'Regie :',
+    modalCast: 'Cast :',
+    officialSheet: 'Officiële fiche',
+    hdPoster: 'HD Poster',
+    syncingTmdb: 'TMDB metadata laden...',
+    liveBroadcast: 'Live Uitzending',
+    reminderActive: 'Herinnering actief',
+    reminderBtn: 'Herinner mij',
+    cancelReminder: 'Herinnering annuleren',
+    remindProgram: 'Herinner mij aan dit programma',
+    startedAt: 'Begonnen om',
+    endsAt: 'Eindigt om',
+    yesterday: 'Gisteren',
+    today: 'Vandaag',
+    tomorrow: 'Morgen',
+    allDay: 'Hele dag',
+    morning: 'Ochtend',
+    afternoon: 'Middag',
+    eveningPrime: 'Avond Primetime',
+    noProgramForSlot: 'Geen programma voor dit tijdvak',
+    selectAnotherDayOrRefresh: 'Kies een andere dag of vernieuw de EPG.',
+    emissionsAvailable: 'uitzendingen beschikbaar',
+    voPrefix: 'Originele Versie',
+    activeChannelsOnGrid: 'zenders in de gids',
+    gridChannelHeader: 'Zender',
+    gridVoSubHeader: 'Origineel / Ondertitels',
+    workerTitle: 'Multi-stream XMLTV Parser',
+    workerStreams: 'Actieve streams',
+    workerChannelsCount: 'Verwerkte zenders',
+    workerProgrammesCount: 'Gelezen programma’s',
+    settingsModalTitle: 'Instellingen & Satellieten',
+    settingsModalSubtitle:
+      'Configureer uw satellietposities, boeketten en voorkeuren',
+    tabBouquetsFilters: 'Satellieten & Boeketten',
+    tabXmltvCache: 'Cache & Bronnen',
+    tabLegalPlayStore: 'Wettelijk & Info',
+    languageSectionTitle: 'Taal van de interface',
+    languageSectionDesc:
+      'Selecteer uw voorkeurstaal voor de interface en metadata.',
+    bouquetsSectionTitle: 'Satellietboeketten',
+    bouquetsSectionDesc:
+      'Kies de gewenste satellieten en boeketten voor de zenderlijst.',
+    enableAllBouquets: 'Alle boeketten inschakelen',
+    thematicCategoriesTitle: 'Thematische categorieën',
+    thematicCategoriesDesc: 'Filter zenders op basis van hun hoofdgenre.',
+    audioSubtitlesTitle: 'Audio & Ondertiteling',
+    excludePolishLektorTitle: 'Poolse Lektor uitsluiten',
+    excludePolishLektorDesc: 'Verberg audiotracks met Poolse voice-over.',
+    requireSubtitlesTitle: 'Ondertiteling vereisen',
+    requireSubtitlesDesc:
+      'Toon bij voorkeur zenders met beschikbare ondertiteling.',
+    cacheIndexedDbTitle: 'Lokale IndexedDB Cache',
+    noCacheStored: 'Geen gegevens in cache.',
+    autoRefresh12h: 'Automatisch verversen elke 12 uur',
+    clearCacheBtn: 'Cache wissen',
+    xmltvSourcesActiveTitle: 'Actieve XMLTV bronnen',
+    restoreDefaultCatalog: 'Standaard catalogus herstellen',
+    addCustomXmltvTitle: 'Aangepaste XMLTV-bron toevoegen',
+    sourceNamePlaceholder: 'Naam van de bron...',
+    addSourceBtn: 'Bron toevoegen',
+    cancelBtn: 'Annuleren',
+    saveBtn: 'Opslaan',
+    saveAndApplyBtn: 'Opslaan en Toepassen',
+    updatedAtLabel: 'Bijgewerkt op',
+    channelsCountLabel: 'Zenders :',
+    programmesCountLabel: 'Programma’s :',
+    legalTmdbTitle: 'The Movie Database (TMDB)',
+    legalTmdbNotice:
+      'Dit product gebruikt de TMDB API, maar is niet goedgekeurd of gecertificeerd door TMDB.',
+    legalNonStreamingTitle: 'Geen streaming',
+    legalNonStreamingClause:
+      'PulseEPG biedt uitsluitend programmagidsgegevens en zendt geen videostreams uit.',
+    legalPrivacyTitle: 'Privacybeleid',
+    legalPrivacyDesc:
+      'Uw instellingen, favorieten en herinneringen worden uitsluitend lokaal op uw apparaat bewaard.',
+    pwaModalTitle: 'Installeer PulseEPG',
+    pwaModalDesc:
+      'Installeer de app op uw startscherm voor snellere toegang en offline ondersteuning.',
+    pwaAndroidStep: 'Open het menu ⋮ en tik op "App installeren".',
+    pwaIosStep: 'Tik op het Deel-icoon en kies "Zet op beginscherm".',
+    pwaPcStep: 'Klik op het installatie-icoon in de adresbalk.',
+    understood: 'Begrepen',
+    savedRemindersTitle: 'Opgeslagen programma-herinneringen',
+  },
 };
 
 TRANSLATIONS.es_latam = TRANSLATIONS.es;
@@ -2135,6 +2290,9 @@ export function t(
     if (targetLang === 'it') {
       return `${countNum} programmat${countNum > 1 ? 'i' : 'o'}`;
     }
+    if (targetLang === 'nl') {
+      return `${countNum} gepland${countNum > 1 ? 'e' : ''}`;
+    }
     return `${countNum} ${baseWord}`;
   }
 
@@ -2176,6 +2334,7 @@ const CATEGORY_FILTER_LABELS: Record<
     es: 'Todos',
     de: 'Alle',
     pt: 'Todos',
+    nl: 'Alle',
   },
   'Films & Séries': {
     fr: 'Films & Séries',
@@ -2184,6 +2343,7 @@ const CATEGORY_FILTER_LABELS: Record<
     es: 'Cine y Series',
     de: 'Filme & Serien',
     pt: 'Filmes e Séries',
+    nl: 'Films & Series',
   },
   'Sport / Football': {
     fr: 'Sport / Football',
@@ -2192,6 +2352,7 @@ const CATEGORY_FILTER_LABELS: Record<
     es: 'Deportes / Fútbol',
     de: 'Sport / Fußball',
     pt: 'Esportes / Futebol',
+    nl: 'Sport / Voetbal',
   },
   Documentaires: {
     fr: 'Documentaires & Culture',
@@ -2200,6 +2361,7 @@ const CATEGORY_FILTER_LABELS: Record<
     es: 'Documentales y Cultura',
     de: 'Dokus & Kultur',
     pt: 'Documentários e Cultura',
+    nl: 'Documentaires & Cultuur',
   },
   'Actualités / News': {
     fr: 'Actualités / News',
@@ -2208,6 +2370,7 @@ const CATEGORY_FILTER_LABELS: Record<
     es: 'Noticias y Actualidad',
     de: 'Nachrichten / News',
     pt: 'Notícias e Jornalismo',
+    nl: 'Nieuws & Actualiteiten',
   },
   'Jeunesse / Enfants': {
     fr: 'Jeunesse / Enfants',
@@ -2216,6 +2379,7 @@ const CATEGORY_FILTER_LABELS: Record<
     es: 'Infantil y Animación',
     de: 'Kinder & Jugend',
     pt: 'Infantil e Desenhos',
+    nl: 'Kinderen & Jeugd',
   },
   'Musique & Divertissement': {
     fr: 'Musique & Divertissement',
@@ -2224,6 +2388,7 @@ const CATEGORY_FILTER_LABELS: Record<
     es: 'Música y Entretenimiento',
     de: 'Musik & Unterhaltung',
     pt: 'Música e Entretenimento',
+    nl: 'Muziek & Amusement',
   },
 };
 
@@ -2232,7 +2397,14 @@ export function translateCategoryFilter(
   lang?: AppLanguage
 ): string {
   const l = lang || currentActiveLanguage;
-  return CATEGORY_FILTER_LABELS[cat]?.[l] || cat;
+  const lookupLang = l === 'es_latam' ? 'es' : l === 'pt_br' ? 'pt' : l;
+  return (
+    CATEGORY_FILTER_LABELS[cat]?.[lookupLang] ||
+    CATEGORY_FILTER_LABELS[cat]?.[l] ||
+    CATEGORY_FILTER_LABELS[cat]?.en ||
+    CATEGORY_FILTER_LABELS[cat]?.fr ||
+    cat
+  );
 }
 
 export const translateCategoryLabel = translateCategoryFilter;
@@ -2248,6 +2420,7 @@ const SUB_GENRE_LABELS: Record<
     es: 'Todos los géneros',
     de: 'Alle Genres',
     pt: 'Todos os gêneros',
+    nl: 'Alle genres',
   },
   Toutes: {
     fr: 'Tous les genres',
@@ -2256,6 +2429,7 @@ const SUB_GENRE_LABELS: Record<
     es: 'Todos los géneros',
     de: 'Alle Genres',
     pt: 'Todos os gêneros',
+    nl: 'Alle genres',
   },
   'Sport / Football': {
     fr: 'Sport / Football',
@@ -2264,6 +2438,7 @@ const SUB_GENRE_LABELS: Record<
     es: 'Deportes / Fútbol',
     de: 'Sport / Fußball',
     pt: 'Esportes / Futebol',
+    nl: 'Sport / Voetbal',
   },
   Documentaires: {
     fr: 'Documentaires & Culture',
@@ -2272,6 +2447,7 @@ const SUB_GENRE_LABELS: Record<
     es: 'Documentales y Cultura',
     de: 'Dokus & Kultur',
     pt: 'Documentários e Cultura',
+    nl: 'Documentaires & Cultuur',
   },
   'Actualités / News': {
     fr: 'Actualités / News',
@@ -2280,6 +2456,7 @@ const SUB_GENRE_LABELS: Record<
     es: 'Noticias y Actualidad',
     de: 'Nachrichten / News',
     pt: 'Notícias e Jornalismo',
+    nl: 'Nieuws & Actualiteiten',
   },
   'Jeunesse / Enfants': {
     fr: 'Jeunesse / Enfants',
@@ -2288,6 +2465,7 @@ const SUB_GENRE_LABELS: Record<
     es: 'Infantil y Animación',
     de: 'Kinder & Jugend',
     pt: 'Infantil e Desenhos',
+    nl: 'Kinderen & Jeugd',
   },
   'Musique & Divertissement': {
     fr: 'Musique & Divertissement',
@@ -2296,6 +2474,7 @@ const SUB_GENRE_LABELS: Record<
     es: 'Música y Entretenimiento',
     de: 'Musik & Unterhaltung',
     pt: 'Música e Entretenimento',
+    nl: 'Muziek & Amusement',
   },
   'Cinéma Premières': {
     fr: 'Cinéma Premières',
@@ -2304,6 +2483,7 @@ const SUB_GENRE_LABELS: Record<
     es: 'Cine Estrenos',
     de: 'Kino-Premieren',
     pt: 'Cinema Estreias',
+    nl: 'Film Premières',
   },
   'Séries TV & US': {
     fr: 'Séries TV & US',
@@ -2312,6 +2492,7 @@ const SUB_GENRE_LABELS: Record<
     es: 'Series TV y EE.UU.',
     de: 'TV- & US-Serien',
     pt: 'Séries TV e EUA',
+    nl: 'TV-series & VS',
   },
   'Action & Thriller': {
     fr: 'Action & Thriller',
@@ -2320,6 +2501,7 @@ const SUB_GENRE_LABELS: Record<
     es: 'Acción y Thriller',
     de: 'Action & Thriller',
     pt: 'Ação e Suspense',
+    nl: 'Actie & Thriller',
   },
   'Comédie & Famille': {
     fr: 'Comédie & Famille',
@@ -2328,6 +2510,7 @@ const SUB_GENRE_LABELS: Record<
     es: 'Comedia y Familia',
     de: 'Komödie & Familie',
     pt: 'Comédia e Família',
+    nl: 'Komedie & Familie',
   },
   'Classiques & Culte': {
     fr: 'Classiques & Culte',
@@ -2336,6 +2519,7 @@ const SUB_GENRE_LABELS: Record<
     es: 'Clásicos y Culto',
     de: 'Klassiker & Kult',
     pt: 'Clássicos e Cult',
+    nl: 'Klassiekers & Cult',
   },
 };
 
@@ -2344,7 +2528,14 @@ export function translateSubGenreGroup(
   lang?: AppLanguage
 ): string {
   const l = lang || currentActiveLanguage;
-  return SUB_GENRE_LABELS[grp]?.[l] || grp;
+  const lookupLang = l === 'es_latam' ? 'es' : l === 'pt_br' ? 'pt' : l;
+  return (
+    SUB_GENRE_LABELS[grp]?.[lookupLang] ||
+    SUB_GENRE_LABELS[grp]?.[l] ||
+    SUB_GENRE_LABELS[grp]?.en ||
+    SUB_GENRE_LABELS[grp]?.fr ||
+    grp
+  );
 }
 
 export const translateGroupLabel = translateSubGenreGroup;
@@ -2639,7 +2830,14 @@ export function translateCountryFilter(
   lang?: AppLanguage
 ): string {
   const l = lang || currentActiveLanguage;
-  return COUNTRY_FILTER_LABELS[c]?.[l] || c;
+  const lookupLang = l === 'es_latam' ? 'es' : l === 'pt_br' ? 'pt' : l;
+  return (
+    COUNTRY_FILTER_LABELS[c]?.[lookupLang] ||
+    COUNTRY_FILTER_LABELS[c]?.[l] ||
+    COUNTRY_FILTER_LABELS[c]?.en ||
+    COUNTRY_FILTER_LABELS[c]?.fr ||
+    c
+  );
 }
 
 export const CHANNEL_COUNTRY_FLAGS: Record<ChannelCountryFilter, string> = {
@@ -2903,7 +3101,14 @@ export function translateChannelCountryFilter(
   lang?: AppLanguage
 ): string {
   const l = lang || currentActiveLanguage;
-  return CHANNEL_COUNTRY_LABELS[c]?.[l] || c;
+  const lookupLang = l === 'es_latam' ? 'es' : l === 'pt_br' ? 'pt' : l;
+  return (
+    CHANNEL_COUNTRY_LABELS[c]?.[lookupLang] ||
+    CHANNEL_COUNTRY_LABELS[c]?.[l] ||
+    CHANNEL_COUNTRY_LABELS[c]?.en ||
+    CHANNEL_COUNTRY_LABELS[c]?.fr ||
+    c
+  );
 }
 
 export function translateCountryFilterLabel(

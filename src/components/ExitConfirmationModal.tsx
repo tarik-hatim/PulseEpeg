@@ -53,6 +53,8 @@ export const ExitConfirmationModal: React.FC<ExitConfirmationModalProps> = ({
       ? 'Warten Sie! Gehen Sie noch nicht!'
       : lang === 'it'
       ? 'Aspetta! Non andartene ancora!'
+      : lang === 'nl'
+      ? 'Wacht even! Ga nog niet weg!'
       : "Wait! Don't leave yet!";
 
   const subtitle =
@@ -68,6 +70,8 @@ export const ExitConfirmationModal: React.FC<ExitConfirmationModalProps> = ({
       ? 'Gefällt Ihnen PulseEPG? Bleiben Sie, um weitere Sendungen zu entdecken!'
       : lang === 'it'
       ? 'Ti piace PulseEPG? Resta per scoprire la continuazione dei tuoi programmi!'
+      : lang === 'nl'
+      ? 'Geniet u van PulseEPG? Blijf kijken om meer programma’s te ontdekken!'
       : 'Enjoying PulseEPG? Stay to explore the rest of your favorite shows!';
 
   const stayButtonLabel =
@@ -83,6 +87,8 @@ export const ExitConfirmationModal: React.FC<ExitConfirmationModalProps> = ({
       ? 'Weiter ansehen'
       : lang === 'it'
       ? 'Continua a guardare'
+      : lang === 'nl'
+      ? 'Verder kijken'
       : 'Keep watching';
 
   const exitButtonLabel =
@@ -98,6 +104,8 @@ export const ExitConfirmationModal: React.FC<ExitConfirmationModalProps> = ({
       ? 'Trotzdem beenden'
       : lang === 'it'
       ? 'Esci comunque'
+      : lang === 'nl'
+      ? 'Toch afsluiten'
       : 'Exit anyway';
 
   return (

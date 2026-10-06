@@ -8,7 +8,8 @@ export type AppLanguage =
   | 'pt'
   | 'pt_br'
   | 'it'
-  | 'tr';
+  | 'tr'
+  | 'nl';
 
 export type TvProfileId =
   | 'france_europe_fr'
@@ -18,6 +19,7 @@ export type TvProfileId =
   | 'portugal_brasil'
   | 'italie'
   | 'amerique_sud_latam'
+  | 'pays_bas_benelux'
   | 'europe_standard'
   | 'all_satellites'
   | 'custom';

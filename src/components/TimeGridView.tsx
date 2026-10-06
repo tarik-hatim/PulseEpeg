@@ -1554,7 +1554,7 @@ const TimeGridViewInner: React.FC<TimeGridViewProps> = ({
 
         <div
           data-tv-row="grid-7day-bar"
-          className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1"
+          className="flex flex-row overflow-x-auto whitespace-nowrap gap-2 py-1 no-scrollbar items-center"
         >
           {sevenDayBarItems.map((item) => (
             <button

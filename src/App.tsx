@@ -2369,6 +2369,12 @@ export function App() {
       ) {
         counts['TurkmenÄlem 52°E'] = (counts['TurkmenÄlem 52°E'] || 0) + 1;
       }
+      if (
+        !uniqueSats.has('Astra 23.5°E') &&
+        rawMatchesSatellite(ch, 'Astra 23.5°E')
+      ) {
+        counts['Astra 23.5°E'] = (counts['Astra 23.5°E'] || 0) + 1;
+      }
     }
     return counts;
   }, [
@@ -6106,17 +6112,17 @@ export function App() {
           {/* 3. Droite : Sélecteur de Langue (Drapeaux) + Profil TV + Actions Rafraîchir & Réglages */}
           <div
             data-tv-row="header-top"
-            className="flex items-center justify-end gap-2 sm:gap-3 shrink-0 order-2 lg:order-3"
+            className="flex items-center justify-end gap-1.5 sm:gap-2.5 shrink-0 order-2 lg:order-3"
           >
             <div className="relative flex items-center shrink-0">
-              <Languages className="w-3.5 h-3.5 text-[#60a5fa] absolute start-2.5 pointer-events-none" />
+              <Languages className="w-3.5 h-3.5 text-[#60a5fa] absolute start-2 pointer-events-none" />
               <select
                 value={activeLang}
                 onChange={(e) =>
                   handleChangeLanguage(e.target.value as AppLanguage)
                 }
                 aria-label={tr.languageSectionTitle}
-                className="ps-7 pe-5 py-1.5 rounded-lg bg-[#141a26] hover:bg-[#1a202c] text-xs font-medium text-[#ffffff] border border-[#0055ff]/60 focus:outline-none focus:border-[#e11d48] transition-colors cursor-pointer"
+                className="ps-6 pe-3 py-1 sm:ps-7 sm:pe-5 sm:py-1.5 rounded-lg bg-[#141a26] hover:bg-[#1a202c] text-xs font-medium text-[#ffffff] border border-[#0055ff]/60 focus:outline-none focus:border-[#e11d48] transition-colors cursor-pointer max-w-[110px] sm:max-w-none"
               >
                 {LANGUAGE_OPTIONS.map((opt) => (
                   <option
@@ -6177,7 +6183,7 @@ export function App() {
                   ? "Se connecter / S'inscrire (Optionnel)"
                   : 'Sign In / Sign Up (Optional)'
               }
-              className={`tv-dpad-btn inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer shrink-0 ${
+              className={`tv-dpad-btn inline-flex items-center gap-1 sm:gap-1.5 p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer shrink-0 ${
                 authState.isLoggedIn
                   ? authState.isPremium
                     ? 'bg-gradient-to-r from-[#f59e0b]/20 to-[#ec4899]/25 text-[#ffffff] border border-[#f59e0b]/80'
@@ -6192,11 +6198,11 @@ export function App() {
                   ) : (
                     <User className="w-3.5 h-3.5 text-[#38bdf8] shrink-0" />
                   )}
-                  <span className="truncate max-w-[96px] font-bold text-[#ffffff]">
+                  <span className="hidden sm:inline truncate max-w-[80px] font-bold text-[#ffffff]">
                     {authState.user.displayName}
                   </span>
                   <span
-                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold shrink-0 ${
+                    className={`hidden sm:inline px-1.5 py-0.2 rounded-full text-[10px] font-extrabold shrink-0 ${
                       authState.isPremium
                         ? 'bg-gradient-to-r from-[#f59e0b] to-[#ec4899] text-[#ffffff]'
                         : 'bg-[#1d4ed8]/30 text-[#38bdf8] border border-[#0055ff]/50'
@@ -6240,7 +6246,7 @@ export function App() {
                 triggerEpgSync(settings);
               }}
               disabled={isSyncing}
-              className="tv-fixed-action-btn shrink-0 w-9 h-9 inline-flex items-center justify-center rounded-lg bg-[#141a26] hover:bg-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#0055ff]/60 transition-colors cursor-pointer disabled:opacity-50"
+              className="tv-fixed-action-btn shrink-0 w-8 h-8 sm:w-9 sm:h-9 inline-flex items-center justify-center rounded-lg bg-[#141a26] hover:bg-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#0055ff]/60 transition-colors cursor-pointer disabled:opacity-50"
               title={isSyncing ? tr.refreshingBtn : tr.refreshBtn}
               aria-label={isSyncing ? tr.refreshingBtn : tr.refreshBtn}
             >
@@ -6251,6 +6257,7 @@ export function App() {
               />
             </button>
 
+            {/* Bouton Paramètres & Satellites (Icône ⚙️ toujours visible sur mobile et TV) */}
             <button
               ref={settingsBtnRef}
               id="header-settings-btn"
@@ -6282,13 +6289,13 @@ export function App() {
                 setSettingsInitialTab('filters');
                 setIsSettingsOpen(true);
               }}
-              className={`tv-fixed-action-btn shrink-0 w-9 h-9 inline-flex items-center justify-center rounded-lg bg-[#141a26] hover:bg-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#0055ff]/60 transition-colors cursor-pointer ${
+              className={`tv-fixed-action-btn shrink-0 w-8 h-8 sm:w-9 sm:h-9 inline-flex items-center justify-center rounded-lg bg-[#141a26] hover:bg-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#0055ff]/60 transition-colors cursor-pointer ${
                 isSettingsBtnDpadFocused && !isSettingsOpen ? 'focused' : ''
               }`}
               title={tr.settingsTitle}
               aria-label={tr.settingsTitle}
             >
-              <Settings className="w-4 h-4 shrink-0" />
+              <Settings className="w-4 h-4 shrink-0 text-[#60a5fa] hover:text-[#ffffff]" />
             </button>
           </div>
         </div>
@@ -7319,7 +7326,7 @@ export function App() {
                 data-row-active={
                   activeFilterRow === 'live-7day-bar' ? 'true' : undefined
                 }
-                className="filter-ribbon no-scrollbar pt-1.5 border-t border-[#1a202c]"
+                className="filter-ribbon flex flex-row overflow-x-auto whitespace-nowrap gap-2 py-1 no-scrollbar pt-1.5 border-t border-[#1a202c] items-center"
               >
                 <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0 select-none">
                   <Calendar className="w-3.5 h-3.5 text-[#0055ff]" />
