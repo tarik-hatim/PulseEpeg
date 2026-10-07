@@ -53,11 +53,13 @@ import {
   ChannelCountryFilter,
   ChannelGroup,
   ContentCategoryFilter,
+  EpgBouquetId,
   EpgCacheMetadata,
   EpgChannel,
   EpgProgramme,
   ProgrammeReminder,
   SatelliteFilter,
+  TvProfileId,
   WorkerProgressMessage,
   WorkerRequestMessage,
   WorkerResponseMessage,
@@ -160,6 +162,7 @@ import {
   enrichProgrammeMetadata,
 } from './services/metadataEnricher';
 import {
+  applyDocumentLanguageDir,
   CHANNEL_COUNTRY_FLAGS,
   getChannelCountryFlag,
   getLanguageOption,
@@ -740,6 +743,9 @@ export function App() {
 
   const triggerEpgSync = useCallback((currentSettings: AppSettings) => {
     try {
+      setIsSyncing(true);
+      setEpgError(null);
+
       if (workerRef.current) {
         try {
           workerRef.current.terminate();
@@ -776,9 +782,6 @@ export function App() {
         );
       }
       workerRef.current = worker;
-
-      setIsSyncing(true);
-      setEpgError(null);
 
       worker.onmessage = async (event: MessageEvent<WorkerResponseMessage>) => {
         const msg = event.data;
@@ -888,15 +891,26 @@ export function App() {
             schedulesByChannel: parsedSchedules,
           } = msg.payload;
           setTimeout(async () => {
-            setChannels(parsedChannels);
-            setSchedulesByChannel(parsedSchedules);
-            setCacheMeta(metadata);
+            if (!parsedChannels || parsedChannels.length === 0) {
+              const fallback = await buildOfflineFallbackEpgSnapshotAsync(currentSettings);
+              setChannels((prev) => (prev.length > 0 ? prev : fallback.channels));
+              setSchedulesByChannel((prev) =>
+                Object.keys(prev).length > 0 ? prev : fallback.schedulesByChannel
+              );
+              setCacheMeta((prev) => prev || fallback.metadata);
+            } else {
+              setChannels(parsedChannels);
+              setSchedulesByChannel(parsedSchedules);
+              setCacheMeta(metadata);
+            }
             setIsSyncing(false);
             setWorkerProgress(null);
             setEpgError(null);
 
             try {
-              await saveEpgToCache(metadata, parsedChannels, parsedSchedules);
+              if (parsedChannels && parsedChannels.length > 0) {
+                await saveEpgToCache(metadata, parsedChannels, parsedSchedules);
+              }
             } catch {
               // Ignore IndexedDB quota error
             }
@@ -908,21 +922,14 @@ export function App() {
           }
           workerRef.current = null;
         } else if (msg.type === 'EPG_ERROR') {
-          const errText =
-            msg.payload?.error ||
-            'Échec du chargement ou du parsing XMLTV HTTPS. Vérifiez votre connexion réseau ou réessayez.';
           void buildOfflineFallbackEpgSnapshotAsync(currentSettings).then(
             (fallback) => {
               setIsSyncing(false);
               setWorkerProgress(null);
-              setEpgError(fallback.channels.length > 0 ? null : errText);
-              setChannels((prev) =>
-                prev.length > 0 ? prev : fallback.channels
-              );
+              setEpgError(null);
+              setChannels((prev) => (prev.length > 0 ? prev : fallback.channels));
               setSchedulesByChannel((prev) =>
-                Object.keys(prev).length > 0
-                  ? prev
-                  : fallback.schedulesByChannel
+                Object.keys(prev).length > 0 ? prev : fallback.schedulesByChannel
               );
               setCacheMeta((prev) => prev || fallback.metadata);
             }
@@ -936,17 +943,12 @@ export function App() {
         }
       };
 
-      worker.onerror = (errEvent) => {
+      worker.onerror = () => {
         void buildOfflineFallbackEpgSnapshotAsync(currentSettings).then(
           (fallback) => {
             setIsSyncing(false);
             setWorkerProgress(null);
-            setEpgError(
-              fallback.channels.length > 0
-                ? null
-                : errEvent.message ||
-                    'Erreur inattendue lors du traitement du flux XMLTV HTTPS.'
-            );
+            setEpgError(null);
             setChannels((prev) =>
               prev.length > 0 ? prev : fallback.channels
             );
@@ -1213,10 +1215,16 @@ export function App() {
   }, []);
 
   // Liste des chaînes autorisées par les Paramètres (Settings)
-  const settingsAllowedChannels = useMemo(
-    () => channels.filter((ch) => isChannelAllowedBySettings(ch, settings)),
-    [channels, settings]
-  );
+  const settingsAllowedChannels = useMemo(() => {
+    const filtered = channels.filter((ch) =>
+      isChannelAllowedBySettings(ch, settings)
+    );
+    // Fallback automatique sur l'ensemble des chaînes si le filtrage donne 0 chaîne
+    if (filtered.length === 0 && channels.length > 0) {
+      return channels;
+    }
+    return filtered;
+  }, [channels, settings]);
 
   const favoriteSet = useMemo(() => {
     const set = new Set<string>();
@@ -2529,8 +2537,7 @@ export function App() {
       selectedSatellite !== 'Tous' &&
       (!isSatelliteFilterAllowedBySettings(
         selectedSatellite,
-        settings.selectedBouquets,
-        settings.language
+        settings.selectedBouquets
       ) ||
         (satelliteCounts[selectedSatellite] ?? 0) === 0)
     ) {
@@ -2611,15 +2618,14 @@ export function App() {
           sat !== 'Tous' &&
           !isSatelliteFilterAllowedBySettings(
             sat,
-            settings.selectedBouquets,
-            settings.language
+            settings.selectedBouquets
           )
         ) {
           return false;
         }
         return (satelliteCounts[sat] ?? 0) > 0;
       }),
-    [settings.selectedBouquets, settings.language, satelliteCounts]
+    [settings.selectedBouquets, satelliteCounts]
   );
 
   // Liaison dynamique stricte + masquage des bouquets inactifs ou avec compteur = 0
@@ -2645,15 +2651,14 @@ export function App() {
           c !== 'Tous' &&
           !isCountryFilterAllowedBySettings(
             c,
-            settings.selectedBouquets,
-            settings.language
+            settings.selectedBouquets
           )
         ) {
           return false;
         }
         return (countryCounts[c] ?? 0) > 0;
       }),
-    [countryCounts, settings.selectedBouquets, settings.language]
+    [countryCounts, settings.selectedBouquets]
   );
 
   // Masque automatiquement tout bouton de genre dont le compteur est égal à 0
@@ -3501,29 +3506,33 @@ export function App() {
 
   const handleChangeLanguage = useCallback(
     (newLang: AppLanguage) => {
+      // 1. Mise à jour de la langue d'interface I18n exclusivement (menus, boutons, catégories)
       setActiveLanguage(newLang);
+      applyDocumentLanguageDir(newLang);
       clearEnrichedMetadataCache();
-      setSelectedSubRegion('all');
-      const dyn = getDynamicProfileForLanguage(newLang);
+
+      // 2. Sauvegarder la langue dans les paramètres sans altérer les bouquets actifs, profils ni sources
       const updated: AppSettings = {
         ...settings,
         language: newLang,
-        tvProfile: dyn.tvProfile,
-        selectedBouquets: dyn.selectedBouquets,
-        sources: syncSourcesWithSelectedBouquets(
-          dyn.selectedBouquets,
-          settings.sources,
-          dyn.tvProfile
-        ),
       };
-      setSelectedSatellite('Tous');
-      setSelectedBouquet('Tous');
-      setSelectedBouquetsList([]);
-      setSelectedCountry('Tous');
-      setRamWarningMessage(null);
-      void handleSaveSettings(updated, false);
+
+      setSettings(updated);
+      saveAppSettings(updated);
+      setEpgError(null);
+
+      // 3. Ne jamais vider ni altérer la liste des chaînes existantes.
+      // Si la liste des chaînes était vide, assurer un fallback automatique immédiat sur la liste globale
+      if (channels.length === 0) {
+        const fallback = buildOfflineFallbackEpgSnapshot(updated);
+        if (fallback.channels.length > 0) {
+          setChannels(fallback.channels);
+          setSchedulesByChannel(fallback.schedulesByChannel);
+          setCacheMeta(fallback.metadata);
+        }
+      }
     },
-    [settings, handleSaveSettings]
+    [settings, channels.length]
   );
 
   const handleResetDefaults = useCallback(() => {
@@ -6243,10 +6252,10 @@ export function App() {
                 e.currentTarget.classList.remove('focused', 'active');
                 e.currentTarget.removeAttribute('data-dpad-focused');
                 e.currentTarget.blur();
+                setIsSyncing(true);
                 triggerEpgSync(settings);
               }}
-              disabled={isSyncing}
-              className="tv-fixed-action-btn shrink-0 w-8 h-8 sm:w-9 sm:h-9 inline-flex items-center justify-center rounded-lg bg-[#141a26] hover:bg-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#0055ff]/60 transition-colors cursor-pointer disabled:opacity-50"
+              className="tv-fixed-action-btn shrink-0 w-8 h-8 sm:w-9 sm:h-9 inline-flex items-center justify-center rounded-lg bg-[#141a26] hover:bg-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#0055ff]/60 transition-colors cursor-pointer"
               title={isSyncing ? tr.refreshingBtn : tr.refreshBtn}
               aria-label={isSyncing ? tr.refreshingBtn : tr.refreshBtn}
             >

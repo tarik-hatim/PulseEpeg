@@ -2135,10 +2135,39 @@ export const DEFAULT_EPG_SOURCES: EpgSourceItem[] = [
     bouquetId: 'intelsat_43w_directv',
     enabled: false,
   },
+  {
+    id: 'src_nl1',
+    name: '🇳🇱/🇧🇪 Astra 23.5°E · Canal Digitaal & TV Vlaanderen (M7 Group)',
+    url: 'https://epgshare01.online/epgshare01/epg_ripper_NL1.xml.gz',
+    country: 'EU',
+    bouquetId: 'astra_235e_canaldigitaal',
+    enabled: true,
+  },
+  {
+    id: 'src_cz1',
+    name: '🇨🇿/🇸🇰 Astra 23.5°E · Skylink (Tchéquie / Slovaquie)',
+    url: 'https://epgshare01.online/epgshare01/epg_ripper_CZ1.xml.gz',
+    country: 'EU',
+    bouquetId: 'astra_235e_skylink',
+    enabled: true,
+  },
 ];
 
 export function inferBouquetIdForSource(source: EpgSourceItem): EpgBouquetId {
   const u = source.url.toLowerCase();
+  if (
+    u.includes('_nl1') ||
+    source.bouquetId === 'astra_235e_canaldigitaal'
+  ) {
+    return 'astra_235e_canaldigitaal';
+  }
+  if (
+    u.includes('_cz1') ||
+    u.includes('_sk1') ||
+    source.bouquetId === 'astra_235e_skylink'
+  ) {
+    return 'astra_235e_skylink';
+  }
   if (u.includes('_bein')) return 'badr_bein_ssc';
   if (u.includes('_pt1')) return 'hispasat_meo_nos';
   if (
@@ -2504,38 +2533,9 @@ export function isBouquetFilterAllowedBySettings(
 export function isSatelliteFilterAllowedBySettings(
   sat: SatelliteFilter,
   selectedBouquets?: EpgBouquetId[],
-  language?: AppLanguage
+  _language?: AppLanguage
 ): boolean {
   if (sat === 'Tous') return true;
-
-  // Filtrage STRICT par langue régionale
-  if (language === 'es_latam') {
-    return (
-      sat === 'Amazonas 61°W' ||
-      sat === 'Star One D2 70°W' ||
-      sat === 'Star One 70°W' ||
-      sat === 'Intelsat 43.1°W / SES-6 40.5°W' ||
-      sat === 'SES-6 40.5°W'
-    );
-  }
-  if (language === 'pt_br') {
-    return (
-      sat === 'Star One D2 70°W' ||
-      sat === 'Star One 70°W' ||
-      sat === 'Amazonas 61°W' ||
-      sat === 'Intelsat 43.1°W / SES-6 40.5°W' ||
-      sat === 'SES-6 40.5°W'
-    );
-  }
-  if (language === 'es') {
-    return sat === 'Astra 19.2°E' || sat === 'Hispasat 30°W';
-  }
-  if (language === 'pt') {
-    return sat === 'Hispasat 30°W';
-  }
-  if (language === 'nl') {
-    return sat === 'Astra 23.5°E';
-  }
 
   const active =
     selectedBouquets && selectedBouquets.length > 0
@@ -2621,44 +2621,9 @@ export function isSatelliteFilterAllowedBySettings(
 export function isCountryFilterAllowedBySettings(
   c: ChannelCountryFilter | CountryCode,
   selectedBouquets?: EpgBouquetId[],
-  language?: AppLanguage
+  _language?: AppLanguage
 ): boolean {
   if (c === 'Tous') return true;
-
-  // Filtrage STRICT lorsque "Español (Latino)" est sélectionné :
-  // N'afficher QUE la région Hispanophone d'Amérique Latine (LATAM, AR, MX, CL, CO, PE)
-  // Masque complètement les pays hors-sujet (FR, CM, SA, PT, DE, IT, etc.)
-  if (language === 'es_latam') {
-    return (
-      c === 'LATAM' ||
-      c === 'AR' ||
-      c === 'MX' ||
-      c === 'CL' ||
-      c === 'CO' ||
-      c === 'PE'
-    );
-  }
-
-  // Filtrage STRICT lorsque "Português (Latino / Brasil)" est sélectionné :
-  // Affiche uniquement 🇧🇷 BR (Brésil), masque Europe/Afrique
-  if (language === 'pt_br') {
-    return c === 'BR';
-  }
-
-  // Filtrage STRICT lorsque "Español (EU)" est sélectionné :
-  if (language === 'es') {
-    return c === 'ES';
-  }
-
-  // Filtrage STRICT lorsque "Português (EU)" est sélectionné :
-  if (language === 'pt') {
-    return c === 'PT';
-  }
-
-  // Filtrage STRICT lorsque "Nederlands (NL)" est sélectionné :
-  if (language === 'nl') {
-    return c === 'EU';
-  }
 
   const active =
     selectedBouquets && selectedBouquets.length > 0
@@ -2942,182 +2907,6 @@ export function isChannelAllowedBySettings(
     return false;
   }
 
-  // 1. "Español (EU)" : Filtre uniquement les chaînes/bouquets espagnols d'Europe (Movistar+, Astra 19.2°E, Hispasat 30°W)
-  if (settings.language === 'es') {
-    const isEuropeSat = ch.satellites?.some(
-      (s) => s.includes('Astra 19.2') || s.includes('Hispasat 30')
-    );
-    const isEuropeBq = ch.bouquets?.some(
-      (b) => b.includes('Movistar') || b.includes('Astra')
-    );
-    const isEuropeCountry =
-      ch.country === 'ES' || (ch.id || '').toLowerCase().endsWith('.es');
-    const isLatam =
-      ch.satellites?.some(
-        (s) =>
-          s.includes('Amazonas') ||
-          s.includes('61°W') ||
-          s.includes('70°W') ||
-          s.includes('43.1°W') ||
-          s.includes('40.5°W')
-      ) ||
-      ch.country === 'LATAM' ||
-      ch.country === 'BR';
-
-    if (isLatam || (!isEuropeSat && !isEuropeBq && !isEuropeCountry)) {
-      return false;
-    }
-  }
-
-  // 2. "Español (Latino)" : Filtre STRICTEMENT les zones/pays pour n'afficher QUE la région Hispanophone d'Amérique Latine (LATAM, AR, MX, CL, CO, PE)
-  if (settings.language === 'es_latam') {
-    const chCountries = extractChannelCountries(ch);
-    const isHispanicLatamCountry =
-      chCountries.includes('LATAM') ||
-      chCountries.includes('AR') ||
-      chCountries.includes('MX') ||
-      chCountries.includes('CL') ||
-      chCountries.includes('CO') ||
-      chCountries.includes('PE') ||
-      ch.country === 'LATAM' ||
-      ch.country === 'AR' ||
-      ch.country === 'MX' ||
-      ch.country === 'CL' ||
-      ch.country === 'CO' ||
-      ch.country === 'PE';
-
-    // Rejeter strictement les chaînes brésiliennes pures (en portugais)
-    if (
-      (chCountries.includes('BR') || ch.country === 'BR') &&
-      !isHispanicLatamCountry
-    ) {
-      return false;
-    }
-
-    // Rejeter formellement les pays hors-sujet (FR, CM, SA, PT, DE, IT, etc.)
-    if (
-      chCountries.some((c) =>
-        [
-          'FR',
-          'CM',
-          'SA',
-          'PT',
-          'DE',
-          'IT',
-          'PL',
-          'RO',
-          'HU',
-          'RS',
-          'HR',
-          'TR',
-          'AL',
-          'SN',
-          'CI',
-          'ML',
-          'TM',
-          'IR',
-        ].includes(c)
-      ) &&
-      !isHispanicLatamCountry
-    ) {
-      return false;
-    }
-
-    const isLatamSat = ch.satellites?.some(
-      (s) =>
-        s.includes('Amazonas') ||
-        s.includes('61°W') ||
-        s.includes('70°W') ||
-        s.includes('43.1°W') ||
-        s.includes('40.5°W')
-    );
-    const isLatamBq = ch.bouquets?.some(
-      (b) =>
-        b.includes('LATAM') ||
-        b.includes('DirecTV') ||
-        b.includes('Movistar') ||
-        b.includes('Claro TV')
-    );
-
-    if (!isHispanicLatamCountry && !isLatamSat && !isLatamBq) {
-      return false;
-    }
-  }
-
-  // 3. "Português (EU)" : Filtre uniquement les chaînes/bouquets du Portugal (MEO, NOS, Hispasat 30°W)
-  if (settings.language === 'pt') {
-    const isPtSat = ch.satellites?.some((s) => s.includes('30°W'));
-    const isPtBq = ch.bouquets?.some(
-      (b) => b.includes('MEO') || b.includes('NOS') || b.includes('Meo')
-    );
-    const isPtCountry =
-      ch.country === 'PT' || (ch.id || '').toLowerCase().endsWith('.pt');
-    const isBrazil =
-      ch.satellites?.some(
-        (s) => s.includes('70°W') || s.includes('61°W')
-      ) ||
-      ch.bouquets?.some((b) => b.includes('Claro') || b.includes('Sky Brasil')) ||
-      ch.country === 'BR';
-
-    if (isBrazil || (!isPtSat && !isPtBq && !isPtCountry)) {
-      return false;
-    }
-  }
-
-  // 4. "Português (Latino / Brasil)" : Affiche uniquement 🇧🇷 BR (Brésil) et les satellites associés (Star One D2, Amazonas), masque Europe/Afrique
-  if (settings.language === 'pt_br') {
-    const chCountries = extractChannelCountries(ch);
-    const isBr =
-      chCountries.includes('BR') ||
-      ch.country === 'BR' ||
-      (ch.id || '').toLowerCase().endsWith('.br') ||
-      ch.bouquetId === 'starone_70w_claro_br' ||
-      ch.bouquets?.some(
-        (b) =>
-          b.includes('Claro TV Brasil') ||
-          b.includes('Sky Brasil') ||
-          b.includes('Vivo TV') ||
-          b.includes('Claro TV')
-      );
-
-    const isBrSat = ch.satellites?.some(
-      (s) => s.includes('Star One') || s.includes('70°W') || s.includes('61°W')
-    );
-
-    // Rejeter formellement toute chaîne européenne, africaine ou arabe
-    if (
-      chCountries.some((c) =>
-        [
-          'FR',
-          'CM',
-          'SA',
-          'PT',
-          'ES',
-          'DE',
-          'IT',
-          'PL',
-          'RO',
-          'HU',
-          'RS',
-          'HR',
-          'TR',
-          'AL',
-          'SN',
-          'CI',
-          'ML',
-          'TM',
-          'IR',
-        ].includes(c)
-      )
-    ) {
-      return false;
-    }
-
-    if (!isBr || !isBrSat) {
-      return false;
-    }
-  }
-
   // Filtrage par profil TV ("Espagne" = Espagne & Amérique Latine / LATAM, sans chaînes portugaises MEO/NOS strictement réservées au Portugal)
   if (settings.tvProfile === 'espagne') {
     const chCountries = extractChannelCountries(ch);
@@ -3139,7 +2928,7 @@ export function isChannelAllowedBySettings(
   }
 
   // Filtrage strict par profil TV ("Pays-Bas & Benelux" = Astra 23.5°E uniquement)
-  if (settings.tvProfile === 'pays_bas_benelux' || settings.language === 'nl') {
+  if (settings.tvProfile === 'pays_bas_benelux') {
     const isAstra235 =
       ch.satellites?.some((s) => s.includes('23.5')) ||
       Boolean(ch.orbitalPosition?.includes('23.5')) ||
@@ -3153,7 +2942,16 @@ export function isChannelAllowedBySettings(
           b.includes('M7 Group')
       );
     if (!isAstra235) {
-      return false;
+      const userBouquets = settings.selectedBouquets || [];
+      const hasOtherAllowedBouquet = userBouquets.some(
+        (b) =>
+          b !== 'astra_235e_canaldigitaal' &&
+          b !== 'astra_235e_skylink' &&
+          (ch.bouquetId === b || chBouquetId === b)
+      );
+      if (!hasOtherAllowedBouquet) {
+        return false;
+      }
     }
   }
 
@@ -3295,7 +3093,7 @@ export function syncSourcesWithSelectedBouquets(
     seenUrls.add(lowerUrl);
   }
 
-  return baseList.map((s) => {
+  const syncedList = baseList.map((s) => {
     const u = s.url.toLowerCase();
     const bId = inferBouquetIdForSource(s);
 
@@ -3382,6 +3180,18 @@ export function syncSourcesWithSelectedBouquets(
     else if (u.includes('_cy1') || u.includes('_ir1')) {
       enabled = selectedBouquets.includes('monacosat_52e_persiana');
     }
+    // NL1 fournit Canal Digitaal & TV Vlaanderen (Astra 23.5°E)
+    else if (u.includes('_nl1') || s.bouquetId === 'astra_235e_canaldigitaal') {
+      enabled =
+        selectedBouquets.includes('astra_235e_canaldigitaal') ||
+        tvProfile === 'pays_bas_benelux';
+    }
+    // CZ1 fournit Skylink (Astra 23.5°E)
+    else if (u.includes('_cz1') || s.bouquetId === 'astra_235e_skylink') {
+      enabled =
+        selectedBouquets.includes('astra_235e_skylink') ||
+        tvProfile === 'pays_bas_benelux';
+    }
 
     return {
       ...s,
@@ -3389,6 +3199,31 @@ export function syncSourcesWithSelectedBouquets(
       enabled,
     };
   });
+
+  // GARANTIE ABSOLUE : Si des bouquets sont sélectionnés, au moins une source EPG DOIT être active
+  const hasAnyEnabled = syncedList.some((s) => s.enabled);
+  if (!hasAnyEnabled && selectedBouquets.length > 0) {
+    if (
+      selectedBouquets.includes('astra_235e_canaldigitaal') ||
+      tvProfile === 'pays_bas_benelux'
+    ) {
+      const nlSrc = syncedList.find(
+        (s) => s.id === 'src_nl1' || s.url.includes('_nl1')
+      );
+      if (nlSrc) nlSrc.enabled = true;
+    } else if (selectedBouquets.includes('astra_235e_skylink')) {
+      const czSrc = syncedList.find(
+        (s) => s.id === 'src_cz1' || s.url.includes('_cz1')
+      );
+      if (czSrc) czSrc.enabled = true;
+    } else {
+      const firstAvailable =
+        syncedList.find((s) => !s.id.startsWith('custom-')) || syncedList[0];
+      if (firstAvailable) firstAvailable.enabled = true;
+    }
+  }
+
+  return syncedList;
 }
 
 function activeBouquetsIncludes(
@@ -3903,7 +3738,7 @@ export function buildOfflineFallbackEpgSnapshot(
     },
     settings.selectedBouquets
   );
-  const channels = Array.from(chMap.values())
+  let channels = Array.from(chMap.values())
     .filter((ch) => isChannelAllowedBySettings(ch, settings))
     .map((ch, idx) => ({
       ...ch,
@@ -3912,6 +3747,23 @@ export function buildOfflineFallbackEpgSnapshot(
       channelNumber: idx + 1,
       programmeCount: (rawSchedulesByChannel[ch.id] || []).length,
     }));
+
+  // Fallback automatique garanti sur l'ensemble de la whitelist globale si le filtrage donne 0 chaîne
+  if (channels.length === 0) {
+    supplementSatelliteBouquetsCoverage(
+      chMap,
+      rawSchedulesByChannel,
+      undefined,
+      undefined
+    );
+    channels = Array.from(chMap.values()).map((ch, idx) => ({
+      ...ch,
+      icon: ensureHttpsUrl(ch.icon),
+      url: ensureHttpsUrl(ch.url),
+      channelNumber: idx + 1,
+      programmeCount: (rawSchedulesByChannel[ch.id] || []).length,
+    }));
+  }
   const schedulesByChannel: Record<string, EpgProgramme[]> = {};
   for (const ch of channels) {
     const cleanId = cleanXmltvChannelId(ch.id);

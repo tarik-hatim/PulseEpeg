@@ -607,18 +607,34 @@ async function processMultiSourceEpgSync(
       ) {
         return true;
       }
+      if (
+        (s.bouquetId === 'astra_235e_canaldigitaal' ||
+          s.bouquetId === 'astra_235e_skylink') &&
+        (activeBouquetSet.has('astra_235e_canaldigitaal') ||
+          activeBouquetSet.has('astra_235e_skylink'))
+      ) {
+        return true;
+      }
       return false;
     }
     return true;
   });
 
-  if (activeSources.length === 0) {
+  let effectiveSources = activeSources;
+  if (effectiveSources.length === 0) {
+    effectiveSources = sources.filter((s) => s.enabled && s.url.trim().length > 0);
+  }
+  if (effectiveSources.length === 0 && sources.length > 0) {
+    effectiveSources = [sources[0]];
+  }
+
+  if (effectiveSources.length === 0) {
     throw new Error(
       'Aucun bouquet ou source EPG actif sélectionné. Activez au moins un bouquet dans les Paramètres.'
     );
   }
 
-  const sourceStatuses: EpgSourceSyncStatus[] = activeSources.map((s) => ({
+  const sourceStatuses: EpgSourceSyncStatus[] = effectiveSources.map((s) => ({
     id: s.id,
     name: s.name,
     url: ensureHttpsUrl(s.url) || s.url,
@@ -1232,11 +1248,19 @@ async function processMultiSourceEpgSync(
     }
   }
 
+  // Fallback automatique sur les chaînes de la whitelist globale si nécessaire (jamais d'erreur bloquante)
   if (channels.length === 0) {
-    const firstErr =
-      sourceStatuses.find((s) => s.error)?.error ||
-      'Aucune chaîne Cinéma/Séries de la Whitelist n’a pu être extraite.';
-    throw new Error(firstErr);
+    supplementSatelliteBouquetsCoverage(
+      channelMap,
+      schedulesByChannel,
+      undefined,
+      undefined
+    );
+    for (const [id, chObj] of channelMap.entries()) {
+      if (!channels.some((c) => c.id === id)) {
+        channels.push(chObj);
+      }
+    }
   }
 
   postWorkerMessage({
@@ -1313,6 +1337,19 @@ async function processMultiSourceEpgSync(
     ch.channelNumber = finalChannels.length + 1;
     finalChannels.push(ch);
     retainedProgrammesCount += effectiveList.length;
+  }
+
+  if (finalChannels.length === 0 && channels.length > 0) {
+    for (let i = 0; i < channels.length; i++) {
+      const ch = channels[i];
+      const cleanId = cleanXmltvChannelId(ch.id);
+      ch.id = cleanId;
+      ch.channelNumber = i + 1;
+      finalChannels.push(ch);
+      const list = schedulesByChannel[cleanId] || schedulesByChannel[ch.id] || [];
+      prunedSchedulesByChannel[cleanId] = list;
+      retainedProgrammesCount += list.length;
+    }
   }
 
   const now = Date.now();

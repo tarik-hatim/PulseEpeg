@@ -5463,6 +5463,11 @@ export function getAllowedSatellitesForBouquets(
       allowed.add('Intelsat 43.1°W / SES-6 40.5°W');
       allowed.add('Intelsat 43.1°W & SES-6 40.5°W');
       allowed.add('SES-6 40.5°W');
+    } else if (
+      bId === 'astra_235e_canaldigitaal' ||
+      bId === 'astra_235e_skylink'
+    ) {
+      allowed.add('Astra 23.5°E');
     }
   }
   return allowed;
