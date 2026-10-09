@@ -20,6 +20,7 @@ export type TvProfileId =
   | 'italie'
   | 'amerique_sud_latam'
   | 'pays_bas_benelux'
+  | 'royaume_uni_sky'
   | 'europe_standard'
   | 'all_satellites'
   | 'custom';
@@ -65,7 +66,10 @@ export type EpgBouquetId =
   | 'amazonas_61w_latam'
   | 'intelsat_43w_directv'
   | 'astra_235e_skylink'
-  | 'astra_235e_canaldigitaal';
+  | 'astra_235e_canaldigitaal'
+  | 'astra_235e_tvvlaanderen'
+  | 'sky_uk'
+  | 'freesat_uk';
 
 export type TimeFilterPreset =
   | 'minus2h'
@@ -106,6 +110,8 @@ export type CountryCode =
   | 'EU'
   | 'BR'
   | 'LATAM'
+  | 'NL'
+  | 'UK'
   | 'Autre';
 
 export type ChannelCountryFilter =
@@ -135,7 +141,9 @@ export type ChannelCountryFilter =
   | 'CO'
   | 'PE'
   | 'BR'
-  | 'LATAM';
+  | 'LATAM'
+  | 'NL'
+  | 'UK';
 
 export type SatelliteFilter =
   | 'Tous'
@@ -144,6 +152,7 @@ export type SatelliteFilter =
   | "Badr / Es'hailSat 26°E"
   | 'Astra 19.2°E'
   | 'Astra 23.5°E'
+  | 'Astra 28.2°E'
   | 'Hotbird 13°E'
   | 'Hispasat 30°W'
   | 'Eutelsat 16°E'
@@ -164,6 +173,9 @@ export type BouquetFilter =
   | 'Tous'
   | 'Skylink (Tchéquie / Slovaquie)'
   | 'Canal Digitaal (Pays-Bas)'
+  | 'TV Vlaanderen (Belgique / Flandre)'
+  | 'Sky UK (Royaume-Uni)'
+  | 'Freesat (UK FTA)'
   | 'M7 Group (Astra 23.5°E)'
   | 'Nilesat MBC/OSN/Rotana'
   | 'TNT Arabe/Égypte'

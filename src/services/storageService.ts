@@ -77,6 +77,7 @@ export const STRICT_SAT_FILTER_LIST: SatelliteFilter[] = [
   "Badr / Es'hailSat 26°E",
   'Astra 19.2°E',
   'Astra 23.5°E',
+  'Astra 28.2°E',
   'Hotbird 13°E',
   'Hispasat 30°W',
   'Eutelsat 16°E',
@@ -112,9 +113,15 @@ export const SAT_TO_BOUQUETS_MAP: Record<string, BouquetFilter[]> = {
   ],
   'Astra 23.5°E': [
     'Tous',
-    'Skylink (Tchéquie / Slovaquie)',
     'Canal Digitaal (Pays-Bas)',
+    'TV Vlaanderen (Belgique / Flandre)',
+    'Skylink (Tchéquie / Slovaquie)',
     'M7 Group (Astra 23.5°E)',
+  ],
+  'Astra 28.2°E': [
+    'Tous',
+    'Sky UK (Royaume-Uni)',
+    'Freesat (UK FTA)',
   ],
   'Hotbird 13°E': [
     'Tous',
@@ -178,6 +185,9 @@ export const SAT_TO_BOUQUETS_MAP: Record<string, BouquetFilter[]> = {
     'Sky DE / DAZN DE',
     'Skylink (Tchéquie / Slovaquie)',
     'Canal Digitaal (Pays-Bas)',
+    'TV Vlaanderen (Belgique / Flandre)',
+    'Sky UK (Royaume-Uni)',
+    'Freesat (UK FTA)',
     'M7 Group (Astra 23.5°E)',
     'Hotbird Polsat/Cyfra+',
     'Hotbird Bis TV/Rai',
@@ -209,32 +219,34 @@ export function getBouquetsForSatellite(sat: SatelliteFilter): BouquetFilter[] {
 
 export const CHANNEL_COUNTRY_FILTER_OPTIONS: ChannelCountryFilter[] = [
   'Tous',
-  'LATAM',
-  'AR',
-  'MX',
-  'CL',
-  'CO',
-  'PE',
-  'BR',
-  'ES',
-  'PT',
   'FR',
+  'UK',
+  'NL',
   'DE',
+  'ES',
   'IT',
+  'PT',
   'PL',
+  'AR',
+  'SA',
+  'TR',
+  'AL',
   'RO',
   'HU',
   'RS',
   'HR',
-  'TR',
-  'AL',
+  'TM',
+  'IR',
+  'BR',
+  'LATAM',
+  'MX',
+  'CL',
+  'CO',
+  'PE',
   'SN',
   'CI',
   'CM',
   'ML',
-  'TM',
-  'IR',
-  'SA',
 ];
 
 /**
@@ -656,6 +668,31 @@ export function channelMatchesSatelliteFilter(
         ch.orbitalPosition?.includes('43.1°W')
     );
   }
+  if (satFilter === 'Astra 23.5°E') {
+    return Boolean(
+      ch.satellites?.some((s) => s.includes('23.5')) ||
+        ch.orbitalPosition?.includes('23.5') ||
+        ch.bouquetId === 'astra_235e_canaldigitaal' ||
+        ch.bouquetId === 'astra_235e_tvvlaanderen' ||
+        ch.bouquetId === 'astra_235e_skylink' ||
+        ch.bouquets?.some(
+          (b) =>
+            b.includes('Canal Digitaal') ||
+            b.includes('Vlaanderen') ||
+            b.includes('Skylink') ||
+            b.includes('M7 Group')
+        )
+    );
+  }
+  if (satFilter === 'Astra 28.2°E') {
+    return Boolean(
+      ch.satellites?.some((s) => s.includes('28.2')) ||
+        ch.orbitalPosition?.includes('28.2') ||
+        ch.bouquetId === 'sky_uk' ||
+        ch.bouquetId === 'freesat_uk' ||
+        ch.bouquets?.some((b) => b.includes('Sky UK') || b.includes('Freesat'))
+    );
+  }
   return Boolean(ch.satellites?.includes(satFilter));
 }
 
@@ -801,6 +838,56 @@ export function channelMatchesBouquetFilter(
     bouquetFilter === 'Hispasat Meo/NOS/Movistar' &&
     (chBouquets.includes('MEO / NOS / Movistar (30°W)') ||
       chBouquets.includes('Meo / NOS / Movistar 30°W'))
+  ) {
+    return true;
+  }
+  if (
+    bouquetFilter === 'Canal Digitaal (Pays-Bas)' &&
+    (chBouquets.some((b) => b.includes('Canal Digitaal')) ||
+      ch.bouquetId === 'astra_235e_canaldigitaal')
+  ) {
+    return true;
+  }
+  if (
+    bouquetFilter === 'TV Vlaanderen (Belgique / Flandre)' &&
+    (chBouquets.some((b) => b.includes('Vlaanderen')) ||
+      ch.bouquetId === 'astra_235e_tvvlaanderen')
+  ) {
+    return true;
+  }
+  if (
+    bouquetFilter === 'Skylink (Tchéquie / Slovaquie)' &&
+    (chBouquets.some((b) => b.includes('Skylink')) ||
+      ch.bouquetId === 'astra_235e_skylink')
+  ) {
+    return true;
+  }
+  if (
+    bouquetFilter === 'M7 Group (Astra 23.5°E)' &&
+    (chBouquets.some(
+      (b) =>
+        b.includes('M7 Group') ||
+        b.includes('Canal Digitaal') ||
+        b.includes('Vlaanderen') ||
+        b.includes('Skylink')
+    ) ||
+      ch.bouquetId === 'astra_235e_canaldigitaal' ||
+      ch.bouquetId === 'astra_235e_tvvlaanderen' ||
+      ch.bouquetId === 'astra_235e_skylink')
+  ) {
+    return true;
+  }
+  if (
+    bouquetFilter === 'Sky UK (Royaume-Uni)' &&
+    (chBouquets.some((b) => b.includes('Sky UK')) ||
+      ch.bouquetId === 'sky_uk')
+  ) {
+    return true;
+  }
+  if (
+    bouquetFilter === 'Freesat (UK FTA)' &&
+    (chBouquets.some((b) => b.includes('Freesat')) ||
+      ch.bouquetId === 'freesat_uk')
   ) {
     return true;
   }
@@ -1193,18 +1280,64 @@ export const EPG_BOUQUET_CATALOG: BouquetOptionSpec[] = [
   },
   {
     id: 'astra_235e_canaldigitaal',
-    flag: '🇳🇱/🇧🇪',
-    label: 'Canal Digitaal (Pays-Bas) & M7 Group',
+    flag: '🇳🇱',
+    label: 'Canal Digitaal (Pays-Bas)',
     satellite: 'Astra 23.5°E',
     description:
-      'Canal Digitaal & TV Vlaanderen (Astra 23.5°E / M7 Group) : NPO 1–3, RTL 4/5/7/8, SBS6, Veronica, VRT 1, Canvas, VTM, Film1 & ESPN Netherlands',
+      'Canal Digitaal (Astra 23.5°E) : NPO 1–3, RTL 4/5/7/8, SBS6, Veronica, Net5, Film1 & ESPN Netherlands',
     estRamMb: 2.6,
     estimatedRamMb: 2.6,
     sampleChannels: [
       'NPO 1 / 2 / 3 HD',
-      'RTL 4 / RTL 7 / SBS6',
-      'VRT 1 / Canvas / VTM',
-      'ESPN NL / Film1',
+      'RTL 4 / RTL 7 / RTL 8',
+      'SBS6 HD',
+      'ESPN 1 & 2 NL HD',
+    ],
+  },
+  {
+    id: 'astra_235e_tvvlaanderen',
+    flag: '🇧🇪',
+    label: 'TV Vlaanderen (Belgique / Flandre)',
+    satellite: 'Astra 23.5°E',
+    description:
+      'TV Vlaanderen (Astra 23.5°E) : VRT 1, VRT Canvas, Ketnet, VTM, VTM 2–4, Play4, Play5–7',
+    estRamMb: 2.5,
+    estimatedRamMb: 2.5,
+    sampleChannels: [
+      'VRT 1 HD / Canvas',
+      'VTM HD / VTM 2',
+      'Play4 HD / Play5',
+    ],
+  },
+  {
+    id: 'sky_uk',
+    flag: '🇬🇧',
+    label: 'Sky UK (Royaume-Uni)',
+    satellite: 'Astra 28.2°E',
+    description:
+      'Sky UK (Astra 28.2°E) : Sky Cinema (Premiere, Action), Sky Sports (Main Event, Premier League, Football), Sky Atlantic, Sky Max & Sky News',
+    estRamMb: 3.2,
+    estimatedRamMb: 3.2,
+    sampleChannels: [
+      'Sky Cinema Premiere HD',
+      'Sky Sports Main Event HD',
+      'Sky Sports Premier League',
+      'Sky Atlantic HD / Sky News',
+    ],
+  },
+  {
+    id: 'freesat_uk',
+    flag: '🇬🇧',
+    label: 'Freesat (UK FTA)',
+    satellite: 'Astra 28.2°E',
+    description:
+      'Freesat UK (Astra 28.2°E) : BBC One, BBC Two, ITV1, Channel 4, Channel 5, BBC News',
+    estRamMb: 2.6,
+    estimatedRamMb: 2.6,
+    sampleChannels: [
+      'BBC One HD / BBC Two',
+      'ITV1 HD / Channel 4 HD',
+      'Channel 5 HD / BBC News HD',
     ],
   },
 ];
@@ -1242,11 +1375,21 @@ export const SATELLITE_GROUPS_CATALOG: SatelliteGroupSpec[] = [
   {
     satelliteId: 'sat_astra_235e',
     orbitalPosition: 'Astra (23.5°E)',
-    title: 'Astra (23.5°E) — Skylink, Canal Digitaal & M7 Group',
-    flag: '🇨🇿/🇸🇰/🇳🇱/🇧🇪',
-    subtitle: 'Skylink (Tchéquie / Slovaquie), Canal Digitaal (Pays-Bas) & M7 Group',
+    title: 'Astra (23.5°E) — Canal Digitaal, TV Vlaanderen & Skylink',
+    flag: '🇳🇱/🇧🇪/🇨🇿/🇸🇰',
+    subtitle: 'Canal Digitaal (Pays-Bas), TV Vlaanderen (Belgique) & Skylink (Tchéquie / Slovaquie)',
     bouquets: EPG_BOUQUET_CATALOG.filter((b) =>
-      ['astra_235e_skylink', 'astra_235e_canaldigitaal'].includes(b.id)
+      ['astra_235e_canaldigitaal', 'astra_235e_tvvlaanderen', 'astra_235e_skylink'].includes(b.id)
+    ),
+  },
+  {
+    satelliteId: 'sat_astra_282e',
+    orbitalPosition: 'Astra (28.2°E)',
+    title: 'Astra (28.2°E) — Sky UK & Freesat (Royaume-Uni & Irlande)',
+    flag: '🇬🇧/🇮🇪',
+    subtitle: 'Sky UK (Sky Cinema, Sky Sports, Sky Atlantic) & Freesat (BBC One, ITV1, Channel 4, Channel 5)',
+    bouquets: EPG_BOUQUET_CATALOG.filter((b) =>
+      ['sky_uk', 'freesat_uk'].includes(b.id)
     ),
   },
   {
@@ -1516,11 +1659,22 @@ export const TV_PROFILES_CATALOG: TvProfileSpec[] = [
     flag: '🇳🇱/🇧🇪',
     label: 'Pays-Bas & Benelux (Astra 23.5°E)',
     shortLabel: 'Pays-Bas / Benelux',
-    satellitesSummary: 'Astra 23.5°E (Canal Digitaal, TV Vlaanderen & Skylink)',
+    satellitesSummary: 'Astra 23.5°E (Canal Digitaal & TV Vlaanderen)',
     satellitesList: ['Astra 23.5°E'],
     description:
-      'Charge par défaut le satellite Astra 23.5°E avec Canal Digitaal (Pays-Bas / TV Vlaanderen) et Skylink.',
-    bouquets: ['astra_235e_canaldigitaal', 'astra_235e_skylink'],
+      'Charge par défaut le satellite Astra 23.5°E avec Canal Digitaal (Pays-Bas) et TV Vlaanderen (Belgique / Flandre).',
+    bouquets: ['astra_235e_canaldigitaal', 'astra_235e_tvvlaanderen'],
+  },
+  {
+    id: 'royaume_uni_sky',
+    flag: '🇬🇧',
+    label: 'Royaume-Uni & Irlande (Astra 28.2°E)',
+    shortLabel: 'Royaume-Uni (Sky UK / Freesat)',
+    satellitesSummary: 'Astra 28.2°E (Sky UK & Freesat)',
+    satellitesList: ['Astra 28.2°E'],
+    description:
+      'Charge par défaut le satellite Astra 28.2°E avec Sky UK (Cinema, Sports, Atlantic) et Freesat (BBC, ITV, Channel 4, Channel 5).',
+    bouquets: ['sky_uk', 'freesat_uk'],
   },
   {
     id: 'all_satellites',
@@ -1623,13 +1777,17 @@ export function getDynamicProfileForLanguage(lang: AppLanguage): {
     case 'nl':
       return {
         tvProfile: 'pays_bas_benelux',
-        selectedBouquets: ['astra_235e_canaldigitaal', 'astra_235e_skylink'],
+        selectedBouquets: ['astra_235e_canaldigitaal', 'astra_235e_tvvlaanderen'],
       };
     case 'en':
+      return {
+        tvProfile: 'royaume_uni_sky',
+        selectedBouquets: ['sky_uk', 'freesat_uk'],
+      };
     default:
       return {
-        tvProfile: 'europe_standard',
-        selectedBouquets: ['astra_canal_fr', 'nilesat_osn_mbc', 'sky_de'],
+        tvProfile: 'france_europe_fr',
+        selectedBouquets: ['astra_canal_fr', 'astra_tnt_fr', 'hotbird_bis_fr'],
       };
   }
 }
@@ -1913,11 +2071,29 @@ export function detectInitialTvProfileFromSystemLanguage(
       };
     }
 
-    // 9. Autres langues -> Profil "Europe Standard" (Astra 19.2°E, Hotbird 13°E)
+    // 9. Profil "Pays-Bas / Flandre" (Langue 'nl') -> Astra 23.5°E [Canal Digitaal, TV Vlaanderen]
+    if (langLower.startsWith('nl')) {
+      return {
+        tvProfile: 'pays_bas_benelux',
+        language: 'nl',
+        selectedBouquets: ['astra_235e_canaldigitaal', 'astra_235e_tvvlaanderen'],
+      };
+    }
+
+    // 10. Profil "Royaume-Uni / Anglais" (Langue 'en') -> Astra 28.2°E [Sky UK, Freesat]
+    if (langLower.startsWith('en')) {
+      return {
+        tvProfile: 'royaume_uni_sky',
+        language: 'en',
+        selectedBouquets: ['sky_uk', 'freesat_uk'],
+      };
+    }
+
+    // 11. Autres langues -> Profil "France / Europe Francophone" par défaut
     return {
-      tvProfile: 'europe_standard',
-      language: 'en',
-      selectedBouquets: getBouquetsForTvProfile('europe_standard'),
+      tvProfile: 'france_europe_fr',
+      language: 'fr',
+      selectedBouquets: getBouquetsForTvProfile('france_europe_fr'),
     };
   } catch {
     return {
@@ -2137,10 +2313,18 @@ export const DEFAULT_EPG_SOURCES: EpgSourceItem[] = [
   },
   {
     id: 'src_nl1',
-    name: '🇳🇱/🇧🇪 Astra 23.5°E · Canal Digitaal & TV Vlaanderen (M7 Group)',
+    name: '🇳🇱 Astra 23.5°E · Canal Digitaal (NPO 1–3, RTL 4/5/7/8, SBS6, ESPN NL)',
     url: 'https://epgshare01.online/epgshare01/epg_ripper_NL1.xml.gz',
-    country: 'EU',
+    country: 'NL',
     bouquetId: 'astra_235e_canaldigitaal',
+    enabled: true,
+  },
+  {
+    id: 'src_be1',
+    name: '🇧🇪 Astra 23.5°E · TV Vlaanderen (VRT 1, Canvas, VTM, Play4)',
+    url: 'https://epgshare01.online/epgshare01/epg_ripper_BE1.xml.gz',
+    country: 'NL',
+    bouquetId: 'astra_235e_tvvlaanderen',
     enabled: true,
   },
   {
@@ -2151,10 +2335,31 @@ export const DEFAULT_EPG_SOURCES: EpgSourceItem[] = [
     bouquetId: 'astra_235e_skylink',
     enabled: true,
   },
+  {
+    id: 'src_uk1',
+    name: '🇬🇧 Astra 28.2°E · Sky UK & Freesat (BBC, ITV, Sky Cinema, Sky Sports, Channel 4)',
+    url: 'https://epgshare01.online/epgshare01/epg_ripper_UK1.xml.gz',
+    country: 'UK',
+    bouquetId: 'sky_uk',
+    enabled: true,
+  },
 ];
 
 export function inferBouquetIdForSource(source: EpgSourceItem): EpgBouquetId {
   const u = source.url.toLowerCase();
+  if (
+    u.includes('_uk1') ||
+    u.includes('_uk') ||
+    source.bouquetId === 'sky_uk' ||
+    source.bouquetId === 'freesat_uk'
+  ) {
+    return 'sky_uk';
+  }
+  if (
+    source.bouquetId === 'astra_235e_tvvlaanderen'
+  ) {
+    return 'astra_235e_tvvlaanderen';
+  }
   if (
     u.includes('_nl1') ||
     source.bouquetId === 'astra_235e_canaldigitaal'
@@ -2298,18 +2503,36 @@ export function resolveChannelBouquetId(ch: {
     return 'eutelsat_16e_digitalb';
   }
   if (
+    ch.satellites?.some((s) => s.includes('28.2')) ||
+    ch.orbitalPosition === 'Astra 28.2°E' ||
+    ch.bouquets?.some((b) => b.includes('Sky UK') || b.includes('Freesat')) ||
+    /\.uk$/i.test(ch.id || '')
+  ) {
+    if (ch.bouquets?.some((b) => b.includes('Freesat'))) {
+      return 'freesat_uk';
+    }
+    return 'sky_uk';
+  }
+  if (
     ch.satellites?.some((s) => s.includes('23.5')) ||
     ch.orbitalPosition === 'Astra 23.5°E' ||
     ch.bouquets?.some(
       (b) =>
         b.includes('Skylink') ||
         b.includes('Canal Digitaal') ||
+        b.includes('Vlaanderen') ||
         b.includes('M7 Group')
     )
   ) {
     if (
-      ch.bouquets?.some((b) => b.includes('Canal Digitaal') || b.includes('Vlaanderen')) ||
-      /\.(nl|be)$/i.test(ch.id || '')
+      ch.bouquets?.some((b) => b.includes('Vlaanderen')) ||
+      /\.be$/i.test(ch.id || '')
+    ) {
+      return 'astra_235e_tvvlaanderen';
+    }
+    if (
+      ch.bouquets?.some((b) => b.includes('Canal Digitaal')) ||
+      /\.nl$/i.test(ch.id || '')
     ) {
       return 'astra_235e_canaldigitaal';
     }
@@ -2415,15 +2638,27 @@ export function isBouquetFilterAllowedBySettings(
       active.includes('movistar_es')
     );
   }
-  if (
-    b === 'Skylink (Tchéquie / Slovaquie)' ||
-    b === 'Canal Digitaal (Pays-Bas)' ||
-    b === 'M7 Group (Astra 23.5°E)'
-  ) {
+  if (b === 'Canal Digitaal (Pays-Bas)') {
+    return active.includes('astra_235e_canaldigitaal');
+  }
+  if (b === 'TV Vlaanderen (Belgique / Flandre)') {
+    return active.includes('astra_235e_tvvlaanderen');
+  }
+  if (b === 'Skylink (Tchéquie / Slovaquie)') {
+    return active.includes('astra_235e_skylink');
+  }
+  if (b === 'M7 Group (Astra 23.5°E)') {
     return (
-      active.includes('astra_235e_skylink') ||
-      active.includes('astra_235e_canaldigitaal')
+      active.includes('astra_235e_canaldigitaal') ||
+      active.includes('astra_235e_tvvlaanderen') ||
+      active.includes('astra_235e_skylink')
     );
+  }
+  if (b === 'Sky UK (Royaume-Uni)') {
+    return active.includes('sky_uk');
+  }
+  if (b === 'Freesat (UK FTA)') {
+    return active.includes('freesat_uk');
   }
   if (b === 'Sky DE / DAZN DE') {
     return (
@@ -2559,7 +2794,14 @@ export function isSatelliteFilterAllowedBySettings(
   if (sat === 'Astra 23.5°E') {
     return (
       active.includes('astra_235e_skylink') ||
-      active.includes('astra_235e_canaldigitaal')
+      active.includes('astra_235e_canaldigitaal') ||
+      active.includes('astra_235e_tvvlaanderen')
+    );
+  }
+  if (sat === 'Astra 28.2°E') {
+    return (
+      active.includes('sky_uk') ||
+      active.includes('freesat_uk')
     );
   }
   if (sat === 'Hotbird 13°E') {
@@ -2634,6 +2876,18 @@ export function isCountryFilterAllowedBySettings(
       active.includes('astra_canal_fr') ||
       active.includes('astra_tnt_fr') ||
       active.includes('hotbird_bis_fr')
+    );
+  }
+  if (c === 'UK') {
+    return (
+      active.includes('sky_uk') ||
+      active.includes('freesat_uk')
+    );
+  }
+  if (c === 'NL') {
+    return (
+      active.includes('astra_235e_canaldigitaal') ||
+      active.includes('astra_235e_tvvlaanderen')
     );
   }
   if (c === 'ES') {
@@ -2885,26 +3139,72 @@ export function isChannelAllowedBySettings(
     bouquetAllowed = activeBouquets.includes('starone_70w_claro_br');
   }
 
-  // Autoriser Astra 23.5°E (Skylink & Canal Digitaal / M7 Group)
+  // Autoriser Astra 23.5°E (Skylink, Canal Digitaal & TV Vlaanderen / M7 Group)
   if (
     !bouquetAllowed &&
     (chBouquetId === 'astra_235e_skylink' ||
       chBouquetId === 'astra_235e_canaldigitaal' ||
+      chBouquetId === 'astra_235e_tvvlaanderen' ||
       ch.satellites?.some((s) => s.includes('23.5')) ||
       ch.bouquets?.some(
         (b) =>
           b.includes('Skylink') ||
           b.includes('Canal Digitaal') ||
+          b.includes('Vlaanderen') ||
           b.includes('M7 Group')
       ))
   ) {
     bouquetAllowed =
       activeBouquets.includes('astra_235e_skylink') ||
-      activeBouquets.includes('astra_235e_canaldigitaal');
+      activeBouquets.includes('astra_235e_canaldigitaal') ||
+      activeBouquets.includes('astra_235e_tvvlaanderen');
+  }
+
+  // Autoriser Astra 28.2°E (Sky UK & Freesat)
+  if (
+    !bouquetAllowed &&
+    (chBouquetId === 'sky_uk' ||
+      chBouquetId === 'freesat_uk' ||
+      ch.satellites?.some((s) => s.includes('28.2')) ||
+      ch.bouquets?.some(
+        (b) =>
+          b.includes('Sky UK') ||
+          b.includes('Freesat')
+      ))
+  ) {
+    bouquetAllowed =
+      activeBouquets.includes('sky_uk') ||
+      activeBouquets.includes('freesat_uk');
   }
 
   if (!bouquetAllowed) {
     return false;
+  }
+
+  // Filtrage par profil TV ("Royaume-Uni & Irlande" = Astra 28.2°E uniquement)
+  if (settings.tvProfile === 'royaume_uni_sky') {
+    const isAstra282 =
+      ch.satellites?.some((s) => s.includes('28.2')) ||
+      Boolean(ch.orbitalPosition?.includes('28.2')) ||
+      ch.bouquetId === 'sky_uk' ||
+      ch.bouquetId === 'freesat_uk' ||
+      ch.bouquets?.some(
+        (b) =>
+          b.includes('Sky UK') ||
+          b.includes('Freesat')
+      );
+    if (!isAstra282) {
+      const userBouquets = settings.selectedBouquets || [];
+      const hasOtherAllowedBouquet = userBouquets.some(
+        (b) =>
+          b !== 'sky_uk' &&
+          b !== 'freesat_uk' &&
+          (ch.bouquetId === b || chBouquetId === b)
+      );
+      if (!hasOtherAllowedBouquet) {
+        return false;
+      }
+    }
   }
 
   // Filtrage par profil TV ("Espagne" = Espagne & Amérique Latine / LATAM, sans chaînes portugaises MEO/NOS strictement réservées au Portugal)
@@ -2933,6 +3233,7 @@ export function isChannelAllowedBySettings(
       ch.satellites?.some((s) => s.includes('23.5')) ||
       Boolean(ch.orbitalPosition?.includes('23.5')) ||
       ch.bouquetId === 'astra_235e_canaldigitaal' ||
+      ch.bouquetId === 'astra_235e_tvvlaanderen' ||
       ch.bouquetId === 'astra_235e_skylink' ||
       ch.bouquets?.some(
         (b) =>
@@ -2946,6 +3247,7 @@ export function isChannelAllowedBySettings(
       const hasOtherAllowedBouquet = userBouquets.some(
         (b) =>
           b !== 'astra_235e_canaldigitaal' &&
+          b !== 'astra_235e_tvvlaanderen' &&
           b !== 'astra_235e_skylink' &&
           (ch.bouquetId === b || chBouquetId === b)
       );
@@ -3181,10 +3483,26 @@ export function syncSourcesWithSelectedBouquets(
       enabled = selectedBouquets.includes('monacosat_52e_persiana');
     }
     // NL1 fournit Canal Digitaal & TV Vlaanderen (Astra 23.5°E)
-    else if (u.includes('_nl1') || s.bouquetId === 'astra_235e_canaldigitaal') {
+    else if (
+      u.includes('_nl1') ||
+      s.bouquetId === 'astra_235e_canaldigitaal' ||
+      s.bouquetId === 'astra_235e_tvvlaanderen'
+    ) {
       enabled =
         selectedBouquets.includes('astra_235e_canaldigitaal') ||
+        selectedBouquets.includes('astra_235e_tvvlaanderen') ||
         tvProfile === 'pays_bas_benelux';
+    }
+    // UK1 fournit Sky UK & Freesat (Astra 28.2°E)
+    else if (
+      u.includes('_uk1') ||
+      s.bouquetId === 'sky_uk' ||
+      s.bouquetId === 'freesat_uk'
+    ) {
+      enabled =
+        selectedBouquets.includes('sky_uk') ||
+        selectedBouquets.includes('freesat_uk') ||
+        tvProfile === 'royaume_uni_sky';
     }
     // CZ1 fournit Skylink (Astra 23.5°E)
     else if (u.includes('_cz1') || s.bouquetId === 'astra_235e_skylink') {
@@ -3204,7 +3522,17 @@ export function syncSourcesWithSelectedBouquets(
   const hasAnyEnabled = syncedList.some((s) => s.enabled);
   if (!hasAnyEnabled && selectedBouquets.length > 0) {
     if (
+      selectedBouquets.includes('sky_uk') ||
+      selectedBouquets.includes('freesat_uk') ||
+      tvProfile === 'royaume_uni_sky'
+    ) {
+      const ukSrc = syncedList.find(
+        (s) => s.id === 'src_uk1' || s.url.includes('_uk1')
+      );
+      if (ukSrc) ukSrc.enabled = true;
+    } else if (
       selectedBouquets.includes('astra_235e_canaldigitaal') ||
+      selectedBouquets.includes('astra_235e_tvvlaanderen') ||
       tvProfile === 'pays_bas_benelux'
     ) {
       const nlSrc = syncedList.find(

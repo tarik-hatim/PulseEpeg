@@ -2815,6 +2815,22 @@ const COUNTRY_FILTER_LABELS: Record<
       de: 'LATAM · Amazonas 61°W & Intelsat 43.1°W',
       pt: 'LATAM · Amazonas 61°W e Intelsat 43.1°W',
     },
+    NL: {
+      fr: 'NL · Canal Digitaal & TV Vlaanderen',
+      en: 'NL · Canal Digitaal & TV Vlaanderen',
+      ar: 'هولندا · Canal Digitaal & TV Vlaanderen',
+      es: 'NL · Canal Digitaal & TV Vlaanderen',
+      de: 'NL · Canal Digitaal & TV Vlaanderen',
+      pt: 'NL · Canal Digitaal & TV Vlaanderen',
+    },
+    UK: {
+      fr: 'UK · Sky UK & Freesat',
+      en: 'UK · Sky UK & Freesat',
+      ar: 'المملكة المتحدة · Sky UK & Freesat',
+      es: 'UK · Sky UK & Freesat',
+      de: 'UK · Sky UK & Freesat',
+      pt: 'UK · Sky UK & Freesat',
+    },
     Autre: {
       fr: 'Autre',
       en: 'Other',
@@ -2868,6 +2884,8 @@ export const CHANNEL_COUNTRY_FLAGS: Record<ChannelCountryFilter, string> = {
   PE: '🇵🇪',
   BR: '🇧🇷',
   LATAM: '🌎',
+  NL: '🇳🇱',
+  UK: '🇬🇧',
 };
 
 const CHANNEL_COUNTRY_LABELS: Record<
@@ -3089,6 +3107,22 @@ const CHANNEL_COUNTRY_LABELS: Record<
     es: 'Latinoamérica',
     de: 'Lateinamerika',
     pt: 'América Latina',
+  },
+  NL: {
+    fr: 'Pays-Bas & Flandre',
+    en: 'Netherlands & Flanders',
+    ar: 'هولندا وفلاندرز',
+    es: 'Países Bajos y Flandes',
+    de: 'Niederlande & Flandern',
+    pt: 'Países Baixos e Flandres',
+  },
+  UK: {
+    fr: 'Royaume-Uni',
+    en: 'United Kingdom',
+    ar: 'المملكة المتحدة',
+    es: 'Reino Unido',
+    de: 'Vereinigtes Königreich',
+    pt: 'Reino Unido',
   },
 };
 

@@ -595,6 +595,221 @@ const OFFICIAL_CHANNEL_LOGO_REGISTRY: ChannelBrandSpec[] = [
     bgHex: '#B45309',
     accentHex: '#FBBF24',
   },
+  // ============================================================================
+  // BOUQUETS UK : SKY UK & FREESAT (ASTRA 28.2°E)
+  // ============================================================================
+  {
+    patterns: [/\bbbc\s*one\b/i, /^bbcone/i],
+    remoteHttpsUrls: [
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/e/eb/BBC_One_2021.svg/512px-BBC_One_2021.svg.png',
+      'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/bbc-one-uk.png',
+    ],
+    badgeTitle: 'BBC',
+    badgeSub: 'ONE',
+    bgHex: '#B91C1C',
+    accentHex: '#F87171',
+  },
+  {
+    patterns: [/\bbbc\s*two\b/i, /^bbctwo/i],
+    remoteHttpsUrls: [
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/6/69/BBC_Two_2021.svg/512px-BBC_Two_2021.svg.png',
+      'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/bbc-two-uk.png',
+    ],
+    badgeTitle: 'BBC',
+    badgeSub: 'TWO',
+    bgHex: '#065F46',
+    accentHex: '#34D399',
+  },
+  {
+    patterns: [/\bitv\s*1\b/i, /^itv1/i, /\bitv\b/i],
+    remoteHttpsUrls: [
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/9/92/ITV1_logo_2022.svg/512px-ITV1_logo_2022.svg.png',
+      'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/itv1-uk.png',
+    ],
+    badgeTitle: 'ITV',
+    badgeSub: '1',
+    bgHex: '#047857',
+    accentHex: '#10B981',
+  },
+  {
+    patterns: [/\bchannel\s*4\b/i, /^channel4/i],
+    remoteHttpsUrls: [
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d7/Channel_4_logo_2015.svg/512px-Channel_4_logo_2015.svg.png',
+      'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/channel-4-uk.png',
+    ],
+    badgeTitle: 'CH 4',
+    badgeSub: 'UK',
+    bgHex: '#1E293B',
+    accentHex: '#38BDF8',
+  },
+  {
+    patterns: [/\bchannel\s*5\b/i, /^channel5/i],
+    remoteHttpsUrls: [
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/Channel_5_logo_2020.svg/512px-Channel_5_logo_2020.svg.png',
+      'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/channel-5-uk.png',
+    ],
+    badgeTitle: 'CH 5',
+    badgeSub: 'UK',
+    bgHex: '#7C2D12',
+    accentHex: '#FB923C',
+  },
+  {
+    patterns: [/\bsky\s*news\b/i, /^skynews/i],
+    remoteHttpsUrls: [
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Sky_News_2020.svg/512px-Sky_News_2020.svg.png',
+      'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/sky-news-uk.png',
+    ],
+    badgeTitle: 'SKY',
+    badgeSub: 'NEWS',
+    bgHex: '#B91C1C',
+    accentHex: '#EF4444',
+  },
+  // ============================================================================
+  // BOUQUETS CANAL DIGITAAL & TV VLAANDEREN (ASTRA 23.5°E)
+  // ============================================================================
+  {
+    patterns: [/\bnpo\s*1\b/i, /^npo1/i],
+    remoteHttpsUrls: [
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/0/02/NPO_1_logo_2014.svg/512px-NPO_1_logo_2014.svg.png',
+      'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/netherlands/npo-1-nl.png',
+    ],
+    badgeTitle: 'NPO 1',
+    badgeSub: 'NL',
+    bgHex: '#C2410C',
+    accentHex: '#FB923C',
+  },
+  {
+    patterns: [/\bnpo\s*2\b/i, /^npo2/i],
+    remoteHttpsUrls: [
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/NPO_2_logo_2014.svg/512px-NPO_2_logo_2014.svg.png',
+      'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/netherlands/npo-2-nl.png',
+    ],
+    badgeTitle: 'NPO 2',
+    badgeSub: 'NL',
+    bgHex: '#1E3A8A',
+    accentHex: '#60A5FA',
+  },
+  {
+    patterns: [/\bnpo\s*3\b/i, /^npo3/i],
+    remoteHttpsUrls: [
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/NPO_3_logo_2014.svg/512px-NPO_3_logo_2014.svg.png',
+      'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/netherlands/npo-3-nl.png',
+    ],
+    badgeTitle: 'NPO 3',
+    badgeSub: 'NL',
+    bgHex: '#047857',
+    accentHex: '#34D399',
+  },
+  {
+    patterns: [/\brtl\s*4\b/i, /^rtl4/i],
+    remoteHttpsUrls: [
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b5/RTL_4_logo_2023.svg/512px-RTL_4_logo_2023.svg.png',
+      'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/netherlands/rtl-4-nl.png',
+    ],
+    badgeTitle: 'RTL 4',
+    badgeSub: 'NL',
+    bgHex: '#EA580C',
+    accentHex: '#FDBA74',
+  },
+  {
+    patterns: [/\brtl\s*5\b/i, /^rtl5/i],
+    remoteHttpsUrls: [
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/2/23/RTL_5_logo_2023.svg/512px-RTL_5_logo_2023.svg.png',
+      'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/netherlands/rtl-5-nl.png',
+    ],
+    badgeTitle: 'RTL 5',
+    badgeSub: 'NL',
+    bgHex: '#7C2D12',
+    accentHex: '#F97316',
+  },
+  {
+    patterns: [/\brtl\s*7\b/i, /^rtl7/i],
+    remoteHttpsUrls: [
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/9/91/RTL_7_logo_2023.svg/512px-RTL_7_logo_2023.svg.png',
+      'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/netherlands/rtl-7-nl.png',
+    ],
+    badgeTitle: 'RTL 7',
+    badgeSub: 'NL',
+    bgHex: '#1E293B',
+    accentHex: '#38BDF8',
+  },
+  {
+    patterns: [/\brtl\s*8\b/i, /^rtl8/i],
+    remoteHttpsUrls: [
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/9/97/RTL_8_logo_2023.svg/512px-RTL_8_logo_2023.svg.png',
+      'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/netherlands/rtl-8-nl.png',
+    ],
+    badgeTitle: 'RTL 8',
+    badgeSub: 'NL',
+    bgHex: '#831843',
+    accentHex: '#F472B6',
+  },
+  {
+    patterns: [/\bsbs\s*6\b/i, /^sbs6/i],
+    remoteHttpsUrls: [
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/1/14/SBS6_logo_2018.svg/512px-SBS6_logo_2018.svg.png',
+      'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/netherlands/sbs-6-nl.png',
+    ],
+    badgeTitle: 'SBS 6',
+    badgeSub: 'NL',
+    bgHex: '#991B1B',
+    accentHex: '#EF4444',
+  },
+  {
+    patterns: [/\bespn/i],
+    remoteHttpsUrls: [
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/ESPN_logo.svg/512px-ESPN_logo.svg.png',
+      'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/netherlands/espn-1-nl.png',
+    ],
+    badgeTitle: 'ESPN',
+    badgeSub: 'NL',
+    bgHex: '#B91C1C',
+    accentHex: '#EF4444',
+  },
+  {
+    patterns: [/\bvrt\s*1\b/i, /^vrt1/i],
+    remoteHttpsUrls: [
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/2/23/VRT_1_logo_2023.svg/512px-VRT_1_logo_2023.svg.png',
+      'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/belgium/vrt-1-be.png',
+    ],
+    badgeTitle: 'VRT 1',
+    badgeSub: 'VLAAMS',
+    bgHex: '#0369A1',
+    accentHex: '#38BDF8',
+  },
+  {
+    patterns: [/\bcanvas\b/i],
+    remoteHttpsUrls: [
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/1/17/VRT_Canvas_logo_2023.svg/512px-VRT_Canvas_logo_2023.svg.png',
+      'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/belgium/vrt-canvas-be.png',
+    ],
+    badgeTitle: 'CANVAS',
+    badgeSub: 'VLAAMS',
+    bgHex: '#1E293B',
+    accentHex: '#60A5FA',
+  },
+  {
+    patterns: [/\bvtm\b/i],
+    remoteHttpsUrls: [
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/9/90/VTM_logo_2020.svg/512px-VTM_logo_2020.svg.png',
+      'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/belgium/vtm-be.png',
+    ],
+    badgeTitle: 'VTM',
+    badgeSub: 'VLAAMS',
+    bgHex: '#B91C1C',
+    accentHex: '#F87171',
+  },
+  {
+    patterns: [/\bplay\s*4\b/i, /^play4/i],
+    remoteHttpsUrls: [
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Play4_logo_2021.svg/512px-Play4_logo_2021.svg.png',
+      'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/belgium/play-4-be.png',
+    ],
+    badgeTitle: 'PLAY',
+    badgeSub: '4',
+    bgHex: '#1E293B',
+    accentHex: '#FBBF24',
+  },
 ];
 
 function matchChannelBrandSpec(

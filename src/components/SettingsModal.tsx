@@ -177,21 +177,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     const dyn = getDynamicProfileForLanguage(lang);
     setLimitWarning(null);
     setDraft((prev) => {
-      const existing = prev.selectedBouquets || [];
-      let nextBouquets: EpgBouquetId[];
-      let nextProfile: TvProfileId;
-
-      if (lang === 'nl') {
-        const nlBouquets: EpgBouquetId[] = [
-          'astra_235e_canaldigitaal',
-          'astra_235e_skylink',
-        ];
-        nextBouquets = Array.from(new Set([...existing, ...nlBouquets]));
-        nextProfile = 'pays_bas_benelux';
-      } else {
-        nextBouquets = existing.length > 0 ? existing : dyn.selectedBouquets;
-        nextProfile = prev.tvProfile || dyn.tvProfile;
-      }
+      const nextBouquets = [...dyn.selectedBouquets];
+      const nextProfile = dyn.tvProfile;
 
       return {
         ...prev,

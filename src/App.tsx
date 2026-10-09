@@ -639,6 +639,7 @@ export function App() {
   virtualViewportRef.current = virtualViewport;
 
   const workerRef = useRef<Worker | null>(null);
+  const syncStartTimeRef = useRef<number>(0);
 
   const activeLang: AppLanguage = settings.language || 'fr';
   const tr = getTranslations(activeLang);
@@ -743,6 +744,7 @@ export function App() {
 
   const triggerEpgSync = useCallback((currentSettings: AppSettings) => {
     try {
+      syncStartTimeRef.current = Date.now();
       setIsSyncing(true);
       setEpgError(null);
 
@@ -758,13 +760,17 @@ export function App() {
       if (typeof Worker === 'undefined') {
         void buildOfflineFallbackEpgSnapshotAsync(currentSettings).then(
           (fallback) => {
-            setIsSyncing(false);
-            setWorkerProgress(null);
-            setChannels((prev) => (prev.length > 0 ? prev : fallback.channels));
-            setSchedulesByChannel((prev) =>
-              Object.keys(prev).length > 0 ? prev : fallback.schedulesByChannel
-            );
-            setCacheMeta((prev) => prev || fallback.metadata);
+            const elapsed = Date.now() - syncStartTimeRef.current;
+            const remaining = Math.max(0, 650 - elapsed);
+            setTimeout(() => {
+              setIsSyncing(false);
+              setWorkerProgress(null);
+              if (fallback.channels.length > 0) {
+                setChannels(fallback.channels);
+                setSchedulesByChannel(fallback.schedulesByChannel);
+                setCacheMeta(fallback.metadata);
+              }
+            }, remaining);
           }
         );
         return;
@@ -893,19 +899,24 @@ export function App() {
           setTimeout(async () => {
             if (!parsedChannels || parsedChannels.length === 0) {
               const fallback = await buildOfflineFallbackEpgSnapshotAsync(currentSettings);
-              setChannels((prev) => (prev.length > 0 ? prev : fallback.channels));
-              setSchedulesByChannel((prev) =>
-                Object.keys(prev).length > 0 ? prev : fallback.schedulesByChannel
-              );
-              setCacheMeta((prev) => prev || fallback.metadata);
+              if (fallback.channels.length > 0) {
+                setChannels(fallback.channels);
+                setSchedulesByChannel(fallback.schedulesByChannel);
+                setCacheMeta(fallback.metadata);
+              }
             } else {
               setChannels(parsedChannels);
               setSchedulesByChannel(parsedSchedules);
               setCacheMeta(metadata);
             }
-            setIsSyncing(false);
-            setWorkerProgress(null);
-            setEpgError(null);
+
+            const elapsed = Date.now() - syncStartTimeRef.current;
+            const remaining = Math.max(0, 650 - elapsed);
+            setTimeout(() => {
+              setIsSyncing(false);
+              setWorkerProgress(null);
+              setEpgError(null);
+            }, remaining);
 
             try {
               if (parsedChannels && parsedChannels.length > 0) {
@@ -924,14 +935,18 @@ export function App() {
         } else if (msg.type === 'EPG_ERROR') {
           void buildOfflineFallbackEpgSnapshotAsync(currentSettings).then(
             (fallback) => {
-              setIsSyncing(false);
-              setWorkerProgress(null);
-              setEpgError(null);
-              setChannels((prev) => (prev.length > 0 ? prev : fallback.channels));
-              setSchedulesByChannel((prev) =>
-                Object.keys(prev).length > 0 ? prev : fallback.schedulesByChannel
-              );
-              setCacheMeta((prev) => prev || fallback.metadata);
+              if (fallback.channels.length > 0) {
+                setChannels(fallback.channels);
+                setSchedulesByChannel(fallback.schedulesByChannel);
+                setCacheMeta(fallback.metadata);
+              }
+              const elapsed = Date.now() - syncStartTimeRef.current;
+              const remaining = Math.max(0, 650 - elapsed);
+              setTimeout(() => {
+                setIsSyncing(false);
+                setWorkerProgress(null);
+                setEpgError(null);
+              }, remaining);
             }
           );
           try {
@@ -946,16 +961,18 @@ export function App() {
       worker.onerror = () => {
         void buildOfflineFallbackEpgSnapshotAsync(currentSettings).then(
           (fallback) => {
-            setIsSyncing(false);
-            setWorkerProgress(null);
-            setEpgError(null);
-            setChannels((prev) =>
-              prev.length > 0 ? prev : fallback.channels
-            );
-            setSchedulesByChannel((prev) =>
-              Object.keys(prev).length > 0 ? prev : fallback.schedulesByChannel
-            );
-            setCacheMeta((prev) => prev || fallback.metadata);
+            if (fallback.channels.length > 0) {
+              setChannels(fallback.channels);
+              setSchedulesByChannel(fallback.schedulesByChannel);
+              setCacheMeta(fallback.metadata);
+            }
+            const elapsed = Date.now() - syncStartTimeRef.current;
+            const remaining = Math.max(0, 650 - elapsed);
+            setTimeout(() => {
+              setIsSyncing(false);
+              setWorkerProgress(null);
+              setEpgError(null);
+            }, remaining);
           }
         );
         try {
@@ -1338,11 +1355,24 @@ export function App() {
         Boolean(ch.orbitalPosition?.includes('23.5')) ||
         ch.bouquetId === 'astra_235e_skylink' ||
         ch.bouquetId === 'astra_235e_canaldigitaal' ||
+        ch.bouquetId === 'astra_235e_tvvlaanderen' ||
         ch.bouquets.some(
           (b) =>
             b.includes('Skylink') ||
             b.includes('Canal Digitaal') ||
+            b.includes('Vlaanderen') ||
             b.includes('M7 Group')
+        )
+      );
+    }
+    if (sat === 'Astra 28.2°E') {
+      return (
+        ch.satellites.some((s) => s.includes('28.2')) ||
+        Boolean(ch.orbitalPosition?.includes('28.2')) ||
+        ch.bouquetId === 'sky_uk' ||
+        ch.bouquetId === 'freesat_uk' ||
+        ch.bouquets.some(
+          (b) => b.includes('Sky UK') || b.includes('Freesat')
         )
       );
     }
@@ -1373,9 +1403,42 @@ export function App() {
     ) {
       return (
         rawMatchesSatellite(ch, 'Astra 23.5°E') &&
-        (ch.bouquets.some((b) => b.includes('Canal Digitaal') || b.includes('Vlaanderen')) ||
+        (ch.bouquets.some((b) => b.includes('Canal Digitaal')) ||
           ch.bouquetId === 'astra_235e_canaldigitaal' ||
-          /\.(nl|be)$/i.test(ch.id || ''))
+          /\.(nl)$/i.test(ch.id || ''))
+      );
+    }
+    if (
+      bq === 'TV Vlaanderen (Belgique / Flandre)' ||
+      (bq as string).includes('Vlaanderen')
+    ) {
+      return (
+        rawMatchesSatellite(ch, 'Astra 23.5°E') &&
+        (ch.bouquets.some((b) => b.includes('Vlaanderen')) ||
+          ch.bouquetId === 'astra_235e_tvvlaanderen' ||
+          /\.(be)$/i.test(ch.id || ''))
+      );
+    }
+    if (
+      bq === 'Sky UK (Royaume-Uni)' ||
+      (bq as string).includes('Sky UK')
+    ) {
+      return (
+        rawMatchesSatellite(ch, 'Astra 28.2°E') &&
+        (ch.bouquets.some((b) => b.includes('Sky UK')) ||
+          ch.bouquetId === 'sky_uk' ||
+          /sky/i.test(ch.displayName))
+      );
+    }
+    if (
+      bq === 'Freesat (UK FTA)' ||
+      (bq as string).includes('Freesat')
+    ) {
+      return (
+        rawMatchesSatellite(ch, 'Astra 28.2°E') &&
+        (ch.bouquets.some((b) => b.includes('Freesat')) ||
+          ch.bouquetId === 'freesat_uk' ||
+          /bbc|itv|channel\s*4|channel\s*5/i.test(ch.displayName))
       );
     }
     if (
@@ -1384,9 +1447,16 @@ export function App() {
     ) {
       return (
         rawMatchesSatellite(ch, 'Astra 23.5°E') ||
-        ch.bouquets.some((b) => b.includes('M7 Group') || b.includes('Skylink') || b.includes('Canal Digitaal')) ||
+        ch.bouquets.some(
+          (b) =>
+            b.includes('M7 Group') ||
+            b.includes('Skylink') ||
+            b.includes('Canal Digitaal') ||
+            b.includes('Vlaanderen')
+        ) ||
         ch.bouquetId === 'astra_235e_skylink' ||
-        ch.bouquetId === 'astra_235e_canaldigitaal'
+        ch.bouquetId === 'astra_235e_canaldigitaal' ||
+        ch.bouquetId === 'astra_235e_tvvlaanderen'
       );
     }
 
@@ -2307,6 +2377,7 @@ export function App() {
       "Badr / Es'hailSat 26°E": 0,
       'Astra 19.2°E': 0,
       'Astra 23.5°E': 0,
+      'Astra 28.2°E': 0,
       'Hotbird 13°E': 0,
       'Hispasat 30°W': 0,
       'Eutelsat 16°E': 0,
@@ -2382,6 +2453,12 @@ export function App() {
         rawMatchesSatellite(ch, 'Astra 23.5°E')
       ) {
         counts['Astra 23.5°E'] = (counts['Astra 23.5°E'] || 0) + 1;
+      }
+      if (
+        !uniqueSats.has('Astra 28.2°E') &&
+        rawMatchesSatellite(ch, 'Astra 28.2°E')
+      ) {
+        counts['Astra 28.2°E'] = (counts['Astra 28.2°E'] || 0) + 1;
       }
     }
     return counts;
@@ -3506,33 +3583,48 @@ export function App() {
 
   const handleChangeLanguage = useCallback(
     (newLang: AppLanguage) => {
-      // 1. Mise à jour de la langue d'interface I18n exclusivement (menus, boutons, catégories)
+      // 1. Mise à jour de la langue d'interface I18n (menus, boutons, catégories)
       setActiveLanguage(newLang);
       applyDocumentLanguageDir(newLang);
       clearEnrichedMetadataCache();
 
-      // 2. Sauvegarder la langue dans les paramètres sans altérer les bouquets actifs, profils ni sources
-      const updated: AppSettings = {
+      // 2. Associer automatiquement le profil TV et les bouquets dédiés à la zone linguistique
+      const dynamicConfig = getDynamicProfileForLanguage(newLang);
+      const updatedSettings: AppSettings = {
         ...settings,
         language: newLang,
+        tvProfile: dynamicConfig.tvProfile,
+        selectedBouquets: [...dynamicConfig.selectedBouquets],
+        sources: syncSourcesWithSelectedBouquets(
+          dynamicConfig.selectedBouquets,
+          settings.sources || DEFAULT_EPG_SOURCES,
+          dynamicConfig.tvProfile
+        ),
       };
 
-      setSettings(updated);
-      saveAppSettings(updated);
+      setSettings(updatedSettings);
+      saveAppSettings(updatedSettings);
       setEpgError(null);
 
-      // 3. Ne jamais vider ni altérer la liste des chaînes existantes.
-      // Si la liste des chaînes était vide, assurer un fallback automatique immédiat sur la liste globale
-      if (channels.length === 0) {
-        const fallback = buildOfflineFallbackEpgSnapshot(updated);
-        if (fallback.channels.length > 0) {
-          setChannels(fallback.channels);
-          setSchedulesByChannel(fallback.schedulesByChannel);
-          setCacheMeta(fallback.metadata);
-        }
+      // 3. Réinitialiser les sélecteurs de filtre pour exposer immédiatement les satellites et bouquets cibles
+      setSelectedSatellite('Tous');
+      setSelectedBouquet('Tous');
+      setSelectedCountry('Tous');
+      setSelectedBouquetsList([]);
+
+      // 4. Générer instantanément le snapshot EPG hors ligne adapté aux nouveaux bouquets
+      const fallback = buildOfflineFallbackEpgSnapshot(updatedSettings);
+      if (fallback.channels.length > 0) {
+        setChannels(fallback.channels);
+        setSchedulesByChannel(fallback.schedulesByChannel);
+        setCacheMeta(fallback.metadata);
       }
+
+      // 5. Déclencher le rafraîchissement EPG avec l'animation de rotation (Spinning Button)
+      setIsSyncing(true);
+      triggerEpgSync(updatedSettings);
     },
-    [settings, channels.length]
+    [settings, triggerEpgSync]
   );
 
   const handleResetDefaults = useCallback(() => {
