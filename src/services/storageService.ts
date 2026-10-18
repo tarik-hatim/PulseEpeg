@@ -263,6 +263,19 @@ export function extractChannelCountries(
   const combined = `${idLower} ${nameLower}`;
   const chBouquets = ch.bouquets || [];
 
+  // 0. Royaume-Uni (Sky UK, Freesat, .uk)
+  if (
+    ch.country === 'UK' ||
+    idLower.endsWith('.uk') ||
+    ch.bouquetId === 'sky_uk' ||
+    ch.bouquetId === 'freesat_uk' ||
+    chBouquets.some((b) => b.includes('Sky UK') || b.includes('Freesat')) ||
+    ch.satellites?.some((s) => s.includes('28.2')) ||
+    ch.orbitalPosition === 'Astra 28.2°E'
+  ) {
+    countries.add('UK');
+  }
+
   // 1. Turquie (TRT Network, .tr, chaînes TRT)
   if (
     ch.bouquetId === 'trt_network' ||

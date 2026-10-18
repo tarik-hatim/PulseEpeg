@@ -13,7 +13,7 @@ import {
   EpgLoadingProgress,
   WorkerProgressMessage,
 } from '../types/epg';
-import { getActiveLanguage, getTranslations } from '../utils/i18n';
+import { getActiveLanguage, getTranslations, toStandardDigits } from '../utils/i18n';
 
 interface LoadingStatusBannerProps {
   progress: EpgLoadingProgress | WorkerProgressMessage | null;
@@ -51,7 +51,9 @@ export const LoadingStatusBanner: React.FC<LoadingStatusBannerProps> = ({
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs font-bold uppercase tracking-wider text-[#e11d48]">
-                  {activeLang === 'fr'
+                  {activeLang === 'ar'
+                    ? 'تنبيه مزامنة EPG عبر HTTPS'
+                    : activeLang === 'fr'
                     ? 'Avertissement Synchronisation EPG HTTPS'
                     : 'EPG HTTPS Synchronization Warning'}
                 </span>
@@ -81,7 +83,9 @@ export const LoadingStatusBanner: React.FC<LoadingStatusBannerProps> = ({
               >
                 <Satellite className="w-3.5 h-3.5 text-[#ffffff]" />
                 <span>
-                  {activeLang === 'fr'
+                  {activeLang === 'ar'
+                    ? 'تحميل الجدول المحلي الاحتياطي'
+                    : activeLang === 'fr'
                     ? 'Charger la grille locale de secours'
                     : 'Load local fallback schedule'}
                 </span>
@@ -119,7 +123,7 @@ export const LoadingStatusBanner: React.FC<LoadingStatusBannerProps> = ({
               </span>
               {total > 0 && (
                 <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-[#1d4ed8]/25 text-[#ffffff] border border-[#0055ff]/50">
-                  {completed} / {total} {tr.workerStreams}
+                  {toStandardDigits(completed)} / {toStandardDigits(total)} {tr.workerStreams}
                 </span>
               )}
             </div>
@@ -132,11 +136,11 @@ export const LoadingStatusBanner: React.FC<LoadingStatusBannerProps> = ({
         <div className="flex items-center gap-3 text-xs font-mono">
           <div className="px-2.5 py-1 rounded-lg bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1]">
             <Radio className="w-3 h-3 inline me-1 text-[#e11d48]" />
-            {p.channelsParsed} {tr.workerChannelsCount}
+            {toStandardDigits(p.channelsParsed)} {tr.workerChannelsCount}
           </div>
           <div className="px-2.5 py-1 rounded-lg bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1]">
             <Server className="w-3 h-3 inline me-1 text-[#0055ff]" />
-            {p.programmesParsed.toLocaleString()} {tr.workerProgrammesCount}
+            {toStandardDigits(p.programmesParsed.toLocaleString('en-US'))} {tr.workerProgrammesCount}
           </div>
         </div>
       </div>

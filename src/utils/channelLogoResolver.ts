@@ -664,6 +664,89 @@ const OFFICIAL_CHANNEL_LOGO_REGISTRY: ChannelBrandSpec[] = [
     bgHex: '#B91C1C',
     accentHex: '#EF4444',
   },
+  {
+    patterns: [/\bsky\s*atlantic\b/i, /^skyatlantic/i],
+    remoteHttpsUrls: [
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3f/Sky_Atlantic_logo_2020.svg/512px-Sky_Atlantic_logo_2020.svg.png',
+      'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/sky-atlantic-uk.png',
+    ],
+    badgeTitle: 'SKY',
+    badgeSub: 'ATLANTIC',
+    bgHex: '#0F172A',
+    accentHex: '#38BDF8',
+  },
+  {
+    patterns: [/\bsky\s*cinema\b/i, /^skycinema/i],
+    remoteHttpsUrls: [
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/Sky_Cinema_2020.svg/512px-Sky_Cinema_2020.svg.png',
+      'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/sky-cinema-premiere-uk.png',
+    ],
+    badgeTitle: 'SKY',
+    badgeSub: 'CINEMA',
+    bgHex: '#831843',
+    accentHex: '#F472B6',
+  },
+  {
+    patterns: [/\bsky\s*sports\b/i, /^skysports/i],
+    remoteHttpsUrls: [
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/c/cd/Sky_Sports_logo_2020.svg/512px-Sky_Sports_logo_2020.svg.png',
+      'https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/united-kingdom/sky-sports-main-event-uk.png',
+    ],
+    badgeTitle: 'SKY',
+    badgeSub: 'SPORTS',
+    bgHex: '#1E3A8A',
+    accentHex: '#60A5FA',
+  },
+  {
+    patterns: [/\bsky\s*showcase\b/i, /^skyshowcase/i],
+    remoteHttpsUrls: [
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Sky_Showcase_logo_2021.svg/512px-Sky_Showcase_logo_2021.svg.png',
+    ],
+    badgeTitle: 'SKY',
+    badgeSub: 'SHOWCASE',
+    bgHex: '#4C1D95',
+    accentHex: '#A78BFA',
+  },
+  {
+    patterns: [/\bsky\s*max\b/i, /^skymax/i],
+    remoteHttpsUrls: [
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Sky_Max_logo_2021.svg/512px-Sky_Max_logo_2021.svg.png',
+    ],
+    badgeTitle: 'SKY',
+    badgeSub: 'MAX',
+    bgHex: '#1E293B',
+    accentHex: '#F59E0B',
+  },
+  {
+    patterns: [/\bfilm\s*4\b/i, /^film4/i],
+    remoteHttpsUrls: [
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/8/82/Film4_logo_2018.svg/512px-Film4_logo_2018.svg.png',
+    ],
+    badgeTitle: 'FILM',
+    badgeSub: '4',
+    bgHex: '#991B1B',
+    accentHex: '#F87171',
+  },
+  {
+    patterns: [/\be4\b/i, /^e4/i],
+    remoteHttpsUrls: [
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/2/23/E4_logo_2018.svg/512px-E4_logo_2018.svg.png',
+    ],
+    badgeTitle: 'E4',
+    badgeSub: 'UK',
+    bgHex: '#581C87',
+    accentHex: '#C084FC',
+  },
+  {
+    patterns: [/\bitv\s*2\b/i, /^itv2/i],
+    remoteHttpsUrls: [
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b3/ITV2_logo_2022.svg/512px-ITV2_logo_2022.svg.png',
+    ],
+    badgeTitle: 'ITV',
+    badgeSub: '2',
+    bgHex: '#0E7490',
+    accentHex: '#22D3EE',
+  },
   // ============================================================================
   // BOUQUETS CANAL DIGITAAL & TV VLAANDEREN (ASTRA 23.5°E)
   // ============================================================================

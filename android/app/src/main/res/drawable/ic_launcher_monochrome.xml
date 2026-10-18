@@ -7,8 +7,8 @@
     <group
         android:pivotX="256"
         android:pivotY="256"
-        android:scaleX="0.68"
-        android:scaleY="0.68">
+        android:scaleX="0.66"
+        android:scaleY="0.66">
         <path
             android:pathData="M 128 92 C 128 81, 136 74, 147 74 H 200 C 210 74, 218 81, 218 92 V 430 Q 173 422, 128 438 Z"
             android:fillColor="#FFFFFFFF"
@@ -22,7 +22,7 @@
             android:fillColor="#FFFFFFFF" />
         <path
             android:pathData="M 248 386 H 284 L 302 346 L 326 420 L 348 366 L 362 386 H 398"
-            android:strokeWidth="15"
+            android:strokeWidth="14"
             android:strokeColor="#FFFFFFFF"
             android:strokeLineCap="round"
             android:strokeLineJoin="round" />

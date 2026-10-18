@@ -5,7 +5,7 @@ import { Readable } from 'stream';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
 import {
-  EnrichedProgrammeResult,
+  type EnrichedProgrammeResult,
   resolveOfficialFrenchMetadata,
 } from './src/utils/metadataResolverCore.ts';
 
@@ -21,7 +21,7 @@ const serverMetadataCache = new Map<string, EnrichedProgrammeResult>();
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
   // Endpoint d'enrichissement TMDB / TVMaze / Catalogue Officiel FR + Traduction systématique (language=fr-FR)
   app.get('/api/metadata-enrich', async (req, res) => {
@@ -124,6 +124,292 @@ async function startServer() {
         err instanceof Error ? err.message : 'Erreur recherche bande-annonce';
       res.status(500).json({ error: message });
     }
+  });
+
+  // Endpoint de recherche et validation des résumés / highlights officiels YouTube
+  app.get('/api/public/yt', async (req, res) => {
+    const embed = String(req.query.embed || '').trim();
+    if (embed) {
+      if (!/^[\w-]{11}$/.test(embed)) {
+        res.status(400).send('Bad id');
+        return;
+      }
+      try {
+        const o = await fetch(
+          `https://www.youtube.com/oembed?format=json&url=https://www.youtube.com/watch?v=${embed}`
+        );
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        res.json({ ok: o.ok });
+      } catch {
+        res.json({ ok: false });
+      }
+      return;
+    }
+
+    const q = String(req.query.q || '')
+      .replace(/[^\p{L}\p{N}\s.'-]/gu, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 100);
+
+    if (q.length < 3) {
+      res.status(400).send('Bad query');
+      return;
+    }
+
+    try {
+      const r = await fetch(
+        `https://www.youtube.com/results?hl=en&gl=US&sp=EgIQAQ%253D%253D&search_query=${encodeURIComponent(
+          q
+        )}`,
+        {
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36',
+            'Accept-Language': 'en-US,en',
+          },
+        }
+      );
+      if (!r.ok) {
+        res.status(502).send('Upstream error');
+        return;
+      }
+      const html = await r.text();
+      const m = html.match(/var ytInitialData = (\{.*?\});<\/script>/s);
+      const raw: any[] = [];
+      const collect = (o: any) => {
+        if (Array.isArray(o)) {
+          for (const x of o) collect(x);
+          return;
+        }
+        if (o && typeof o === 'object') {
+          const v = o.videoRenderer;
+          if (v?.videoId) raw.push(v);
+          for (const val of Object.values(o)) collect(val);
+        }
+      };
+      if (m) {
+        try {
+          collect(JSON.parse(m[1]));
+        } catch {
+          // ignore parsing error
+        }
+      }
+
+      const UNIT: Record<string, number> = {
+        second: 1e3,
+        minute: 6e4,
+        hour: 36e5,
+        day: 864e5,
+        week: 6048e5,
+        month: 2592e6,
+        year: 31536e6,
+      };
+      const SHORT: Record<string, string> = {
+        s: 'second',
+        m: 'minute',
+        min: 'minute',
+        h: 'hour',
+        d: 'day',
+        w: 'week',
+        mo: 'month',
+        y: 'year',
+      };
+      const age = (t = '') => {
+        const match = t.match(
+          /(\d+)\s*(seconds?|minutes?|hours?|days?|weeks?|months?|years?|mo|min|[smhdwy])\b/i
+        );
+        if (!match) return 0;
+        const u = match[2].toLowerCase();
+        const unit = SHORT[u] ?? u.replace(/s$/, '');
+        return +match[1] * (UNIT[unit] ?? 0);
+      };
+      const dur = (t = '') =>
+        t.split(':').reduce((s, x) => s * 60 + Number(x), 0) || 0;
+
+      const seen = new Set<string>();
+      const out = raw
+        .filter((v) => !seen.has(v.videoId) && seen.add(v.videoId))
+        .map((v) => {
+          const owner = v.ownerText?.runs?.[0];
+          const pub = v.publishedTimeText?.simpleText ?? '';
+          return {
+            id: v.videoId,
+            title: (v.title?.runs ?? []).map((x: any) => x.text).join(''),
+            channel: owner?.text ?? '',
+            channelId:
+              owner?.navigationEndpoint?.browseEndpoint?.browseId ?? '',
+            verified: (v.ownerBadges ?? []).some((b: any) =>
+              /VERIFIED/.test(b.metadataBadgeRenderer?.style ?? '')
+            ),
+            ageMs: age(pub),
+            dur: dur(v.lengthText?.simpleText),
+            streamed: /stream/i.test(pub),
+          };
+        });
+
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.json(out);
+    } catch {
+      res.status(500).json({ error: 'Search highlights failed' });
+    }
+  });
+
+  // Endpoint des affiches et grands matchs en direct et à venir (UEFA, AFC, Botola Pro, MLS, Championship, etc.)
+  let fixturesCache: { data: any[]; timestamp: number } | null = null;
+  app.get('/api/sports/fixtures', async (_req, res) => {
+    const now = Date.now();
+    if (fixturesCache && now - fixturesCache.timestamp < 10 * 60 * 1000) {
+      res.setHeader('Cache-Control', 'public, max-age=600');
+      res.json(fixturesCache.data);
+      return;
+    }
+
+    const LEAGUES_CONFIG = [
+      {
+        id: 'ucl',
+        code: 'uefa.champions',
+        label: 'Ligue des Champions UEFA',
+        broadcasters: [
+          { name: 'Canal+ Foot', satellite: 'Astra 19.2°E', isFree: false },
+          { name: 'beIN Sports 1 FR', satellite: 'Astra 19.2°E', isFree: false },
+          { name: 'Movistar Liga de Campeones', satellite: 'Astra 19.2°E', isFree: false },
+          { name: 'Sky Sport Austria', satellite: 'Astra 19.2°E', isFree: false },
+        ],
+      },
+      {
+        id: 'afc',
+        code: 'afc.champions',
+        label: "Ligue des Champions d'Asie (AFC)",
+        broadcasters: [
+          { name: 'beIN Sports AFC', satellite: "Badr / Es'hailSat 26°E", isFree: false },
+          { name: 'SSC 1 HD', satellite: "Badr / Es'hailSat 26°E", isFree: false },
+          { name: 'Abu Dhabi Sports Asia', satellite: 'Nilesat 7°W', isFree: false },
+        ],
+      },
+      {
+        id: 'eng2',
+        code: 'eng.2',
+        label: 'Championship (Angleterre)',
+        broadcasters: [
+          { name: 'Sky Sports Football', satellite: 'Astra 28.2°E', isFree: false },
+          { name: 'beIN Sports Max 4', satellite: 'Astra 19.2°E', isFree: false },
+        ],
+      },
+      {
+        id: 'mls',
+        code: 'usa.1',
+        label: 'Major League Soccer (MLS)',
+        broadcasters: [
+          { name: 'Apple TV (MLS Season Pass)', satellite: 'Streaming Global', isFree: false },
+          { name: 'beIN Sports Max 7', satellite: 'Astra 19.2°E', isFree: false },
+        ],
+      },
+      {
+        id: 'pl',
+        code: 'eng.1',
+        label: 'Premier League',
+        broadcasters: [
+          { name: 'Canal+ Premier League', satellite: 'Astra 19.2°E', isFree: false },
+          { name: 'Sky Sports Main Event', satellite: 'Astra 28.2°E', isFree: false },
+        ],
+      },
+      {
+        id: 'laliga',
+        code: 'esp.1',
+        label: 'LaLiga',
+        broadcasters: [
+          { name: 'beIN Sports 1 FR', satellite: 'Astra 19.2°E', isFree: false },
+          { name: 'Movistar LaLiga', satellite: 'Astra 19.2°E', isFree: false },
+        ],
+      },
+      {
+        id: 'ligue1',
+        code: 'fra.1',
+        label: 'Ligue 1',
+        broadcasters: [
+          { name: 'DAZN 1', satellite: 'Astra 19.2°E', isFree: false },
+          { name: 'beIN Sports 1 FR', satellite: 'Astra 19.2°E', isFree: false },
+        ],
+      },
+      {
+        id: 'caf',
+        code: 'caf.champions',
+        label: 'Ligue des Champions CAF',
+        broadcasters: [
+          { name: 'beIN Sports 6', satellite: 'Nilesat 7°W', isFree: false },
+          { name: 'Arryadia (TNT)', satellite: 'Nilesat 7°W', isFree: true },
+        ],
+      },
+    ];
+
+    const d0 = new Date(now);
+    const d1 = new Date(now + 86400000);
+    const d2 = new Date(now + 2 * 86400000);
+    const dateStrs = [
+      d0.toISOString().slice(0, 10).replace(/-/g, ''),
+      d1.toISOString().slice(0, 10).replace(/-/g, ''),
+      d2.toISOString().slice(0, 10).replace(/-/g, ''),
+    ];
+
+    const fixtures: any[] = [];
+    await Promise.all(
+      LEAGUES_CONFIG.map(async (cfg) => {
+        for (const dt of dateStrs) {
+          try {
+            const response = await fetch(
+              `https://site.api.espn.com/apis/site/v2/sports/soccer/${cfg.code}/scoreboard?dates=${dt}`
+            );
+            if (!response.ok) continue;
+            const data = (await response.json()) as any;
+            for (const ev of data.events || []) {
+              const comp = ev.competitions?.[0];
+              const home = comp?.competitors?.find((c: any) => c.homeAway === 'home');
+              const away = comp?.competitors?.find((c: any) => c.homeAway === 'away');
+              if (!home || !away) continue;
+              const startMs = new Date(ev.date).getTime();
+              const stopMs = startMs + 105 * 60000;
+              const state = ev.status?.type?.state;
+              const isCompleted = ev.status?.type?.completed === true || state === 'post';
+              const isLive =
+                state === 'in' ||
+                ev.status?.type?.name === 'STATUS_IN_PROGRESS' ||
+                ev.status?.type?.name === 'STATUS_HALFTIME';
+              const isEnded =
+                isCompleted ||
+                ev.status?.type?.name === 'STATUS_FULL_TIME' ||
+                ev.status?.type?.name === 'STATUS_FINAL_PENALTIES';
+              fixtures.push({
+                id: ev.id,
+                competitionId: cfg.id,
+                competitionLabel: cfg.label,
+                homeTeam: home.team?.displayName || home.team?.name,
+                homeTeamLogo: home.team?.logo,
+                homeScore: home.score,
+                awayTeam: away.team?.displayName || away.team?.name,
+                awayTeamLogo: away.team?.logo,
+                awayScore: away.score,
+                startMs,
+                stopMs,
+                isLive,
+                isEnded,
+                statusText: ev.status?.type?.detail || ev.status?.type?.description || '',
+                broadcasters: cfg.broadcasters,
+              });
+            }
+          } catch {
+            // Continuer
+          }
+        }
+      })
+    );
+
+    // Tri chronologique des affiches réelles
+    fixtures.sort((a, b) => a.startMs - b.startMs);
+    fixturesCache = { data: fixtures, timestamp: now };
+
+    res.setHeader('Cache-Control', 'public, max-age=600');
+    res.json(fixtures);
   });
 
   // Endpoint de vérification sécurisée pour le Guide EPG étendu (J+1 à J+7) et le Replay / Catch-up (Server-Side Auth Guard via JWT)

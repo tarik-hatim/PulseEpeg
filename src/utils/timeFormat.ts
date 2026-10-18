@@ -93,11 +93,18 @@ function formatUtcFallbackDateKey(ms: number): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+export function toStandardDigits(str: string | number | undefined | null): string {
+  if (str === undefined || str === null) return '';
+  return String(str)
+    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632))
+    .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776));
+}
+
 export function formatTimeShort(ms: number): string {
   if (!ms || Number.isNaN(ms)) return '--:--';
   try {
     if (timeFormatter) {
-      return timeFormatter.format(new Date(ms));
+      return toStandardDigits(timeFormatter.format(new Date(ms)));
     }
   } catch {
     // Fallback below
@@ -132,7 +139,7 @@ export function formatFullDateTime(ms: number, lang?: AppLanguage): string {
       hour12: false,
     });
     if (fullDateFormatter) {
-      return fullDateFormatter.format(new Date(ms));
+      return toStandardDigits(fullDateFormatter.format(new Date(ms)));
     }
   } catch {
     // Fallback below
@@ -152,7 +159,7 @@ export function formatDayLabel(ms: number, lang?: AppLanguage): string {
       month: 'short',
     });
     if (dayLabelFormatter) {
-      return dayLabelFormatter.format(new Date(ms));
+      return toStandardDigits(dayLabelFormatter.format(new Date(ms)));
     }
   } catch {
     // Fallback below
@@ -352,10 +359,10 @@ export function formatDurationMinutes(
   const activeLang = lang || getActiveLanguage();
   const mins = Math.max(1, Math.round((stopMs - startMs) / 60000));
   if (activeLang === 'ar') {
-    if (mins < 60) return `${mins} دقيقة`;
+    if (mins < 60) return `${toStandardDigits(mins)} دقيقة`;
     const h = Math.floor(mins / 60);
     const m = mins % 60;
-    return m > 0 ? `${h} س ${m} د` : `${h} س`;
+    return m > 0 ? `${toStandardDigits(h)} س ${toStandardDigits(m)} د` : `${toStandardDigits(h)} س`;
   }
   if (mins < 60) return `${mins} min`;
   const h = Math.floor(mins / 60);
@@ -372,10 +379,18 @@ export function formatRemainingTime(
   const tr = getTranslations(activeLang);
   const diffMins = Math.max(0, Math.ceil((stopMs - nowMs) / 60000));
   if (diffMins === 0) return tr.ended;
-  if (diffMins < 60) return `${tr.remainingPrefix} ${diffMins} ${tr.minUnit}`.trim();
+  if (activeLang === 'ar') {
+    if (diffMins < 60) return `${tr.remainingPrefix} ${toStandardDigits(diffMins)} ${tr.minUnit}`.trim();
+    const h = Math.floor(diffMins / 60);
+    const m = diffMins % 60;
+    return m > 0
+      ? `${tr.remainingPrefix} ${toStandardDigits(h)} سا ${toStandardDigits(m)} د`.trim()
+      : `${tr.remainingPrefix} ${toStandardDigits(h)} سا`.trim();
+  }
+  if (diffMins < 60) return `${tr.remainingPrefix} ${toStandardDigits(diffMins)} ${tr.minUnit}`.trim();
   const h = Math.floor(diffMins / 60);
   const m = diffMins % 60;
-  const timeStr = m > 0 ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`;
+  const timeStr = m > 0 ? `${toStandardDigits(h)}h${toStandardDigits(String(m).padStart(2, '0'))}` : `${toStandardDigits(h)}h`;
   return `${tr.remainingPrefix} ${timeStr}`.trim();
 }
 

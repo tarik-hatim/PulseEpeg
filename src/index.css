@@ -614,37 +614,169 @@ header[data-tv-zone="header"] {
 }
 
 /* ==========================================================================
-   STYLE DE SÉLECTION / FOCUS TV PROPRE SUR LES CARTES ET PROGRAMMES
-   Élimine le gros rectangle cyan fluo par défaut et empêche tout focus parasite
-   sur le bouton Réglages (Engrenage) du Header hors focus D-Pad actif
+   ÉTAT AU CLIC (ON CLICK / :active) & STYLE DE SÉLECTION UNIFIÉ SUR TOUS LES BOUTONS
    ========================================================================== */
-:focus:not(.tv-fixed-action-btn),
-.selected-program,
-.tv-card-focusable:focus,
-.tv-card-focusable:focus-visible,
-[data-channel-card="true"]:focus,
-[data-channel-card="true"]:focus-visible,
-[data-reminder-card="true"]:focus,
-[data-reminder-card="true"]:focus-visible,
-[data-programme-card="true"]:focus,
-[data-programme-card="true"]:focus-visible,
-[data-grid-focusable="true"]:focus,
-[data-grid-focusable="true"]:focus-visible {
-  outline: none !important;
-  border: 2px solid #ec4899 !important;
-  background: rgba(236, 72, 153, 0.15) !important;
-  box-shadow: 0 0 15px rgba(236, 72, 153, 0.4) !important;
-  -webkit-transform: scale(1.01);
-  transform: scale(1.01);
-  border-radius: 8px;
-  transition: all 0.2s ease;
+
+/* 1. ÉTAT AU CLIC IMMÉDIAT (:active) POUR TOUS LES BOUTONS DU SYSTÈME */
+button:active,
+[role="button"]:active,
+.tv-dpad-btn:active,
+.filter-badge:active,
+.tv-nav-tab-btn:active,
+[data-tv-row="header-tabs"] button:active,
+[data-channel-fav="true"]:active {
+  -webkit-transform: scale(0.96) !important;
+  transform: scale(0.96) !important;
+  filter: brightness(0.9) !important;
+  transition: transform 0.08s cubic-bezier(0.4, 0, 0.2, 1), filter 0.08s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
-.tv-fixed-action-btn:not([data-dpad-focused="true"]),
-.tv-fixed-action-btn:not([data-dpad-focused="true"]):focus,
-.tv-fixed-action-btn:not([data-dpad-focused="true"]):focus-visible,
-.tv-fixed-action-btn:not([data-dpad-focused="true"]).focused,
-.tv-fixed-action-btn:not([data-dpad-focused="true"]).active {
+/* 2. NEUTRALISATION DES CONTOURS / FOCUS PARASITES LORS DU CLIC SOURIS OU TACTILE */
+button:focus:not(:focus-visible):not([data-dpad-focused="true"]),
+[role="button"]:focus:not(:focus-visible):not([data-dpad-focused="true"]),
+.tv-dpad-btn:focus:not(:focus-visible):not([data-dpad-focused="true"]),
+.filter-badge:focus:not(:focus-visible):not([data-dpad-focused="true"]) {
+  outline: none !important;
+  box-shadow: none;
+}
+
+/* 3. STYLE DE FOCUS ACCESSIBLE ET TÉLÉCOMMANDE TV D-PAD (:focus-visible & [data-dpad-focused="true"]) */
+button:focus-visible,
+[role="button"]:focus-visible,
+.tv-dpad-btn:focus-visible,
+.tv-dpad-btn[data-dpad-focused="true"],
+.filter-badge:focus-visible,
+.filter-badge[data-dpad-focused="true"],
+.tv-card-focusable:focus-visible,
+.tv-card-focusable[data-dpad-focused="true"],
+[data-channel-card="true"]:focus-visible,
+[data-channel-card="true"][data-dpad-focused="true"],
+[data-reminder-card="true"]:focus-visible,
+[data-reminder-card="true"][data-dpad-focused="true"],
+[data-programme-card="true"]:focus-visible,
+[data-programme-card="true"][data-dpad-focused="true"],
+[data-grid-focusable="true"]:focus-visible,
+[data-grid-focusable="true"][data-dpad-focused="true"] {
+  outline: none !important;
+  border-color: #0055ff !important;
+  box-shadow: 0 0 0 2px rgba(0, 85, 255, 0.65), 0 0 16px rgba(0, 85, 255, 0.4) !important;
+  -webkit-transform: scale(1.02);
+  transform: scale(1.02);
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 20;
+}
+
+/* 4. STYLE UNIFIÉ DE TOUS LES BOUTONS LORSQU'ILS SONT SÉLECTIONNÉS (SELECTED STATE) */
+
+/* Onglets de navigation principale (Header) sélectionnés (En direct, Sport, Grille TV, Favoris, Rappels) */
+[data-tv-row="header-tabs"] button[data-selected="true"],
+[data-tv-row="header-tabs"] button.active,
+[data-tv-row="header-tabs"] button[aria-selected="true"],
+.tv-nav-tab-btn.active,
+.tv-nav-tab-btn[aria-selected="true"],
+.tv-nav-tab-btn[data-selected="true"] {
+  background-color: #0055ff !important;
+  background: #0055ff !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  border: 1px solid #3b82f6 !important;
+  box-shadow: 0 0 14px rgba(0, 85, 255, 0.45), 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+[data-tv-row="header-tabs"] button#tab-live[data-selected="true"],
+[data-tv-row="header-tabs"] button#tab-live.active,
+[data-tv-row="header-tabs"] button#tab-live[aria-selected="true"] {
+  background-color: #e11d48 !important;
+  background: #e11d48 !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  border: 1px solid #ff0033 !important;
+  box-shadow: 0 0 14px rgba(225, 29, 72, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+[data-tv-row="header-tabs"] button[data-selected="true"] *,
+[data-tv-row="header-tabs"] button.active *,
+[data-tv-row="header-tabs"] button[aria-selected="true"] *,
+.tv-nav-tab-btn.active *,
+.tv-nav-tab-btn[aria-selected="true"] *,
+.tv-nav-tab-btn[data-selected="true"] * {
+  color: #ffffff !important;
+  fill: #ffffff !important;
+}
+
+/* Badges de filtres lorsqu'ils sont sélectionnés (Genres, Satellites, Bouquets, Régions) */
+.filter-badge.active,
+.filter-badge[data-filter-active="true"],
+.filter-badge[aria-selected="true"],
+.filter-badge[data-selected="true"],
+.filter-badge.selected-filter,
+.selected-filter {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+  border: 1.5px solid #60a5fa !important;
+  border-radius: 20px !important;
+  box-shadow: 0 0 14px rgba(37, 99, 235, 0.45) !important;
+  outline: none !important;
+}
+
+.filter-badge.active .filter-label,
+.filter-badge[data-filter-active="true"] .filter-label,
+.filter-badge[aria-selected="true"] .filter-label,
+.filter-badge[data-selected="true"] .filter-label,
+.filter-badge.selected-filter .filter-label,
+.selected-filter .filter-label {
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+
+.filter-badge.active .filter-count,
+.filter-badge[data-filter-active="true"] .filter-count,
+.filter-badge[aria-selected="true"] .filter-count,
+.filter-badge[data-selected="true"] .filter-count,
+.filter-badge.selected-filter .filter-count,
+.selected-filter .filter-count {
+  background: #ffffff !important;
+  color: #1e40af !important;
+  font-weight: 700 !important;
+}
+
+/* Boutons d'onglets de Paramètres et Modales lorsqu'ils sont sélectionnés */
+[data-tv-row="settings-tabs"] button.active,
+[data-tv-row="settings-tabs"] button[data-selected="true"],
+[data-tv-row="settings-tabs"] button[aria-selected="true"] {
+  background-color: #e11d48 !important;
+  background: #e11d48 !important;
+  border: 1.5px solid #ff0033 !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  box-shadow: 0 0 14px rgba(225, 29, 72, 0.5) !important;
+}
+
+/* Bouton favori de chaîne sélectionné */
+button[data-channel-fav="true"][data-favorite="true"],
+button[data-channel-fav="true"].active {
+  background-color: #e11d48 !important;
+  border-color: #ff0033 !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 12px rgba(225, 29, 72, 0.45) !important;
+}
+
+/* Boutons de sélection générique (aria-selected, aria-pressed, data-selected) */
+button[aria-selected="true"]:not([data-tv-row="header-tabs"] button):not([data-tv-row="settings-tabs"] button),
+button[aria-pressed="true"],
+button[data-selected="true"]:not([data-tv-row="header-tabs"] button):not([data-tv-row="settings-tabs"] button),
+button.selected:not([data-tv-row="header-tabs"] button):not([data-tv-row="settings-tabs"] button),
+[role="button"][aria-selected="true"],
+[role="button"][aria-pressed="true"],
+[role="button"][data-selected="true"],
+[role="menuitemradio"][aria-checked="true"] {
+  border-color: #60a5fa !important;
+  box-shadow: 0 0 12px rgba(37, 99, 235, 0.35) !important;
+}
+
+/* Boutons d'action fixes du Header (Réglages / Cloche) */
+.tv-fixed-action-btn:not([data-dpad-focused="true"]) {
   outline: none !important;
   border: 1px solid #1a202c !important;
   background-color: #141a26 !important;
@@ -658,28 +790,15 @@ header[data-tv-zone="header"] {
   border-color: rgba(0, 85, 255, 0.6) !important;
 }
 
-.tv-fixed-action-btn[data-dpad-focused="true"]:focus,
-.tv-fixed-action-btn[data-dpad-focused="true"]:focus-visible,
-.tv-fixed-action-btn.focused[data-dpad-focused="true"] {
+.tv-fixed-action-btn[data-dpad-focused="true"] {
   outline: none !important;
-  border: 2px solid #ec4899 !important;
-  background: rgba(236, 72, 153, 0.15) !important;
-  box-shadow: 0 0 15px rgba(236, 72, 153, 0.4) !important;
-  -webkit-transform: scale(1.01) !important;
-  transform: scale(1.01) !important;
+  border: 2px solid #0055ff !important;
+  background: rgba(0, 85, 255, 0.15) !important;
+  box-shadow: 0 0 15px rgba(0, 85, 255, 0.4) !important;
+  -webkit-transform: scale(1.02) !important;
+  transform: scale(1.02) !important;
   border-radius: 8px;
-  transition: all 0.2s ease;
-}
-
-.filter-badge:focus,
-.filter-badge:focus-visible {
-  outline: none !important;
-  border: 2px solid #ec4899 !important;
-  box-shadow: 0 0 15px rgba(236, 72, 153, 0.4) !important;
-  -webkit-transform: scale(1.01);
-  transform: scale(1.01);
-  border-radius: 20px !important;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
 }
 
 input[type="text"]:focus,
@@ -689,9 +808,9 @@ input[type="text"]:focus-visible,
 input[type="url"]:focus-visible,
 input[type="search"]:focus-visible {
   outline: none !important;
-  border: 2px solid #ec4899 !important;
+  border: 2px solid #0055ff !important;
   background: #0a0e17 !important;
-  box-shadow: 0 0 15px rgba(236, 72, 153, 0.4);
+  box-shadow: 0 0 15px rgba(0, 85, 255, 0.35);
   transform: none;
 }
 
@@ -732,10 +851,10 @@ input[type="search"]:focus-visible {
   z-index: 9999 !important;
   background: #141a26 !important;
   color: #ffffff !important;
-  border: 2px solid #ec4899 !important;
+  border: 2px solid #0055ff !important;
   border-radius: 14px !important;
   padding: 12px 20px !important;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.85), 0 0 20px rgba(236, 72, 153, 0.4) !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.85), 0 0 20px rgba(0, 85, 255, 0.35) !important;
   display: -webkit-box;
   display: -webkit-flex;
   display: flex;
@@ -767,15 +886,19 @@ input[type="search"]:focus-visible {
   overflow: hidden;
 }
 
-.tv-dpad-btn:focus,
-.tv-dpad-btn:focus-visible {
+.tv-dpad-btn:focus:not(:focus-visible):not([data-dpad-focused="true"]) {
   outline: none !important;
-  border: 2px solid #ec4899 !important;
-  background: rgba(236, 72, 153, 0.15) !important;
-  box-shadow: 0 0 15px rgba(236, 72, 153, 0.4) !important;
-  -webkit-transform: scale(1.01);
-  transform: scale(1.01);
-  transition: all 0.2s ease;
+  box-shadow: none;
+}
+
+.tv-dpad-btn:focus-visible,
+.tv-dpad-btn[data-dpad-focused="true"] {
+  outline: none !important;
+  border-color: #0055ff !important;
+  box-shadow: 0 0 0 2px rgba(0, 85, 255, 0.65), 0 0 14px rgba(0, 85, 255, 0.4) !important;
+  -webkit-transform: scale(1.02);
+  transform: scale(1.02);
+  transition: all 0.15s ease;
 }
 
 /* ==========================================================================

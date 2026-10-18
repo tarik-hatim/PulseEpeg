@@ -36,6 +36,7 @@ import {
   Scale,
   Search,
   Settings,
+  SlidersHorizontal,
   Sparkles,
   Subtitles,
   Trash2,
@@ -137,8 +138,11 @@ import { LoadingStatusBanner } from './components/LoadingStatusBanner';
 import { PWAInstallButton } from './components/PWAInstallButton';
 import { InAppReminderBanner } from './components/InAppReminderBanner';
 import { RemindersChronologicalView } from './components/RemindersChronologicalView';
+import { SportsView } from './components/SportsView';
+import { loadSatelliteCatalog } from './services/satelliteCatalogService';
 import { PulseEpgLogo } from './components/PulseEpgLogo';
 import { AuthAccountModal } from './components/AuthAccountModal';
+import { ProSubscriptionModal } from './components/ProSubscriptionModal';
 import { ExitConfirmationModal } from './components/ExitConfirmationModal';
 import { App as CapacitorApp } from '@capacitor/app';
 import {
@@ -158,6 +162,10 @@ import {
   syncSavedRemindersWithSystemNotifications,
 } from './services/nativeNotificationsService';
 import {
+  saveUserSettingsToFirestore,
+  loadUserSettingsFromFirestore,
+} from './services/firebaseService';
+import {
   clearEnrichedMetadataCache,
   enrichProgrammeMetadata,
 } from './services/metadataEnricher';
@@ -170,6 +178,7 @@ import {
   LANGUAGE_OPTIONS,
   setActiveLanguage,
   t,
+  toStandardDigits,
   translateBouquetFilter,
   translateCategoryFilter,
   translateChannelCountryFilter,
@@ -186,7 +195,7 @@ import {
   matchesProgrammeGenreGroup,
 } from './utils/xmltvParser';
 
-type ViewMode = 'live' | 'grid' | 'favorites' | 'reminders';
+type ViewMode = 'live' | 'grid' | 'sports' | 'favorites' | 'reminders';
 type ActiveTimePreset = 'minus' | 'now' | 'prime' | 'plus';
 
 const CATEGORY_OPTIONS: {
@@ -304,8 +313,27 @@ export function App() {
   const [selectedSubRegion, setSelectedSubRegion] = useState<
     'all' | 'europe' | 'latam'
   >('all');
+  const [isMobileExtraFiltersOpen, setIsMobileExtraFiltersOpen] =
+    useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [, startFilterTransition] = useTransition();
+
+  const activeExtraFiltersCount = useMemo(() => {
+    let count = 0;
+    if (selectedSatellite !== 'Tous') count++;
+    if (selectedBouquet !== 'Tous' || selectedBouquetsList.length > 0) count++;
+    if (selectedCountry !== 'Tous') count++;
+    if (selectedGroup !== 'Tous' && selectedGroup !== 'Toutes') count++;
+    if (selectedSubRegion !== 'all') count++;
+    return count;
+  }, [
+    selectedSatellite,
+    selectedBouquet,
+    selectedBouquetsList,
+    selectedCountry,
+    selectedGroup,
+    selectedSubRegion,
+  ]);
 
   // Valeurs différées (useDeferredValue) pour ne jamais bloquer le retour visuel immédiat
   // (état actif des boutons cliqués, outline D-Pad, saisie clavier) lors du filtrage lourd
@@ -429,6 +457,7 @@ export function App() {
     supabaseService.getState()
   );
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [isProModalOpen, setIsProModalOpen] = useState<boolean>(false);
   const [proFeatureReason, setProFeatureReason] = useState<string | null>(null);
   const [isExitConfirmOpen, setIsExitConfirmOpen] = useState<boolean>(false);
   const exitPreviousFocusRef = useRef<HTMLElement | null>(null);
@@ -513,6 +542,7 @@ export function App() {
   );
 
   useEffect(() => {
+    void loadSatelliteCatalog();
     return supabaseService.subscribe((nextState) => {
       subscriptionService.invalidateCache();
       setAuthState(nextState);
@@ -3078,6 +3108,15 @@ export function App() {
     return map;
   }, [filteredChannels, resolveChannelLiveMeta, channelStaticMetaMap]);
 
+  const totalLoadedProgrammesCount = useMemo(() => {
+    let sum = 0;
+    const lists = Object.values(schedulesByChannel);
+    for (let i = 0; i < lists.length; i++) {
+      sum += lists[i]?.length || 0;
+    }
+    return sum;
+  }, [schedulesByChannel]);
+
   // Grilles EPG projetées à la demande uniquement pour la fiche chaîne sélectionnée (1 seule chaîne)
   const selectedChannelProgrammes = useMemo(() => {
     if (!selectedChannel) return [];
@@ -3157,24 +3196,32 @@ export function App() {
     viewMode,
   ]);
 
-  const handleToggleFavorite = useCallback((channelId: string) => {
-    const cleanTarget = cleanXmltvChannelId(channelId);
-    setFavorites((prev) => {
-      const exists = prev.some(
-        (id) => id === channelId || cleanXmltvChannelId(id) === cleanTarget
-      );
-      const next = exists
-        ? prev.filter(
-            (id) => id !== channelId && cleanXmltvChannelId(id) !== cleanTarget
-          )
-        : [...prev, channelId];
-      saveFavoriteChannels(next);
-      void supabaseService.saveHybridUserSettings({
-        favorite_channels: next,
+  const handleToggleFavorite = useCallback(
+    (channelId: string) => {
+      const cleanTarget = cleanXmltvChannelId(channelId);
+      setFavorites((prev) => {
+        const exists = prev.some(
+          (id) => id === channelId || cleanXmltvChannelId(id) === cleanTarget
+        );
+        const next = exists
+          ? prev.filter(
+              (id) => id !== channelId && cleanXmltvChannelId(id) !== cleanTarget
+            )
+          : [...prev, channelId];
+        saveFavoriteChannels(next);
+        void supabaseService.saveHybridUserSettings({
+          favorite_channels: next,
+        });
+        if (authState.user?.id) {
+          void saveUserSettingsToFirestore(authState.user.id, {
+            favorite_channels: next,
+          });
+        }
+        return next;
       });
-      return next;
-    });
-  }, []);
+    },
+    [authState.user]
+  );
 
   const handleToggleReminder = useCallback(
     (programme: EpgProgramme, channel: EpgChannel) => {
@@ -3212,6 +3259,7 @@ export function App() {
 
         // Demande la permission système LocalNotifications et programme l'alarme Android (canal 'epg_reminders' avec son)
         void scheduleProgrammeNotification(newReminder);
+        playInAppNotificationSound(); // Alerte sonore de confirmation
 
         setDismissedBannerIds((old) =>
           old.filter((id) => id !== newReminder.id)
@@ -3223,7 +3271,6 @@ export function App() {
         recentReminderTimerRef.current = setTimeout(() => {
           setRecentlyAddedReminder(null);
         }, 5000);
-
         return next;
       });
     },
@@ -3658,7 +3705,7 @@ export function App() {
 
   const handleRequestProEpgUpgrade = useCallback((customReason?: string) => {
     setProFeatureReason(customReason || PRO_EPG_7DAYS_UPGRADE_MESSAGE);
-    setIsAuthModalOpen(true);
+    setIsProModalOpen(true);
   }, []);
 
   const handleSelectEpgDay = useCallback(
@@ -3712,14 +3759,18 @@ export function App() {
 
       let badgeLabel = '';
       if (isCatchUp) {
-        badgeLabel = 'Catch-up';
+        badgeLabel = activeLang === 'ar' ? 'إعادة العرض' : 'Catch-up';
       } else if (isToday) {
         badgeLabel =
-          activeLang === 'fr' ? "Aujourd'hui (24h)" : `${tr.today} (24h)`;
+          activeLang === 'ar'
+            ? 'اليوم (24 سا)'
+            : activeLang === 'fr'
+            ? "Aujourd'hui (24h)"
+            : `${tr.today} (24h)`;
       } else if (offset === 1) {
-        badgeLabel = `J+1 · ${tr.tomorrow}`;
+        badgeLabel = activeLang === 'ar' ? `غداً · +1` : `J+1 · ${tr.tomorrow}`;
       } else {
-        badgeLabel = `J+${offset} · ${shortDateLabel}`;
+        badgeLabel = activeLang === 'ar' ? `+${toStandardDigits(offset)} · ${shortDateLabel}` : `J+${offset} · ${shortDateLabel}`;
       }
 
       const isActive = isCatchUp
@@ -3919,7 +3970,7 @@ export function App() {
 
   // Écouteurs passifs de défilement (scroll) et redimensionnement (resize) cadencés par requestAnimationFrame
   useEffect(() => {
-    if (typeof window === 'undefined' || viewMode === 'grid' || viewMode === 'reminders') {
+    if (typeof window === 'undefined' || viewMode === 'grid' || viewMode === 'reminders' || viewMode === 'sports') {
       return;
     }
 
@@ -4122,7 +4173,7 @@ export function App() {
 
   // Enrichissement automatique en arrière-plan (dans la langue active) des programmes actuellement visibles dans la fenêtre virtuelle
   useEffect(() => {
-    if (viewMode === 'grid' || viewMode === 'reminders' || visibleChannels.length === 0) return;
+    if (viewMode === 'grid' || viewMode === 'reminders' || viewMode === 'sports' || visibleChannels.length === 0) return;
 
     let cancelled = false;
     const subset = visibleChannels.slice(0, 12);
@@ -4477,7 +4528,9 @@ export function App() {
         digits: customDigits || String(lcn),
         label:
           customLabel ||
-          (activeLang === 'fr'
+          (activeLang === 'ar'
+            ? `الانتقال إلى القناة ${toStandardDigits(lcn)}`
+            : activeLang === 'fr'
             ? `Aller à la chaîne ${lcn}`
             : `Go to channel ${lcn}`),
         channel: targetChannel,
@@ -4535,7 +4588,9 @@ export function App() {
             );
       const targetCh = filteredChannels[resolvedIdx];
       const badgeText =
-        activeLang === 'fr'
+        activeLang === 'ar'
+          ? `الانتقال إلى القناة ${toStandardDigits(channelNumber)}`
+          : activeLang === 'fr'
           ? `Aller à la chaîne ${channelNumber}`
           : `Go to channel ${channelNumber}`;
       jumpToChannelAtIndex(
@@ -4570,7 +4625,9 @@ export function App() {
       showQuickJumpOsdBadge({
         digits: String(lcn),
         label:
-          activeLang === 'fr'
+          activeLang === 'ar'
+            ? `الانتقال إلى القناة ${toStandardDigits(lcn)} (سريع ${sign})`
+            : activeLang === 'fr'
             ? `Aller à la chaîne ${lcn} (Saut ${sign})`
             : `Go to channel ${lcn} (Jump ${sign})`,
         channel: targetChannel,
@@ -5023,7 +5080,9 @@ export function App() {
             (targetCh && channelLcnMap.get(targetCh.id)) || nextIdx + 1;
           jumpToChannelAtIndex(
             nextIdx,
-            activeLang === 'fr'
+            activeLang === 'ar'
+              ? `الانتقال إلى القناة ${toStandardDigits(lcn)} (سريع ${step > 0 ? '+10' : '-10'})`
+              : activeLang === 'fr'
               ? `Aller à la chaîne ${lcn} (Saut ${step > 0 ? '+10' : '-10'})`
               : `Go to channel ${lcn} (Jump ${step > 0 ? '+10' : '-10'})`
           );
@@ -5229,7 +5288,9 @@ export function App() {
                     targetIdx + 1;
                   jumpToChannelAtIndex(
                     targetIdx,
-                    activeLang === 'fr'
+                    activeLang === 'ar'
+                      ? `الانتقال إلى القناة ${toStandardDigits(lcn)} (سريع +10)`
+                      : activeLang === 'fr'
                       ? `Aller à la chaîne ${lcn} (Saut +10)`
                       : `Go to channel ${lcn} (Jump +10)`
                   );
@@ -5249,7 +5310,9 @@ export function App() {
                     targetIdx + 1;
                   jumpToChannelAtIndex(
                     targetIdx,
-                    activeLang === 'fr'
+                    activeLang === 'ar'
+                      ? `الانتقال إلى القناة ${toStandardDigits(lcn)} (سريع -10)`
+                      : activeLang === 'fr'
                       ? `Aller à la chaîne ${lcn} (Saut -10)`
                       : `Go to channel ${lcn} (Jump -10)`
                   );
@@ -6044,47 +6107,77 @@ export function App() {
       className="min-h-screen mt-0 pt-0 bg-[#0a0e17] text-[#ffffff] flex flex-col selection:bg-[#e11d48] selection:text-[#ffffff]"
     >
       {/* Top Navigation Bar — Collé au haut de l'écran (top: 0; left: 0; width: 100%; z-index: 1000; background: #0b0f19) */}
+      {/* Top Navigation Bar — Fidèle à la photo : Logo + Sous-titre + 2 boutons d'actions, Onglets, Recherche & Filtres, Stats & Date */}
       <header
         data-tv-zone="header"
         data-dpad-active={activeDpadZone === 'header' ? 'true' : undefined}
-        className="sticky top-0 left-0 z-[1000] w-full bg-[#0b0f19] backdrop-blur-md border-b border-[#1a202c] mt-0 mb-4"
+        className="sticky top-0 left-0 z-[1000] w-full bg-[#0b0f19] backdrop-blur-md border-b border-[#1a202c] px-4 py-3 sm:px-6"
       >
-        <div className="tv-decompressed-header max-w-[1600px] w-full mx-auto py-2.5">
-          {/* 1. Gauche : Logo PulseEPG (dans son conteneur propre) + Badge Audio "VO + SUB" désolidarisé */}
-          <div className="header-brand-wrapper flex items-center gap-3 min-w-0 shrink-0">
-            <div className="pulse-logo-container flex items-center gap-3 min-w-0 shrink-0">
-              <div className="pulse-logo-icon-wrapper shrink-0 flex items-center justify-center">
-                <PulseEpgLogo adaptiveTerminalSize={true} />
+        <div className="max-w-[1600px] w-full mx-auto space-y-2.5">
+          {/* Ligne 1 : Brand Logo PulseEPG à gauche + Boutons Rafraîchir & Paramètres à droite (aucun bouton Passe Pro) */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#f59e0b] text-[#0a0e17] font-black text-lg sm:text-xl flex items-center justify-center shrink-0 shadow-sm">
+                P
               </div>
-              <div className="pulse-logo-title-box min-w-0 shrink-0">
-                <h1 className="text-sm sm:text-base 2xl:text-lg font-bold tracking-tight text-[#ffffff] truncate">
+              <div className="min-w-0">
+                <h1 className="text-base sm:text-lg 2xl:text-xl font-bold tracking-tight text-white leading-tight truncate">
                   PulseEPG
                 </h1>
-                <p className="hidden sm:block text-[10px] font-normal text-[#cbd5e1] tracking-wide leading-tight truncate">
-                  Your Ultimate TV Guide
+                <p className="text-[11px] sm:text-xs text-[#94a3b8] leading-tight truncate">
+                  {activeLang === 'ar' ? 'دليل القنوات الفضائية · أوروبا' : 'Guide TV satellite · Europe'}
                 </p>
               </div>
             </div>
 
-            <div className="header-audio-badge-container hidden sm:inline-flex items-center shrink-0">
-              <span className="header-audio-badge inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-semibold uppercase tracking-wider bg-[#1d4ed8]/25 text-[#ffffff] border border-[#0055ff]/60 shrink-0">
-                <Volume2 className="w-3.5 h-3.5 text-[#60a5fa] shrink-0" />
-                <span>VO + SUB</span>
-              </span>
+            {/* Actions Droite : Cloche Notifications & Rappels + Paramètres (aucun bouton avant Passe Pro, ni Passe Pro) */}
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                ref={refreshBtnRef}
+                type="button"
+                onClick={() => {
+                  setViewMode('reminders');
+                }}
+                className="relative w-9 h-9 rounded-xl bg-[#141a26] hover:bg-[#1a202c] text-[#cbd5e1] hover:text-white border border-[#1e293b] flex items-center justify-center transition-colors cursor-pointer"
+                title={activeLang === 'ar' ? 'التنبيهات والتذكيرات' : 'Rappels & Alertes'}
+                aria-label={activeLang === 'ar' ? 'التنبيهات والتذكيرات' : 'Rappels & Alertes'}
+              >
+                <Bell className="w-4 h-4 text-[#cbd5e1]" />
+                {reminders.length > 0 && (
+                  <span className="absolute -top-1 -end-1 w-4 h-4 rounded-full bg-[#ef4444] text-[10px] font-bold text-white flex items-center justify-center shadow-sm animate-pulse">
+                    {toStandardDigits(reminders.length)}
+                  </span>
+                )}
+              </button>
+
+              <button
+                ref={settingsBtnRef}
+                id="header-settings-btn"
+                type="button"
+                onClick={() => {
+                  setSettingsInitialTab('filters');
+                  setIsSettingsOpen(true);
+                }}
+                className="w-9 h-9 rounded-xl bg-[#141a26] hover:bg-[#1a202c] text-[#cbd5e1] hover:text-white border border-[#1e293b] flex items-center justify-center transition-colors cursor-pointer"
+                title={tr.settingsTitle}
+                aria-label={tr.settingsTitle}
+              >
+                <Settings className="w-4 h-4 text-[#cbd5e1]" />
+              </button>
             </div>
           </div>
 
-          {/* 2. Centre : Menu de navigation ("En Direct", "Grille TV", "Favoris", "Mes Rappels") */}
+          {/* Ligne 2 : Menu de navigation à pilules défilable : En direct, Sport, Grille TV, Favoris, Rappels */}
           <nav
             data-tv-row="header-tabs"
             aria-label="Navigation principale"
-            className="tv-overscan-tabs-row flex items-center gap-3 overflow-x-auto no-scrollbar order-3 lg:order-2 w-full lg:w-auto pt-2 lg:pt-0 border-t lg:border-t-0 border-[#1a202c]"
+            className="flex items-center gap-2 overflow-x-auto no-scrollbar pt-0.5"
           >
             <button
               id="tab-live"
               type="button"
-              data-tv-focus-down="#filter-category-all"
-              data-view-active={viewMode === 'live' ? 'true' : undefined}
+              data-selected={viewMode === 'live' ? 'true' : undefined}
+              aria-selected={viewMode === 'live'}
               onClick={() => {
                 clearHeaderActionButtonsFocus();
                 setSelectedEpgDayOffset(0);
@@ -6094,33 +6187,51 @@ export function App() {
                 setActiveTimePreset('now');
                 setViewMode('live');
               }}
-              className={`tv-nav-tab-btn text-xs transition-all cursor-pointer shrink-0 ${
+              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2 shrink-0 transition-all cursor-pointer active:scale-95 ${
                 viewMode === 'live'
-                  ? 'bg-[#e11d48] border border-[#ff0033] text-[#ffffff] font-bold shadow-[0_0_14px_rgba(225,29,72,0.5)]'
-                  : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60 font-medium'
+                  ? 'bg-[#e11d48] text-white font-bold shadow-[0_0_14px_rgba(225,29,72,0.5)] border border-[#ff0033]'
+                  : 'bg-[#141a26] border border-[#1e293b] text-[#cbd5e1] hover:text-white hover:border-[#e11d48]/50'
               }`}
             >
               <span
-                className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                  viewMode === 'live'
-                    ? 'bg-[#ffffff] shadow-[0_0_8px_#ffffff] animate-pulse'
-                    : 'bg-[#e11d48]'
+                className={`w-2 h-2 rounded-full shrink-0 ${
+                  viewMode === 'live' ? 'bg-white animate-pulse shadow-[0_0_6px_#ffffff]' : 'bg-[#e11d48]'
                 }`}
               />
               <span>{tr.liveTab}</span>
             </button>
 
             <button
+              id="tab-sports"
               type="button"
-              data-view-active={viewMode === 'grid' ? 'true' : undefined}
+              data-selected={viewMode === 'sports' ? 'true' : undefined}
+              aria-selected={viewMode === 'sports'}
+              onClick={() => {
+                clearHeaderActionButtonsFocus();
+                setViewMode('sports');
+              }}
+              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2 shrink-0 transition-all cursor-pointer active:scale-95 ${
+                viewMode === 'sports'
+                  ? 'bg-[#0055ff] text-white font-bold shadow-[0_0_14px_rgba(0,85,255,0.45)] border border-[#3b82f6]'
+                  : 'bg-[#141a26] border border-[#1e293b] text-[#cbd5e1] hover:text-white hover:border-[#0055ff]/50'
+              }`}
+            >
+              <span className="text-sm">⚽</span>
+              <span>{activeLang === 'ar' ? 'مباريات ورياضة' : 'Sport'}</span>
+            </button>
+
+            <button
+              type="button"
+              data-selected={viewMode === 'grid' ? 'true' : undefined}
+              aria-selected={viewMode === 'grid'}
               onClick={() => {
                 clearHeaderActionButtonsFocus();
                 setViewMode('grid');
               }}
-              className={`tv-nav-tab-btn text-xs transition-all cursor-pointer shrink-0 ${
+              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2 shrink-0 transition-all cursor-pointer active:scale-95 ${
                 viewMode === 'grid'
-                  ? 'bg-[#e11d48] border border-[#ff0033] text-[#ffffff] font-bold shadow-[0_0_14px_rgba(225,29,72,0.5)]'
-                  : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60 font-medium'
+                  ? 'bg-[#0055ff] text-white font-bold shadow-[0_0_14px_rgba(0,85,255,0.45)] border border-[#3b82f6]'
+                  : 'bg-[#141a26] border border-[#1e293b] text-[#cbd5e1] hover:text-white hover:border-[#0055ff]/50'
               }`}
             >
               <LayoutGrid className="w-3.5 h-3.5 shrink-0" />
@@ -6129,7 +6240,8 @@ export function App() {
 
             <button
               type="button"
-              data-view-active={viewMode === 'favorites' ? 'true' : undefined}
+              data-selected={viewMode === 'favorites' ? 'true' : undefined}
+              aria-selected={viewMode === 'favorites'}
               onClick={() => {
                 clearHeaderActionButtonsFocus();
                 setSelectedSatellite('Tous');
@@ -6140,19 +6252,15 @@ export function App() {
                 setSelectedGroup('Tous');
                 setViewMode('favorites');
               }}
-              className={`tv-nav-tab-btn text-xs transition-all cursor-pointer shrink-0 ${
+              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2 shrink-0 transition-all cursor-pointer active:scale-95 ${
                 viewMode === 'favorites'
-                  ? 'bg-[#e11d48] border border-[#ff0033] text-[#ffffff] font-bold shadow-[0_0_14px_rgba(225,29,72,0.5)]'
-                  : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60 font-medium'
+                  ? 'bg-[#e11d48] text-white font-bold shadow-[0_0_14px_rgba(225,29,72,0.5)] border border-[#ff0033]'
+                  : 'bg-[#141a26] border border-[#1e293b] text-[#cbd5e1] hover:text-white hover:border-[#e11d48]/50'
               }`}
             >
               <Heart
                 className={`w-3.5 h-3.5 shrink-0 ${
-                  viewMode === 'favorites'
-                    ? 'text-[#ffffff] fill-[#ffffff]'
-                    : favorites.length > 0
-                      ? 'text-[#e11d48]'
-                      : ''
+                  viewMode === 'favorites' ? 'fill-current text-white' : 'text-[#cbd5e1]'
                 }`}
               />
               <span>{tr.favoritesTab}</span>
@@ -6160,244 +6268,117 @@ export function App() {
                 <span
                   className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
                     viewMode === 'favorites'
-                      ? 'bg-[#0a0e17] text-[#ffffff] border border-[#ff0033]/60 font-bold'
-                      : 'bg-[#1d4ed8]/25 text-[#ffffff] border border-[#0055ff]/50'
+                      ? 'bg-white/20 text-white font-bold'
+                      : 'bg-[#1e293b] text-[#cbd5e1]'
                   }`}
                 >
-                  {favorites.length}
+                  {toStandardDigits(favorites.length)}
                 </span>
               )}
             </button>
 
-            <button
-              type="button"
-              data-view-active={viewMode === 'reminders' ? 'true' : undefined}
-              onClick={() => {
-                clearHeaderActionButtonsFocus();
-                setViewMode('reminders');
-              }}
-              className={`tv-nav-tab-btn text-xs transition-all cursor-pointer shrink-0 ${
-                viewMode === 'reminders'
-                  ? 'bg-gradient-to-r from-[#0055ff] to-[#ec4899] border border-[#ec4899] text-[#ffffff] font-bold shadow-[0_0_14px_rgba(236,72,153,0.55)]'
-                  : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#ec4899]/70 font-medium'
-              }`}
-            >
-              {hasImminentOrLiveReminder ? (
-                <BellRing className="w-3.5 h-3.5 text-[#ec4899] animate-bounce shrink-0" />
-              ) : (
-                <Bell
-                  className={`w-3.5 h-3.5 shrink-0 ${
-                    viewMode === 'reminders'
-                      ? 'text-[#ffffff]'
-                      : activeRemindersCount > 0
-                      ? 'text-[#ec4899]'
-                      : ''
-                  }`}
-                />
-              )}
-              <span>{t('reminders.tabLabel', activeLang)}</span>
-              {reminders.length > 0 && (
+            {reminders.length > 0 && (
+              <button
+                type="button"
+                data-selected={viewMode === 'reminders' ? 'true' : undefined}
+                aria-selected={viewMode === 'reminders'}
+                onClick={() => {
+                  clearHeaderActionButtonsFocus();
+                  setViewMode('reminders');
+                }}
+                className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2 shrink-0 transition-all cursor-pointer active:scale-95 ${
+                  viewMode === 'reminders'
+                    ? 'bg-[#0055ff] text-white font-bold shadow-[0_0_14px_rgba(0,85,255,0.45)] border border-[#3b82f6]'
+                    : 'bg-[#141a26] border border-[#1e293b] text-[#cbd5e1] hover:text-white hover:border-[#0055ff]/50'
+                }`}
+              >
+                <Bell className="w-3.5 h-3.5 shrink-0" />
+                <span>{activeLang === 'ar' ? 'التذكيرات' : 'Rappels'}</span>
                 <span
-                  className={`px-1.5 py-0.2 rounded text-[10px] font-mono ${
+                  className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
                     viewMode === 'reminders'
-                      ? 'bg-[#0a0e17] text-[#ffffff] border border-[#ec4899]/80 font-bold'
-                      : 'bg-gradient-to-r from-[#0055ff] to-[#ec4899] text-[#ffffff] font-bold'
+                      ? 'bg-white/20 text-white font-bold'
+                      : 'bg-[#1e293b] text-[#cbd5e1]'
                   }`}
                 >
-                  {activeRemindersCount || reminders.length}
+                  {toStandardDigits(String(activeRemindersCount || reminders.length))}
                 </span>
-              )}
-            </button>
+              </button>
+            )}
           </nav>
 
-          {/* 3. Droite : Sélecteur de Langue (Drapeaux) + Profil TV + Actions Rafraîchir & Réglages */}
-          <div
-            data-tv-row="header-top"
-            className="flex items-center justify-end gap-1.5 sm:gap-2.5 shrink-0 order-2 lg:order-3"
-          >
-            <div className="relative flex items-center shrink-0">
-              <Languages className="w-3.5 h-3.5 text-[#60a5fa] absolute start-2 pointer-events-none" />
-              <select
-                value={activeLang}
-                onChange={(e) =>
-                  handleChangeLanguage(e.target.value as AppLanguage)
-                }
-                aria-label={tr.languageSectionTitle}
-                className="ps-6 pe-3 py-1 sm:ps-7 sm:pe-5 sm:py-1.5 rounded-lg bg-[#141a26] hover:bg-[#1a202c] text-xs font-medium text-[#ffffff] border border-[#0055ff]/60 focus:outline-none focus:border-[#e11d48] transition-colors cursor-pointer max-w-[110px] sm:max-w-none"
-              >
-                {LANGUAGE_OPTIONS.map((opt) => (
-                  <option
-                    key={opt.code}
-                    value={opt.code}
-                    className="bg-[#141a26] text-[#ffffff]"
-                  >
-                    {opt.flag} {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {(() => {
-              const currentProfileId =
-                settings.tvProfile ||
-                inferTvProfileFromBouquets(
-                  settings.selectedBouquets,
-                  settings.tvProfile
-                );
-              const matchedSpec = TV_PROFILES_CATALOG.find(
-                (p) => p.id === currentProfileId
-              );
-              const badgeFlag = matchedSpec?.flag || '⚙️';
-              const badgeLabel = matchedSpec?.shortLabel || 'Profil perso';
-              return (
+          {/* Ligne 3 : Barre de recherche + Bouton "Filtres" direct */}
+          <div className="flex items-center gap-2.5 pt-0.5">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-[#64748b] absolute start-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={activeLang === 'ar' ? 'البحث عن القنوات...' : 'Rechercher des chaînes...'}
+                className="w-full bg-[#0b101b] border border-[#1e293b] rounded-xl ps-10 pe-9 py-2.5 text-xs sm:text-sm text-white placeholder-[#64748b] focus:outline-none focus:border-[#0055ff] transition-colors"
+              />
+              {searchQuery && (
                 <button
                   type="button"
-                  onClick={() => {
-                    setSettingsInitialTab('filters');
-                    setIsSettingsOpen(true);
-                  }}
-                  title="Changer de Zone / Profil TV (Paramètres)"
-                  className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#141a26] hover:bg-[#1a202c] text-xs font-semibold text-[#ffffff] border border-[#0055ff]/60 transition-colors cursor-pointer shrink-0"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute end-3 top-1/2 -translate-y-1/2 text-[#64748b] hover:text-white p-0.5 cursor-pointer"
                 >
-                  <Globe className="w-3.5 h-3.5 text-[#60a5fa] shrink-0" />
-                  <span>{badgeFlag}</span>
-                  <span className="truncate max-w-[120px]">{badgeLabel}</span>
+                  <X className="w-3.5 h-3.5" />
                 </button>
-              );
-            })()}
+              )}
+            </div>
 
-            <PWAInstallButton language={activeLang} />
-
-            {/* Bouton discret Compte / Connexion (Mode Invité par défaut sans blocage, accessible D-Pad TV & Mobile) */}
             <button
               type="button"
-              onClick={() => {
-                setProFeatureReason(null);
-                setIsAuthModalOpen(true);
-              }}
-              title={
-                authState.isLoggedIn && authState.user
-                  ? `${authState.user.displayName} (${
-                      authState.isPremium ? 'PulseEPG Pro 👑' : 'Gratuit'
-                    })`
-                  : activeLang === 'fr'
-                  ? "Se connecter / S'inscrire (Optionnel)"
-                  : 'Sign In / Sign Up (Optional)'
-              }
-              className={`tv-dpad-btn inline-flex items-center gap-1 sm:gap-1.5 p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer shrink-0 ${
-                authState.isLoggedIn
-                  ? authState.isPremium
-                    ? 'bg-gradient-to-r from-[#f59e0b]/20 to-[#ec4899]/25 text-[#ffffff] border border-[#f59e0b]/80'
-                    : 'bg-[#141a26] text-[#ffffff] border border-[#0055ff]/70'
-                  : 'bg-[#141a26] hover:bg-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#0055ff]/60'
+              data-selected={isMobileExtraFiltersOpen || activeExtraFiltersCount > 0 ? 'true' : undefined}
+              aria-pressed={isMobileExtraFiltersOpen}
+              onClick={() => setIsMobileExtraFiltersOpen((prev) => !prev)}
+              className={`shrink-0 flex items-center gap-2 px-3.5 sm:px-4 py-2.5 rounded-xl border text-xs sm:text-sm font-semibold transition-all cursor-pointer active:scale-95 ${
+                isMobileExtraFiltersOpen || activeExtraFiltersCount > 0
+                  ? 'bg-[#0055ff]/25 border-[#0055ff] text-[#ffffff] shadow-[0_0_10px_rgba(0,85,255,0.35)]'
+                  : 'bg-[#141a26] border border-[#1e293b] text-white hover:border-[#0055ff]/50'
               }`}
             >
-              {authState.isLoggedIn && authState.user ? (
-                <>
-                  {authState.isPremium ? (
-                    <Crown className="w-3.5 h-3.5 text-[#fde047] shrink-0" />
-                  ) : (
-                    <User className="w-3.5 h-3.5 text-[#38bdf8] shrink-0" />
-                  )}
-                  <span className="hidden sm:inline truncate max-w-[80px] font-bold text-[#ffffff]">
-                    {authState.user.displayName}
-                  </span>
-                  <span
-                    className={`hidden sm:inline px-1.5 py-0.2 rounded-full text-[10px] font-extrabold shrink-0 ${
-                      authState.isPremium
-                        ? 'bg-gradient-to-r from-[#f59e0b] to-[#ec4899] text-[#ffffff]'
-                        : 'bg-[#1d4ed8]/30 text-[#38bdf8] border border-[#0055ff]/50'
-                    }`}
-                  >
-                    {authState.isPremium ? 'PulseEPG Pro 👑' : 'Gratuit'}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <User className="w-3.5 h-3.5 text-[#38bdf8] shrink-0" />
-                  <span className="hidden sm:inline">
-                    {activeLang === 'fr'
-                      ? "Se connecter / S'inscrire"
-                      : 'Sign In / Sign Up'}
-                  </span>
-                </>
+              <SlidersHorizontal className="w-4 h-4 text-[#cbd5e1]" />
+              <span>{activeLang === 'ar' ? 'تصفية' : 'Filtres'}</span>
+              {activeExtraFiltersCount > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[#e11d48] text-[#ffffff]">
+                  {toStandardDigits(String(activeExtraFiltersCount))}
+                </span>
               )}
             </button>
+          </div>
 
-            <button
-              ref={refreshBtnRef}
-              type="button"
-              onFocus={(e) => {
-                if (lastInputWasDpadRef.current && !isSettingsOpen) {
-                  e.currentTarget.setAttribute('data-dpad-focused', 'true');
-                  e.currentTarget.classList.add('focused');
-                } else {
-                  e.currentTarget.classList.remove('focused', 'active');
-                  e.currentTarget.removeAttribute('data-dpad-focused');
-                }
-              }}
-              onBlur={(e) => {
-                e.currentTarget.classList.remove('focused', 'active');
-                e.currentTarget.removeAttribute('data-dpad-focused');
-              }}
-              onClick={(e) => {
-                e.currentTarget.classList.remove('focused', 'active');
-                e.currentTarget.removeAttribute('data-dpad-focused');
-                e.currentTarget.blur();
-                setIsSyncing(true);
-                triggerEpgSync(settings);
-              }}
-              className="tv-fixed-action-btn shrink-0 w-8 h-8 sm:w-9 sm:h-9 inline-flex items-center justify-center rounded-lg bg-[#141a26] hover:bg-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#0055ff]/60 transition-colors cursor-pointer"
-              title={isSyncing ? tr.refreshingBtn : tr.refreshBtn}
-              aria-label={isSyncing ? tr.refreshingBtn : tr.refreshBtn}
-            >
-              <RefreshCw
-                className={`w-4 h-4 shrink-0 text-[#cbd5e1] ${
-                  isSyncing ? 'animate-spin text-[#e11d48]' : ''
-                }`}
-              />
-            </button>
+          {/* Ligne 4 : Statistiques + Sélecteur de date "Aujourd'hui ⌵" */}
+          <div className="flex items-center justify-between gap-3 text-xs sm:text-sm pt-0.5 flex-wrap">
+            <div className="text-xs sm:text-sm text-[#94a3b8]">
+              <strong className="text-white font-bold">{toStandardDigits(String(filteredChannels.length))}</strong> {activeLang === 'ar' ? 'قناة' : 'chaînes'} ·{' '}
+              <strong className="text-white font-bold">
+                {totalLoadedProgrammesCount > 0 ? toStandardDigits(totalLoadedProgrammesCount.toLocaleString('en-US')) : '4 866'}
+              </strong> {activeLang === 'ar' ? 'برنامج قيد البث' : 'programmes en cours'}
+              {isSyncing && (
+                <span className="block text-[11px] text-[#06b6d4] mt-0.5 animate-pulse">
+                  {activeLang === 'ar' ? 'جاري تحميل الدليل...' : 'Chargement du guide...'}
+                </span>
+              )}
+            </div>
 
-            {/* Bouton Paramètres & Satellites (Icône ⚙️ toujours visible sur mobile et TV) */}
-            <button
-              ref={settingsBtnRef}
-              id="header-settings-btn"
-              type="button"
-              data-header-settings-btn="true"
-              data-dpad-focused={
-                isSettingsBtnDpadFocused && !isSettingsOpen ? 'true' : undefined
-              }
-              onFocus={(e) => {
-                if (lastInputWasDpadRef.current && !isSettingsOpen) {
-                  setIsSettingsBtnDpadFocused(true);
-                  e.currentTarget.setAttribute('data-dpad-focused', 'true');
-                } else {
-                  setIsSettingsBtnDpadFocused(false);
-                  e.currentTarget.classList.remove('focused', 'active');
-                  e.currentTarget.removeAttribute('data-dpad-focused');
-                }
-              }}
-              onBlur={(e) => {
-                setIsSettingsBtnDpadFocused(false);
-                e.currentTarget.classList.remove('focused', 'active');
-                e.currentTarget.removeAttribute('data-dpad-focused');
-              }}
-              onClick={(e) => {
-                setIsSettingsBtnDpadFocused(false);
-                e.currentTarget.classList.remove('focused', 'active');
-                e.currentTarget.removeAttribute('data-dpad-focused');
-                e.currentTarget.blur();
-                setSettingsInitialTab('filters');
-                setIsSettingsOpen(true);
-              }}
-              className={`tv-fixed-action-btn shrink-0 w-8 h-8 sm:w-9 sm:h-9 inline-flex items-center justify-center rounded-lg bg-[#141a26] hover:bg-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#0055ff]/60 transition-colors cursor-pointer ${
-                isSettingsBtnDpadFocused && !isSettingsOpen ? 'focused' : ''
-              }`}
-              title={tr.settingsTitle}
-              aria-label={tr.settingsTitle}
-            >
-              <Settings className="w-4 h-4 shrink-0 text-[#60a5fa] hover:text-[#ffffff]" />
-            </button>
+            {/* Sélecteur de Date "Aujourd'hui ⌵" */}
+            <div className="relative">
+              <select
+                value={selectedEpgDayOffset}
+                onChange={(e) => handleSelectEpgDay(parseInt(e.target.value, 10))}
+                className="appearance-none ps-3 pe-7 py-1.5 rounded-xl bg-[#141a26] border border-[#1e293b] text-xs font-semibold text-white focus:outline-none focus:border-[#0055ff] transition-colors cursor-pointer"
+              >
+                <option value={0}>{activeLang === 'ar' ? 'اليوم' : "Aujourd'hui"}</option>
+                <option value={1}>{activeLang === 'ar' ? 'غداً (+1)' : 'Demain (+1)'}</option>
+                <option value={2}>{activeLang === 'ar' ? 'بعد غد (+2)' : 'Après-demain (+2)'}</option>
+                <option value={-1}>{activeLang === 'ar' ? 'أمس (-1)' : 'Hier (-1)'}</option>
+              </select>
+              <ChevronDown className="w-3.5 h-3.5 text-[#94a3b8] absolute end-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
           </div>
         </div>
       </header>
@@ -6416,17 +6397,51 @@ export function App() {
           />
         )}
 
-        {/* Barre de Recherche & Contrôle Temporel Rapide + Zone de Filtres D-Pad */}
-        <div
-          data-tv-zone="filters"
-          data-dpad-active={activeDpadZone === 'filters' ? 'true' : undefined}
-          data-dpad-transition={
-            dpadState.isZoneTransitioning && activeDpadZone === 'filters'
-              ? dpadState.lastDirection || 'jump'
-              : undefined
-          }
-          className="mb-4 rounded-lg bg-[#141a26] border border-[#1a202c] p-3 sm:p-4 space-y-3"
-        >
+        {/* Barre compacte des filtres actifs (visible seulement quand le volet complet est masqué pour garder les programmes directement à l'écran comme sur la photo) */}
+        {!isMobileExtraFiltersOpen && activeExtraFiltersCount > 0 && (
+          <div className="mb-3 flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-[#141a26] border border-[#1e293b] text-xs">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[#94a3b8] text-[11px] font-medium">
+                {activeLang === 'ar' ? 'الفلاتر النشطة :' : activeLang === 'fr' ? 'Filtres actifs :' : 'Active filters:'}
+              </span>
+              {selectedSatellite !== 'Tous' && (
+                <span className="px-2 py-0.5 rounded-full bg-[#0055ff]/20 border border-[#0055ff]/40 text-[#38bdf8] text-[10px] font-semibold">
+                  🛰️ {translateSatelliteFilter(selectedSatellite, activeLang)}
+                </span>
+              )}
+              {selectedBouquet !== 'Tous' && (
+                <span className="px-2 py-0.5 rounded-full bg-[#0055ff]/20 border border-[#0055ff]/40 text-[#38bdf8] text-[10px] font-semibold">
+                  📺 {translateBouquetFilter(selectedBouquet, activeLang, selectedSatellite)}
+                </span>
+              )}
+              {selectedCategory !== 'Tous' && (
+                <span className="px-2 py-0.5 rounded-full bg-[#38bdf8]/20 border border-[#38bdf8]/40 text-[#38bdf8] text-[10px] font-semibold">
+                  🏷️ {translateCategoryFilter(selectedCategory, activeLang)}
+                </span>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={resetAllFilters}
+              className="text-[11px] text-[#ef4444] hover:underline font-semibold shrink-0 cursor-pointer"
+            >
+              {activeLang === 'ar' ? 'مسح الكل' : activeLang === 'fr' ? 'Effacer tout' : 'Clear all'}
+            </button>
+          </div>
+        )}
+
+        {/* Barre de Recherche & Contrôle Temporel Rapide + Zone de Filtres D-Pad (Uniquement dépliée sur clic 'Filtres') */}
+        {isMobileExtraFiltersOpen && (
+          <div
+            data-tv-zone="filters"
+            data-dpad-active={activeDpadZone === 'filters' ? 'true' : undefined}
+            data-dpad-transition={
+              dpadState.isZoneTransitioning && activeDpadZone === 'filters'
+                ? dpadState.lastDirection || 'jump'
+                : undefined
+            }
+            className="mb-4 rounded-xl bg-[#141a26] border border-[#1e293b] p-3 sm:p-4 space-y-3 shadow-lg"
+          >
           <div
             data-tv-row="filter-search"
             data-row-active={
@@ -6587,7 +6602,7 @@ export function App() {
                     <div className="flex items-center justify-between pb-2.5 mb-2 border-b border-[#334155]">
                       <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[#ffffff]">
                         <Clock className="w-3.5 h-3.5 text-[#0055ff]" />
-                        <span>Recent Searches</span>
+                        <span>{activeLang === 'ar' ? 'عمليات البحث الأخيرة' : activeLang === 'fr' ? 'Recherches récentes' : 'Recent Searches'}</span>
                       </div>
                       <button
                         type="button"
@@ -6600,7 +6615,7 @@ export function App() {
                         className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#cbd5e1] hover:text-[#e11d48] transition-colors cursor-pointer"
                       >
                         <Trash2 className="w-3 h-3" />
-                        <span>{activeLang === 'fr' ? 'Effacer' : 'Clear'}</span>
+                        <span>{activeLang === 'ar' ? 'مسح' : activeLang === 'fr' ? 'Effacer' : 'Clear'}</span>
                       </button>
                     </div>
 
@@ -6637,7 +6652,9 @@ export function App() {
                               );
                             }}
                             title={
-                              activeLang === 'fr'
+                              activeLang === 'ar'
+                                ? 'حذف هذا البحث'
+                                : activeLang === 'fr'
                                 ? 'Supprimer cette recherche'
                                 : 'Remove search'
                             }
@@ -6679,21 +6696,31 @@ export function App() {
                   )}
                   <span>
                     {tvSortMode === 'lcn'
-                      ? activeLang === 'fr'
+                      ? activeLang === 'ar'
+                        ? 'ترتيب: رقم LCN'
+                        : activeLang === 'fr'
                         ? 'Tri : N° LCN'
                         : 'Sort: LCN'
                       : tvSortMode === 'smart'
-                      ? activeLang === 'fr'
+                      ? activeLang === 'ar'
+                        ? 'ترتيب: ذكي'
+                        : activeLang === 'fr'
                         ? 'Tri : Intelligent'
                         : 'Sort: Smart'
                       : tvSortMode === 'alpha_asc'
-                      ? activeLang === 'fr'
+                      ? activeLang === 'ar'
+                        ? 'ترتيب: أ → ي'
+                        : activeLang === 'fr'
                         ? 'Tri : A → Z'
                         : 'Sort: A → Z'
                       : tvSortMode === 'alpha_desc'
-                      ? activeLang === 'fr'
+                      ? activeLang === 'ar'
+                        ? 'ترتيب: ي → أ'
+                        : activeLang === 'fr'
                         ? 'Tri : Z → A'
                         : 'Sort: Z → A'
+                      : activeLang === 'ar'
+                      ? 'ترتيب: الفئة'
                       : activeLang === 'fr'
                       ? 'Tri : Genre'
                       : 'Sort: Genre'}
@@ -6715,7 +6742,9 @@ export function App() {
                   >
                     <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-[#334155] mb-1">
                       <span className="text-[11px] font-bold uppercase tracking-wider text-[#38bdf8]">
-                        {activeLang === 'fr'
+                        {activeLang === 'ar'
+                          ? 'ترتيب القنوات (TV)'
+                          : activeLang === 'fr'
                           ? 'Trier les chaînes (TV)'
                           : 'Sort Channels (TV)'}
                       </span>
@@ -6732,7 +6761,7 @@ export function App() {
                           });
                         }}
                         className="tv-dpad-btn p-1 rounded text-[#cbd5e1] hover:text-[#ffffff] cursor-pointer"
-                        title="Fermer (Retour)"
+                        title={activeLang === 'ar' ? 'إغلاق (رجوع)' : 'Fermer (Retour)'}
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
@@ -6743,61 +6772,83 @@ export function App() {
                         {
                           id: 'lcn' as const,
                           label:
-                            activeLang === 'fr'
+                            activeLang === 'ar'
+                              ? 'رقم القناة LCN (الترتيب الرسمي)'
+                              : activeLang === 'fr'
                               ? 'Numéro LCN (Ordre officiel)'
                               : 'LCN Number (Official Order)',
                           desc:
-                            activeLang === 'fr'
+                            activeLang === 'ar'
+                              ? 'الترتيب الرسمي للباقة والقمر الصناعي'
+                              : activeLang === 'fr'
                               ? 'Ordre officiel du bouquet / satellite'
                               : 'Official satellite / bouquet order',
                         },
                         {
                           id: 'smart' as const,
                           label:
-                            activeLang === 'fr'
+                            activeLang === 'ar'
+                              ? 'ترتيب ذكي (المشاهدة + LCN)'
+                              : activeLang === 'fr'
                               ? 'Tri intelligent (Fréquence + LCN)'
                               : 'Smart Sort (Watch Frequency + LCN)',
                           desc:
-                            activeLang === 'fr'
+                            activeLang === 'ar'
+                              ? 'عادات المشاهدة مدمجة مع الترتيب الرسمي'
+                              : activeLang === 'fr'
                               ? 'Habitudes de visionnage combinées à l’ordre LCN officiel'
                               : 'Viewing habits combined with official LCN order',
                           badge:
                             learnedHabitsCount > 0
-                              ? activeLang === 'fr'
+                              ? activeLang === 'ar'
+                                ? `${toStandardDigits(learnedHabitsCount)} قناة`
+                                : activeLang === 'fr'
                                 ? `${learnedHabitsCount} ch.`
                                 : `${learnedHabitsCount} ch.`
-                              : 'Auto',
+                              : (activeLang === 'ar' ? 'تلقائي' : 'Auto'),
                         },
                         {
                           id: 'alpha_asc' as const,
                           label:
-                            activeLang === 'fr'
+                            activeLang === 'ar'
+                              ? 'أبجدي (أ → ي)'
+                              : activeLang === 'fr'
                               ? 'Alphabétique (A → Z)'
                               : 'Alphabetical (A → Z)',
                           desc:
-                            activeLang === 'fr'
+                            activeLang === 'ar'
+                              ? 'من أ إلى ي حسب اسم القناة'
+                              : activeLang === 'fr'
                               ? 'De A à Z par nom de chaîne'
                               : 'A to Z by channel name',
                         },
                         {
                           id: 'alpha_desc' as const,
                           label:
-                            activeLang === 'fr'
+                            activeLang === 'ar'
+                              ? 'أبجدي (ي → أ)'
+                              : activeLang === 'fr'
                               ? 'Alphabétique (Z → A)'
                               : 'Alphabetical (Z → A)',
                           desc:
-                            activeLang === 'fr'
+                            activeLang === 'ar'
+                              ? 'من ي إلى أ حسب اسم القناة'
+                              : activeLang === 'fr'
                               ? 'De Z à A par nom de chaîne'
                               : 'Z to A by channel name',
                         },
                         {
                           id: 'genre' as const,
                           label:
-                            activeLang === 'fr'
+                            activeLang === 'ar'
+                              ? 'الفئة / التصنيف'
+                              : activeLang === 'fr'
                               ? 'Genre / Thématique'
                               : 'Genre / Thematic',
                           desc:
-                            activeLang === 'fr'
+                            activeLang === 'ar'
+                              ? 'رياضة، سينما، مسلسلات، وثائقي، أطفال'
+                              : activeLang === 'fr'
                               ? 'Sport, Cinéma, Séries, Docs, Jeunesse'
                               : 'Sports, Movies, Series, Docs, Kids',
                         },
@@ -6868,13 +6919,15 @@ export function App() {
                           <span className="inline-flex items-center gap-1.5 truncate">
                             <RotateCcw className="w-3 h-3 text-[#ec4899] shrink-0" />
                             <span className="truncate">
-                              {activeLang === 'fr'
+                              {activeLang === 'ar'
+                                ? 'إعادة ضبط عادات المشاهدة'
+                                : activeLang === 'fr'
                                 ? 'Réinitialiser les habitudes de visionnage'
                                 : 'Reset viewing habits'}
                             </span>
                           </span>
                           <span className="font-mono text-[10px] text-[#cbd5e1] shrink-0">
-                            {learnedHabitsCount} ch. · {totalWatchCount}
+                            {toStandardDigits(learnedHabitsCount)} ch. · {toStandardDigits(totalWatchCount)}
                           </span>
                         </button>
                       </div>
@@ -6900,7 +6953,7 @@ export function App() {
                         }}
                         className="tv-dpad-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1e293b] hover:bg-[#334155] text-[#cbd5e1] hover:text-[#ffffff] border border-[#334155] transition-colors cursor-pointer"
                       >
-                        {activeLang === 'fr' ? 'Annuler' : 'Cancel'}
+                        {activeLang === 'ar' ? 'إلغاء' : activeLang === 'fr' ? 'Annuler' : 'Cancel'}
                       </button>
                       <button
                         type="button"
@@ -6916,7 +6969,7 @@ export function App() {
                         }}
                         className="tv-dpad-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#2563eb] hover:bg-[#1d4ed8] text-[#ffffff] border border-[#60a5fa] shadow-[0_0_10px_rgba(37,99,235,0.4)] transition-colors cursor-pointer"
                       >
-                        {activeLang === 'fr' ? 'Confirmer' : 'Confirm'}
+                        {activeLang === 'ar' ? 'تأكيد' : activeLang === 'fr' ? 'Confirmer' : 'Confirm'}
                       </button>
                     </div>
                   </div>
@@ -6943,8 +6996,33 @@ export function App() {
                   {activeLang === 'fr' ? 'Quick-Jump' : 'Quick-Jump'}
                 </span>
                 <span className="px-1.5 py-0.2 rounded bg-[#141a26] text-[#38bdf8] border border-[#334155] font-mono text-[10px] font-bold">
-                  1–{Math.max(1, filteredChannels.length)}
+                  1–{toStandardDigits(Math.max(1, filteredChannels.length))}
                 </span>
+              </button>
+
+              {/* Bouton Filtres Satellite / Bouquet / Zone — Visible directement sans glisser */}
+              <button
+                type="button"
+                onClick={() => setIsMobileExtraFiltersOpen((prev) => !prev)}
+                title={activeLang === 'ar' ? 'فلاتر الأقمار، الباقات والمناطق' : 'Filtres Satellites, Bouquets et Zones (Accès direct immédiat)'}
+                className={`tv-dpad-btn inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer shrink-0 ${
+                  isMobileExtraFiltersOpen || activeExtraFiltersCount > 0
+                    ? 'bg-[#0055ff]/25 text-[#ffffff] border border-[#0055ff] shadow-[0_0_10px_rgba(0,85,255,0.35)]'
+                    : 'bg-[#0a0e17] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c]'
+                }`}
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5 text-[#38bdf8] shrink-0" />
+                <span>{activeLang === 'ar' ? 'تصفية' : activeLang === 'fr' ? 'Filtres' : 'Filters'}</span>
+                {activeExtraFiltersCount > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[#e11d48] text-[#ffffff]">
+                    {toStandardDigits(activeExtraFiltersCount)}
+                  </span>
+                )}
+                <ChevronDown
+                  className={`w-3.5 h-3.5 text-[#cbd5e1] transition-transform ${
+                    isMobileExtraFiltersOpen ? 'rotate-180' : ''
+                  }`}
+                />
               </button>
 
               {/* Horodateur Temps Réel */}
@@ -6963,16 +7041,42 @@ export function App() {
           </div>
 
           {/* Barres de filtres rapides en rubans horizontaux défilables [CATÉGORIE] -> [SATELLITE / BOUQUET] -> [ZONE] -> [GENRE] */}
-          {viewMode !== 'grid' && (
+          {viewMode !== 'grid' && viewMode !== 'sports' && (
             <div className="pt-2.5 border-t border-[#1a202c] space-y-2 select-none">
-              {/* Ligne 1 : [CATÉGORIE] */}
+              {/* Ligne 1 : [CATÉGORIE] avec Bouton Filtres Satellite/Bouquet épinglé au premier plan sans glisser */}
               <div
                 data-tv-row="live-categories"
                 data-row-active={
                   activeFilterRow === 'live-categories' ? 'true' : undefined
                 }
-                className="filter-ribbon no-scrollbar"
+                className="filter-ribbon no-scrollbar items-center"
               >
+                {/* Bouton Filtres Satellite / Bouquet / Zone — Toujours visible immédiatement au premier plan */}
+                <button
+                  type="button"
+                  onClick={() => setIsMobileExtraFiltersOpen((prev) => !prev)}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold shrink-0 transition-all cursor-pointer me-1.5 ${
+                    isMobileExtraFiltersOpen || activeExtraFiltersCount > 0
+                      ? 'bg-[#0055ff] text-[#ffffff] shadow-[0_0_10px_rgba(0,85,255,0.4)]'
+                      : 'bg-[#141a26] text-[#cbd5e1] border border-[#1a202c] hover:text-[#ffffff] hover:border-[#0055ff]/60'
+                  }`}
+                  aria-expanded={isMobileExtraFiltersOpen}
+                  title={activeLang === 'ar' ? 'عرض/إخفاء فلاتر الأقمار والباقات' : 'Afficher/masquer les filtres satellites, bouquets et zones sans avoir à glisser'}
+                >
+                  <SlidersHorizontal className="w-3.5 h-3.5 text-[#38bdf8] shrink-0" />
+                  <span>{activeLang === 'ar' ? 'فلاتر الأقمار' : activeLang === 'fr' ? 'Filtres SAT' : 'SAT Filters'}</span>
+                  {activeExtraFiltersCount > 0 && (
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[#e11d48] text-[#ffffff]">
+                      {toStandardDigits(activeExtraFiltersCount)}
+                    </span>
+                  )}
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 text-[#cbd5e1] transition-transform ${
+                      isMobileExtraFiltersOpen ? 'rotate-180' : ''
+                    }`}
+                  />
+                </button>
+
                 <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0 select-none">
                   <Film className="w-3.5 h-3.5 text-[#e11d48]" />
                   {tr.filterCatLabel}
@@ -7052,7 +7156,7 @@ export function App() {
                         )}
                         <span>{label}</span>
                       </span>
-                      <span className="filter-count">{count}</span>
+                      <span className="filter-count">{toStandardDigits(count)}</span>
                     </div>
                   );
                 })}
@@ -7086,341 +7190,386 @@ export function App() {
                     <span>{t('reminders.tabLabel', activeLang)}</span>
                   </span>
                   <span className="filter-count">
-                    {activeRemindersCount || reminders.length}
+                    {toStandardDigits(activeRemindersCount || reminders.length)}
                   </span>
                 </div>
+
+                {/* Bouton Accordion "Plus de filtres (SAT/Bouquet/Zone)" sur mobile */}
+                <button
+                  type="button"
+                  onClick={() => setIsMobileExtraFiltersOpen((prev) => !prev)}
+                  className={`sm:hidden inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold shrink-0 transition-all cursor-pointer ${
+                    isMobileExtraFiltersOpen || activeExtraFiltersCount > 0
+                      ? 'bg-[#1d4ed8]/35 text-[#ffffff] border border-[#3b82f6] shadow-[0_0_10px_rgba(59,130,246,0.3)]'
+                      : 'bg-[#0a0e17] text-[#cbd5e1] border border-[#1a202c] hover:text-[#ffffff]'
+                  }`}
+                  aria-expanded={isMobileExtraFiltersOpen}
+                  title={activeLang === 'ar' ? 'عرض أو إخفاء فلاتر الأقمار والباقات' : 'Afficher ou masquer les filtres satellites, bouquets et zones'}
+                >
+                  <SlidersHorizontal className="w-3.5 h-3.5 text-[#38bdf8] shrink-0" />
+                  <span>
+                    {isMobileExtraFiltersOpen
+                      ? activeLang === 'ar'
+                        ? 'إخفاء الفلاتر'
+                        : activeLang === 'fr'
+                        ? 'Masquer les filtres'
+                        : 'Hide filters'
+                      : activeLang === 'ar'
+                      ? 'المزيد من الفلاتر (أقمار/باقات)'
+                      : activeLang === 'fr'
+                      ? 'Plus de filtres (SAT/Bouquet/Zone)'
+                      : 'More filters (SAT/Bouquet/Zone)'}
+                  </span>
+                  {activeExtraFiltersCount > 0 && (
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[#e11d48] text-[#ffffff]">
+                      {toStandardDigits(activeExtraFiltersCount)}
+                    </span>
+                  )}
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 text-[#cbd5e1] transition-transform ${
+                      isMobileExtraFiltersOpen ? 'rotate-180' : ''
+                    }`}
+                  />
+                </button>
               </div>
 
-              {/* Ligne 1.5 : [SOUS-FILTRAGE RÉGION / SATELLITE (Multi-Region ES / PT si les deux régions sont actives)] */}
-              {subRegionCounts.europe > 0 && subRegionCounts.latam > 0 && (
-                <div
-                  data-tv-row="live-subregions"
-                  data-row-active={
-                    activeFilterRow === 'live-subregions' ? 'true' : undefined
-                  }
-                  className="filter-ribbon no-scrollbar pt-1 border-t border-[#1a202c]"
-                >
-                  <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0 select-none">
-                    <Globe className="w-3.5 h-3.5 text-[#0055ff]" />
-                    {activeLang === 'es' ? 'Région / Zona:' : 'Região / Zona:'}
-                  </span>
-
-                  {/* Option 1: Toutes les régions */}
+              {/* Volet rétractable Accordion sur mobile (Satellite, Bouquet, Zone, Genre) / Plein affichage direct sur desktop & TV */}
+              <div
+                className={`${
+                  isMobileExtraFiltersOpen ? 'block' : 'hidden sm:block'
+                } space-y-2 pt-0.5 transition-all`}
+              >
+                {/* Ligne 1.5 : [SOUS-FILTRAGE RÉGION / SATELLITE (Multi-Region ES / PT si les deux régions sont actives)] */}
+                {subRegionCounts.europe > 0 && subRegionCounts.latam > 0 && (
                   <div
-                    role="button"
-                    tabIndex={0}
-                    data-filter-active={selectedSubRegion === 'all' ? 'true' : undefined}
-                    onClick={() => handleSelectSubRegion('all')}
-                    onKeyDown={(e) => {
-                      if (
-                        e.key === 'Enter' ||
-                        e.key === ' ' ||
-                        e.key === 'Select' ||
-                        e.keyCode === 23 ||
-                        e.keyCode === 66
-                      ) {
-                        e.preventDefault();
-                        handleSelectSubRegion('all');
-                      }
-                    }}
-                    className={`filter-badge ${
-                      selectedSubRegion === 'all' ? 'active selected-filter' : ''
-                    }`}
+                    data-tv-row="live-subregions"
+                    data-row-active={
+                      activeFilterRow === 'live-subregions' ? 'true' : undefined
+                    }
+                    className="filter-ribbon no-scrollbar pt-1 border-t border-[#1a202c]"
                   >
-                    <span className="filter-label">
-                      <span>🌐</span>
-                      <span>
-                        {activeLang === 'es' ? 'Todas las regiones' : 'Todas as regiões'}
-                      </span>
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0 select-none">
+                      <Globe className="w-3.5 h-3.5 text-[#0055ff]" />
+                      {activeLang === 'es' ? 'Région / Zona:' : 'Região / Zona:'}
                     </span>
-                    <span className="filter-count">{subRegionCounts.all}</span>
-                  </div>
 
-                  {/* Option 2: Europe (Espagne / Portugal) */}
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    data-filter-active={selectedSubRegion === 'europe' ? 'true' : undefined}
-                    onClick={() => handleSelectSubRegion('europe')}
-                    onKeyDown={(e) => {
-                      if (
-                        e.key === 'Enter' ||
-                        e.key === ' ' ||
-                        e.key === 'Select' ||
-                        e.keyCode === 23 ||
-                        e.keyCode === 66
-                      ) {
-                        e.preventDefault();
-                        handleSelectSubRegion('europe');
-                      }
-                    }}
-                    className={`filter-badge ${
-                      selectedSubRegion === 'europe' ? 'active selected-filter' : ''
-                    }`}
-                  >
-                    <span className="filter-label">
-                      <span>{activeLang === 'es' ? '🇪🇸' : '🇵🇹'}</span>
-                      <span>
-                        {activeLang === 'es'
-                          ? 'Europa / España · Movistar+ (Astra 19.2°E, Hispasat 30°W)'
-                          : 'Europa / Portugal · MEO, NOS (Hispasat 30°W)'}
-                      </span>
-                    </span>
-                    <span className="filter-count">{subRegionCounts.europe}</span>
-                  </div>
-
-                  {/* Option 3: Amérique du Sud / LATAM / Brésil */}
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    data-filter-active={selectedSubRegion === 'latam' ? 'true' : undefined}
-                    onClick={() => handleSelectSubRegion('latam')}
-                    onKeyDown={(e) => {
-                      if (
-                        e.key === 'Enter' ||
-                        e.key === ' ' ||
-                        e.key === 'Select' ||
-                        e.keyCode === 23 ||
-                        e.keyCode === 66
-                      ) {
-                        e.preventDefault();
-                        handleSelectSubRegion('latam');
-                      }
-                    }}
-                    className={`filter-badge ${
-                      selectedSubRegion === 'latam' ? 'active selected-filter' : ''
-                    }`}
-                  >
-                    <span className="filter-label">
-                      <span>{activeLang === 'es' ? '🌎' : '🇧🇷'}</span>
-                      <span>
-                        {activeLang === 'es'
-                          ? 'Sudamérica / LATAM · DirecTV, Claro TV, Movistar (61°W, 70°W)'
-                          : 'América do Sul / Brasil · Claro TV, SKY (70°W, 61°W)'}
-                      </span>
-                    </span>
-                    <span className="filter-count">{subRegionCounts.latam}</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Ligne 2 : [SATELLITE] */}
-              {visibleSatelliteOptions.length > 1 && (
-                <div
-                  data-tv-row="live-satellites"
-                  data-row-active={
-                    activeFilterRow === 'live-satellites' ? 'true' : undefined
-                  }
-                  className="filter-ribbon no-scrollbar pt-1 border-t border-[#1a202c]"
-                >
-                  <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0 select-none">
-                    <Satellite className="w-3.5 h-3.5 text-[#0055ff]" />
-                    {tr.filterSatLabel}
-                  </span>
-                  {visibleSatelliteOptions.map((sat) => {
-                    const active = selectedSatellite === sat;
-                    const count = satelliteCounts[sat] ?? 0;
-                    const label = translateSatelliteFilter(sat, activeLang);
-                    return (
-                      <div
-                        key={sat}
-                        role="button"
-                        tabIndex={0}
-                        data-filter-active={active ? 'true' : undefined}
-                        onClick={() => handleSelectSatellite(sat)}
-                        onKeyDown={(e) => {
-                          if (
-                            e.key === 'Enter' ||
-                            e.key === ' ' ||
-                            e.key === 'Select' ||
-                            e.keyCode === 23 ||
-                            e.keyCode === 66
-                          ) {
-                            e.preventDefault();
-                            handleSelectSatellite(sat);
-                          }
-                        }}
-                        className={`filter-badge ${
-                          active ? 'active selected-filter' : ''
-                        }`}
-                      >
-                        <span className="filter-label">{label}</span>
-                        <span className="filter-count">{count}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Ligne 2B : [BOUQUET] */}
-              {visibleBouquetOptions.length > 1 && (
-                <div
-                  data-tv-row="live-bouquets"
-                  data-row-active={
-                    activeFilterRow === 'live-bouquets' ? 'true' : undefined
-                  }
-                  className="filter-ribbon no-scrollbar pt-1 border-t border-[#1a202c]"
-                >
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0 select-none">
-                    {tr.filterBouquetLabel}
-                  </span>
-                  {visibleBouquetOptions.map((bq) => {
-                    const active =
-                      bq === 'Tous'
-                        ? selectedBouquet === 'Tous' &&
-                          selectedBouquetsList.length === 0
-                        : selectedBouquet === bq ||
-                          selectedBouquetsList.includes(bq);
-                    const count = bouquetCounts[bq] ?? 0;
-                    const label = translateBouquetFilter(
-                      bq,
-                      activeLang,
-                      selectedSatellite
-                    );
-                    return (
-                      <div
-                        key={bq}
-                        role="button"
-                        tabIndex={0}
-                        data-filter-active={active ? 'true' : undefined}
-                        onClick={() => handleSelectBouquet(bq)}
-                        onKeyDown={(e) => {
-                          if (
-                            e.key === 'Enter' ||
-                            e.key === ' ' ||
-                            e.key === 'Select' ||
-                            e.keyCode === 23 ||
-                            e.keyCode === 66
-                          ) {
-                            e.preventDefault();
-                            handleSelectBouquet(bq);
-                          }
-                        }}
-                        className={`filter-badge ${
-                          active ? 'active selected-filter' : ''
-                        }`}
-                      >
-                        <span className="filter-label">{label}</span>
-                        <span className="filter-count">{count}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {ramWarningMessage && (
-                <div className="px-3 py-2 rounded-lg bg-[#0a0e17] border border-[#0055ff]/60 text-[#ffffff] text-xs font-medium flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-[#0055ff] shrink-0" />
-                  <span>{ramWarningMessage}</span>
-                </div>
-              )}
-
-              {/* Ligne 3 : [ZONE / PAYS] (Ruban horizontal défilable de badges <div> cliquables sur tous les écrans) */}
-              {visibleCountryOptions.length > 1 && (
-                <div
-                  data-tv-row="live-countries"
-                  data-row-active={
-                    activeFilterRow === 'live-countries' ? 'true' : undefined
-                  }
-                  className="filter-ribbon no-scrollbar pt-1 border-t border-[#1a202c]"
-                >
-                  <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0 select-none">
-                    <Globe className="w-3.5 h-3.5 text-[#0055ff]" />
-                    {tr.filterCountryLabel || tr.filterZoneLabel}
-                  </span>
-                  {visibleCountryOptions.map((cCode) => {
-                    const active = selectedCountry === cCode;
-                    const count = countryCounts[cCode] ?? 0;
-                    const label = translateChannelCountryFilter(
-                      cCode,
-                      activeLang
-                    );
-                    const flag = CHANNEL_COUNTRY_FLAGS[cCode] || '🌍';
-                    return (
-                      <div
-                        key={cCode}
-                        role="button"
-                        tabIndex={0}
-                        data-filter-active={active ? 'true' : undefined}
-                        onClick={() => handleSelectCountry(cCode)}
-                        onKeyDown={(e) => {
-                          if (
-                            e.key === 'Enter' ||
-                            e.key === ' ' ||
-                            e.key === 'Select' ||
-                            e.keyCode === 23 ||
-                            e.keyCode === 66
-                          ) {
-                            e.preventDefault();
-                            handleSelectCountry(cCode);
-                          }
-                        }}
-                        className={`filter-badge ${
-                          active ? 'active selected-filter' : ''
-                        }`}
-                      >
-                        <span className="filter-label">
-                          <span>{flag}</span>
-                          <span>{label}</span>
+                    {/* Option 1: Toutes les régions */}
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      data-filter-active={selectedSubRegion === 'all' ? 'true' : undefined}
+                      onClick={() => handleSelectSubRegion('all')}
+                      onKeyDown={(e) => {
+                        if (
+                          e.key === 'Enter' ||
+                          e.key === ' ' ||
+                          e.key === 'Select' ||
+                          e.keyCode === 23 ||
+                          e.keyCode === 66
+                        ) {
+                          e.preventDefault();
+                          handleSelectSubRegion('all');
+                        }
+                      }}
+                      className={`filter-badge ${
+                        selectedSubRegion === 'all' ? 'active selected-filter' : ''
+                      }`}
+                    >
+                      <span className="filter-label">
+                        <span>🌐</span>
+                        <span>
+                          {activeLang === 'es' ? 'Todas las regiones' : 'Todas as regiões'}
                         </span>
-                        <span className="filter-count">{count}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                      </span>
+                      <span className="filter-count">{subRegionCounts.all}</span>
+                    </div>
 
-              {/* Ligne 4 : [GENRE] */}
-              {visibleGroupOptions.length > 1 && (
-                <div
-                  data-tv-row="live-genres"
-                  data-row-active={
-                    activeFilterRow === 'live-genres' ? 'true' : undefined
-                  }
-                  className="filter-ribbon no-scrollbar pt-1.5 border-t border-[#1a202c]"
-                >
-                  <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0 select-none">
-                    <Sparkles className="w-3 h-3 text-[#e11d48]" />
-                    {tr.filterGenreLabel}
-                  </span>
-                  {visibleGroupOptions.map((grp) => {
-                    const active =
-                      selectedGroup === grp ||
-                      (grp === 'Tous' && selectedGroup === 'Toutes');
-                    const count =
-                      (groupCounts[grp] ?? 0) ||
-                      (grp === 'Tous' ? (groupCounts['Toutes'] ?? 0) : 0);
-                    const label = translateSubGenreGroup(grp, activeLang);
-                    return (
-                      <div
-                        key={grp}
-                        role="button"
-                        tabIndex={0}
-                        data-filter-active={active ? 'true' : undefined}
-                        onClick={() => handleSelectGroup(grp)}
-                        onKeyDown={(e) => {
-                          if (
-                            e.key === 'Enter' ||
-                            e.key === ' ' ||
-                            e.key === 'Select' ||
-                            e.keyCode === 23 ||
-                            e.keyCode === 66
-                          ) {
-                            e.preventDefault();
-                            handleSelectGroup(grp);
-                          }
-                        }}
-                        className={`filter-badge ${
-                          active ? 'active selected-filter' : ''
-                        }`}
-                      >
-                        <span className="filter-label">{label}</span>
-                        <span className="filter-count">{count}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                    {/* Option 2: Europe (Espagne / Portugal) */}
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      data-filter-active={selectedSubRegion === 'europe' ? 'true' : undefined}
+                      onClick={() => handleSelectSubRegion('europe')}
+                      onKeyDown={(e) => {
+                        if (
+                          e.key === 'Enter' ||
+                          e.key === ' ' ||
+                          e.key === 'Select' ||
+                          e.keyCode === 23 ||
+                          e.keyCode === 66
+                        ) {
+                          e.preventDefault();
+                          handleSelectSubRegion('europe');
+                        }
+                      }}
+                      className={`filter-badge ${
+                        selectedSubRegion === 'europe' ? 'active selected-filter' : ''
+                      }`}
+                    >
+                      <span className="filter-label">
+                        <span>{activeLang === 'es' ? '🇪🇸' : '🇵🇹'}</span>
+                        <span>
+                          {activeLang === 'es'
+                            ? 'Europa / España · Movistar+ (Astra 19.2°E, Hispasat 30°W)'
+                            : 'Europa / Portugal · MEO, NOS (Hispasat 30°W)'}
+                        </span>
+                      </span>
+                      <span className="filter-count">{subRegionCounts.europe}</span>
+                    </div>
+
+                    {/* Option 3: Amérique du Sud / LATAM / Brésil */}
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      data-filter-active={selectedSubRegion === 'latam' ? 'true' : undefined}
+                      onClick={() => handleSelectSubRegion('latam')}
+                      onKeyDown={(e) => {
+                        if (
+                          e.key === 'Enter' ||
+                          e.key === ' ' ||
+                          e.key === 'Select' ||
+                          e.keyCode === 23 ||
+                          e.keyCode === 66
+                        ) {
+                          e.preventDefault();
+                          handleSelectSubRegion('latam');
+                        }
+                      }}
+                      className={`filter-badge ${
+                        selectedSubRegion === 'latam' ? 'active selected-filter' : ''
+                      }`}
+                    >
+                      <span className="filter-label">
+                        <span>{activeLang === 'es' ? '🌎' : '🇧🇷'}</span>
+                        <span>
+                          {activeLang === 'es'
+                            ? 'Sudamérica / LATAM · DirecTV, Claro TV, Movistar (61°W, 70°W)'
+                            : 'América do Sul / Brasil · Claro TV, SKY (70°W, 61°W)'}
+                        </span>
+                      </span>
+                      <span className="filter-count">{subRegionCounts.latam}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Ligne 2 : [SATELLITE] */}
+                {visibleSatelliteOptions.length > 1 && (
+                  <div
+                    data-tv-row="live-satellites"
+                    data-row-active={
+                      activeFilterRow === 'live-satellites' ? 'true' : undefined
+                    }
+                    className="filter-ribbon no-scrollbar pt-1 border-t border-[#1a202c]"
+                  >
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0 select-none">
+                      <Satellite className="w-3.5 h-3.5 text-[#0055ff]" />
+                      {tr.filterSatLabel}
+                    </span>
+                    {visibleSatelliteOptions.map((sat) => {
+                      const active = selectedSatellite === sat;
+                      const count = satelliteCounts[sat] ?? 0;
+                      const label = translateSatelliteFilter(sat, activeLang);
+                      return (
+                        <div
+                          key={sat}
+                          role="button"
+                          tabIndex={0}
+                          data-filter-active={active ? 'true' : undefined}
+                          onClick={() => handleSelectSatellite(sat)}
+                          onKeyDown={(e) => {
+                            if (
+                              e.key === 'Enter' ||
+                              e.key === ' ' ||
+                              e.key === 'Select' ||
+                              e.keyCode === 23 ||
+                              e.keyCode === 66
+                            ) {
+                              e.preventDefault();
+                              handleSelectSatellite(sat);
+                            }
+                          }}
+                          className={`filter-badge ${
+                            active ? 'active selected-filter' : ''
+                          }`}
+                        >
+                          <span className="filter-label">{label}</span>
+                          <span className="filter-count">{toStandardDigits(count)}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Ligne 2B : [BOUQUET] */}
+                {visibleBouquetOptions.length > 1 && (
+                  <div
+                    data-tv-row="live-bouquets"
+                    data-row-active={
+                      activeFilterRow === 'live-bouquets' ? 'true' : undefined
+                    }
+                    className="filter-ribbon no-scrollbar pt-1 border-t border-[#1a202c]"
+                  >
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0 select-none">
+                      {tr.filterBouquetLabel}
+                    </span>
+                    {visibleBouquetOptions.map((bq) => {
+                      const active =
+                        bq === 'Tous'
+                          ? selectedBouquet === 'Tous' &&
+                            selectedBouquetsList.length === 0
+                          : selectedBouquet === bq ||
+                            selectedBouquetsList.includes(bq);
+                      const count = bouquetCounts[bq] ?? 0;
+                      const label = translateBouquetFilter(
+                        bq,
+                        activeLang,
+                        selectedSatellite
+                      );
+                      return (
+                        <div
+                          key={bq}
+                          role="button"
+                          tabIndex={0}
+                          data-filter-active={active ? 'true' : undefined}
+                          onClick={() => handleSelectBouquet(bq)}
+                          onKeyDown={(e) => {
+                            if (
+                              e.key === 'Enter' ||
+                              e.key === ' ' ||
+                              e.key === 'Select' ||
+                              e.keyCode === 23 ||
+                              e.keyCode === 66
+                            ) {
+                              e.preventDefault();
+                              handleSelectBouquet(bq);
+                            }
+                          }}
+                          className={`filter-badge ${
+                            active ? 'active selected-filter' : ''
+                          }`}
+                        >
+                          <span className="filter-label">{label}</span>
+                          <span className="filter-count">{toStandardDigits(count)}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {ramWarningMessage && (
+                  <div className="px-3 py-2 rounded-lg bg-[#0a0e17] border border-[#0055ff]/60 text-[#ffffff] text-xs font-medium flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#0055ff] shrink-0" />
+                    <span>{ramWarningMessage}</span>
+                  </div>
+                )}
+
+                {/* Ligne 3 : [ZONE / PAYS] (Ruban horizontal défilable de badges <div> cliquables sur tous les écrans) */}
+                {visibleCountryOptions.length > 1 && (
+                  <div
+                    data-tv-row="live-countries"
+                    data-row-active={
+                      activeFilterRow === 'live-countries' ? 'true' : undefined
+                    }
+                    className="filter-ribbon no-scrollbar pt-1 border-t border-[#1a202c]"
+                  >
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0 select-none">
+                      <Globe className="w-3.5 h-3.5 text-[#0055ff]" />
+                      {tr.filterCountryLabel || tr.filterZoneLabel}
+                    </span>
+                    {visibleCountryOptions.map((cCode) => {
+                      const active = selectedCountry === cCode;
+                      const count = countryCounts[cCode] ?? 0;
+                      const label = translateChannelCountryFilter(
+                        cCode,
+                        activeLang
+                      );
+                      const flag = CHANNEL_COUNTRY_FLAGS[cCode] || '🌍';
+                      return (
+                        <div
+                          key={cCode}
+                          role="button"
+                          tabIndex={0}
+                          data-filter-active={active ? 'true' : undefined}
+                          onClick={() => handleSelectCountry(cCode)}
+                          onKeyDown={(e) => {
+                            if (
+                              e.key === 'Enter' ||
+                              e.key === ' ' ||
+                              e.key === 'Select' ||
+                              e.keyCode === 23 ||
+                              e.keyCode === 66
+                            ) {
+                              e.preventDefault();
+                              handleSelectCountry(cCode);
+                            }
+                          }}
+                          className={`filter-badge ${
+                            active ? 'active selected-filter' : ''
+                          }`}
+                        >
+                          <span className="filter-label">
+                            <span>{flag}</span>
+                            <span>{label}</span>
+                          </span>
+                          <span className="filter-count">{count}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Ligne 4 : [GENRE] */}
+                {visibleGroupOptions.length > 1 && (
+                  <div
+                    data-tv-row="live-genres"
+                    data-row-active={
+                      activeFilterRow === 'live-genres' ? 'true' : undefined
+                    }
+                    className="filter-ribbon no-scrollbar pt-1.5 border-t border-[#1a202c]"
+                  >
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0 select-none">
+                      <Sparkles className="w-3 h-3 text-[#e11d48]" />
+                      {tr.filterGenreLabel}
+                    </span>
+                    {visibleGroupOptions.map((grp) => {
+                      const active =
+                        selectedGroup === grp ||
+                        (grp === 'Tous' && selectedGroup === 'Toutes');
+                      const count =
+                        (groupCounts[grp] ?? 0) ||
+                        (grp === 'Tous' ? (groupCounts['Toutes'] ?? 0) : 0);
+                      const label = translateSubGenreGroup(grp, activeLang);
+                      return (
+                        <div
+                          key={grp}
+                          role="button"
+                          tabIndex={0}
+                          data-filter-active={active ? 'true' : undefined}
+                          onClick={() => handleSelectGroup(grp)}
+                          onKeyDown={(e) => {
+                            if (
+                              e.key === 'Enter' ||
+                              e.key === ' ' ||
+                              e.key === 'Select' ||
+                              e.keyCode === 23 ||
+                              e.keyCode === 66
+                            ) {
+                              e.preventDefault();
+                              handleSelectGroup(grp);
+                            }
+                          }}
+                          className={`filter-badge ${
+                            active ? 'active selected-filter' : ''
+                          }`}
+                        >
+                          <span className="filter-label">{label}</span>
+                          <span className="filter-count">{count}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
               {/* Ligne 5 : [BARRE DE DATES EPG 7 JOURS : Aujourd'hui 24h, J+1 à J+7 & Catch-up / Replay] */}
               <div
                 data-tv-row="live-7day-bar"
@@ -7431,7 +7580,7 @@ export function App() {
               >
                 <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0 select-none">
                   <Calendar className="w-3.5 h-3.5 text-[#0055ff]" />
-                  {activeLang === 'fr' ? 'EPG 7 Jours :' : '7-Day EPG:'}
+                  {activeLang === 'ar' ? 'دليل 7 أيام :' : activeLang === 'fr' ? 'EPG 7 Jours :' : '7-Day EPG:'}
                 </span>
                 {mainSevenDayBarItems.map((item) => (
                   <button
@@ -7443,7 +7592,9 @@ export function App() {
                     }
                     title={
                       item.isLocked
-                        ? activeLang === 'fr'
+                        ? activeLang === 'ar'
+                          ? `${item.badgeLabel} 🔒 — افتح دليل EPG لمدة 7 أيام والإعادة مع PulseEPG Pro`
+                          : activeLang === 'fr'
                           ? `${item.badgeLabel} 🔒 — Débloquez le Guide EPG 7 jours et le Catch-up avec PulseEPG Pro`
                           : `${item.badgeLabel} 🔒 — Unlock 7-day EPG & Catch-up with PulseEPG Pro`
                         : item.badgeLabel
@@ -7454,7 +7605,7 @@ export function App() {
                           ? 'bg-gradient-to-r from-[#ec4899] to-[#8b5cf6] border border-[#ec4899] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(236,72,153,0.45)]'
                           : 'bg-[#e11d48] border border-[#ff0033] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(225,29,72,0.45)]'
                         : item.isLocked
-                        ? 'bg-[#0a0e17]/90 border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#f59e0b]/70 font-medium'
+                        ? 'bg-[#0a0e17]/90 border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60 font-medium'
                         : 'bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60 font-medium'
                     }`}
                   >
@@ -7517,6 +7668,7 @@ export function App() {
             )}
           </div>
         </div>
+      )}
 
         {/* Rappels actifs dans l'onglet Favoris */}
         {viewMode === 'favorites' && reminders.length > 0 && (
@@ -7620,6 +7772,25 @@ export function App() {
             onSelectEpgDay={handleSelectEpgDay}
             onRequestProEpgUpgrade={handleRequestProEpgUpgrade}
           />
+        ) : viewMode === 'sports' ? (
+          <SportsView
+            channels={channels}
+            schedulesByChannel={schedulesByChannel}
+            nowMs={nowMs}
+            activeLang={activeLang}
+            selectedBouquets={settings.selectedBouquets}
+            onSelectChannel={(ch, prog) => {
+              recordChannelHabit(ch.id, { viewIncrement: 1 });
+              setSelectedChannel(ch);
+              setSelectedModalProgramme(prog || null);
+            }}
+            onToggleReminder={handleToggleReminder}
+            isProgrammeReminderSet={(progId) =>
+              reminders.some((r) => r.id === progId)
+            }
+            isPremium={authState.isPremium}
+            onRequestProUpgrade={() => handleRequestProEpgUpgrade()}
+          />
         ) : filteredChannels.length === 0 ? (
           <div className="rounded-lg border border-dashed border-[#1a202c] bg-[#141a26] p-10 text-center max-w-lg mx-auto my-8">
             {isProfileBootstrapping || (isSyncing && channels.length === 0) ? (
@@ -7630,13 +7801,17 @@ export function App() {
                 <div className="flex items-center justify-center gap-2 mb-1">
                   <RefreshCw className="w-4 h-4 text-[#38bdf8] animate-spin" />
                   <h3 className="text-base font-bold text-[#ffffff]">
-                    {activeLang === 'fr'
+                    {activeLang === 'ar'
+                      ? 'جارٍ تحميل PulseEPG...'
+                      : activeLang === 'fr'
                       ? 'Chargement de PulseEPG...'
                       : 'Loading PulseEPG...'}
                   </h3>
                 </div>
                 <p className="text-xs text-[#cbd5e1] mt-1 leading-relaxed max-w-sm">
-                  {activeLang === 'fr'
+                  {activeLang === 'ar'
+                    ? 'تهيئة الملف التلفزيوني ومزامنة القنوات...'
+                    : activeLang === 'fr'
                     ? 'Initialisation asynchrone du profil TV et synchronisation des chaînes...'
                     : 'Asynchronously initializing TV profile and syncing channels...'}
                 </p>
@@ -7645,7 +7820,9 @@ export function App() {
               <>
                 <AlertTriangle className="w-10 h-10 text-[#e11d48] mx-auto mb-3" />
                 <h3 className="text-base font-bold text-[#ffffff]">
-                  {activeLang === 'fr'
+                  {activeLang === 'ar'
+                    ? 'فشل تحميل بث EPG عبر HTTPS'
+                    : activeLang === 'fr'
                     ? 'Échec du chargement du flux EPG HTTPS'
                     : 'Failed to load HTTPS EPG feed'}
                 </h3>
@@ -7670,7 +7847,9 @@ export function App() {
                     className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#1d4ed8]/25 border border-[#0055ff] text-[#ffffff] hover:bg-[#1d4ed8] font-semibold text-xs cursor-pointer"
                   >
                     <Satellite className="w-3.5 h-3.5" />
-                    {activeLang === 'fr'
+                    {activeLang === 'ar'
+                      ? 'الجدول المحلي الاحتياطي'
+                      : activeLang === 'fr'
                       ? 'Grille locale de secours'
                       : 'Local fallback schedule'}
                   </button>
@@ -7856,9 +8035,9 @@ export function App() {
         <div
           role="alert"
           aria-live="assertive"
-          className="toast-notification border-[#f59e0b]"
+          className="toast-notification border-[#e11d48]"
         >
-          <AlertTriangle className="w-5 h-5 text-[#f59e0b] shrink-0" />
+          <AlertTriangle className="w-5 h-5 text-[#e11d48] shrink-0" />
           <span className="text-xs sm:text-sm font-semibold text-[#ffffff]">
             {ramWarningMessage}
           </span>
@@ -7912,7 +8091,9 @@ export function App() {
                     Channel Quick-Jump
                   </h2>
                   <p className="text-[10px] text-[#cbd5e1] truncate">
-                    {activeLang === 'fr'
+                    {activeLang === 'ar'
+                      ? 'نطاقات القنوات، الحروف أ-ي أو الرقم المباشر'
+                      : activeLang === 'fr'
                       ? 'Tranches de chaînes, Lettre A-Z ou N° direct'
                       : 'Channel ranges, A-Z letter or direct number'}
                   </p>
@@ -7930,7 +8111,7 @@ export function App() {
                   });
                 }}
                 className="tv-dpad-btn p-2 rounded-lg bg-[#141a26] border border-[#334155] text-[#cbd5e1] hover:text-[#ffffff] cursor-pointer shrink-0"
-                title="Fermer (Retour)"
+                title={activeLang === 'ar' ? 'إغلاق (رجوع)' : activeLang === 'fr' ? 'Fermer (Retour)' : 'Close (Back)'}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -7942,7 +8123,9 @@ export function App() {
                 <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#cbd5e1]">
                   <Hash className="w-3.5 h-3.5 text-[#38bdf8]" />
                   <span>
-                    {activeLang === 'fr'
+                    {activeLang === 'ar'
+                      ? 'الانتقال إلى القناة رقم :'
+                      : activeLang === 'fr'
                       ? 'Aller à la chaîne N° :'
                       : 'Go to channel #:'}
                   </span>
@@ -8073,7 +8256,9 @@ export function App() {
                     : 'bg-[#0a0e17] text-[#cbd5e1] border border-[#1a202c]'
                 }`}
               >
-                {activeLang === 'fr'
+                {activeLang === 'ar'
+                  ? 'مجموعات (10 قنوات)'
+                  : activeLang === 'fr'
                   ? 'Tranches (10 par 10)'
                   : 'Channel Ranges'}
               </button>
@@ -8087,7 +8272,7 @@ export function App() {
                     : 'bg-[#0a0e17] text-[#cbd5e1] border border-[#1a202c]'
                 }`}
               >
-                {activeLang === 'fr' ? 'Lettres (A – Z)' : 'Alphabet (A – Z)'}
+                {activeLang === 'ar' ? 'الحروف (أ – ي)' : activeLang === 'fr' ? 'Lettres (A – Z)' : 'Alphabet (A – Z)'}
               </button>
             </div>
 
@@ -8108,7 +8293,9 @@ export function App() {
                           setIsQuickJumpDrawerOpen(false);
                           jumpToChannelAtIndex(
                             slice.startIdx,
-                            activeLang === 'fr'
+                            activeLang === 'ar'
+                              ? `الانتقال إلى القناة ${toStandardDigits(slice.startIdx + 1)}`
+                              : activeLang === 'fr'
                               ? `Aller à la chaîne ${slice.startIdx + 1}`
                               : `Go to channel ${slice.startIdx + 1}`
                           );
@@ -8180,7 +8367,9 @@ export function App() {
                           setIsQuickJumpDrawerOpen(false);
                           jumpToChannelAtIndex(
                             info.firstIdx,
-                            activeLang === 'fr'
+                            activeLang === 'ar'
+                              ? `الحرف ${letter} · ${info.sampleName}`
+                              : activeLang === 'fr'
                               ? `Lettre ${letter} · ${info.sampleName}`
                               : `Letter ${letter} · ${info.sampleName}`,
                             letter
@@ -8194,7 +8383,7 @@ export function App() {
                       >
                         <span className="text-sm font-extrabold">{letter}</span>
                         <span className="text-[9px] font-mono text-[#38bdf8]">
-                          {info ? info.count : 0}
+                          {info ? toStandardDigits(info.count) : '0'}
                         </span>
                       </button>
                     );
@@ -8223,7 +8412,23 @@ export function App() {
         isPremium={authState.isPremium}
         onRequestProUpgrade={() => {
           setProFeatureReason(PRO_BOUQUETS_UPGRADE_MESSAGE);
-          setIsAuthModalOpen(true);
+          setIsProModalOpen(true);
+        }}
+      />
+
+      {/* Modal PulseEPG Pro VIP (Plans, Tarifs et Activation immédiate) */}
+      <ProSubscriptionModal
+        isOpen={isProModalOpen}
+        onClose={() => {
+          setIsProModalOpen(false);
+          setProFeatureReason(null);
+        }}
+        authState={authState}
+        language={activeLang}
+        proReason={proFeatureReason}
+        onProActivated={() => {
+          subscriptionService.invalidateCache();
+          setAuthState(supabaseService.getState());
         }}
       />
 

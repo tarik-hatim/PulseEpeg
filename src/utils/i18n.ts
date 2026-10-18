@@ -10,6 +10,13 @@ import {
   ThematicCategoryId,
 } from '../types/epg';
 
+export function toStandardDigits(str: string | number | undefined | null): string {
+  if (str === undefined || str === null) return '';
+  return String(str)
+    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632))
+    .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776));
+}
+
 export interface LanguageOption {
   code: AppLanguage;
   flag: string;
@@ -54,7 +61,7 @@ export const LANGUAGE_OPTIONS: LanguageOption[] = [
     label: 'العربية (AR)',
     shortLabel: 'AR',
     tmdbLocale: 'ar-SA',
-    intlLocale: 'ar-AE',
+    intlLocale: 'ar-u-nu-latn',
     wikiLang: 'ar',
     itunesCountry: 'sa',
     translateTarget: 'ar',
@@ -686,8 +693,8 @@ const TRANSLATIONS: Partial<Record<AppLanguage, Translations>> & {
     badgeSubDvb: 'ترجمة DVB',
     modalOriginalTitle: 'العنوان الأصلي :',
     modalReleaseDate: 'تاريخ الإصدار :',
-    modalGenre: 'Genre : النوع :',
-    modalOrigin: 'Origine : بلد الإنتاج :',
+    modalGenre: 'النوع :',
+    modalOrigin: 'بلد الإنتاج :',
     modalNotProvided: 'غير متوفر',
     modalInternationalProd: 'إنتاج دولي',
     modalSummary: 'ملخص البرنامج',
@@ -2316,8 +2323,13 @@ export function t(
 
   if (params) {
     for (const [k, v] of Object.entries(params)) {
-      template = template.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v));
+      const valStr = targetLang === 'ar' ? toStandardDigits(v) : String(v);
+      template = template.replace(new RegExp(`\\{${k}\\}`, 'g'), valStr);
     }
+  }
+
+  if (targetLang === 'ar') {
+    return toStandardDigits(template);
   }
 
   return template;

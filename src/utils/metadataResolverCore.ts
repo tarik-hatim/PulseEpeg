@@ -1,4 +1,4 @@
-import { translateEpgTextToFrenchSync } from './sportChannelsWhitelist';
+import { translateEpgTextToFrenchSync } from './sportChannelsWhitelist.ts';
 
 export { translateEpgTextToFrenchSync };
 

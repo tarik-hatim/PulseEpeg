@@ -63,6 +63,7 @@ import {
   getLanguageOption,
   getTranslations,
   LANGUAGE_OPTIONS,
+  toStandardDigits,
 } from '../utils/i18n';
 import { ensureHttpsUrl } from '../utils/xmltvParser';
 import { PRO_BOUQUETS_UPGRADE_MESSAGE } from '../services/supabaseService';
@@ -113,6 +114,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     useState<Exclude<CountryCode, 'Tous'>>('FR');
   const [limitWarning, setLimitWarning] = useState<string | null>(null);
   const [habitsResetFeedback, setHabitsResetFeedback] = useState(false);
+  const [satFilterTab, setSatFilterTab] = useState<string>('all');
 
   useEffect(() => {
     setDraft(settings);
@@ -204,57 +206,33 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   const toggleBouquet = (bouquetId: EpgBouquetId) => {
+    const isCurrentlySelected = draft.selectedBouquets.includes(bouquetId);
+    
+    // Vérification du quota Freemium AVANT l'appel de setDraft (évite tout setState parent dans le reducer)
+    if (!isCurrentlySelected && !isPremium && draft.selectedBouquets.length >= effectiveMaxBouquets) {
+      setLimitWarning(PRO_BOUQUETS_UPGRADE_MESSAGE);
+      if (onRequestProUpgrade) {
+        onRequestProUpgrade();
+      }
+      return;
+    }
+
+    setLimitWarning(null);
     setDraft((prev) => {
       const exists = prev.selectedBouquets.includes(bouquetId);
-      if (exists) {
-        const nextBouquets = prev.selectedBouquets.filter(
-          (b) => b !== bouquetId
-        );
-        const nextProfile = inferTvProfileFromBouquets(
-          nextBouquets,
-          prev.tvProfile
-        );
-        setLimitWarning(null);
-        return {
-          ...prev,
-          tvProfile: nextProfile,
-          selectedBouquets: nextBouquets,
-          sources: syncSourcesWithSelectedBouquets(
-            nextBouquets,
-            prev.sources,
-            nextProfile
-          ),
-        };
-      }
-
-      if (!isPremium && prev.selectedBouquets.length >= effectiveMaxBouquets) {
-        setLimitWarning(PRO_BOUQUETS_UPGRADE_MESSAGE);
-        if (onRequestProUpgrade) {
-          onRequestProUpgrade();
-        }
-        return prev;
-      }
-
-      const candidate = [...prev.selectedBouquets, bouquetId];
-      if (!isPremium && candidate.length > effectiveMaxBouquets) {
-        setLimitWarning(PRO_BOUQUETS_UPGRADE_MESSAGE);
-        if (onRequestProUpgrade) {
-          onRequestProUpgrade();
-        }
-        return prev;
-      }
-
+      const nextBouquets = exists
+        ? prev.selectedBouquets.filter((b) => b !== bouquetId)
+        : [...prev.selectedBouquets, bouquetId];
       const nextProfile = inferTvProfileFromBouquets(
-        candidate,
+        nextBouquets,
         prev.tvProfile
       );
-      setLimitWarning(null);
       return {
         ...prev,
         tvProfile: nextProfile,
-        selectedBouquets: candidate,
+        selectedBouquets: nextBouquets,
         sources: syncSourcesWithSelectedBouquets(
-          candidate,
+          nextBouquets,
           prev.sources,
           nextProfile
         ),
@@ -285,11 +263,34 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   const toggleSatelliteGroup = (groupIds: EpgBouquetId[]) => {
+    const allChecked = groupIds.every((id) =>
+      draft.selectedBouquets.includes(id)
+    );
+
+    // Vérification du quota Freemium AVANT l'appel de setDraft
+    if (!allChecked) {
+      const merged = Array.from(
+        new Set<EpgBouquetId>([...draft.selectedBouquets, ...groupIds])
+      );
+      if (
+        !isPremium &&
+        (merged.length > MAX_ACTIVE_BOUQUETS ||
+          countActiveSatellites(merged) > MAX_ACTIVE_SATELLITES)
+      ) {
+        setLimitWarning(PRO_BOUQUETS_UPGRADE_MESSAGE);
+        if (onRequestProUpgrade) {
+          onRequestProUpgrade();
+        }
+        return;
+      }
+    }
+
+    setLimitWarning(null);
     setDraft((prev) => {
-      const allChecked = groupIds.every((id) =>
+      const isAllCurrentlyChecked = groupIds.every((id) =>
         prev.selectedBouquets.includes(id)
       );
-      if (allChecked) {
+      if (isAllCurrentlyChecked) {
         const remaining = prev.selectedBouquets.filter(
           (id) => !groupIds.includes(id)
         );
@@ -299,7 +300,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           nextBouquets,
           prev.tvProfile
         );
-        setLimitWarning(null);
         return {
           ...prev,
           tvProfile: nextProfile,
@@ -315,20 +315,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       const merged = Array.from(
         new Set<EpgBouquetId>([...prev.selectedBouquets, ...groupIds])
       );
-      if (
-        !isPremium &&
-        (merged.length > MAX_ACTIVE_BOUQUETS ||
-          countActiveSatellites(merged) > MAX_ACTIVE_SATELLITES)
-      ) {
-        setLimitWarning(PRO_BOUQUETS_UPGRADE_MESSAGE);
-        if (onRequestProUpgrade) {
-          onRequestProUpgrade();
-        }
-        return prev;
-      }
-
       const nextProfile = inferTvProfileFromBouquets(merged, prev.tvProfile);
-      setLimitWarning(null);
       return {
         ...prev,
         tvProfile: nextProfile,
@@ -405,29 +392,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     <div
       dir={langOpt.dir}
       data-tv-modal-overlay="true"
-      className="fixed inset-0 z-[2000] flex items-center justify-center p-3 sm:p-4 bg-[#0a0e17]/90 backdrop-blur-md animate-fadeIn"
+      className="fixed inset-0 z-[2000] flex items-center justify-center p-1 sm:p-2.5 bg-[#0a0e17]/90 backdrop-blur-md animate-fadeIn"
       onClick={onClose}
     >
       <div
         data-tv-modal="true"
-        className="w-full max-w-4xl bg-[#141a26] border border-[#1a202c] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]"
+        className="w-full max-w-4xl bg-[#101623] border border-[#1a202c] rounded-lg shadow-2xl overflow-hidden flex flex-col max-h-[94vh]"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header Modal — Décompressé avec shrink-0 pour éviter tout chevauchement du sous-titre avec la ligne de séparation */}
+        {/* Header Modal — Compact, épuré et sans excès de marge latérale */}
         <div
           data-tv-modal-zone="header"
           data-tv-row="settings-header"
-          className="shrink-0 px-5 sm:px-6 pt-5 pb-6 bg-[#0a0e17] border-b border-[#ec4899]/40 flex items-center justify-between gap-4"
+          className="shrink-0 px-3 sm:px-4 py-2.5 sm:py-3 bg-[#0a0e17] border-b border-[#1a202c] flex items-center justify-between gap-3"
         >
-          <div className="flex items-start sm:items-center gap-3.5 min-w-0">
-            <div className="w-11 h-11 rounded-xl bg-[#e11d48] border border-[#ff0033] flex items-center justify-center text-[#ffffff] shadow-[0_0_12px_rgba(225,29,72,0.45)] shrink-0">
-              <Filter className="w-5 h-5" />
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-[#e11d48] border border-[#ff0033] flex items-center justify-center text-[#ffffff] shadow-[0_0_12px_rgba(225,29,72,0.45)] shrink-0">
+              <Filter className="w-4 h-4" />
             </div>
-            <div className="min-w-0 space-y-1.5">
-              <h2 className="text-base sm:text-lg font-bold text-[#ffffff] leading-snug">
+            <div className="min-w-0">
+              <h2 className="text-sm sm:text-base font-bold text-[#ffffff] leading-tight">
                 {tr.settingsModalTitle}
               </h2>
-              <p className="text-xs text-[#cbd5e1] leading-relaxed pb-1">
+              <p className="text-[11px] sm:text-xs text-[#94a3b8] truncate">
                 {tr.settingsModalSubtitle}
               </p>
             </div>
@@ -436,87 +423,93 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             type="button"
             data-tv-focusable="true"
             onClick={onClose}
-            className="tv-dpad-btn p-2.5 rounded-xl bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#e11d48]/60 transition-colors cursor-pointer shrink-0"
+            className="tv-dpad-btn p-1.5 sm:p-2 rounded-lg bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#e11d48]/70 transition-colors cursor-pointer shrink-0"
             title={tr.close}
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Navigation par Onglets — Rouge Crimson Sky Sport pour les boutons actifs */}
+        {/* Navigation par Onglets — Encadrés uniformisés */}
         <div
           data-tv-modal-zone="tabs"
           data-tv-row="settings-tabs"
-          className="shrink-0 px-5 sm:px-6 py-3.5 bg-[#0a0e17] border-b border-[#1a202c] flex items-center gap-3 overflow-x-auto no-scrollbar"
+          className="shrink-0 px-3 sm:px-4 py-2 bg-[#0a0e17] border-b border-[#1a202c] flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar"
         >
           <button
             type="button"
             data-tv-focusable="true"
+            data-selected={activeTab === 'filters' ? 'true' : undefined}
+            aria-selected={activeTab === 'filters'}
             onClick={() => setActiveTab('filters')}
-            className={`tv-dpad-btn inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm transition-all cursor-pointer shrink-0 ${
+            className={`tv-dpad-btn inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer shrink-0 active:scale-95 ${
               activeTab === 'filters'
-                ? 'bg-[#e11d48] border-[1.5px] border-[#ff0033] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(225,29,72,0.45)]'
-                : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60 font-medium'
+                ? 'bg-[#e11d48] border border-[#ff0033] text-[#ffffff] shadow-[0_0_12px_rgba(225,29,72,0.45)]'
+                : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60'
             }`}
           >
-            <Satellite className="w-4 h-4" />
+            <Satellite className="w-3.5 h-3.5" />
             {tr.tabBouquetsFilters}
           </button>
 
           <button
             type="button"
             data-tv-focusable="true"
+            data-selected={activeTab === 'sources' ? 'true' : undefined}
+            aria-selected={activeTab === 'sources'}
             onClick={() => setActiveTab('sources')}
-            className={`tv-dpad-btn inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm transition-all cursor-pointer shrink-0 ${
+            className={`tv-dpad-btn inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer shrink-0 active:scale-95 ${
               activeTab === 'sources'
-                ? 'bg-[#e11d48] border-[1.5px] border-[#ff0033] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(225,29,72,0.45)]'
-                : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60 font-medium'
+                ? 'bg-[#e11d48] border border-[#ff0033] text-[#ffffff] shadow-[0_0_12px_rgba(225,29,72,0.45)]'
+                : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60'
             }`}
           >
-            <Database className="w-4 h-4" />
+            <Database className="w-3.5 h-3.5" />
             {tr.tabXmltvCache}
           </button>
 
           <button
             type="button"
             data-tv-focusable="true"
+            data-selected={activeTab === 'legal' ? 'true' : undefined}
+            aria-selected={activeTab === 'legal'}
             onClick={() => setActiveTab('legal')}
-            className={`tv-dpad-btn inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm transition-all cursor-pointer shrink-0 ${
+            className={`tv-dpad-btn inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer shrink-0 active:scale-95 ${
               activeTab === 'legal'
-                ? 'bg-[#e11d48] border-[1.5px] border-[#ff0033] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(225,29,72,0.45)]'
-                : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60 font-medium'
+                ? 'bg-[#e11d48] border border-[#ff0033] text-[#ffffff] shadow-[0_0_12px_rgba(225,29,72,0.45)]'
+                : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60'
             }`}
           >
-            <Scale className="w-4 h-4" />
+            <Scale className="w-3.5 h-3.5" />
             {tr.tabLegalPlayStore}
           </button>
         </div>
 
-        {/* Body — Conteneur défilant avec padding-bottom généreux (pb-28 / >100px) pour éviter toute superposition avec le footer */}
+        {/* Body — Conteneur défilant compact, sans marges excessives gauche/droite */}
         <div
           data-tv-modal-scroll="true"
-          className="p-5 sm:p-6 pb-28 sm:pb-32 overflow-y-auto space-y-7 flex-1 scroll-pb-28"
+          className="px-2.5 sm:px-3.5 py-2.5 sm:py-3 pb-24 overflow-y-auto space-y-2.5 sm:space-y-3 flex-1 scroll-pb-24"
         >
-          {/* Sélecteur de Langue International (i18n + RTL) toujours accessible */}
-          <div className="p-5 rounded-xl bg-[#0a0e17] border border-[#1a202c] space-y-4">
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <div className="space-y-1">
-                <h3 className="text-sm font-bold text-[#ffffff] flex items-center gap-2">
-                  <Languages className="w-4 h-4 text-[#0055ff]" />
+          {/* Encadré 1 : Sélecteur de Langue International — Style ChannelRowCard */}
+          <div className="p-3 sm:p-3.5 rounded-lg bg-[#141a26] border border-[#1a202c] hover:border-[#e11d48]/40 transition-all space-y-2.5">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="space-y-0.5">
+                <h3 className="text-xs sm:text-sm font-bold text-[#ffffff] flex items-center gap-1.5">
+                  <Languages className="w-3.5 h-3.5 text-[#0055ff]" />
                   {tr.languageSectionTitle}
                 </h3>
-                <p className="text-xs text-[#cbd5e1] leading-relaxed">
+                <p className="text-[11px] text-[#94a3b8]">
                   {tr.languageSectionDesc}
                 </p>
               </div>
-              <span className="text-[11px] font-mono px-3 py-1 rounded-lg bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50 font-semibold">
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded border uppercase tracking-wider bg-[#1d4ed8]/20 text-[#ffffff] border-[#0055ff]/50">
                 {langOpt.flag} {langOpt.label} · TMDB {langOpt.tmdbLocale}
               </span>
             </div>
 
             <div
               data-tv-modal-group="languages"
-              className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3.5"
+              className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2"
             >
               {LANGUAGE_OPTIONS.map((opt) => {
                 const isSelected = activeLang === opt.code;
@@ -526,17 +519,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     type="button"
                     data-tv-focusable="true"
                     onClick={() => handleSelectLanguage(opt.code)}
-                    className={`tv-dpad-btn flex items-center justify-between gap-2 px-3.5 py-3 rounded-xl text-xs transition-all cursor-pointer ${
+                    className={`tv-dpad-btn flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer font-semibold border ${
                       isSelected
-                        ? 'bg-[#1d4ed8] border-[1.5px] border-[#0055ff] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(0,85,255,0.45)]'
-                        : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60 font-medium'
+                        ? 'bg-[#1a202c] border-2 border-[#0055ff] text-[#ffffff] shadow-[0_0_12px_rgba(0,85,255,0.35)]'
+                        : 'bg-[#141a26] border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:bg-[#1a202c] hover:border-[#e11d48]/70'
                     }`}
                   >
-                    <span className="flex items-center gap-2 truncate">
-                      <span className="text-base leading-none">{opt.flag}</span>
+                    <span className="flex items-center gap-1.5 truncate">
+                      <span className="text-sm leading-none">{opt.flag}</span>
                       <span className="truncate">{opt.label}</span>
                     </span>
-                    {isSelected && <Check className="w-3.5 h-3.5 text-[#ffffff] shrink-0" />}
+                    {isSelected && <Check className="w-3 h-3 text-[#ffffff] shrink-0" />}
                   </button>
                 );
               })}
@@ -545,31 +538,31 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
           {activeTab === 'filters' && (
             <>
-              {/* Sélecteur manuel de Zone / Profil TV (avec détection intelligente au 1er lancement) */}
-              <div className="p-5 rounded-xl bg-[#0a0e17] border border-[#1a202c] space-y-4">
-                <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <div className="space-y-1">
-                    <h3 className="text-sm font-bold text-[#ffffff] flex items-center gap-2">
-                      <Globe className="w-4 h-4 text-[#0055ff]" />
+              {/* Encadré 2 : Zone / Profil TV — Style ChannelRowCard */}
+              <div className="p-3 sm:p-3.5 rounded-lg bg-[#141a26] border border-[#1a202c] hover:border-[#e11d48]/40 transition-all space-y-2.5">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="space-y-0.5">
+                    <h3 className="text-xs sm:text-sm font-bold text-[#ffffff] flex items-center gap-1.5">
+                      <Globe className="w-3.5 h-3.5 text-[#0055ff]" />
                       Zone / Profil TV
                     </h3>
-                    <p className="text-xs text-[#cbd5e1] leading-relaxed">
-                      Filtre la base EPG dès l&apos;initialisation pour ne charger en mémoire que les chaînes du profil sélectionné (détection auto selon <code className="text-[#ffffff] font-mono">navigator.language</code> : <span className="text-[#ffffff] font-semibold">{systemLocaleLabel}</span>).
+                    <p className="text-[11px] text-[#94a3b8]">
+                      Filtre la base EPG dès l&apos;initialisation (détection auto : <span className="text-[#ffffff] font-semibold">{systemLocaleLabel}</span>).
                     </p>
                   </div>
-                  <div className="flex items-center gap-2.5 flex-wrap">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <button
                       type="button"
                       data-tv-focusable="true"
                       onClick={handleAutoDetectTvProfile}
-                      className="tv-dpad-btn inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#141a26] hover:bg-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#0055ff]/60 text-xs font-medium transition-colors cursor-pointer"
+                      className="tv-dpad-btn inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#0a0e17] hover:bg-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#0055ff]/60 text-xs font-medium transition-colors cursor-pointer"
                       title="Réappliquer la détection automatique selon la langue du système"
                     >
-                      <RotateCcw className="w-3.5 h-3.5 text-[#0055ff]" />
+                      <RotateCcw className="w-3 h-3 text-[#0055ff]" />
                       <span>Auto ({systemLocaleLabel})</span>
                     </button>
                     {activeProfileId === 'custom' && (
-                      <span className="text-[11px] font-mono px-3 py-1.5 rounded-xl bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50 font-semibold">
+                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded border uppercase tracking-wider bg-[#1d4ed8]/20 text-[#ffffff] border-[#0055ff]/50">
                         ⚙️ Profil personnalisé ({draft.selectedBouquets.length} bouquets)
                       </span>
                     )}
@@ -578,7 +571,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                 <div
                   data-tv-modal-group="profiles"
-                  className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5"
+                  className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2"
                 >
                   {TV_PROFILES_CATALOG.filter(
                     (profile) => profile.id !== 'all_satellites'
@@ -590,26 +583,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         type="button"
                         data-tv-focusable="true"
                         onClick={() => handleSelectTvProfile(profile.id)}
-                        className={`tv-dpad-btn flex flex-col items-start justify-between gap-3 p-4 sm:p-5 rounded-xl text-start transition-all cursor-pointer min-h-[112px] ${
+                        className={`tv-dpad-btn flex flex-col items-start justify-between gap-1.5 p-2.5 sm:p-3 rounded-lg text-start transition-all cursor-pointer min-h-[70px] border ${
                           isSelected
-                            ? 'bg-[#1d4ed8]/25 border-[1.5px] border-[#0055ff] text-[#ffffff] shadow-[0_0_12px_rgba(0,85,255,0.35)]'
-                            : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60'
+                            ? 'bg-[#1a202c] border-2 border-[#0055ff] text-[#ffffff] shadow-[0_0_12px_rgba(0,85,255,0.35)] font-bold'
+                            : 'bg-[#141a26] border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:bg-[#1a202c] hover:border-[#e11d48]/70 font-medium'
                         }`}
                       >
-                        <div className="w-full flex items-center justify-between gap-2.5">
-                          <span className="flex items-center gap-2 font-bold text-xs sm:text-sm text-[#ffffff] truncate">
-                            <span className="text-base leading-none shrink-0">
+                        <div className="w-full flex items-center justify-between gap-2">
+                          <span className="flex items-center gap-1.5 font-bold text-xs text-[#ffffff] truncate">
+                            <span className="text-sm leading-none shrink-0">
                               {profile.flag}
                             </span>
                             <span className="truncate">{profile.label}</span>
                           </span>
                           {isSelected && (
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider shrink-0 bg-[#1d4ed8] text-[#ffffff]">
-                              Actif
+                            <span className="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase tracking-wider shrink-0 bg-[#0055ff] text-[#ffffff]">
+                              {activeLang === 'ar' ? 'نشط' : activeLang === 'fr' ? 'Actif' : 'Active'}
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-[#cbd5e1] line-clamp-2 leading-relaxed">
+                        <p className="text-[11px] text-[#94a3b8] line-clamp-2 leading-relaxed">
                           {profile.satellitesSummary}
                         </p>
                       </button>
@@ -619,17 +612,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                 {/* Extensions optionnelles pour le profil Maghreb / MENA Multi-Sat */}
                 {activeProfileId === 'maghreb_mena' && (
-                  <div className="mt-2 p-3 rounded-lg bg-[#141a26] border border-[#0055ff]/40 space-y-2">
+                  <div className="mt-1.5 p-2.5 rounded-lg bg-[#0a0e17] border border-[#0055ff]/40 space-y-1.5">
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                       <span className="text-xs font-bold text-[#ffffff] flex items-center gap-1.5">
                         <Satellite className="w-3.5 h-3.5 text-[#ec4899]" />
-                        Satellites complémentaires Maghreb / MENA (Optionnels) :
+                        {activeLang === 'ar'
+                          ? 'أقمار إضافية للمغرب العربي والشرق الأوسط (اختياري) :'
+                          : activeLang === 'fr'
+                          ? 'Satellites complémentaires Maghreb / MENA (Optionnels) :'
+                          : 'Additional Maghreb / MENA satellites (Optional):'}
                       </span>
-                      <span className="text-[10px] font-mono text-[#cbd5e1]">
-                        2 satellites principaux chargés par défaut (Nilesat 7°W &amp; Badr 26°E · Max 3 bouquets)
+                      <span className="text-[10px] font-mono text-[#94a3b8]">
+                        {activeLang === 'ar'
+                          ? 'نايل سات 7 غرب وبدر 26 شرق افتراضياً · حد أقصى 3 باقات'
+                          : activeLang === 'fr'
+                          ? 'Nilesat 7°W & Badr 26°E par défaut · Max 3 bouquets'
+                          : 'Nilesat 7°W & Badr 26°E by default · Max 3 bouquets'}
                       </span>
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-1.5">
                       {MAGHREB_OPTIONAL_EXTENSIONS.map((ext) => {
                         const isExtActive = ext.bouquetIds.every((id) =>
                           draft.selectedBouquets.includes(id)
@@ -651,12 +652,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             onClick={() => {
                               toggleSatelliteGroup(ext.bouquetIds);
                             }}
-                            className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all border cursor-pointer ${
+                            className={`px-2 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all border cursor-pointer ${
                               wouldExceedMax
                                 ? 'bg-[#0a0e17] border-[#1a202c] text-[#cbd5e1] opacity-65 hover:border-[#ec4899]'
                                 : isExtActive
-                                ? 'bg-[#1d4ed8]/30 border-[#ec4899] text-[#ffffff] shadow-[0_0_10px_rgba(236,72,153,0.3)]'
-                                : 'bg-[#0a0e17] border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]'
+                                ? 'bg-[#1d4ed8]/30 border-[#ec4899] text-[#ffffff] shadow-[0_0_8px_rgba(236,72,153,0.3)]'
+                                : 'bg-[#0a0e17] border-[#1e293b] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]'
                             }`}
                           >
                             {isExtActive ? (
@@ -673,11 +674,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 )}
               </div>
 
-              {/* Section 1 : Couverture Globale des Satellites & Bouquets (Restriction Stricte à 3 Bouquets Max) */}
-              <div className="space-y-3">
+              {/* Encadré 3 : Couverture Globale des Satellites & Bouquets — Style ChannelRowCard */}
+              <div className="p-3 sm:p-3.5 rounded-lg bg-[#141a26] border border-[#1a202c] hover:border-[#e11d48]/40 transition-all space-y-3">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div>
-                    <h3 className="text-sm font-bold text-[#ffffff] flex items-center gap-2">
+                    <h3 className="text-xs sm:text-sm font-bold text-[#ffffff] flex items-center gap-2">
                       <Satellite className="w-4 h-4 text-[#0055ff]" />
                       {tr.bouquetsSectionTitle}
                     </h3>
@@ -689,16 +690,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <span
-                      className={`px-3 py-1 rounded-lg border text-xs font-mono font-bold ${
+                      className={`text-[10px] font-semibold px-2 py-0.5 rounded border uppercase tracking-wider ${
                         isPremium
                           ? 'bg-gradient-to-r from-[#f59e0b]/20 to-[#ec4899]/20 text-[#fde047] border-[#f59e0b]'
                           : draft.selectedBouquets.length >= MAX_ACTIVE_BOUQUETS
                           ? 'bg-[#e11d48]/20 text-[#ffffff] border-[#e11d48]'
-                          : 'bg-[#0a0e17] text-[#38bdf8] border-[#0055ff]/60'
+                          : 'bg-[#1d4ed8]/20 text-[#ffffff] border-[#0055ff]/50'
                       }`}
                     >
                       {isPremium
-                        ? `${draft.selectedBouquets.length}/${ALL_BOUQUET_IDS.length} Bouquets actifs (Illimité Pro 👑)`
+                        ? `${draft.selectedBouquets.length}/${ALL_BOUQUET_IDS.length} Bouquets (Illimité Pro 👑)`
                         : `${draft.selectedBouquets.length}/${MAX_ACTIVE_BOUQUETS} Bouquets actifs (Max ${MAX_ACTIVE_BOUQUETS})`}
                     </span>
                     <button
@@ -715,7 +716,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
 
                 {limitWarning && (
-                  <div className="p-3 rounded-lg bg-[#0a0e17] border border-[#f59e0b]/70 text-[#ffffff] text-xs font-medium flex items-center justify-between gap-2 flex-wrap">
+                  <div className="p-2.5 rounded-lg bg-[#0a0e17] border border-[#f59e0b]/70 text-[#ffffff] text-xs font-medium flex items-center justify-between gap-2 flex-wrap">
                     <div className="flex items-center gap-2">
                       <ShieldAlert className="w-4 h-4 text-[#f59e0b] shrink-0" />
                       <span>{limitWarning}</span>
@@ -733,8 +734,56 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
-                  {SATELLITE_GROUPS_CATALOG.map((satGroup) => {
+                {/* Ruban rapide de sélection / filtre par satellite (Style épuré, compact et direct) */}
+                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
+                  <button
+                    type="button"
+                    onClick={() => setSatFilterTab('all')}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0 transition-all cursor-pointer ${
+                      satFilterTab === 'all'
+                        ? 'bg-[#0055ff] text-[#ffffff] shadow-[0_0_8px_rgba(0,85,255,0.4)]'
+                        : 'bg-[#0a0e17] text-[#94a3b8] hover:text-[#ffffff] border border-[#1a202c]'
+                    }`}
+                  >
+                    {activeLang === 'ar'
+                      ? `جميع الأقمار (${toStandardDigits(SATELLITE_GROUPS_CATALOG.length)})`
+                      : activeLang === 'fr'
+                      ? `Tous les satellites (${SATELLITE_GROUPS_CATALOG.length})`
+                      : `All satellites (${SATELLITE_GROUPS_CATALOG.length})`}
+                  </button>
+                  {SATELLITE_GROUPS_CATALOG.map((sg) => {
+                    const isActive = satFilterTab === sg.satelliteId;
+                    const hasSelected = sg.bouquets.some((b) =>
+                      draft.selectedBouquets.includes(b.id)
+                    );
+                    return (
+                      <button
+                        key={sg.satelliteId}
+                        type="button"
+                        onClick={() => setSatFilterTab(sg.satelliteId)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${
+                          isActive
+                            ? 'bg-[#0055ff] text-[#ffffff] shadow-[0_0_8px_rgba(0,85,255,0.4)]'
+                            : hasSelected
+                            ? 'bg-[#0a0e17] text-[#38bdf8] border border-[#0055ff]/60'
+                            : 'bg-[#0a0e17] text-[#94a3b8] hover:text-[#ffffff] border border-[#1a202c]'
+                        }`}
+                      >
+                        <span className="text-sm leading-none">{sg.flag}</span>
+                        <span>{sg.orbitalPosition}</span>
+                        {hasSelected && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#38bdf8]" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Cartes satellites compactes et bouquets en puces lisibles */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                  {SATELLITE_GROUPS_CATALOG.filter(
+                    (sg) => satFilterTab === 'all' || satFilterTab === sg.satelliteId
+                  ).map((satGroup) => {
                     const groupBouquets = satGroup.bouquets;
                     const groupIds = groupBouquets.map((bq) => bq.id);
                     const activeCount = groupIds.filter((id) =>
@@ -745,69 +794,51 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     const someChecked = activeCount > 0;
                     const isMaxReached =
                       draft.selectedBouquets.length >= effectiveMaxBouquets;
-                    const groupWouldExceedMax =
-                      !allChecked &&
-                      Array.from(
-                        new Set([...draft.selectedBouquets, ...groupIds])
-                      ).length > effectiveMaxBouquets;
 
                     return (
                       <div
                         key={satGroup.satelliteId}
                         data-tv-modal-group={`sat-${satGroup.satelliteId}`}
-                        className={`rounded-xl border p-4 sm:p-5 transition-all flex flex-col gap-4 ${
+                        className={`rounded-lg border p-2.5 sm:p-3 transition-all flex flex-col gap-2.5 ${
                           someChecked
-                            ? 'bg-[#0a0e17] border-[#0055ff]/60'
-                            : 'bg-[#0a0e17]/60 border-[#1a202c]'
+                            ? 'bg-[#0a0e17] border-[#0055ff]/70 shadow-[0_0_10px_rgba(0,85,255,0.2)]'
+                            : 'bg-[#0a0e17]/80 border-[#1a202c] hover:border-[#e11d48]/60'
                         }`}
                       >
-                        {/* En-tête de la carte Satellite par Position Orbitale */}
-                        <div className="flex items-start justify-between gap-3 pb-4 border-b border-[#1a202c]">
-                          <button
-                            type="button"
-                            data-tv-focusable="true"
-                            onClick={() => {
-                              toggleSatelliteGroup(groupIds);
-                            }}
-                            className={`tv-dpad-btn flex items-start gap-3 min-w-0 flex-1 rounded-xl p-3 text-start cursor-pointer ${
-                              groupWouldExceedMax ? 'opacity-65' : ''
-                            }`}
-                          >
-                            <div className="mt-0.5 text-[#0055ff] shrink-0">
-                              <input
-                                type="checkbox"
-                                readOnly
-                                tabIndex={-1}
-                                checked={allChecked}
-                                className="w-4 h-4 accent-[#0055ff] rounded pointer-events-none"
-                              />
-                            </div>
-                            <div className="min-w-0 space-y-1.5">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-sm font-bold text-[#ffffff]">
-                                  {satGroup.flag} {satGroup.title}
-                                </span>
-                                <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50">
+                        {/* En-tête compact de la carte Satellite */}
+                        <div className="flex items-center justify-between gap-2 pb-2 border-b border-[#1a202c]">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-base leading-none shrink-0">
+                              {satGroup.flag}
+                            </span>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-xs sm:text-sm font-bold text-[#ffffff] truncate">
                                   {satGroup.orbitalPosition}
                                 </span>
+                                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded border uppercase tracking-wider bg-[#1d4ed8]/20 text-[#ffffff] border-[#0055ff]/50">
+                                  {activeCount}/{groupIds.length} actif{activeCount > 1 ? 's' : ''}
+                                </span>
                               </div>
-                              <p className="text-xs text-[#cbd5e1] leading-relaxed pb-0.5">
+                              <p className="text-[11px] text-[#94a3b8] truncate">
                                 {satGroup.subtitle}
                               </p>
                             </div>
-                          </button>
+                          </div>
 
-                          <span className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-lg bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50 shrink-0 mt-1">
-                            {activeCount}/{groupIds.length}
-                          </span>
+                          <button
+                            type="button"
+                            onClick={() => toggleSatelliteGroup(groupIds)}
+                            className="tv-dpad-btn text-[11px] font-semibold text-[#cbd5e1] hover:text-[#ffffff] px-2 py-1 rounded bg-[#141a26] border border-[#1a202c] hover:border-[#0055ff] shrink-0 cursor-pointer transition-colors"
+                          >
+                            {allChecked ? 'Tout décocher' : 'Tout cocher'}
+                          </button>
                         </div>
 
-                        {/* Sous-cases de sélection des bouquets pour ce satellite */}
-                        <div className="space-y-3">
+                        {/* Bouquets affichés sous forme de puces lisibles & compactes — Style ChannelRowCard */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                           {groupBouquets.map((bq) => {
-                            const checked = draft.selectedBouquets.includes(
-                              bq.id
-                            );
+                            const checked = draft.selectedBouquets.includes(bq.id);
                             const isLockedByFreemium =
                               !checked && !isPremium && isMaxReached;
                             const loc = getBouquetLocalizedText(
@@ -820,6 +851,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               loc.label,
                               satGroup.title
                             );
+
                             return (
                               <div
                                 key={bq.id}
@@ -840,50 +872,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                     toggleBouquet(bq.id);
                                   }
                                 }}
-                                className={`tv-dpad-btn p-3.5 sm:p-4 rounded-xl transition-all flex items-start gap-3 cursor-pointer ${
+                                className={`tv-dpad-btn p-2 rounded-lg transition-all flex items-center justify-between gap-1.5 cursor-pointer border text-xs ${
                                   isLockedByFreemium
-                                    ? 'bg-[#141a26]/50 border border-[#1a202c] hover:border-[#ec4899]/80 text-[#cbd5e1] opacity-75'
+                                    ? 'bg-[#141a26]/40 border-[#1a202c] text-[#64748b] opacity-60'
                                     : checked
-                                    ? 'bg-[#141a26] border-[1.5px] border-[#0055ff] text-[#ffffff]'
-                                    : 'bg-[#141a26]/60 border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff]'
+                                    ? 'bg-[#1a202c] border-2 border-[#0055ff] text-[#ffffff] shadow-[0_0_10px_rgba(0,85,255,0.3)] font-semibold'
+                                    : 'bg-[#141a26] border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:bg-[#1a202c] hover:border-[#e11d48]/70 font-medium'
                                 }`}
                               >
-                                <div className="mt-0.5 shrink-0 flex items-center pointer-events-none">
-                                  <input
-                                    type="checkbox"
-                                    readOnly
-                                    tabIndex={-1}
-                                    checked={checked}
-                                    className="w-4 h-4 accent-[#0055ff] rounded pointer-events-none"
-                                  />
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  {checked ? (
+                                    <CheckSquare className="w-3.5 h-3.5 text-[#38bdf8] shrink-0" />
+                                  ) : (
+                                    <Square className="w-3.5 h-3.5 text-[#64748b] shrink-0" />
+                                  )}
+                                  <span className="truncate">
+                                    {bq.flag} {cleanedLabel}
+                                  </span>
                                 </div>
-                                <div className="min-w-0 flex-1 space-y-1.5">
-                                  <div className="flex items-center justify-between gap-2">
-                                    <span className="text-xs sm:text-sm font-bold text-[#ffffff] leading-snug">
-                                      {bq.flag} {cleanedLabel}
-                                    </span>
-                                  </div>
-                                  <p className="text-xs text-[#cbd5e1] leading-relaxed">
-                                    {loc.description}
-                                  </p>
-                                  {bq.sampleChannels &&
-                                    bq.sampleChannels.length > 0 && (
-                                      <div className="flex flex-wrap gap-1.5 pt-1">
-                                        {bq.sampleChannels.map((sample) => (
-                                          <span
-                                            key={sample}
-                                            className={`text-[10px] font-medium px-2 py-0.5 rounded border ${
-                                              checked
-                                                ? 'bg-[#1d4ed8]/20 text-[#ffffff] border-[#0055ff]/50'
-                                                : 'bg-[#0a0e17] text-[#cbd5e1] border-[#1a202c]'
-                                            }`}
-                                          >
-                                            {sample}
-                                          </span>
-                                        ))}
-                                      </div>
-                                    )}
-                                </div>
+                                {bq.sampleChannels && bq.sampleChannels[0] && (
+                                  <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#0a0e17] text-[#38bdf8] border border-[#1a202c] shrink-0 truncate max-w-[80px]">
+                                    {bq.sampleChannels[0]}
+                                  </span>
+                                )}
                               </div>
                             );
                           })}
@@ -894,10 +905,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               </div>
 
-              {/* Section 2 : Catégories Thématiques */}
-              <div className="space-y-4 pt-4 border-t border-[#1a202c]">
-                <div className="space-y-1">
-                  <h3 className="text-sm font-bold text-[#ffffff] flex items-center gap-2">
+              {/* Encadré 4 : Catégories Thématiques — Style ChannelRowCard */}
+              <div className="p-3 sm:p-3.5 rounded-lg bg-[#141a26] border border-[#1a202c] hover:border-[#e11d48]/40 transition-all space-y-3">
+                <div className="space-y-0.5">
+                  <h3 className="text-xs sm:text-sm font-bold text-[#ffffff] flex items-center gap-2">
                     <Film className="w-4 h-4 text-[#e11d48]" />
                     {tr.thematicCategoriesTitle}
                   </h3>
@@ -908,7 +919,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                 <div
                   data-tv-modal-group="categories"
-                  className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5"
+                  className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2"
                 >
                   {EPG_THEMATIC_CATEGORIES.map((cat) => {
                     const checked = draft.enabledCategories.includes(cat.id);
@@ -937,27 +948,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             toggleCategory(cat.id);
                           }
                         }}
-                        className={`tv-dpad-btn p-4 sm:p-5 rounded-xl transition-all cursor-pointer flex items-start gap-3.5 min-h-[96px] ${
+                        className={`tv-dpad-btn p-2.5 sm:p-3 rounded-lg transition-all cursor-pointer flex items-start gap-2.5 border text-xs ${
                           checked
-                            ? 'bg-[#0a0e17] border-[1.5px] border-[#e11d48]'
-                            : 'bg-[#0a0e17]/60 border border-[#1a202c] opacity-75 hover:opacity-100'
+                            ? 'bg-[#1a202c] border-2 border-[#e11d48] text-[#ffffff] shadow-[0_0_12px_rgba(225,29,72,0.35)] font-semibold'
+                            : 'bg-[#141a26] border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:bg-[#1a202c] hover:border-[#e11d48]/70 font-medium'
                         }`}
                       >
                         <div className="mt-0.5 shrink-0">
                           {checked ? (
-                            <CheckSquare className="w-4 h-4 text-[#e11d48]" />
+                            <CheckSquare className="w-3.5 h-3.5 text-[#e11d48]" />
                           ) : (
-                            <Square className="w-4 h-4 text-[#cbd5e1]/60" />
+                            <Square className="w-3.5 h-3.5 text-[#64748b]" />
                           )}
                         </div>
-                        <div className="min-w-0 flex-1 space-y-1.5">
-                          <div className="flex items-center gap-2">
+                        <div className="min-w-0 flex-1 space-y-0.5">
+                          <div className="flex items-center gap-1.5">
                             {getCategoryIcon(cat.id)}
-                            <span className="text-xs sm:text-sm font-bold text-[#ffffff] leading-snug">
+                            <span className="text-xs font-bold text-[#ffffff] leading-snug">
                               {locCat.label}
                             </span>
                           </div>
-                          <p className="text-xs text-[#cbd5e1] leading-relaxed">
+                          <p className="text-[11px] text-[#94a3b8] leading-tight line-clamp-2">
                             {locCat.description}
                           </p>
                         </div>
@@ -967,16 +978,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               </div>
 
-              {/* Section 3 : Filtres Audio VO & Anti-Lektor Polonais */}
-              <div className="space-y-4 pt-4 border-t border-[#1a202c]">
-                <h3 className="text-sm font-bold text-[#ffffff] flex items-center gap-2">
-                  <Volume2 className="w-4 h-4 text-[#0055ff]" />
+              {/* Encadré 5 : Filtres Audio VO & Sous-titres — Style ChannelRowCard */}
+              <div className="p-3 sm:p-3.5 rounded-lg bg-[#141a26] border border-[#1a202c] hover:border-[#e11d48]/40 transition-all space-y-2.5">
+                <h3 className="text-xs sm:text-sm font-bold text-[#ffffff] flex items-center gap-1.5">
+                  <Volume2 className="w-3.5 h-3.5 text-[#0055ff]" />
                   {tr.audioSubtitlesTitle}
                 </h3>
 
                 <div
                   data-tv-modal-group="audio"
-                  className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5"
+                  className="grid grid-cols-1 sm:grid-cols-2 gap-2"
                 >
                   <div
                     tabIndex={0}
@@ -1003,27 +1014,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         }));
                       }
                     }}
-                    className={`tv-dpad-btn p-4 sm:p-5 rounded-xl transition-all cursor-pointer flex items-start gap-3.5 ${
+                    className={`tv-dpad-btn p-2.5 sm:p-3 rounded-lg transition-all cursor-pointer flex items-start gap-2.5 border ${
                       draft.excludePolishLektor
-                        ? 'bg-[#0a0e17] border-[1.5px] border-[#0055ff]'
-                        : 'bg-[#0a0e17]/60 border border-[#1a202c]'
+                        ? 'bg-[#1a202c] border-2 border-[#0055ff] text-[#ffffff] shadow-[0_0_10px_rgba(0,85,255,0.3)]'
+                        : 'bg-[#141a26] border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:bg-[#1a202c] hover:border-[#e11d48]/70'
                     }`}
                   >
-                    <div className="mt-0.5">
+                    <div className="mt-0.5 shrink-0">
                       {draft.excludePolishLektor ? (
-                        <CheckSquare className="w-4 h-4 text-[#0055ff]" />
+                        <CheckSquare className="w-3.5 h-3.5 text-[#0055ff]" />
                       ) : (
-                        <Square className="w-4 h-4 text-[#cbd5e1]/60" />
+                        <Square className="w-3.5 h-3.5 text-[#64748b]" />
                       )}
                     </div>
-                    <div className="space-y-1.5">
-                      <div className="flex items-center gap-2">
-                        <ShieldAlert className="w-4 h-4 text-[#0055ff]" />
-                        <span className="text-xs sm:text-sm font-bold text-[#ffffff]">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-1.5">
+                        <ShieldAlert className="w-3.5 h-3.5 text-[#0055ff]" />
+                        <span className="text-xs font-bold text-[#ffffff]">
                           {tr.excludePolishLektorTitle}
                         </span>
                       </div>
-                      <p className="text-xs text-[#cbd5e1] leading-relaxed">
+                      <p className="text-[11px] text-[#94a3b8] leading-tight">
                         {tr.excludePolishLektorDesc}
                       </p>
                     </div>
@@ -1054,27 +1065,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         }));
                       }
                     }}
-                    className={`tv-dpad-btn p-4 sm:p-5 rounded-xl transition-all cursor-pointer flex items-start gap-3.5 ${
+                    className={`tv-dpad-btn p-2.5 sm:p-3 rounded-lg transition-all cursor-pointer flex items-start gap-2.5 border ${
                       draft.excludeNoSubtitles
-                        ? 'bg-[#0a0e17] border-[1.5px] border-[#0055ff]'
-                        : 'bg-[#0a0e17]/60 border border-[#1a202c]'
+                        ? 'bg-[#1a202c] border-2 border-[#0055ff] text-[#ffffff] shadow-[0_0_10px_rgba(0,85,255,0.3)]'
+                        : 'bg-[#141a26] border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:bg-[#1a202c] hover:border-[#e11d48]/70'
                     }`}
                   >
-                    <div className="mt-0.5">
+                    <div className="mt-0.5 shrink-0">
                       {draft.excludeNoSubtitles ? (
-                        <CheckSquare className="w-4 h-4 text-[#0055ff]" />
+                        <CheckSquare className="w-3.5 h-3.5 text-[#0055ff]" />
                       ) : (
-                        <Square className="w-4 h-4 text-[#cbd5e1]/60" />
+                        <Square className="w-3.5 h-3.5 text-[#64748b]" />
                       )}
                     </div>
-                    <div className="space-y-1.5">
-                      <div className="flex items-center gap-2">
-                        <Subtitles className="w-4 h-4 text-[#0055ff]" />
-                        <span className="text-xs sm:text-sm font-bold text-[#ffffff]">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-1.5">
+                        <Subtitles className="w-3.5 h-3.5 text-[#0055ff]" />
+                        <span className="text-xs font-bold text-[#ffffff]">
                           {tr.requireSubtitlesTitle}
                         </span>
                       </div>
-                      <p className="text-xs text-[#cbd5e1] leading-relaxed">
+                      <p className="text-[11px] text-[#94a3b8] leading-tight">
                         {tr.requireSubtitlesDesc}
                       </p>
                     </div>
@@ -1082,56 +1093,62 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               </div>
 
-              {/* Section 4 : Tri Intelligent & Habitudes de visionnage (watchCount & lastWatchedTimestamp) */}
+              {/* Encadré 6 : Tri Intelligent & Habitudes de visionnage — Style ChannelRowCard */}
               <div
                 data-tv-modal-group="watch-habits"
-                className="space-y-3 pt-4 border-t border-[#1a202c]"
+                className="p-3 sm:p-3.5 rounded-lg bg-[#141a26] border border-[#1a202c] hover:border-[#e11d48]/40 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
               >
-                <div className="p-4 sm:p-5 rounded-xl bg-[#0a0e17] border border-[#1a202c] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="space-y-1.5 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Sparkles className="w-4 h-4 text-[#ec4899] shrink-0" />
-                      <h3 className="text-xs sm:text-sm font-bold text-[#ffffff]">
-                        {activeLang === 'fr'
-                          ? 'Tri Intelligent & Habitudes de visionnage'
-                          : 'Smart Sort & Viewing Habits'}
-                      </h3>
-                      <span className="px-2 py-0.5 rounded bg-[#141a26] border border-[#334155] font-mono text-[10px] font-bold text-[#38bdf8]">
-                        {watchedChannelsCount}{' '}
-                        {activeLang === 'fr' ? 'chaînes' : 'channels'} ·{' '}
-                        {totalWatchCount}{' '}
-                        {activeLang === 'fr' ? 'vues' : 'views'}
-                      </span>
-                    </div>
-                    <p className="text-xs text-[#cbd5e1] leading-relaxed">
-                      {activeLang === 'fr'
-                        ? 'Stocke localement (LocalStorage / IndexedDB / Supabase) la fréquence (watchCount) et l’horodatage (lastWatchedTimestamp) pour faire remonter vos chaînes les plus regardées selon Score = (Poids_LCN × Rang_LCN) + (Poids_Usage × Score_Fréquence).'
-                        : 'Locally stores watchCount and lastWatchedTimestamp (LocalStorage / IndexedDB / Supabase) to promote your most-watched channels using Score = (LCN_Weight × LCN_Rank) + (Usage_Weight × Frequency_Score).'}
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    data-tv-focusable="true"
-                    onClick={() => {
-                      onResetWatchHabits?.();
-                      setHabitsResetFeedback(true);
-                      setTimeout(() => setHabitsResetFeedback(false), 3000);
-                    }}
-                    className="tv-dpad-btn inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#141a26] hover:bg-[#1a202c] border border-[#ec4899]/60 hover:border-[#ec4899] text-xs font-bold text-[#ffffff] transition-all cursor-pointer shrink-0"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5 text-[#ec4899] shrink-0" />
-                    <span>
-                      {habitsResetFeedback
-                        ? activeLang === 'fr'
-                          ? 'Habitudes réinitialisées ✓'
-                          : 'Viewing habits reset ✓'
+                <div className="space-y-1.5 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Sparkles className="w-4 h-4 text-[#ec4899] shrink-0" />
+                    <h3 className="text-xs sm:text-sm font-bold text-[#ffffff]">
+                      {activeLang === 'ar'
+                        ? 'الترتيب الذكي وعادات المشاهدة'
                         : activeLang === 'fr'
-                        ? 'Réinitialiser les habitudes de visionnage'
-                        : 'Reset viewing habits'}
+                        ? 'Tri Intelligent & Habitudes de visionnage'
+                        : 'Smart Sort & Viewing Habits'}
+                    </h3>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded border uppercase tracking-wider bg-[#1d4ed8]/20 text-[#ffffff] border-[#0055ff]/50">
+                      {toStandardDigits(watchedChannelsCount)}{' '}
+                      {activeLang === 'ar' ? 'قناة' : activeLang === 'fr' ? 'chaînes' : 'channels'} ·{' '}
+                      {toStandardDigits(totalWatchCount)}{' '}
+                      {activeLang === 'ar' ? 'مشاهدة' : activeLang === 'fr' ? 'vues' : 'views'}
                     </span>
-                  </button>
+                  </div>
+                  <p className="text-xs text-[#cbd5e1] leading-relaxed">
+                    {activeLang === 'ar'
+                      ? 'يحفظ محلياً تكرار المشاهدة وتوقيتها لتفضيل قنواتك الأكثر متابعة ورفعها تلقائياً للأعلى.'
+                      : activeLang === 'fr'
+                      ? 'Stocke localement (LocalStorage / IndexedDB / Supabase) la fréquence (watchCount) et l’horodatage (lastWatchedTimestamp) pour faire remonter vos chaînes les plus regardées selon Score = (Poids_LCN × Rang_LCN) + (Poids_Usage × Score_Fréquence).'
+                      : 'Locally stores watchCount and lastWatchedTimestamp (LocalStorage / IndexedDB / Supabase) to promote your most-watched channels using Score = (LCN_Weight × LCN_Rank) + (Usage_Weight × Frequency_Score).'}
+                  </p>
                 </div>
+
+                <button
+                  type="button"
+                  data-tv-focusable="true"
+                  onClick={() => {
+                    onResetWatchHabits?.();
+                    setHabitsResetFeedback(true);
+                    setTimeout(() => setHabitsResetFeedback(false), 3000);
+                  }}
+                  className="tv-dpad-btn inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg bg-[#0a0e17] hover:bg-[#1a202c] border border-[#ec4899]/60 hover:border-[#ec4899] text-xs font-bold text-[#ffffff] transition-all cursor-pointer shrink-0"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-[#ec4899] shrink-0" />
+                  <span>
+                    {habitsResetFeedback
+                      ? activeLang === 'ar'
+                        ? 'تمت إعادة تعيين العادات ✓'
+                        : activeLang === 'fr'
+                        ? 'Habitudes réinitialisées ✓'
+                        : 'Viewing habits reset ✓'
+                      : activeLang === 'ar'
+                      ? 'إعادة تعيين عادات المشاهدة'
+                      : activeLang === 'fr'
+                      ? 'Réinitialiser les habitudes de visionnage'
+                      : 'Reset viewing habits'}
+                  </span>
+                </button>
               </div>
 
               {/* Aperçu & Formats de l'Icône de Lancement Multi-Terminaux (Smartphone, Tablette, Android TV, TV Box) */}
@@ -1141,16 +1158,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
           {activeTab === 'sources' && (
             <>
-              {/* État du Cache IndexedDB */}
-              <div className="p-4 rounded-lg bg-[#0a0e17] border border-[#1a202c] flex flex-wrap items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <HardDrive className="w-5 h-5 text-[#0055ff] shrink-0" />
-                  <div>
+              {/* Encadré Sources 1 : État du Cache IndexedDB */}
+              <div className="p-3 sm:p-3.5 rounded-lg bg-[#141a26] border border-[#1a202c] hover:border-[#e11d48]/40 transition-all flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-[#0a0e17] border border-[#1a202c] flex items-center justify-center shrink-0">
+                    <HardDrive className="w-4 h-4 text-[#0055ff]" />
+                  </div>
+                  <div className="min-w-0">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-[#ffffff]">
                       {tr.cacheIndexedDbTitle}
                     </h3>
                     {cacheMeta ? (
-                      <p className="text-xs text-[#cbd5e1] mt-0.5">
+                      <p className="text-xs text-[#cbd5e1] mt-0.5 truncate">
                         {cacheMeta.channelCount} {tr.channelsCountLabel} ·{' '}
                         {cacheMeta.programmeCount.toLocaleString()}{' '}
                         {tr.programmesCountLabel} · {tr.updatedAtLabel}{' '}
@@ -1182,7 +1201,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           autoRefreshHours: e.target.checked ? 12 : 0,
                         }))
                       }
-                      className="rounded border-[#1a202c] bg-[#141a26] text-[#e11d48] focus:ring-[#e11d48]"
+                      className="rounded border-[#1a202c] bg-[#0a0e17] text-[#e11d48] focus:ring-[#e11d48]"
                     />
                     {tr.autoRefresh12h}
                   </label>
@@ -1191,7 +1210,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     type="button"
                     data-tv-focusable="true"
                     onClick={onClearCache}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#141a26] hover:bg-[#1a202c] text-[#ffffff] border border-[#1a202c] text-xs font-medium transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0a0e17] hover:bg-[#1a202c] text-[#ffffff] border border-[#1a202c] text-xs font-medium transition-colors cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5 text-[#cbd5e1]" />
                     {tr.clearCacheBtn}
@@ -1199,9 +1218,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               </div>
 
-              {/* Liste des flux XMLTV configurés */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
+              {/* Encadré Sources 2 : Liste des flux XMLTV configurés */}
+              <div className="p-3 sm:p-3.5 rounded-lg bg-[#141a26] border border-[#1a202c] hover:border-[#e11d48]/40 transition-all space-y-2.5">
+                <div className="flex items-center justify-between mb-1">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-[#cbd5e1] flex items-center gap-1.5">
                     <Globe className="w-3.5 h-3.5 text-[#0055ff]" />
                     {tr.xmltvSourcesActiveTitle} (
@@ -1223,10 +1242,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   {draft.sources.map((source) => (
                     <div
                       key={source.id}
-                      className={`p-3 rounded-lg border flex items-center justify-between gap-3 transition-colors ${
+                      className={`p-2.5 rounded-lg border flex items-center justify-between gap-3 transition-colors ${
                         source.enabled
                           ? 'bg-[#0a0e17] border-[#1a202c]'
-                          : 'bg-[#0a0e17]/40 border-[#1a202c]/50 opacity-60'
+                          : 'bg-[#0a0e17]/50 border-[#1a202c]/50 opacity-60'
                       }`}
                     >
                       <label className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer">
@@ -1239,10 +1258,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         />
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold px-1.5 py-0.5 rounded bg-[#1d4ed8]/25 text-[#ffffff] border border-[#0055ff]/50">
+                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded border uppercase tracking-wider bg-[#1d4ed8]/20 text-[#ffffff] border-[#0055ff]/50">
                               {source.country}
                             </span>
-                            <span className="text-sm font-semibold text-[#ffffff] truncate">
+                            <span className="text-xs sm:text-sm font-semibold text-[#ffffff] truncate">
                               {source.name}
                             </span>
                           </div>
@@ -1267,17 +1286,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               </div>
 
-              {/* Ajouter un flux XMLTV personnalisé */}
+              {/* Encadré Sources 3 : Ajouter un flux XMLTV personnalisé */}
               <form
                 onSubmit={handleAddSource}
-                className="p-4 rounded-lg bg-[#0a0e17] border border-[#1a202c] space-y-3"
+                className="p-3 sm:p-3.5 rounded-lg bg-[#141a26] border border-[#1a202c] hover:border-[#e11d48]/40 transition-all space-y-3"
               >
                 <h3 className="text-xs font-bold uppercase tracking-wider text-[#ffffff] flex items-center gap-1.5">
                   <Plus className="w-3.5 h-3.5 text-[#e11d48]" />
                   {tr.addCustomXmltvTitle}
                 </h3>
 
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
                   <select
                     value={newCountry}
                     data-tv-focusable="true"
@@ -1286,7 +1305,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         e.target.value as Exclude<CountryCode, 'Tous'>
                       )
                     }
-                    className="px-3 py-2 rounded-lg bg-[#141a26] border border-[#1a202c] text-xs text-[#ffffff] focus:outline-none focus:border-[#0055ff]"
+                    className="px-3 py-2 rounded-lg bg-[#0a0e17] border border-[#1a202c] text-xs text-[#ffffff] focus:outline-none focus:border-[#0055ff]"
                   >
                     <option value="AR">🇲🇦/🇦🇪 Nilesat 7°W / Badr 26°E (AR)</option>
                     <option value="FR">🇫🇷 France (FR)</option>
@@ -1305,7 +1324,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
                     placeholder={tr.sourceNamePlaceholder}
-                    className="px-3 py-2 rounded-lg bg-[#141a26] border border-[#1a202c] text-xs text-[#ffffff] placeholder-[#cbd5e1]/60 focus:outline-none focus:border-[#0055ff]"
+                    className="px-3 py-2 rounded-lg bg-[#0a0e17] border border-[#1a202c] text-xs text-[#ffffff] placeholder-[#cbd5e1]/60 focus:outline-none focus:border-[#0055ff]"
                   />
 
                   <input
@@ -1314,7 +1333,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     value={newUrl}
                     onChange={(e) => setNewUrl(e.target.value)}
                     placeholder="https://.../epg.xml.gz"
-                    className="sm:col-span-2 px-3 py-2 rounded-lg bg-[#141a26] border border-[#1a202c] text-xs text-[#ffffff] placeholder-[#cbd5e1]/60 font-mono focus:outline-none focus:border-[#0055ff]"
+                    className="sm:col-span-2 px-3 py-2 rounded-lg bg-[#0a0e17] border border-[#1a202c] text-xs text-[#ffffff] placeholder-[#cbd5e1]/60 font-mono focus:outline-none focus:border-[#0055ff]"
                   />
                 </div>
 
@@ -1333,9 +1352,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           )}
 
           {activeTab === 'legal' && (
-            <div className="space-y-4">
-              {/* Mention de non-fourniture de flux vidéo (Clause Google Play Store) */}
-              <div className="p-4 rounded-lg bg-[#0a0e17] border border-[#1a202c] space-y-2">
+            <div className="space-y-3">
+              {/* Encadré Légal 1 : Clause Google Play Store */}
+              <div className="p-3 sm:p-3.5 rounded-lg bg-[#141a26] border border-[#1a202c] hover:border-[#e11d48]/40 transition-all space-y-2">
                 <div className="flex items-center gap-2 text-[#ffffff] font-bold text-sm">
                   <ShieldCheck className="w-5 h-5 text-[#0055ff] shrink-0" />
                   <span>{tr.legalNonStreamingTitle}</span>
@@ -1345,14 +1364,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </p>
               </div>
 
-              {/* Attribution Officielle TMDB & TVMaze */}
-              <div className="p-4 rounded-lg bg-[#0a0e17] border border-[#1a202c] space-y-3">
+              {/* Encadré Légal 2 : Attribution Officielle TMDB & TVMaze */}
+              <div className="p-3 sm:p-3.5 rounded-lg bg-[#141a26] border border-[#1a202c] hover:border-[#e11d48]/40 transition-all space-y-2.5">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-2 text-[#ffffff] font-bold text-sm">
                     <Sparkles className="w-4 h-4 text-[#e11d48] shrink-0" />
                     <span>{tr.legalTmdbTitle}</span>
                   </div>
-                  <span className="px-2.5 py-0.5 rounded bg-[#1d4ed8]/25 text-[#ffffff] border border-[#0055ff]/50 text-[11px] font-bold tracking-wider">
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded border uppercase tracking-wider bg-[#1d4ed8]/20 text-[#ffffff] border-[#0055ff]/50">
                     TMDB API v3
                   </span>
                 </div>
@@ -1361,7 +1380,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   {tr.legalTmdbNotice}
                 </p>
 
-                <div className="p-3 rounded-lg bg-[#141a26] border border-[#1a202c] text-[11px] text-[#cbd5e1] font-mono leading-relaxed">
+                <div className="p-2.5 rounded-lg bg-[#0a0e17] border border-[#1a202c] text-[11px] text-[#cbd5e1] font-mono leading-relaxed">
                   "This product uses the TMDB API but is not endorsed or
                   certified by TMDB."
                 </div>
@@ -1391,8 +1410,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               </div>
 
-              {/* Politique de Confidentialité & RGPD */}
-              <div className="p-4 rounded-lg bg-[#0a0e17] border border-[#1a202c] space-y-2.5">
+              {/* Encadré Légal 3 : Politique de Confidentialité & RGPD */}
+              <div className="p-3 sm:p-3.5 rounded-lg bg-[#141a26] border border-[#1a202c] hover:border-[#e11d48]/40 transition-all space-y-2">
                 <div className="flex items-center gap-2 text-[#ffffff] font-bold text-sm">
                   <Lock className="w-4 h-4 text-[#0055ff] shrink-0" />
                   <span>{tr.legalPrivacyTitle}</span>
@@ -1402,8 +1421,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </p>
               </div>
 
-              {/* Informations de Version & PWA / Android */}
-              <div className="p-4 rounded-lg bg-[#0a0e17] border border-[#1a202c] flex flex-wrap items-center justify-between gap-3 text-xs text-[#cbd5e1]">
+              {/* Encadré Légal 4 : Informations de Version & PWA / Android */}
+              <div className="p-3 sm:p-3.5 rounded-lg bg-[#141a26] border border-[#1a202c] flex flex-wrap items-center justify-between gap-3 text-xs text-[#cbd5e1]">
                 <div className="flex items-center gap-2">
                   <Info className="w-4 h-4 text-[#cbd5e1]" />
                   <span>
@@ -1413,7 +1432,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     · v2.5.0 (Play Store Release Ready)
                   </span>
                 </div>
-                <span className="px-2.5 py-1 rounded bg-[#1d4ed8]/25 text-[#ffffff] border border-[#0055ff]/50 font-semibold text-[11px]">
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded border uppercase tracking-wider bg-[#1d4ed8]/20 text-[#ffffff] border-[#0055ff]/50">
                   PWA Standalone & Android TV Ready
                 </span>
               </div>
@@ -1425,18 +1444,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         <div
           data-tv-modal-zone="footer"
           data-tv-row="settings-footer"
-          className="shrink-0 p-4 sm:p-5 bg-[#0a0e17] border-t border-[#1a202c] flex flex-wrap items-center justify-between gap-3 z-20"
+          className="shrink-0 px-3 sm:px-4 py-2.5 sm:py-3 bg-[#0a0e17] border-t border-[#1a202c] flex flex-wrap items-center justify-between gap-2.5 z-20"
         >
           <button
             type="button"
             data-tv-focusable="true"
             onClick={onClose}
-            className="tv-dpad-btn px-4 py-2.5 rounded-xl bg-[#141a26] hover:bg-[#1a202c] text-xs font-semibold text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] transition-colors cursor-pointer"
+            className="tv-dpad-btn px-3.5 py-2 rounded-lg bg-[#141a26] hover:bg-[#1a202c] text-xs font-semibold text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] transition-colors cursor-pointer"
           >
             {tr.cancelBtn}
           </button>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
             <button
               type="button"
               data-tv-focusable="true"
@@ -1444,7 +1463,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 onSaveSettings(draft, false);
                 onClose();
               }}
-              className="tv-dpad-btn inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#1d4ed8] hover:bg-[#0055ff] text-xs font-semibold text-[#ffffff] border border-[#0055ff] transition-colors cursor-pointer"
+              className="tv-dpad-btn inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#1d4ed8] hover:bg-[#0055ff] text-xs font-semibold text-[#ffffff] border border-[#0055ff] transition-colors cursor-pointer"
             >
               <Check className="w-4 h-4 text-[#ffffff]" />
               {tr.saveBtn}
@@ -1457,7 +1476,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 onSaveSettings(draft, true);
                 onClose();
               }}
-              className="tv-dpad-btn inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#e11d48] hover:bg-[#ff0033] border-[1.5px] border-[#ff0033] text-xs font-bold text-[#ffffff] shadow-[0_0_12px_rgba(225,29,72,0.45)] transition-all cursor-pointer"
+              className="tv-dpad-btn inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#e11d48] hover:bg-[#ff0033] border-[1.5px] border-[#ff0033] text-xs font-bold text-[#ffffff] shadow-[0_0_12px_rgba(225,29,72,0.45)] transition-all cursor-pointer"
             >
               <RefreshCw className="w-4 h-4" />
               {tr.saveAndApplyBtn}

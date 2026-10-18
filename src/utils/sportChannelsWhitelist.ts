@@ -1,11 +1,11 @@
-import {
+import type {
   BouquetFilter,
   ChannelGroup,
   ContentCategoryFilter,
   CountryCode,
   EpgBouquetId,
   SatelliteFilter,
-} from '../types/epg';
+} from '../types/epg.ts';
 
 export interface WhitelistedChannelSpec {
   canonicalId: string;

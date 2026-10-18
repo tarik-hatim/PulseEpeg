@@ -1,164 +1,104 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
-    <!-- Deep Studio Matte-Dark Navy Background (#05070d -> #0a0e17 -> #111827) -->
+    <!-- SplashScreen Dark Studio Background (#060911 -> #0a0e17) -->
     <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#05070d" />
-      <stop offset="50%" stop-color="#0a0e17" />
+      <stop offset="0%" stop-color="#060911" />
+      <stop offset="55%" stop-color="#0a0e17" />
       <stop offset="100%" stop-color="#0f1524" />
     </linearGradient>
 
-    <!-- Subtle Netflix-style Center-Top Crimson Studio Spotlight (#e11d48 / #ff0033) -->
     <radialGradient id="crimsonSpotlight" cx="56%" cy="34%" r="54%">
-      <stop offset="0%" stop-color="#e11d48" stop-opacity="0.34" />
-      <stop offset="55%" stop-color="#e11d48" stop-opacity="0.10" />
+      <stop offset="0%" stop-color="#e11d48" stop-opacity="0.30" />
+      <stop offset="55%" stop-color="#e11d48" stop-opacity="0.08" />
       <stop offset="100%" stop-color="#e11d48" stop-opacity="0" />
     </radialGradient>
 
-    <!-- Subtle Bottom-Left Royal Blue Studio Backlight (#0055ff / #38bdf8) -->
     <radialGradient id="blueBacklight" cx="32%" cy="72%" r="54%">
-      <stop offset="0%" stop-color="#0055ff" stop-opacity="0.36" />
-      <stop offset="55%" stop-color="#0055ff" stop-opacity="0.10" />
+      <stop offset="0%" stop-color="#0055ff" stop-opacity="0.32" />
+      <stop offset="55%" stop-color="#0055ff" stop-opacity="0.08" />
       <stop offset="100%" stop-color="#0055ff" stop-opacity="0" />
     </radialGradient>
 
-    <!-- Ribbon 1 (Left Vertical Stem): Deep Royal Blue to Midnight Indigo (#38bdf8 -> #0055ff -> #1e3a8a) -->
-    <linearGradient id="stemBlueGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+    <!-- SplashScreen "bootStem": Left Vertical Pillar of "P" (#38bdf8 -> #0055ff -> #0f2361) -->
+    <linearGradient id="bootStem" x1="0%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" stop-color="#38bdf8" />
-      <stop offset="28%" stop-color="#0055ff" />
+      <stop offset="30%" stop-color="#0055ff" />
       <stop offset="72%" stop-color="#1d4ed8" />
       <stop offset="100%" stop-color="#0f2361" />
     </linearGradient>
 
-    <!-- Ribbon 2 (Under-Fold Return Loop): Crimson-Rose to Royal Blue Shadow (#e11d48 -> #ec4899 -> #0055ff -> #172554) -->
-    <linearGradient id="underLoopGrad" x1="100%" y1="0%" x2="0%" y2="100%">
+    <!-- SplashScreen "bootUnder": Lower Return Loop of "P" (#e11d48 -> #0055ff -> #172554) -->
+    <linearGradient id="bootUnder" x1="100%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" stop-color="#e11d48" />
-      <stop offset="32%" stop-color="#be123c" />
-      <stop offset="68%" stop-color="#0055ff" />
+      <stop offset="35%" stop-color="#be123c" />
+      <stop offset="65%" stop-color="#0055ff" />
       <stop offset="100%" stop-color="#172554" />
     </linearGradient>
 
-    <!-- Ribbon 3 (Hero Foreground Diagonal/Curved Fold): Netflix-Style Vivid Crimson (#ff2a55 -> #ff0033 -> #e11d48 -> #9f1239) -->
-    <linearGradient id="heroCrimsonGrad" x1="0%" y1="0%" x2="95%" y2="90%">
+    <!-- SplashScreen "bootHero": Upper-Right Folded Ribbon of "P" (#ff335c -> #ff0033 -> #e11d48 -> #9f1239) -->
+    <linearGradient id="bootHero" x1="0%" y1="0%" x2="95%" y2="90%">
       <stop offset="0%" stop-color="#ff335c" />
-      <stop offset="34%" stop-color="#ff0033" />
+      <stop offset="38%" stop-color="#ff0033" />
       <stop offset="72%" stop-color="#e11d48" />
       <stop offset="100%" stop-color="#9f1239" />
     </linearGradient>
 
-    <!-- Cast Shadow Gradient (Top-Left Stem Fold Shadow) -->
-    <linearGradient id="topFoldShadow" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#020409" stop-opacity="0.82" />
-      <stop offset="55%" stop-color="#020409" stop-opacity="0.38" />
-      <stop offset="100%" stop-color="#020409" stop-opacity="0" />
-    </linearGradient>
-
-    <!-- Cast Shadow Gradient (Waist Under-Fold Shadow) -->
-    <linearGradient id="waistFoldShadow" x1="0%" y1="50%" x2="100%" y2="50%">
-      <stop offset="0%" stop-color="#020409" stop-opacity="0.80" />
-      <stop offset="65%" stop-color="#020409" stop-opacity="0.42" />
-      <stop offset="100%" stop-color="#020409" stop-opacity="0" />
-    </linearGradient>
-
-    <!-- Specular Edge Highlight on Hero Ribbon -->
-    <linearGradient id="edgeHighlight" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.65" />
-      <stop offset="45%" stop-color="#ffe4e6" stop-opacity="0.25" />
-      <stop offset="100%" stop-color="#38bdf8" stop-opacity="0" />
-    </linearGradient>
-
-    <!-- Signature Pulse Wave Accent Gradient (#38bdf8 -> #0055ff -> #ec4899 -> #ff0033) -->
+    <!-- Heartbeat Wave (Onde Cardiaque) Gradient -->
     <linearGradient id="pulseWaveGrad" x1="0%" y1="50%" x2="100%" y2="50%">
       <stop offset="0%" stop-color="#38bdf8" />
       <stop offset="35%" stop-color="#0055ff" />
-      <stop offset="70%" stop-color="#ec4899" />
+      <stop offset="70%" stop-color="#e11d48" />
       <stop offset="100%" stop-color="#ff0033" />
     </linearGradient>
 
-    <!-- Outer Studio Bevel Rim -->
+    <!-- Subtle Rim Border matching SplashScreen .tv-boot-logo-box -->
     <linearGradient id="rimGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#ff0033" stop-opacity="0.55" />
-      <stop offset="50%" stop-color="#0055ff" stop-opacity="0.35" />
-      <stop offset="100%" stop-color="#e11d48" stop-opacity="0.55" />
+      <stop offset="0%" stop-color="#e11d48" stop-opacity="0.65" />
+      <stop offset="50%" stop-color="#0055ff" stop-opacity="0.45" />
+      <stop offset="100%" stop-color="#e11d48" stop-opacity="0.65" />
     </linearGradient>
   </defs>
 
-  <!-- Studio Dark Background -->
-  <rect width="512" height="512" rx="114" fill="url(#bgGrad)" />
-  <rect width="512" height="512" rx="114" fill="url(#crimsonSpotlight)" />
-  <rect width="512" height="512" rx="114" fill="url(#blueBacklight)" />
+  <!-- Dark SplashScreen Background -->
+  <rect width="512" height="512" rx="112" fill="url(#bgGrad)" />
+  <rect width="512" height="512" rx="112" fill="url(#crimsonSpotlight)" />
+  <rect width="512" height="512" rx="112" fill="url(#blueBacklight)" />
 
-  <!-- Subtle Studio Squircle Bevel Rim -->
-  <rect x="14" y="14" width="484" height="484" rx="102" fill="none" stroke="url(#rimGrad)" stroke-width="4" />
+  <!-- SplashScreen Logo Box Rim -->
+  <rect x="12" y="12" width="488" height="488" rx="102" fill="none" stroke="url(#rimGrad)" stroke-width="5" />
 
   <g transform="translate(0, 0)">
-    <!-- Soft Ambient Drop-Glow Behind the 3D Ribbon Monogram -->
-    <path
-      d="M 128 84 H 254 C 348 84, 404 134, 404 206 C 404 278, 344 330, 236 330 H 218 V 432 Q 173 424, 128 438 Z"
-      fill="#e11d48"
-      fill-opacity="0.12"
-      transform="translate(0, 8)"
-    />
-
-    <!-- =======================================================================
-         PLANE 1: LEFT VERTICAL RIBBON STEM (Royal Blue #38bdf8 -> #0055ff -> #1d4ed8)
-         With Netflix-style curved bottom baseline arch (Q 173 424, 218 430)
-         ======================================================================= -->
+    <!-- 1. Left Vertical Pillar of "P" (Blue Gradient) -->
     <path
       d="M 128 92 C 128 81, 136 74, 147 74 H 200 C 210 74, 218 81, 218 92 V 430 Q 173 422, 128 438 Z"
-      fill="url(#stemBlueGrad)"
+      fill="url(#bootStem)"
     />
 
-    <!-- =======================================================================
-         PLANE 2: LOWER RETURN RIBBON OF THE "P" BOWL (Under-Fold Ribbon)
-         Sweeps from the right outer loop (404, 204) back into the vertical stem (176, 330)
-         ======================================================================= -->
+    <!-- 2. Lower Return Loop of "P" (Red-to-Blue Gradient) -->
     <path
       d="M 314 184 H 404 C 404 274, 338 332, 232 332 H 176 V 248 H 232 C 284 248, 314 224, 314 196 Z"
-      fill="url(#underLoopGrad)"
+      fill="url(#bootUnder)"
     />
 
-    <!-- Cast Shadow where Under-Fold Tucks Behind/Into the Vertical Stem -->
-    <path
-      d="M 218 248 H 268 L 244 332 H 218 Z"
-      fill="url(#waistFoldShadow)"
-    />
-
-    <!-- Cast Shadow on Vertical Stem under the Top-Left Hero Fold -->
+    <!-- 3. 3D Fold Shadow on Vertical Stem -->
     <path
       d="M 128 148 L 218 112 V 224 L 128 246 Z"
-      fill="url(#topFoldShadow)"
+      fill="#020409"
+      fill-opacity="0.72"
     />
-
-    <!-- Cast Shadow on Right Loop under the Hero Foreground Fold -->
     <path
       d="M 312 194 L 404 218 C 401 242, 391 264, 375 282 L 298 232 Z"
       fill="#020409"
-      fill-opacity="0.58"
+      fill-opacity="0.55"
     />
 
-    <!-- =======================================================================
-         PLANE 3: HERO FOREGROUND 3D FOLDED RIBBON (Netflix Crimson #ff0033 -> #e11d48)
-         Folds diagonally from top-left (128, 74) across the upper arch to the right apex (404, 216)
-         ======================================================================= -->
+    <!-- 4. Upper-Right Hero Folded Ribbon of "P" (Crimson Red Gradient) -->
     <path
       d="M 128 92 C 128 81, 136 74, 147 74 H 242 C 344 74, 404 126, 404 202 C 404 214, 402 226, 397 238 L 308 198 C 312 191, 314 183, 314 174 C 314 149, 284 134, 232 134 H 206 L 128 168 Z"
-      fill="url(#heroCrimsonGrad)"
+      fill="url(#bootHero)"
     />
 
-    <!-- Crisp 3D Diagonal Fold Crease & Specular Edge on Hero Ribbon -->
-    <path
-      d="M 130 92 C 130 82, 137 76, 147 76 H 242 C 340 76, 399 125, 401 198"
-      fill="none"
-      stroke="url(#edgeHighlight)"
-      stroke-width="3.5"
-      stroke-linecap="round"
-    />
-
-    <!-- =======================================================================
-         PLANE 4: SIGNATURE "PULSE" ENERGY WAVE IN LOWER-RIGHT COUNTER
-         Balances the monumental "P" ribbon with our unmistakable EPG Pulse identity
-         ======================================================================= -->
-    <!-- Outer Neon Halo -->
+    <!-- 5. Heartbeat Wave / Onde Cardiaque (Crimson + White Core) -->
     <path
       d="M 248 386 H 284 L 302 346 L 326 420 L 348 366 L 362 386 H 398"
       fill="none"
@@ -168,16 +108,14 @@
       stroke-linejoin="round"
       stroke-opacity="0.28"
     />
-    <!-- Main Pulse Gradient Ribbon Stroke -->
     <path
       d="M 248 386 H 284 L 302 346 L 326 420 L 348 366 L 362 386 H 398"
       fill="none"
-      stroke="url(#pulseWaveGrad)"
-      stroke-width="13"
+      stroke="#e11d48"
+      stroke-width="14"
       stroke-linecap="round"
       stroke-linejoin="round"
     />
-    <!-- Bright White-Hot Specular Core -->
     <path
       d="M 248 386 H 284 L 302 346 L 326 420 L 348 366 L 362 386 H 398"
       fill="none"
@@ -185,9 +123,6 @@
       stroke-width="4"
       stroke-linecap="round"
       stroke-linejoin="round"
-      stroke-opacity="0.92"
     />
-    <circle cx="248" cy="386" r="6.5" fill="#38bdf8" />
-    <circle cx="398" cy="386" r="6.5" fill="#ff0033" />
   </g>
 </svg>

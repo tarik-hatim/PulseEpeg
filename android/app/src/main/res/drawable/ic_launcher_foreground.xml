@@ -5,14 +5,14 @@
     android:height="108dp"
     android:viewportWidth="512"
     android:viewportHeight="512">
-    <!-- Adaptive Icon Safe Zone Group (66dp / 108dp centered across all Android launchers) -->
+    <!-- Adaptive Icon Safe Zone Group (66dp / 108dp centered) -->
     <group
         android:pivotX="256"
         android:pivotY="256"
-        android:scaleX="0.68"
-        android:scaleY="0.68">
+        android:scaleX="0.66"
+        android:scaleY="0.66">
 
-        <!-- Plane 1: Left Vertical Stem (Royal Blue #38bdf8 -> #0055ff -> #1d4ed8) -->
+        <!-- 1. Left Vertical Pillar of "P" (Blue Gradient) -->
         <path
             android:pathData="M 128 92 C 128 81, 136 74, 147 74 H 200 C 210 74, 218 81, 218 92 V 430 Q 173 422, 128 438 Z">
             <aapt:attr name="android:fillColor">
@@ -23,14 +23,14 @@
                     android:endY="438"
                     android:type="linear">
                     <item android:offset="0.0" android:color="#FF38BDF8" />
-                    <item android:offset="0.28" android:color="#FF0055FF" />
+                    <item android:offset="0.30" android:color="#FF0055FF" />
                     <item android:offset="0.72" android:color="#FF1D4ED8" />
                     <item android:offset="1.0" android:color="#FF0F2361" />
                 </gradient>
             </aapt:attr>
         </path>
 
-        <!-- Plane 2: Lower Return Ribbon of the "P" Bowl -->
+        <!-- 2. Lower Return Loop of "P" (Red-to-Blue Gradient) -->
         <path
             android:pathData="M 314 184 H 404 C 404 274, 338 332, 232 332 H 176 V 248 H 232 C 284 248, 314 224, 314 196 Z">
             <aapt:attr name="android:fillColor">
@@ -41,24 +41,18 @@
                     android:endY="332"
                     android:type="linear">
                     <item android:offset="0.0" android:color="#FFE11D48" />
-                    <item android:offset="0.35" android:color="#FFBE123C" />
-                    <item android:offset="0.70" android:color="#FF0055FF" />
+                    <item android:offset="0.65" android:color="#FF0055FF" />
                     <item android:offset="1.0" android:color="#FF172554" />
                 </gradient>
             </aapt:attr>
         </path>
 
-        <!-- 3D Cast Shadow on Vertical Stem under Top-Left Fold -->
+        <!-- 3. 3D Fold Shadow on Vertical Stem -->
         <path
             android:pathData="M 128 148 L 218 112 V 224 L 128 246 Z"
-            android:fillColor="#B0020409" />
+            android:fillColor="#B3020409" />
 
-        <!-- 3D Cast Shadow on Right Loop under Hero Foreground Fold -->
-        <path
-            android:pathData="M 312 194 L 404 218 C 401 242, 391 264, 375 282 L 298 232 Z"
-            android:fillColor="#94020409" />
-
-        <!-- Plane 3: Hero Foreground 3D Folded Ribbon (Netflix-Style Vivid Crimson #ff0033 -> #e11d48) -->
+        <!-- 4. Upper-Right Hero Folded Ribbon of "P" (Crimson Red Gradient) -->
         <path
             android:pathData="M 128 92 C 128 81, 136 74, 147 74 H 242 C 344 74, 404 126, 404 202 C 404 214, 402 226, 397 238 L 308 198 C 312 191, 314 183, 314 174 C 314 149, 284 134, 232 134 H 206 L 128 168 Z">
             <aapt:attr name="android:fillColor">
@@ -69,36 +63,23 @@
                     android:endY="238"
                     android:type="linear">
                     <item android:offset="0.0" android:color="#FFFF335C" />
-                    <item android:offset="0.35" android:color="#FFFF0033" />
+                    <item android:offset="0.38" android:color="#FFFF0033" />
                     <item android:offset="0.72" android:color="#FFE11D48" />
                     <item android:offset="1.0" android:color="#FF9F1239" />
                 </gradient>
             </aapt:attr>
         </path>
 
-        <!-- Plane 4: Signature Pulse Energy Wave in Lower-Right Counter -->
+        <!-- 5. Heartbeat Wave / Onde Cardiaque -->
         <path
             android:pathData="M 248 386 H 284 L 302 346 L 326 420 L 348 366 L 362 386 H 398"
-            android:strokeWidth="15"
+            android:strokeWidth="14"
+            android:strokeColor="#FFE11D48"
             android:strokeLineCap="round"
-            android:strokeLineJoin="round">
-            <aapt:attr name="android:strokeColor">
-                <gradient
-                    android:startX="248"
-                    android:startY="386"
-                    android:endX="398"
-                    android:endY="386"
-                    android:type="linear">
-                    <item android:offset="0.0" android:color="#FF38BDF8" />
-                    <item android:offset="0.35" android:color="#FF0055FF" />
-                    <item android:offset="0.70" android:color="#FFEC4899" />
-                    <item android:offset="1.0" android:color="#FFFF0033" />
-                </gradient>
-            </aapt:attr>
-        </path>
+            android:strokeLineJoin="round" />
         <path
             android:pathData="M 248 386 H 284 L 302 346 L 326 420 L 348 366 L 362 386 H 398"
-            android:strokeWidth="4.5"
+            android:strokeWidth="4"
             android:strokeColor="#FFFFFFFF"
             android:strokeLineCap="round"
             android:strokeLineJoin="round" />

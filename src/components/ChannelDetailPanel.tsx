@@ -28,6 +28,7 @@ import {
   getActiveBouquetBadgeForChannel,
   getSingleSatelliteBadgeForChannel,
 } from '../services/storageService';
+import { lookupTransponderSync } from '../services/satelliteCatalogService';
 import {
   calculateProgress,
   formatDayLabel,
@@ -35,6 +36,7 @@ import {
   formatRemainingTime,
   formatTimeShort,
   getCasablancaHourNumber,
+  toStandardDigits,
 } from '../utils/timeFormat';
 import { enrichProgrammeMetadata } from '../services/metadataEnricher';
 import {
@@ -130,6 +132,11 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
     initialSelectedProgramme
   );
 
+  const tpInfo = useMemo(
+    () => lookupTransponderSync(channel.displayName),
+    [channel.displayName]
+  );
+
   // Déblocage instantané du jour cliqué dès que l'utilisateur passe en mode Connecté + Premium (is_premium: true)
   useEffect(() => {
     if (isExtendedEpgUnlocked && pendingLockedOffset !== null) {
@@ -203,12 +210,12 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
       const formattedDate = formatDayLabel(startOfDay, activeLang);
       const label =
         offset === -1
-          ? `Catch-up · ${tr.yesterday}`
+          ? (activeLang === 'ar' ? `إعادة العرض · ${tr.yesterday}` : `Catch-up · ${tr.yesterday}`)
           : offset === 0
-          ? `${tr.today} (24h)`
+          ? (activeLang === 'ar' ? `${tr.today} (24 سا)` : `${tr.today} (24h)`)
           : offset === 1
-          ? `J+1 · ${tr.tomorrow}`
-          : `J+${offset} · ${formattedDate}`;
+          ? (activeLang === 'ar' ? `غداً · +1` : `J+1 · ${tr.tomorrow}`)
+          : (activeLang === 'ar' ? `+${toStandardDigits(offset)} · ${formattedDate}` : `J+${offset} · ${formattedDate}`);
 
       const count = expandedProgrammes.filter(
         (p) => p.stopMs > startOfDay && p.startMs < endOfDay
@@ -343,20 +350,20 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
     <div
       dir={langOpt.dir}
       data-tv-modal-overlay="true"
-      className="fixed inset-0 z-[2000] flex items-end sm:items-center justify-center bg-[#0a0e17]/90 backdrop-blur-md p-2 sm:p-4 animate-fadeIn"
+      className="fixed inset-0 z-[2000] flex items-end sm:items-center justify-center bg-[#0a0e17]/90 backdrop-blur-md p-0 sm:p-4 animate-fadeIn"
       onClick={onClose}
     >
-      {/* Conteneur principal du modal avec défilement vertical garanti sur mobile & navigation D-Pad TV */}
+      {/* Conteneur principal du modal / Sheet : pleine largeur sur mobile avec coins arrondis supérieurs */}
       <div
         data-tv-modal="true"
         data-tv-modal-scroll="true"
-        className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-[#141a26] border border-[#1a202c] rounded-xl shadow-2xl"
+        className="relative w-full sm:max-w-2xl max-h-[92vh] sm:max-h-[90vh] overflow-y-auto bg-[#0d121f] border-t sm:border border-[#1a202c] rounded-t-2xl sm:rounded-xl shadow-2xl flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* En-tête simplifié et collant : Nom de chaîne + Actions (Bouton X Fermer toujours visible) */}
+        {/* En-tête simplifié et collant : Nom de chaîne + Badges + Actions (Bouton X Fermer unique) */}
         <div
           data-tv-modal-zone="header"
-          className="sticky top-0 z-30 px-4 py-3 bg-[#0b0f19] border-b border-[#1a202c] flex items-center justify-between gap-3"
+          className="sticky top-0 z-30 px-4 py-3 bg-[#0b0f19] border-b border-[#1a202c] flex items-center justify-between gap-3 shrink-0"
         >
           <div className="flex items-center gap-3 min-w-0">
             <div className="channel-logo-container w-10 h-10 rounded-lg bg-[#f8fafc] border border-[#e2e8f0]/85 flex items-center justify-center p-1 shrink-0 shadow-sm overflow-hidden">
@@ -433,6 +440,24 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                     )}
                   </span>
                 )}
+                {tpInfo?.frequency && (
+                  <span className="text-[10px] font-mono font-medium px-1.5 py-0.5 rounded bg-[#0b101b] text-[#38bdf8] border border-[#38bdf8]/40">
+                    📡 {tpInfo.frequency} {tpInfo.polarization} {tpInfo.symbolRate}
+                  </span>
+                )}
+                {tpInfo && (
+                  <span
+                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                      tpInfo.isEncrypted
+                        ? 'bg-[#334155]/30 text-[#94a3b8] border border-[#475569]/40'
+                        : 'bg-[#0055ff]/20 text-[#38bdf8] border border-[#0055ff]/50'
+                    }`}
+                  >
+                    {tpInfo.isEncrypted
+                      ? (activeLang === 'ar' ? 'مشفر' : activeLang === 'en' ? 'Pay TV' : 'Crypté')
+                      : (activeLang === 'ar' ? 'مفتوح (FTA)' : activeLang === 'en' ? 'Free (FTA)' : 'En clair (FTA)')}
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -467,12 +492,12 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
           </div>
         </div>
 
-        {/* Corps de la fiche programme */}
+        {/* Corps de la fiche programme (Épuré, sans double conteneur imbriqué ni marge morte superflue) */}
         <div className="p-4 sm:p-5 space-y-4">
           {displayProg && displayMetadata && (
-            <div className="rounded-lg bg-[#0a0e17] border border-[#1a202c] p-3.5 sm:p-4">
-              {/* En-tête épuré : Horaires/Progression + Badge 1 Satellite + Badge 2 Bouquet nettoyé + Bouton Rappel & Fermer (X) */}
-              <div className="flex items-center justify-between gap-2 flex-wrap mb-4">
+            <div className="space-y-3.5 pb-4 border-b border-[#1a202c]">
+              {/* Horaires/Progression + Bouton Rappel */}
+              <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-2 flex-wrap">
                   {isLiveActiveProg ? (
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[11px] font-extrabold uppercase tracking-wider bg-[#e11d48] text-[#ffffff] border border-[#ff0033] shadow-[0_0_12px_rgba(225,29,72,0.5)]">
@@ -488,40 +513,10 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                       {formatTimeShort(displayProg.stopMs)} (
                       {formatDurationMinutes(
                         displayProg.startMs,
-                        displayProg.stopMs
+                        displayProg.stopMs,
+                        activeLang
                       )}
                       )
-                    </span>
-                  )}
-
-                  {/* Badge 1 : Nom du Satellite uniquement (ex: "ASTRA 19.2°E") */}
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50 uppercase tracking-wider">
-                    {getSingleSatelliteBadgeForChannel(
-                      channel,
-                      activeSatellite,
-                      selectedBouquets
-                    )}
-                  </span>
-
-                  {/* Badge 2 : Nom du Bouquet nettoyé uniquement (ex: "Canal+ France") */}
-                  {getActiveBouquetBadgeForChannel(
-                    channel,
-                    activeSatellite,
-                    activeBouquet
-                  ) && (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-[#ec4899]/20 text-[#ffffff] border border-[#ec4899]/60">
-                      {cleanBouquetName(
-                        getActiveBouquetBadgeForChannel(
-                          channel,
-                          activeSatellite,
-                          activeBouquet
-                        ) || '',
-                        getSingleSatelliteBadgeForChannel(
-                          channel,
-                          activeSatellite,
-                          selectedBouquets
-                        )
-                      )}
                     </span>
                   )}
 
@@ -563,17 +558,6 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                       )}
                     </button>
                   )}
-
-                  <button
-                    type="button"
-                    data-tv-focusable="true"
-                    onClick={onClose}
-                    aria-label={tr.close}
-                    title={tr.close}
-                    className="tv-focusable inline-flex items-center justify-center w-8 h-8 rounded-lg bg-[#141a26] border border-[#334155] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#e11d48] transition-colors cursor-pointer shrink-0"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
                 </div>
               </div>
 
@@ -767,7 +751,7 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                       isSelected
                         ? 'bg-[#e11d48] border-[1.5px] border-[#ff0033] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(225,29,72,0.45)]'
                         : tab.isLocked
-                        ? 'bg-[#141a26]/80 border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#f59e0b]/70 font-medium'
+                        ? 'bg-[#141a26]/80 border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60 font-medium'
                         : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60 font-medium'
                     }`}
                   >
@@ -787,7 +771,7 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                             : 'bg-[#0a0e17] text-[#cbd5e1]'
                         }`}
                       >
-                        {tab.count}
+                        {toStandardDigits(tab.count)}
                       </span>
                     )}
                   </button>
@@ -986,7 +970,7 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
 
                       <div className="flex items-center gap-1.5 shrink-0">
                         <span className="text-[11px] font-mono text-[#cbd5e1]">
-                          {formatDurationMinutes(prog.startMs, prog.stopMs)}
+                          {formatDurationMinutes(prog.startMs, prog.stopMs, activeLang)}
                         </span>
                         {prog.stopMs > nowMs && (
                           <button

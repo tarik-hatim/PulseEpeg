@@ -24,10 +24,13 @@ import {
   getActiveBouquetBadgeForChannel,
   getSingleSatelliteBadgeForChannel,
 } from '../services/storageService';
+import { lookupTransponderSync } from '../services/satelliteCatalogService';
+import { isFreeChannel } from '../utils/sportsEngine';
 import {
   calculateProgress,
   formatRemainingTime,
   formatTimeShort,
+  toStandardDigits,
 } from '../utils/timeFormat';
 import {
   formatSeasonEpisodeCode,
@@ -47,6 +50,7 @@ import {
   cleanBouquetName,
   getActiveLanguage,
   getTranslations,
+  translateChannelCountryFilter,
   translateDynamicGenre,
 } from '../utils/i18n';
 
@@ -461,6 +465,39 @@ const ChannelRowCardInner: React.FC<ChannelRowCardProps> = ({
 
   const isRtl = activeLang === 'ar';
 
+  const tpInfo = React.useMemo(
+    () => lookupTransponderSync(channel.displayName),
+    [channel.displayName]
+  );
+  const isFree = isFreeChannel(channel.displayName, tpInfo?.isEncrypted ?? false);
+
+  const satBadges = React.useMemo(() => {
+    const list: string[] = [];
+    if (channel.orbitalPosition) {
+      list.push(channel.orbitalPosition);
+    }
+    if (channel.satellites && channel.satellites.length > 0) {
+      for (const s of channel.satellites) {
+        if (s && !list.includes(s)) {
+          list.push(s);
+        }
+      }
+    }
+    if (list.length === 0 && singleSatBadge) {
+      list.push(singleSatBadge);
+    }
+    return list.slice(0, 2);
+  }, [channel.orbitalPosition, channel.satellites, singleSatBadge]);
+
+  const initials = React.useMemo(() => {
+    return (
+      channel.displayName
+        .replace(/[^a-zA-Z0-9]/g, '')
+        .slice(0, 3)
+        .toUpperCase() || 'TV'
+    );
+  }, [channel.displayName]);
+
   return (
     <div
       ref={measureRef}
@@ -484,377 +521,207 @@ const ChannelRowCardInner: React.FC<ChannelRowCardProps> = ({
           onSelectChannel(channel, currentProgramme);
         }
       }}
-      className={`tv-card-focusable group relative rounded-lg border cursor-pointer transition-all ${
+      className={`tv-card-focusable group relative rounded-2xl border cursor-pointer transition-all p-3.5 sm:p-4 space-y-3 ${
         isSelected
-          ? 'selected-program bg-[#1a202c] border-2 border-[#ec4899] shadow-[0_0_15px_rgba(236,72,153,0.4)]'
-          : `bg-[#141a26] border-[#1a202c] ${accent.border} hover:bg-[#1a202c]`
+          ? 'selected-program bg-[#0f172a] border-2 border-[#f59e0b] shadow-[0_0_20px_rgba(245,158,11,0.25)]'
+          : 'bg-[#0c121e] border-[#1a2333] hover:border-[#2a364f] hover:bg-[#0e1626]'
       }`}
     >
-      <div className="p-3.5 sm:p-4 2xl:p-5 flex flex-col lg:flex-row lg:items-center gap-3.5 sm:gap-4 2xl:gap-6">
-        {/* Identité Chaîne Satellite */}
-        <div className="flex items-center justify-between lg:w-72 2xl:w-80 shrink-0 gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="channel-logo-container relative w-12 h-12 2xl:w-14 2xl:h-14 rounded-lg bg-[#f8fafc] border border-[#e2e8f0]/85 flex items-center justify-center p-1 shrink-0 shadow-sm overflow-hidden">
-              {secureChannelLogoUrl ? (
-                <img
-                  src={secureChannelLogoUrl}
-                  alt={channel.displayName}
-                  className="channel-logo-img w-full h-full object-contain"
-                  decoding="async"
-                  onLoad={(e) => {
-                    const loadedSrc =
-                      e.currentTarget.currentSrc || e.currentTarget.src;
-                    if (loadedSrc) {
-                      setCachedChannelLogo(channelLogoCacheKey, loadedSrc);
-                      if (loadedSrc.startsWith('https://')) {
-                        upgradeRemoteLogoToLocalStorageDataUri(
-                          channelLogoCacheKey,
-                          loadedSrc
-                        );
-                      }
+      {/* 1. En-tête de la carte : Logo cercle + Nom de chaîne + Badges SAT/Audio/Clair + Bouton Favori */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <div className="w-12 h-12 rounded-full bg-[#111c2e] border border-[#1e293b] flex items-center justify-center shrink-0 overflow-hidden shadow-sm">
+            {secureChannelLogoUrl && !failedLogoUrlsMemory.has(secureChannelLogoUrl) ? (
+              <img
+                src={secureChannelLogoUrl}
+                alt={channel.displayName}
+                className="w-8 h-8 object-contain"
+                decoding="async"
+                onError={(e) => {
+                  if (secureChannelLogoUrl && !secureChannelLogoUrl.startsWith('data:image/')) {
+                    failedLogoUrlsMemory.add(secureChannelLogoUrl);
+                  }
+                  if (logoCandidateIdx < logoCandidates.length - 1) {
+                    setLogoCandidateIdx((prev) => prev + 1);
+                  } else {
+                    const fallbackUri = buildCleanFallbackLogoDataUri(
+                      channel.displayName,
+                      channel.id
+                    );
+                    setCachedChannelLogo(channelLogoCacheKey, fallbackUri);
+                    if (e.currentTarget.src !== fallbackUri) {
+                      e.currentTarget.src = fallbackUri;
                     }
-                  }}
-                  onError={(e) => {
-                    if (
-                      secureChannelLogoUrl &&
-                      !secureChannelLogoUrl.startsWith('data:image/')
-                    ) {
-                      failedLogoUrlsMemory.add(secureChannelLogoUrl);
-                    }
-                    if (logoCandidateIdx < logoCandidates.length - 1) {
-                      setLogoCandidateIdx((prev) => prev + 1);
-                    } else {
-                      const fallbackUri = buildCleanFallbackLogoDataUri(
-                        channel.displayName,
-                        channel.id
-                      );
-                      setCachedChannelLogo(channelLogoCacheKey, fallbackUri);
-                      if (e.currentTarget.src !== fallbackUri) {
-                        e.currentTarget.src = fallbackUri;
-                      }
-                    }
-                  }}
-                />
-              ) : (
-                <Tv className="w-5 h-5 text-[#475569]" />
-              )}
-              <span className="absolute -bottom-1 -right-1 text-[11px] leading-none">
-                {accent.flag}
+                  }
+                }}
+              />
+            ) : (
+              <span className="text-xs font-black text-[#38bdf8] tracking-wider">
+                {initials}
               </span>
-            </div>
-
-            <div className="min-w-0 ms-3">
-              <div className="flex items-center gap-2 min-w-0">
-                {typeof lcnNumber === 'number' && lcnNumber > 0 && (
-                  <span className="tv-lcn-badge hidden md:inline-flex items-center px-1.5 py-0.5 rounded bg-[#0a0e17] text-[#38bdf8] border border-[#334155] font-mono text-[11px] font-bold shrink-0">
-                    #{lcnNumber}
-                  </span>
-                )}
-                <h3 className="font-bold text-[#ffffff] text-sm sm:text-base 2xl:text-lg truncate">
-                  {cleanOfficialChannelName(channel.displayName)}
-                </h3>
-              </div>
-
-              <div className="flex items-center gap-1.5 flex-wrap mt-1">
-                {/* Badge 1 : Nom du Satellite uniquement (ex: "ASTRA 19.2°E") */}
-                <span
-                  className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border uppercase tracking-wider ${accent.badge}`}
-                >
-                  {singleSatBadge}
-                </span>
-                {/* Badge 2 : Nom du Bouquet nettoyé uniquement (ex: "Canal+ France") */}
-                {activeBouquetBadge && (
-                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#ec4899]/20 text-[#ffffff] border border-[#ec4899]/60">
-                    {activeBouquetBadge}
-                  </span>
-                )}
-              </div>
-
-              {/* Badges techniques Audio & Sous-titres désolidarisés du logo */}
-              <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                {channel.contentCategory === 'Sport / Football' ? (
-                  <>
-                    <span className="inline-flex items-center gap-1.5 text-[10px] font-medium px-2 py-0.5 rounded bg-[#1d4ed8]/15 text-[#ffffff] border border-[#0055ff]/45 shrink-0">
-                      <Volume2 className="w-3 h-3 text-[#60a5fa] shrink-0" />
-                      <span>{channel.audioTrackLabel || tr.badgeAudioStadium}</span>
-                    </span>
-                    <span className="inline-flex items-center gap-1.5 text-[10px] font-medium px-2 py-0.5 rounded bg-[#1d4ed8]/15 text-[#ffffff] border border-[#0055ff]/45 shrink-0">
-                      <span>⚽ {channel.subtitleTrackLabel || tr.badgeFootballLive}</span>
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <span className="inline-flex items-center gap-1.5 text-[10px] font-medium px-2 py-0.5 rounded bg-[#1d4ed8]/15 text-[#ffffff] border border-[#0055ff]/45 shrink-0">
-                      <Volume2 className="w-3 h-3 text-[#60a5fa] shrink-0" />
-                      <span>{channel.audioTrackLabel || tr.badgeVoEnglish}</span>
-                    </span>
-                    <span className="inline-flex items-center gap-1.5 text-[10px] font-medium px-2 py-0.5 rounded bg-[#1d4ed8]/15 text-[#ffffff] border border-[#0055ff]/45 shrink-0">
-                      <Subtitles className="w-3 h-3 text-[#60a5fa] shrink-0" />
-                      <span>{channel.subtitleTrackLabel || tr.badgeSubDvb}</span>
-                    </span>
-                  </>
-                )}
-              </div>
-            </div>
+            )}
           </div>
 
-          <button
-            type="button"
-            data-channel-fav="true"
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleFavorite(channel.id);
-            }}
-            className={`tv-focusable p-2 rounded-lg transition-all lg:hidden cursor-pointer ${
-              isFavorite
-                ? 'bg-[#e11d48] border-[1.5px] border-[#ff0033] text-[#ffffff] shadow-[0_0_12px_rgba(225,29,72,0.45)]'
-                : 'bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60'
-            }`}
-            aria-label={tr.favLabel}
-          >
-            <Heart className={`w-4 h-4 ${isFavorite ? 'fill-[#ffffff] text-[#ffffff]' : ''}`} />
-          </button>
-        </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 min-w-0">
+              <h3 className="font-bold text-white text-base sm:text-lg truncate leading-tight">
+                {cleanOfficialChannelName(channel.displayName)}
+              </h3>
+              {typeof lcnNumber === 'number' && lcnNumber > 0 && (
+                <span className="text-[10px] font-mono font-bold text-[#38bdf8] px-1.5 py-0.2 rounded bg-[#0a0e17] border border-[#1e293b] shrink-0">
+                  #{toStandardDigits(lcnNumber)}
+                </span>
+              )}
+            </div>
 
-        {/* Programme En Direct */}
-        <div className="flex-1 min-w-0 lg:ps-4 lg:border-s lg:border-[#1a202c]">
-          {currentProgramme ? (
-            <div>
-              <div className="flex items-center justify-between gap-2 text-xs">
-                <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                  {isActualLive ? (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider bg-[#e11d48] text-[#ffffff] border border-[#ff0033] shadow-[0_0_12px_rgba(225,29,72,0.5)]">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#ffffff] shadow-[0_0_8px_#ffffff] shrink-0 animate-pulse" />
-                      {tr.liveBadge}
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50">
-                      <Clock className="w-2.5 h-2.5 text-[#60a5fa]" />
-                      {tr.slotBadge}
-                    </span>
-                  )}
+            {/* Badges horizontaux en pilules : BADR 26.0°E, NILESAT 7.0°W, DE, Clair */}
+            <div className="flex items-center gap-1.5 flex-wrap mt-1">
+              {satBadges.map((sat, sIdx) => (
+                <span
+                  key={sIdx}
+                  className="px-2 py-0.5 rounded-full text-[10px] font-semibold border border-[#0055ff]/40 bg-[#0055ff]/10 text-[#38bdf8] uppercase tracking-wider shrink-0"
+                >
+                  {sat}
+                </span>
+              ))}
 
-                  <span className="text-[#cbd5e1] font-mono text-[11px] font-medium">
-                    {formatTimeShort(currentProgramme.startMs)} –{' '}
-                    {formatTimeShort(currentProgramme.stopMs)}
-                  </span>
-
-                  {formattedCurrentSE && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50 font-medium">
-                      {formattedCurrentSE}
-                    </span>
-                  )}
-
-                  {currentProgramme.date && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#1d4ed8]/15 text-[#cbd5e1] border border-[#0055ff]/40 font-medium">
-                      {currentProgramme.date}
-                    </span>
-                  )}
-
-                  {currentProgramme.category && (
-                    <span className="hidden sm:inline-block text-[10px] px-2 py-0.5 rounded bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50 truncate max-w-[140px]">
-                      {translateDynamicGenre(
-                        currentProgramme.category,
-                        activeLang
-                      )}
-                    </span>
-                  )}
-
-                  {hasCurrentReminder && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider bg-gradient-to-r from-[#0055ff] to-[#ec4899] text-[#ffffff] border border-[#ec4899]/80 shadow-[0_0_10px_rgba(236,72,153,0.4)]">
-                      <BellRing className="w-2.5 h-2.5 text-[#ffffff] animate-bounce" />
-                      {tr.reminderActive}
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-2 shrink-0">
-                  {isActualLive && (
-                    <span className="text-[11px] font-medium text-[#cbd5e1] shrink-0">
-                      {formatRemainingTime(
-                        currentProgramme.stopMs,
-                        nowMs,
-                        activeLang
-                      )}
-                    </span>
-                  )}
-                  {onToggleReminder && currentProgramme.startMs > Date.now() && (
-                    <button
-                      type="button"
-                      data-channel-reminder="true"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onToggleReminder(currentProgramme, channel);
-                      }}
-                      className={`tv-focusable inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold transition-all cursor-pointer ${
-                        hasCurrentReminder
-                          ? 'bg-gradient-to-r from-[#0055ff] to-[#ec4899] text-[#ffffff] border border-[#ec4899] shadow-[0_0_10px_rgba(236,72,153,0.45)]'
-                          : 'bg-[#0a0e17] border border-[#0055ff]/50 text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#ec4899]'
-                      }`}
-                      title={
-                        hasCurrentReminder ? tr.cancelReminder : tr.remindProgram
-                      }
-                    >
-                      {hasCurrentReminder ? (
-                        <BellRing className="w-3 h-3 text-[#ffffff]" />
-                      ) : (
-                        <Bell className="w-3 h-3 text-[#60a5fa]" />
-                      )}
-                      <span className="hidden xl:inline">
-                        {hasCurrentReminder ? tr.reminderActive : tr.reminderBtn}
-                      </span>
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              <div className="mt-1 flex items-baseline gap-2">
-                <h4 className="font-bold text-[#ffffff] text-sm sm:text-base 2xl:text-lg truncate">
-                  {activeLang === 'fr'
-                    ? translateEpgTextToFrenchSync(currentProgramme.title)
-                    : currentProgramme.title}
-                </h4>
-                {currentProgramme.subTitle && allowCurrentSE && (
-                  <span className="text-xs text-[#cbd5e1] truncate hidden md:inline">
-                    —{' '}
-                    {activeLang === 'fr'
-                      ? translateEpgTextToFrenchSync(currentProgramme.subTitle)
-                      : currentProgramme.subTitle}
-                  </span>
-                )}
-              </div>
-
-              {currentProgramme.description && (
-                <p className="text-xs 2xl:text-sm text-[#cbd5e1] line-clamp-1 mt-0.5">
-                  {currentProgramme.description}
-                </p>
+              {tpInfo && tpInfo.frequency && (
+                <span
+                  title={`Transpondeur Satellite : ${tpInfo.frequency} ${tpInfo.polarization} ${tpInfo.symbolRate}`}
+                  className="px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-[#1e293b]/80 border border-[#334155] text-[#38bdf8] shrink-0"
+                >
+                  {tpInfo.frequency} {tpInfo.polarization} {tpInfo.symbolRate ? `· ${tpInfo.symbolRate}` : ''}
+                </span>
               )}
 
-              {/* Barre de progression temporelle colorée En Direct (#ec4899 -> #8b5cf6 sur rail rgba(255,255,255,0.1)) */}
-              <div className="live-progress-rail mt-2.5 w-full overflow-hidden">
-                <div
-                  className="live-progress-fill h-full"
-                  style={{ width: `${isActualLive ? progress : 100}%` }}
-                />
-              </div>
+              {channel.audioTrackLabel ? (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#1e293b] text-[#94a3b8] flex items-center gap-1 shrink-0">
+                  <Volume2 className="w-2.5 h-2.5 text-[#60a5fa] shrink-0" />
+                  <span>{channel.audioTrackLabel}</span>
+                </span>
+              ) : channel.country ? (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#1e293b] text-[#94a3b8] flex items-center gap-1 shrink-0">
+                  <Volume2 className="w-2.5 h-2.5 text-[#60a5fa] shrink-0" />
+                  <span>{translateChannelCountryFilter(channel.country as any, activeLang)}</span>
+                </span>
+              ) : null}
+
+              {isFree ? (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#0055ff] text-white shrink-0">
+                  {activeLang === 'ar' ? 'مفتوح' : activeLang === 'en' ? 'Free' : 'Clair'}
+                </span>
+              ) : (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#1e293b] text-[#94a3b8] shrink-0">
+                  {activeLang === 'ar' ? 'مشفر' : activeLang === 'en' ? 'Pay TV' : 'Crypté'}
+                </span>
+              )}
             </div>
-          ) : (
-            <div className="py-2 text-xs text-[#cbd5e1] italic flex items-center gap-2">
-              <Clock className="w-3.5 h-3.5 text-[#cbd5e1]" />
-              {tr.noProgramCommunicated}
-            </div>
-          )}
+          </div>
         </div>
 
-        {/* Programme Suivant (À Venir) + Action Rappel Cloche & Badge Bleu/Rose */}
-        <div className="lg:w-72 2xl:w-80 shrink-0 lg:border-s lg:border-[#1a202c] lg:ps-4 flex items-center justify-between gap-2.5 pt-2 lg:pt-0 border-t border-[#1a202c] lg:border-t-0">
-          <div
-            className={`min-w-0 flex-1 rounded-lg p-1.5 -m-1.5 transition-all ${
-              hasNextReminder
-                ? 'bg-gradient-to-r from-[#0055ff]/15 to-[#ec4899]/15 border border-[#ec4899]/50'
-                : ''
-            }`}
-          >
-            <div className="flex items-center gap-1.5 text-[11px] text-[#cbd5e1] font-medium flex-wrap">
-              <span className="uppercase tracking-wider text-[10px] text-[#60a5fa] font-semibold">
-                {tr.upNext}
+        {/* Bouton Favori cœur ♡ dans un carré arrondi */}
+        <button
+          type="button"
+          data-channel-fav="true"
+          data-selected={isFavorite ? 'true' : undefined}
+          data-favorite={isFavorite ? 'true' : undefined}
+          aria-pressed={isFavorite}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleFavorite(channel.id);
+          }}
+          className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer shrink-0 active:scale-90 ${
+            isFavorite
+              ? 'bg-[#e11d48] text-white shadow-[0_0_12px_rgba(225,29,72,0.45)]'
+              : 'bg-[#141a26] border border-[#1e293b] text-[#94a3b8] hover:text-white hover:border-[#f59e0b]/50'
+          }`}
+          aria-label={tr.favLabel}
+        >
+          <Heart className={`w-4 h-4 ${isFavorite ? 'fill-current text-white' : ''}`} />
+        </button>
+      </div>
+
+      {/* 2. Programme En Direct */}
+      {currentProgramme ? (
+        <div className="space-y-1.5 pt-0.5">
+          {/* Ligne Timing : • DIRECT + 22:05 — 22:30 + 19 min restant */}
+          <div className="flex items-center justify-between text-xs">
+            <div className="flex items-center gap-2">
+              {isActualLive ? (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#ef4444] text-white text-[11px] font-bold tracking-wider shrink-0">
+                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse shrink-0" />
+                  {activeLang === 'ar' ? 'مباشر' : activeLang === 'en' ? 'LIVE' : 'DIRECT'}
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#1e293b] text-[#94a3b8] shrink-0">
+                  <Clock className="w-3 h-3 text-[#60a5fa]" />
+                  {activeLang === 'ar' ? 'مبرمج' : activeLang === 'en' ? 'Scheduled' : 'Programmé'}
+                </span>
+              )}
+
+              <span className="text-xs sm:text-sm font-semibold text-white font-mono">
+                {formatTimeShort(currentProgramme.startMs)} — {formatTimeShort(currentProgramme.stopMs)}
               </span>
-              {nextProgramme && (
-                <span className="font-mono text-[#cbd5e1]">
-                  {formatTimeShort(nextProgramme.startMs)}
-                </span>
-              )}
-              {hasNextReminder && (
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-extrabold uppercase tracking-wider bg-gradient-to-r from-[#0055ff] to-[#ec4899] text-[#ffffff] border border-[#ec4899]/80 shadow-[0_0_8px_rgba(236,72,153,0.4)]">
-                  <BellRing className="w-2.5 h-2.5 text-[#ffffff]" />
-                  {activeLang === 'fr' ? 'Rappel' : tr.reminderBtn}
+
+              {formattedCurrentSE && (
+                <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#1d4ed8]/20 text-[#38bdf8] border border-[#0055ff]/40 font-mono font-bold">
+                  {formattedCurrentSE}
                 </span>
               )}
             </div>
-            {nextProgramme ? (
-              <p className="text-xs sm:text-sm font-medium text-[#ffffff] truncate mt-0.5">
+
+            {isActualLive && (
+              <span className="text-xs text-[#94a3b8] font-medium shrink-0">
+                {formatRemainingTime(currentProgramme.stopMs, nowMs, activeLang)}
+              </span>
+            )}
+          </div>
+
+          {/* Titre du Programme — Large, blanc, lisible directement */}
+          <h4 className="text-base sm:text-lg font-bold text-white leading-snug line-clamp-2">
+            {activeLang === 'fr'
+              ? translateEpgTextToFrenchSync(currentProgramme.title)
+              : currentProgramme.title}
+          </h4>
+
+          {/* Description complète du Programme — 3 à 4 lignes lisibles directement à l'écran */}
+          {currentProgramme.description && (
+            <p className="text-xs sm:text-sm text-[#94a3b8] leading-relaxed line-clamp-3 sm:line-clamp-4">
+              {currentProgramme.description}
+            </p>
+          )}
+
+          {/* Barre de progression fine et nette En Direct */}
+          <div className="w-full h-1.5 rounded-full bg-[#1e293b] overflow-hidden mt-2">
+            <div
+              className="h-full bg-gradient-to-r from-[#e11d48] via-[#ec4899] to-[#0055ff] rounded-full transition-all duration-300"
+              style={{ width: `${isActualLive ? progress : 100}%` }}
+            />
+          </div>
+
+          {/* Ensuite (Programme Suivant) — Directement sous la barre */}
+          {nextProgramme && (
+            <div className="text-xs text-[#64748b] truncate pt-1 flex items-center gap-1.5">
+              <span className="text-[#94a3b8] font-medium shrink-0">
+                {activeLang === 'ar' ? 'التالي:' : activeLang === 'en' ? 'Next:' : 'Ensuite:'}
+              </span>
+              <span className="font-mono text-[#cbd5e1] shrink-0">
+                {formatTimeShort(nextProgramme.startMs)}
+              </span>
+              <span className="text-[#cbd5e1] truncate">
                 {activeLang === 'fr'
                   ? translateEpgTextToFrenchSync(nextProgramme.title)
                   : nextProgramme.title}
-              </p>
-            ) : (
-              <p className="text-xs text-[#cbd5e1] italic mt-0.5">
-                {tr.unspecified}
-              </p>
-            )}
-          </div>
-
-          <div className="flex items-center gap-1.5 shrink-0">
-            {nextProgramme && onToggleReminder && (
-              <button
-                type="button"
-                data-channel-reminder="true"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onToggleReminder(nextProgramme, channel);
-                }}
-                onKeyDown={(e) => {
-                  if (
-                    e.key === 'Enter' ||
-                    e.key === ' ' ||
-                    e.key === 'Select' ||
-                    e.keyCode === 23 ||
-                    e.keyCode === 66
-                  ) {
-                    e.stopPropagation();
-                    e.preventDefault();
-                    onToggleReminder(nextProgramme, channel);
-                  }
-                }}
-                className={`tv-focusable p-2 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
-                  hasNextReminder
-                    ? 'bg-gradient-to-r from-[#0055ff] to-[#ec4899] border-[1.5px] border-[#ec4899] text-[#ffffff] shadow-[0_0_12px_rgba(236,72,153,0.5)]'
-                    : 'bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#ec4899]/70'
-                }`}
-                title={
-                  hasNextReminder
-                    ? tr.cancelReminder
-                    : `${tr.remindProgram} : ${
-                        activeLang === 'fr'
-                          ? translateEpgTextToFrenchSync(nextProgramme.title)
-                          : nextProgramme.title
-                      }`
-                }
-                aria-label={
-                  hasNextReminder ? tr.cancelReminder : tr.remindProgram
-                }
-              >
-                {hasNextReminder ? (
-                  <BellRing className="w-4 h-4 text-[#ffffff]" />
-                ) : (
-                  <Bell className="w-4 h-4 text-[#60a5fa]" />
-                )}
-              </button>
-            )}
-
-            <button
-              type="button"
-              data-channel-fav="true"
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleFavorite(channel.id);
-              }}
-              className={`tv-focusable hidden lg:flex p-2 rounded-lg transition-all cursor-pointer ${
-                isFavorite
-                  ? 'bg-[#e11d48] border-[1.5px] border-[#ff0033] text-[#ffffff] shadow-[0_0_12px_rgba(225,29,72,0.45)]'
-                  : 'bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60'
-              }`}
-              title={isFavorite ? tr.removeFromFavorites : tr.addToFavorites}
-            >
-              <Heart className={`w-4 h-4 ${isFavorite ? 'fill-[#ffffff] text-[#ffffff]' : ''}`} />
-            </button>
-
-            <div className="p-2 rounded-lg bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1] group-hover:text-[#ffffff] group-hover:border-[#e11d48]/70 transition-colors">
-              <ChevronRight className="w-4 h-4 rtl:rotate-180" />
+              </span>
             </div>
-          </div>
+          )}
         </div>
-      </div>
+      ) : (
+        <div className="py-3 text-xs text-[#94a3b8] italic flex items-center gap-2">
+          <Clock className="w-4 h-4 text-[#64748b]" />
+          <span>{tr.noProgramCommunicated}</span>
+        </div>
+      )}
     </div>
   );
 };

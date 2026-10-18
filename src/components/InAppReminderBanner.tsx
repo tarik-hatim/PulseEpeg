@@ -16,7 +16,7 @@ import {
 } from '../utils/channelLogoResolver';
 import { cleanOfficialChannelName, ensureHttpsUrl } from '../utils/xmltvParser';
 import { translateEpgTextToFrenchSync } from '../utils/metadataResolverCore';
-import { getLanguageOption, t } from '../utils/i18n';
+import { getLanguageOption, t, toStandardDigits } from '../utils/i18n';
 import { playInAppNotificationSound } from '../services/nativeNotificationsService';
 
 interface InAppReminderBannerProps {
@@ -235,7 +235,7 @@ export const InAppReminderBanner: React.FC<InAppReminderBannerProps> = ({
                 dir="ltr"
                 className="px-1.5 py-0.2 rounded-full bg-[#1d4ed8]/40 border border-[#3b82f6] text-[10px] font-mono font-bold text-[#ffffff] shrink-0"
               >
-                +{activeAlerts.length - 1}
+                +{toStandardDigits(activeAlerts.length - 1)}
               </span>
             )}
           </div>

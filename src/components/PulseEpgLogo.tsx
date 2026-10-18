@@ -269,7 +269,7 @@ export const LauncherIconsPreviewCard: React.FC<{ language: AppLanguage }> = ({
     terminalSpecs.find((t) => t.id === activeTerminal) || terminalSpecs[0];
 
   return (
-    <div className="p-3.5 rounded-xl bg-[#0a0e17] border border-[#1a202c] space-y-3">
+    <div className="p-3 sm:p-3.5 rounded-lg bg-[#141a26] border border-[#1a202c] hover:border-[#e11d48]/40 transition-all space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h4 className="text-xs font-bold text-[#ffffff] flex items-center gap-2">
@@ -305,13 +305,13 @@ export const LauncherIconsPreviewCard: React.FC<{ language: AppLanguage }> = ({
               onClick={() => setActiveTerminal(spec.id)}
               className={`flex items-center gap-2 px-2.5 py-2 rounded-lg border text-left transition-all cursor-pointer ${
                 isActive
-                  ? 'bg-[#e11d48]/20 border-[#e11d48] text-[#ffffff] shadow-[0_0_12px_rgba(225,29,72,0.25)]'
-                  : 'bg-[#141a26] border-[#1a202c] text-[#cbd5e1] hover:border-[#0055ff]/50'
+                  ? 'bg-[#1a202c] border-2 border-[#0055ff] text-[#ffffff] shadow-[0_0_10px_rgba(0,85,255,0.35)]'
+                  : 'bg-[#0a0e17] border-[#1a202c] text-[#cbd5e1] hover:border-[#e11d48]/70'
               }`}
             >
               <IconComp
                 className={`w-4 h-4 shrink-0 ${
-                  isActive ? 'text-[#e11d48]' : 'text-[#94a3b8]'
+                  isActive ? 'text-[#38bdf8]' : 'text-[#94a3b8]'
                 }`}
               />
               <span className="text-xs font-semibold truncate">{spec.label}</span>
@@ -321,7 +321,7 @@ export const LauncherIconsPreviewCard: React.FC<{ language: AppLanguage }> = ({
       </div>
 
       {/* Live Visual Preview of Selected Terminal Format */}
-      <div className="flex flex-col sm:flex-row items-center gap-4 p-3 rounded-lg bg-[#141a26]/90 border border-[#1e293b]">
+      <div className="flex flex-col sm:flex-row items-center gap-4 p-3 rounded-lg bg-[#0a0e17] border border-[#1a202c]">
         <div className="flex items-center justify-center shrink-0">
           {activeTerminal === 'smartphone' && (
             <div className="flex items-center gap-3">

@@ -46,6 +46,7 @@ import {
   getCasablancaTimestampForHour,
   parseDateInputWithCurrentTime,
   parseTimeInputWithCurrentDate,
+  toStandardDigits,
 } from '../utils/timeFormat';
 import {
   formatSeasonEpisodeCode,
@@ -302,7 +303,7 @@ const GridChannelRowInner: React.FC<GridChannelRowProps> = ({
           <div className="min-w-0">
             <div className="flex items-center gap-1 min-w-0">
               <span className="tv-lcn-badge hidden md:inline-flex items-center px-1 py-0.2 rounded bg-[#141a26] text-[#38bdf8] border border-[#334155] font-mono text-[9px] font-bold shrink-0">
-                #{lcn}
+                #{toStandardDigits(lcn)}
               </span>
               <span className="text-[10px] shrink-0">{flag}</span>
               <p className="text-xs font-bold text-[#ffffff] truncate">
@@ -631,14 +632,18 @@ const TimeGridViewInner: React.FC<TimeGridViewProps> = ({
 
       let badgeLabel = '';
       if (isCatchUp) {
-        badgeLabel = 'Catch-up';
+        badgeLabel = activeLang === 'ar' ? 'إعادة العرض' : 'Catch-up';
       } else if (isToday) {
         badgeLabel =
-          activeLang === 'fr' ? "Aujourd'hui (24h)" : `${tr.today} (24h)`;
+          activeLang === 'ar'
+            ? 'اليوم (24 سا)'
+            : activeLang === 'fr'
+            ? "Aujourd'hui (24h)"
+            : `${tr.today} (24h)`;
       } else if (offset === 1) {
-        badgeLabel = `J+1 · ${tr.tomorrow}`;
+        badgeLabel = activeLang === 'ar' ? `غداً · +1` : `J+1 · ${tr.tomorrow}`;
       } else {
-        badgeLabel = `J+${offset} · ${shortDateLabel}`;
+        badgeLabel = activeLang === 'ar' ? `+${toStandardDigits(offset)} · ${shortDateLabel}` : `J+${offset} · ${shortDateLabel}`;
       }
 
       const isActive = isCatchUp
@@ -1518,7 +1523,9 @@ const TimeGridViewInner: React.FC<TimeGridViewProps> = ({
           <div className="flex items-center gap-2 text-xs font-bold text-[#ffffff]">
             <Calendar className="w-4 h-4 text-[#0055ff] shrink-0" />
             <span>
-              {activeLang === 'fr'
+              {activeLang === 'ar'
+                ? 'دليل EPG لمدة 7 أيام مع الإعادة / Catch-up'
+                : activeLang === 'fr'
                 ? 'Guide EPG 7 Jours & Catch-up / Replay'
                 : '7-Day EPG Guide & Catch-up / Replay'}
             </span>
@@ -1526,14 +1533,18 @@ const TimeGridViewInner: React.FC<TimeGridViewProps> = ({
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-extrabold bg-gradient-to-r from-[#f59e0b] to-[#ec4899] text-[#ffffff]">
                 <Crown className="w-3 h-3 text-[#fde047]" />
                 <span>
-                  {activeLang === 'fr'
+                  {activeLang === 'ar'
+                    ? '7 أيام + إعادة المشاهدة مفعلة (Pro 👑)'
+                    : activeLang === 'fr'
                     ? '7 Jours + Replay Débloqués (Pro 👑)'
                     : '7 Days + Replay Unlocked (Pro 👑)'}
                 </span>
               </span>
             ) : (
               <span className="text-[11px] font-medium text-[#cbd5e1]">
-                {activeLang === 'fr'
+                {activeLang === 'ar'
+                  ? '· وضع مجاني / زائر: اليوم الحالي (24 ساعة) متاح'
+                  : activeLang === 'fr'
                   ? '· Mode Invité / Gratuit : Journée en cours (24h) accessible'
                   : '· Guest / Free Mode: Current day (24h) accessible'}
               </span>
@@ -1544,7 +1555,9 @@ const TimeGridViewInner: React.FC<TimeGridViewProps> = ({
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-[#ec4899]/20 border border-[#ec4899] text-[11px] font-extrabold text-[#ffffff]">
               <RotateCcw className="w-3 h-3 text-[#ec4899]" />
               <span>
-                {activeLang === 'fr'
+                {activeLang === 'ar'
+                  ? 'وضع الإعادة / Catch-up نشط'
+                  : activeLang === 'fr'
                   ? 'Mode Replay / Catch-up Actif'
                   : 'Replay / Catch-up Mode Active'}
               </span>
@@ -1578,7 +1591,9 @@ const TimeGridViewInner: React.FC<TimeGridViewProps> = ({
               }}
               title={
                 item.isLocked
-                  ? activeLang === 'fr'
+                  ? activeLang === 'ar'
+                    ? `${item.badgeLabel} 🔒 — افتح دليل EPG لمدة 7 أيام والإعادة مع PulseEPG Pro`
+                    : activeLang === 'fr'
                     ? `${item.badgeLabel} 🔒 — Débloquez le Guide EPG 7 jours et le Catch-up avec PulseEPG Pro`
                     : `${item.badgeLabel} 🔒 — Unlock 7-day EPG & Catch-up with PulseEPG Pro`
                   : item.badgeLabel
@@ -1589,7 +1604,7 @@ const TimeGridViewInner: React.FC<TimeGridViewProps> = ({
                     ? 'bg-gradient-to-r from-[#ec4899] to-[#8b5cf6] border-[1.5px] border-[#ec4899] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(236,72,153,0.45)]'
                     : 'bg-[#e11d48] border-[1.5px] border-[#ff0033] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(225,29,72,0.45)]'
                   : item.isLocked
-                  ? 'bg-[#0a0e17]/90 border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#f59e0b]/70 font-medium'
+                  ? 'bg-[#0a0e17]/90 border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60 font-medium'
                   : 'bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60 font-medium'
               }`}
             >
@@ -1599,7 +1614,7 @@ const TimeGridViewInner: React.FC<TimeGridViewProps> = ({
               <span>{item.badgeLabel}</span>
               {item.isLocked && (
                 <span
-                  aria-label="Verrouillé PulseEPG Pro"
+                  aria-label={activeLang === 'ar' ? 'مقفل PulseEPG Pro' : 'Verrouillé PulseEPG Pro'}
                   className="text-[11px] leading-none shrink-0"
                 >
                   🔒
@@ -1637,7 +1652,7 @@ const TimeGridViewInner: React.FC<TimeGridViewProps> = ({
 
           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#1d4ed8]/20 border border-[#0055ff]/50 text-[11px] font-medium text-[#ffffff]">
             <Volume2 className="w-3 h-3 text-[#60a5fa]" />
-            {gridVisibleChannels.length} {tr.activeChannelsOnGrid}
+            {toStandardDigits(gridVisibleChannels.length)} {tr.activeChannelsOnGrid}
           </span>
         </div>
 
@@ -1651,7 +1666,7 @@ const TimeGridViewInner: React.FC<TimeGridViewProps> = ({
             value={formatDateInputValue(windowStartMs + 30 * 60000)}
             onChange={(e) => handleDateInputChange(e.target.value)}
             aria-label={
-              activeLang === 'fr' ? 'Sélecteur de date' : 'Date selector'
+              activeLang === 'ar' ? 'محدد التاريخ' : activeLang === 'fr' ? 'Sélecteur de date' : 'Date selector'
             }
             className="px-2.5 py-1.5 rounded-lg bg-[#0a0e17] border border-[#1a202c] text-xs font-mono text-[#ffffff] focus:outline-none focus:border-[#0055ff] transition-colors cursor-pointer shrink-0"
           />
@@ -1661,7 +1676,7 @@ const TimeGridViewInner: React.FC<TimeGridViewProps> = ({
             value={formatTimeInputValue(windowStartMs + 30 * 60000)}
             onChange={(e) => handleTimeInputChange(e.target.value)}
             aria-label={
-              activeLang === 'fr' ? "Sélecteur d'heure" : 'Time selector'
+              activeLang === 'ar' ? 'محدد الوقت' : activeLang === 'fr' ? "Sélecteur d'heure" : 'Time selector'
             }
             className="px-2.5 py-1.5 rounded-lg bg-[#0a0e17] border border-[#1a202c] text-xs font-mono text-[#ffffff] focus:outline-none focus:border-[#0055ff] transition-colors cursor-pointer shrink-0"
           />
