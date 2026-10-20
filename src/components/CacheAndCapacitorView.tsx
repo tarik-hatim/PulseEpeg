@@ -209,7 +209,7 @@ cd android && ./gradlew bundleRelease`;
       <div className={cardClass}>
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-2.5">
-            <Globe className="w-5 h-5 text-[#0055ff]" />
+            <Globe className="w-5 h-5 text-[#38bdf8]" />
             <div>
               <h2 className="text-lg font-bold tracking-tight text-[#ffffff]">
                 Sources EPG · Whitelist Films/Séries (VO + ST) & Sport / Football
@@ -247,7 +247,7 @@ cd android && ./gradlew bundleRelease`;
               type="button"
               disabled={isSyncing || enabledCount === 0}
               onClick={onForceRefresh}
-              className="min-h-[40px] px-4 py-1.5 rounded-xl bg-[#e11d48] hover:bg-[#ff0033] border border-[#ff0033] shadow-[0_0_12px_rgba(225,29,72,0.45)] disabled:opacity-50 text-[#ffffff] font-bold text-xs flex items-center gap-2 transition-colors whitespace-nowrap"
+              className="min-h-[40px] px-4 py-1.5 rounded-xl bg-[#2563eb] hover:bg-[#1d4ed8] border border-[#3b82f6] shadow-[0_0_12px_rgba(37,99,235,0.45)] disabled:opacity-50 text-[#ffffff] font-bold text-xs flex items-center gap-2 transition-colors whitespace-nowrap"
             >
               <RefreshCw
                 className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`}
@@ -288,7 +288,7 @@ cd android && ./gradlew bundleRelease`;
                     }
                     className={`min-h-[40px] min-w-[40px] rounded-xl font-mono text-xs font-bold flex items-center justify-center shrink-0 transition-colors ${
                       src.enabled
-                        ? 'bg-[#1d4ed8] text-[#ffffff] border border-[#0055ff]'
+                        ? 'bg-[#1d4ed8] text-[#ffffff] border border-[#2563eb]'
                         : isLight
                         ? 'bg-slate-200 text-slate-500'
                         : 'bg-[#141a26] text-[#cbd5e1] border border-[#1a202c]'
@@ -314,7 +314,7 @@ cd android && ./gradlew bundleRelease`;
                       {src.url}
                     </p>
                     {syncStat && (
-                      <p className="text-[11px] font-mono tabular-nums text-[#0055ff] mt-1">
+                      <p className="text-[11px] font-mono tabular-nums text-[#38bdf8] mt-1">
                         {syncStat.status === 'done'
                           ? `Whitelist VO+Sub : +${syncStat.channelsAdded} chaînes retenues (${
                               syncStat.channelsFilteredOut || 0
@@ -335,7 +335,7 @@ cd android && ./gradlew bundleRelease`;
                     onClick={() => handleToggleSource(src.id)}
                     className={`min-h-[38px] px-3 py-1 rounded-xl text-xs font-bold transition-colors ${
                       src.enabled
-                        ? 'bg-[#e11d48] text-[#ffffff] border border-[#ff0033]'
+                        ? 'bg-[#2563eb] text-[#ffffff] border border-[#3b82f6]'
                         : isLight
                         ? 'bg-slate-200 text-slate-600'
                         : 'bg-[#141a26] text-[#cbd5e1] border border-[#1a202c]'
@@ -372,7 +372,7 @@ cd android && ./gradlew bundleRelease`;
           }`}
         >
           <p className="text-xs font-semibold mb-3 flex items-center gap-1.5 text-[#ffffff]">
-            <Plus className="w-4 h-4 text-[#e11d48]" />
+            <Plus className="w-4 h-4 text-[#ec4899]" />
             <span>Ajouter une nouvelle URL EPG (.xml.gz ou .xml) à la liste</span>
           </p>
 
@@ -386,7 +386,7 @@ cd android && ./gradlew bundleRelease`;
                   )
                 }
                 aria-label="Pays de la source EPG"
-                className={`w-full min-h-[44px] px-3 py-2 rounded-xl text-xs font-semibold border focus:outline-none focus:border-[#0055ff] ${
+                className={`w-full min-h-[44px] px-3 py-2 rounded-xl text-xs font-semibold border focus:outline-none focus:border-[#2563eb] ${
                   isLight
                     ? 'bg-white border-slate-300 text-slate-900'
                     : 'bg-[#141a26] border-[#1a202c] text-[#ffffff]'
@@ -406,7 +406,7 @@ cd android && ./gradlew bundleRelease`;
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 placeholder="Nom (ex: Bouquet Sky IT)"
-                className={`w-full min-h-[44px] px-3.5 py-2 rounded-xl text-xs border focus:outline-none focus:border-[#0055ff] ${
+                className={`w-full min-h-[44px] px-3.5 py-2 rounded-xl text-xs border focus:outline-none focus:border-[#2563eb] ${
                   isLight
                     ? 'bg-white border-slate-300 text-slate-900'
                     : 'bg-[#141a26] border-[#1a202c] text-[#ffffff] placeholder-[#cbd5e1]/60'
@@ -421,7 +421,7 @@ cd android && ./gradlew bundleRelease`;
                 value={newUrl}
                 onChange={(e) => setNewUrl(e.target.value)}
                 placeholder="https://epgshare01.online/epgshare01/epg_ripper_..."
-                className={`w-full min-h-[44px] px-3.5 py-2 rounded-xl text-xs font-mono border focus:outline-none focus:border-[#0055ff] ${
+                className={`w-full min-h-[44px] px-3.5 py-2 rounded-xl text-xs font-mono border focus:outline-none focus:border-[#2563eb] ${
                   isLight
                     ? 'bg-white border-slate-300 text-slate-900'
                     : 'bg-[#141a26] border-[#1a202c] text-[#ffffff] placeholder-[#cbd5e1]/60'
@@ -432,7 +432,7 @@ cd android && ./gradlew bundleRelease`;
             <div className="md:col-span-2">
               <button
                 type="submit"
-                className="w-full min-h-[44px] px-4 py-2 rounded-xl bg-[#e11d48] hover:bg-[#ff0033] border border-[#ff0033] text-[#ffffff] font-bold text-xs flex items-center justify-center gap-1.5 shadow-[0_0_12px_rgba(225,29,72,0.45)] transition-colors whitespace-nowrap"
+                className="w-full min-h-[44px] px-4 py-2 rounded-xl bg-gradient-to-r from-[#ec4899] to-[#8b5cf6] hover:from-[#db2777] hover:to-[#7c3aed] border border-[#ec4899]/50 text-[#ffffff] font-bold text-xs flex items-center justify-center gap-1.5 shadow-[0_0_12px_rgba(236,72,153,0.35)] transition-colors whitespace-nowrap"
               >
                 <Plus className="w-4 h-4" />
                 <span>Ajouter</span>
@@ -461,10 +461,10 @@ cd android && ./gradlew bundleRelease`;
                     onClick={() => handleAddCatalogPreset(preset)}
                     className={`min-h-[34px] px-2.5 py-1 rounded-lg text-[11px] font-medium flex items-center gap-1.5 transition-colors ${
                       alreadyAdded
-                        ? 'bg-[#1d4ed8] text-[#ffffff] border border-[#0055ff] font-bold'
+                        ? 'bg-[#1d4ed8] text-[#ffffff] border border-[#2563eb] font-bold'
                         : isLight
                         ? 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
-                        : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60'
+                        : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#2563eb]/60'
                     }`}
                   >
                     {alreadyAdded ? (
@@ -492,12 +492,12 @@ cd android && ./gradlew bundleRelease`;
         <div className={cardClass}>
           <div className="flex items-center justify-between gap-3 mb-4">
             <div className="flex items-center gap-2.5">
-              <Database className="w-5 h-5 text-[#0055ff]" />
+              <Database className="w-5 h-5 text-[#38bdf8]" />
               <h2 className="text-lg font-bold tracking-tight text-[#ffffff]">
                 Stockage Local & Cache Fusionné
               </h2>
             </div>
-            <span className="text-xs font-mono tabular-nums text-[#0055ff]">
+            <span className="text-xs font-mono tabular-nums text-[#38bdf8]">
               IndexedDB + LocalStorage
             </span>
           </div>
@@ -528,7 +528,7 @@ cd android && ./gradlew bundleRelease`;
                 <span className={isLight ? 'text-slate-500' : 'text-[#cbd5e1]'}>
                   Chaînes Cinéma/Séries (VO + Sub) retenues
                 </span>
-                <span className="font-mono tabular-nums font-semibold text-[#0055ff]">
+                <span className="font-mono tabular-nums font-semibold text-[#38bdf8]">
                   {metadata.channelCount.toLocaleString('fr-FR')} chaînes
                 </span>
               </div>
@@ -539,7 +539,7 @@ cd android && ./gradlew bundleRelease`;
                   >
                     Chaînes FTA / Sport / Lektor PL éliminées
                   </span>
-                  <span className="font-mono tabular-nums font-semibold text-[#0055ff]">
+                  <span className="font-mono tabular-nums font-semibold text-[#38bdf8]">
                     {metadata.channelsExcludedCount.toLocaleString('fr-FR')}{' '}
                     écartées
                   </span>
@@ -549,7 +549,7 @@ cd android && ./gradlew bundleRelease`;
                 <span className={isLight ? 'text-slate-500' : 'text-[#cbd5e1]'}>
                   Total programmes en cache
                 </span>
-                <span className="font-mono tabular-nums font-semibold text-[#0055ff]">
+                <span className="font-mono tabular-nums font-semibold text-[#38bdf8]">
                   {metadata.programmeCount.toLocaleString('fr-FR')} émissions
                 </span>
               </div>
@@ -610,7 +610,7 @@ cd android && ./gradlew bundleRelease`;
                     }
                     className={`min-h-[40px] flex-1 rounded-xl text-xs font-mono tabular-nums font-medium transition-colors ${
                       settings.cacheTtlHours === h
-                        ? 'bg-[#e11d48] border border-[#ff0033] text-[#ffffff] font-bold shadow-[0_0_10px_rgba(225,29,72,0.35)]'
+                        ? 'bg-[#ec4899] border border-[#db2777] text-[#ffffff] font-bold shadow-[0_0_10px_rgba(236,72,153,0.35)]'
                         : isLight
                         ? 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                         : 'bg-[#0a0e17] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c]'
@@ -636,7 +636,7 @@ cd android && ./gradlew bundleRelease`;
                     }
                     className={`min-h-[40px] flex-1 rounded-xl text-xs font-mono tabular-nums font-medium transition-colors ${
                       settings.windowHours === w
-                        ? 'bg-[#e11d48] border border-[#ff0033] text-[#ffffff] font-bold shadow-[0_0_10px_rgba(225,29,72,0.35)]'
+                        ? 'bg-[#ec4899] border border-[#db2777] text-[#ffffff] font-bold shadow-[0_0_10px_rgba(236,72,153,0.35)]'
                         : isLight
                         ? 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                         : 'bg-[#0a0e17] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c]'
@@ -657,10 +657,10 @@ cd android && ./gradlew bundleRelease`;
               className={`min-h-[44px] px-4 py-2.5 rounded-xl text-xs font-medium flex items-center gap-2 transition-colors whitespace-nowrap disabled:opacity-40 ${
                 isLight
                   ? 'bg-red-50 text-red-700 hover:bg-red-100'
-                  : 'bg-[#e11d48]/15 text-[#ffffff] hover:bg-[#e11d48]/30 border border-[#e11d48]/50'
+                  : 'bg-[#ef4444]/15 text-[#ffffff] hover:bg-[#ef4444]/30 border border-[#ef4444]/50'
               }`}
             >
-              <Trash2 className="w-4 h-4 text-[#e11d48]" />
+              <Trash2 className="w-4 h-4 text-[#ef4444]" />
               <span>Purger le cache IndexedDB</span>
             </button>
           </div>
@@ -670,12 +670,12 @@ cd android && ./gradlew bundleRelease`;
         <div className={cardClass}>
           <div className="flex items-center justify-between gap-3 mb-4">
             <div className="flex items-center gap-2.5">
-              <Smartphone className="w-5 h-5 text-[#0055ff]" />
+              <Smartphone className="w-5 h-5 text-[#38bdf8]" />
               <h2 className="text-lg font-bold tracking-tight text-[#ffffff]">
                 Export Configuration Capacitor (.AAB Ready)
               </h2>
             </div>
-            <span className="text-xs font-mono tabular-nums text-[#0055ff]">
+            <span className="text-xs font-mono tabular-nums text-[#38bdf8]">
               com.pulseepg.tvguide
             </span>
           </div>
@@ -716,7 +716,7 @@ cd android && ./gradlew bundleRelease`;
               >
                 {copiedCmd ? (
                   <>
-                    <Check className="w-3.5 h-3.5 text-[#0055ff]" />
+                    <Check className="w-3.5 h-3.5 text-[#38bdf8]" />
                     <span>Copié</span>
                   </>
                 ) : (
@@ -745,7 +745,7 @@ cd android && ./gradlew bundleRelease`;
       <div className={cardClass}>
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-2.5">
-            <Scale className="w-5 h-5 text-[#0055ff]" />
+            <Scale className="w-5 h-5 text-[#38bdf8]" />
             <div>
               <h2 className="text-lg font-bold tracking-tight text-[#ffffff]">
                 Conformité & Légal · À propos de PulseEPG
@@ -761,7 +761,7 @@ cd android && ./gradlew bundleRelease`;
             </div>
           </div>
 
-          <span className="px-3 py-1 rounded-xl bg-[#1d4ed8] border border-[#0055ff] text-[#ffffff] font-mono text-xs font-bold">
+          <span className="px-3 py-1 rounded-xl bg-[#1d4ed8] border border-[#2563eb] text-[#ffffff] font-mono text-xs font-bold">
             Play Store Compliant
           </span>
         </div>
@@ -776,7 +776,7 @@ cd android && ./gradlew bundleRelease`;
             }`}
           >
             <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#ffffff]">
-              <ShieldCheck className="w-4 h-4 shrink-0 text-[#0055ff]" />
+              <ShieldCheck className="w-4 h-4 shrink-0 text-[#38bdf8]" />
               <span>Mentions Légales</span>
             </div>
             <p className="text-xs leading-relaxed font-medium text-[#cbd5e1]">
@@ -804,7 +804,7 @@ cd android && ./gradlew bundleRelease`;
                   href="https://www.themoviedb.org"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-xs font-semibold text-[#0055ff] hover:underline"
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-[#38bdf8] hover:underline"
                 >
                   <span>themoviedb.org</span>
                   <ExternalLink className="w-3.5 h-3.5" />
@@ -827,7 +827,7 @@ cd android && ./gradlew bundleRelease`;
           >
             <div className="space-y-1.5">
               <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#ffffff]">
-                <Lock className="w-4 h-4 shrink-0 text-[#0055ff]" />
+                <Lock className="w-4 h-4 shrink-0 text-[#38bdf8]" />
                 <span>Politique de confidentialité</span>
               </div>
               <p
@@ -843,7 +843,7 @@ cd android && ./gradlew bundleRelease`;
             <button
               type="button"
               onClick={() => setShowPrivacyModal((v) => !v)}
-              className="min-h-[40px] px-3.5 py-2 rounded-xl bg-[#e11d48] hover:bg-[#ff0033] border border-[#ff0033] text-[#ffffff] font-bold text-xs flex items-center justify-center gap-1.5 shadow-[0_0_12px_rgba(225,29,72,0.45)] transition-colors cursor-pointer"
+              className="min-h-[40px] px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#ec4899] to-[#8b5cf6] hover:from-[#db2777] hover:to-[#7c3aed] border border-[#ec4899]/50 text-[#ffffff] font-bold text-xs flex items-center justify-center gap-1.5 shadow-[0_0_12px_rgba(236,72,153,0.35)] transition-colors cursor-pointer"
             >
               <FileText className="w-3.5 h-3.5" />
               <span>

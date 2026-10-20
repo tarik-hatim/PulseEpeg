@@ -407,7 +407,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           className="shrink-0 px-3 sm:px-4 py-2.5 sm:py-3 bg-[#0a0e17] border-b border-[#1a202c] flex items-center justify-between gap-3"
         >
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-[#e11d48] border border-[#ff0033] flex items-center justify-center text-[#ffffff] shadow-[0_0_12px_rgba(225,29,72,0.45)] shrink-0">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-gradient-to-r from-[#ec4899] to-[#8b5cf6] border border-[#ec4899]/50 flex items-center justify-center text-[#ffffff] shadow-[0_0_12px_rgba(236,72,153,0.35)] shrink-0">
               <Filter className="w-4 h-4" />
             </div>
             <div className="min-w-0">
@@ -423,7 +423,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             type="button"
             data-tv-focusable="true"
             onClick={onClose}
-            className="tv-dpad-btn p-1.5 sm:p-2 rounded-lg bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#e11d48]/70 transition-colors cursor-pointer shrink-0"
+            className="tv-dpad-btn p-1.5 sm:p-2 rounded-lg bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#ec4899]/70 transition-colors cursor-pointer shrink-0"
             title={tr.close}
           >
             <X className="w-4 h-4" />
@@ -444,8 +444,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             onClick={() => setActiveTab('filters')}
             className={`tv-dpad-btn inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer shrink-0 active:scale-95 ${
               activeTab === 'filters'
-                ? 'bg-[#e11d48] border border-[#ff0033] text-[#ffffff] shadow-[0_0_12px_rgba(225,29,72,0.45)]'
-                : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60'
+                ? 'bg-gradient-to-r from-[#ec4899] to-[#8b5cf6] text-[#ffffff] shadow-[0_0_12px_rgba(236,72,153,0.35)]'
+                : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#2563eb]/60'
             }`}
           >
             <Satellite className="w-3.5 h-3.5" />
@@ -460,8 +460,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             onClick={() => setActiveTab('sources')}
             className={`tv-dpad-btn inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer shrink-0 active:scale-95 ${
               activeTab === 'sources'
-                ? 'bg-[#e11d48] border border-[#ff0033] text-[#ffffff] shadow-[0_0_12px_rgba(225,29,72,0.45)]'
-                : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60'
+                ? 'bg-gradient-to-r from-[#ec4899] to-[#8b5cf6] text-[#ffffff] shadow-[0_0_12px_rgba(236,72,153,0.35)]'
+                : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#2563eb]/60'
             }`}
           >
             <Database className="w-3.5 h-3.5" />
@@ -476,8 +476,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             onClick={() => setActiveTab('legal')}
             className={`tv-dpad-btn inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer shrink-0 active:scale-95 ${
               activeTab === 'legal'
-                ? 'bg-[#e11d48] border border-[#ff0033] text-[#ffffff] shadow-[0_0_12px_rgba(225,29,72,0.45)]'
-                : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60'
+                ? 'bg-gradient-to-r from-[#ec4899] to-[#8b5cf6] text-[#ffffff] shadow-[0_0_12px_rgba(236,72,153,0.35)]'
+                : 'bg-[#141a26] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#2563eb]/60'
             }`}
           >
             <Scale className="w-3.5 h-3.5" />
@@ -491,18 +491,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           className="px-2.5 sm:px-3.5 py-2.5 sm:py-3 pb-24 overflow-y-auto space-y-2.5 sm:space-y-3 flex-1 scroll-pb-24"
         >
           {/* Encadré 1 : Sélecteur de Langue International — Style ChannelRowCard */}
-          <div className="p-3 sm:p-3.5 rounded-lg bg-[#141a26] border border-[#1a202c] hover:border-[#e11d48]/40 transition-all space-y-2.5">
+          <div className="p-3 sm:p-3.5 rounded-lg bg-[#141a26] border border-[#1a202c] hover:border-[#ec4899]/40 transition-all space-y-2.5">
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <div className="space-y-0.5">
                 <h3 className="text-xs sm:text-sm font-bold text-[#ffffff] flex items-center gap-1.5">
-                  <Languages className="w-3.5 h-3.5 text-[#0055ff]" />
+                  <Languages className="w-3.5 h-3.5 text-[#38bdf8]" />
                   {tr.languageSectionTitle}
                 </h3>
                 <p className="text-[11px] text-[#94a3b8]">
                   {tr.languageSectionDesc}
                 </p>
               </div>
-              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded border uppercase tracking-wider bg-[#1d4ed8]/20 text-[#ffffff] border-[#0055ff]/50">
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded border uppercase tracking-wider bg-[#1d4ed8]/20 text-[#ffffff] border-[#2563eb]/50">
                 {langOpt.flag} {langOpt.label} · TMDB {langOpt.tmdbLocale}
               </span>
             </div>
@@ -521,8 +521,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     onClick={() => handleSelectLanguage(opt.code)}
                     className={`tv-dpad-btn flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer font-semibold border ${
                       isSelected
-                        ? 'bg-[#1a202c] border-2 border-[#0055ff] text-[#ffffff] shadow-[0_0_12px_rgba(0,85,255,0.35)]'
-                        : 'bg-[#141a26] border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:bg-[#1a202c] hover:border-[#e11d48]/70'
+                        ? 'bg-[#1a202c] border-2 border-[#2563eb] text-[#ffffff] shadow-[0_0_12px_rgba(37,99,235,0.35)]'
+                        : 'bg-[#141a26] border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:bg-[#1a202c] hover:border-[#ec4899]/70'
                     }`}
                   >
                     <span className="flex items-center gap-1.5 truncate">
@@ -539,11 +539,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {activeTab === 'filters' && (
             <>
               {/* Encadré 2 : Zone / Profil TV — Style ChannelRowCard */}
-              <div className="p-3 sm:p-3.5 rounded-lg bg-[#141a26] border border-[#1a202c] hover:border-[#e11d48]/40 transition-all space-y-2.5">
+              <div className="p-3 sm:p-3.5 rounded-lg bg-[#141a26] border border-[#1a202c] hover:border-[#ec4899]/40 transition-all space-y-2.5">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div className="space-y-0.5">
                     <h3 className="text-xs sm:text-sm font-bold text-[#ffffff] flex items-center gap-1.5">
-                      <Globe className="w-3.5 h-3.5 text-[#0055ff]" />
+                      <Globe className="w-3.5 h-3.5 text-[#38bdf8]" />
                       Zone / Profil TV
                     </h3>
                     <p className="text-[11px] text-[#94a3b8]">
@@ -555,14 +555,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       type="button"
                       data-tv-focusable="true"
                       onClick={handleAutoDetectTvProfile}
-                      className="tv-dpad-btn inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#0a0e17] hover:bg-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#0055ff]/60 text-xs font-medium transition-colors cursor-pointer"
+                      className="tv-dpad-btn inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#0a0e17] hover:bg-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#2563eb]/60 text-xs font-medium transition-colors cursor-pointer"
                       title="Réappliquer la détection automatique selon la langue du système"
                     >
-                      <RotateCcw className="w-3 h-3 text-[#0055ff]" />
+                      <RotateCcw className="w-3 h-3 text-[#38bdf8]" />
                       <span>Auto ({systemLocaleLabel})</span>
                     </button>
                     {activeProfileId === 'custom' && (
-                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded border uppercase tracking-wider bg-[#1d4ed8]/20 text-[#ffffff] border-[#0055ff]/50">
+                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded border uppercase tracking-wider bg-[#1d4ed8]/20 text-[#ffffff] border-[#2563eb]/50">
                         ⚙️ Profil personnalisé ({draft.selectedBouquets.length} bouquets)
                       </span>
                     )}
@@ -585,8 +585,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         onClick={() => handleSelectTvProfile(profile.id)}
                         className={`tv-dpad-btn flex flex-col items-start justify-between gap-1.5 p-2.5 sm:p-3 rounded-lg text-start transition-all cursor-pointer min-h-[70px] border ${
                           isSelected
-                            ? 'bg-[#1a202c] border-2 border-[#0055ff] text-[#ffffff] shadow-[0_0_12px_rgba(0,85,255,0.35)] font-bold'
-                            : 'bg-[#141a26] border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:bg-[#1a202c] hover:border-[#e11d48]/70 font-medium'
+                            ? 'bg-[#1a202c] border-2 border-[#2563eb] text-[#ffffff] shadow-[0_0_12px_rgba(37,99,235,0.35)] font-bold'
+                            : 'bg-[#141a26] border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:bg-[#1a202c] hover:border-[#ec4899]/70 font-medium'
                         }`}
                       >
                         <div className="w-full flex items-center justify-between gap-2">
@@ -597,7 +597,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             <span className="truncate">{profile.label}</span>
                           </span>
                           {isSelected && (
-                            <span className="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase tracking-wider shrink-0 bg-[#0055ff] text-[#ffffff]">
+                            <span className="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase tracking-wider shrink-0 bg-[#2563eb] text-[#ffffff]">
                               {activeLang === 'ar' ? 'نشط' : activeLang === 'fr' ? 'Actif' : 'Active'}
                             </span>
                           )}
@@ -612,7 +612,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                 {/* Extensions optionnelles pour le profil Maghreb / MENA Multi-Sat */}
                 {activeProfileId === 'maghreb_mena' && (
-                  <div className="mt-1.5 p-2.5 rounded-lg bg-[#0a0e17] border border-[#0055ff]/40 space-y-1.5">
+                  <div className="mt-1.5 p-2.5 rounded-lg bg-[#0a0e17] border border-[#2563eb]/40 space-y-1.5">
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                       <span className="text-xs font-bold text-[#ffffff] flex items-center gap-1.5">
                         <Satellite className="w-3.5 h-3.5 text-[#ec4899]" />
@@ -657,7 +657,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 ? 'bg-[#0a0e17] border-[#1a202c] text-[#cbd5e1] opacity-65 hover:border-[#ec4899]'
                                 : isExtActive
                                 ? 'bg-[#1d4ed8]/30 border-[#ec4899] text-[#ffffff] shadow-[0_0_8px_rgba(236,72,153,0.3)]'
-                                : 'bg-[#0a0e17] border-[#1e293b] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]'
+                                : 'bg-[#0a0e17] border-[#1e293b] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#2563eb]'
                             }`}
                           >
                             {isExtActive ? (
@@ -675,11 +675,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
 
               {/* Encadré 3 : Couverture Globale des Satellites & Bouquets — Style ChannelRowCard */}
-              <div className="p-3 sm:p-3.5 rounded-lg bg-[#141a26] border border-[#1a202c] hover:border-[#e11d48]/40 transition-all space-y-3">
+              <div className="p-3 sm:p-3.5 rounded-lg bg-[#141a26] border border-[#1a202c] hover:border-[#ec4899]/40 transition-all space-y-3">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div>
                     <h3 className="text-xs sm:text-sm font-bold text-[#ffffff] flex items-center gap-2">
-                      <Satellite className="w-4 h-4 text-[#0055ff]" />
+                      <Satellite className="w-4 h-4 text-[#38bdf8]" />
                       {tr.bouquetsSectionTitle}
                     </h3>
                     <p className="text-xs text-[#cbd5e1] mt-0.5">
@@ -694,8 +694,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         isPremium
                           ? 'bg-gradient-to-r from-[#f59e0b]/20 to-[#ec4899]/20 text-[#fde047] border-[#f59e0b]'
                           : draft.selectedBouquets.length >= MAX_ACTIVE_BOUQUETS
-                          ? 'bg-[#e11d48]/20 text-[#ffffff] border-[#e11d48]'
-                          : 'bg-[#1d4ed8]/20 text-[#ffffff] border-[#0055ff]/50'
+                          ? 'bg-[#ef4444]/20 text-[#ffffff] border-[#ef4444]'
+                          : 'bg-[#1d4ed8]/20 text-[#ffffff] border-[#2563eb]/50'
                       }`}
                     >
                       {isPremium
@@ -741,7 +741,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     onClick={() => setSatFilterTab('all')}
                     className={`px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0 transition-all cursor-pointer ${
                       satFilterTab === 'all'
-                        ? 'bg-[#0055ff] text-[#ffffff] shadow-[0_0_8px_rgba(0,85,255,0.4)]'
+                        ? 'bg-[#2563eb] text-[#ffffff] shadow-[0_0_8px_rgba(37,99,235,0.4)]'
                         : 'bg-[#0a0e17] text-[#94a3b8] hover:text-[#ffffff] border border-[#1a202c]'
                     }`}
                   >
@@ -763,9 +763,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         onClick={() => setSatFilterTab(sg.satelliteId)}
                         className={`px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${
                           isActive
-                            ? 'bg-[#0055ff] text-[#ffffff] shadow-[0_0_8px_rgba(0,85,255,0.4)]'
+                            ? 'bg-[#2563eb] text-[#ffffff] shadow-[0_0_8px_rgba(37,99,235,0.4)]'
                             : hasSelected
-                            ? 'bg-[#0a0e17] text-[#38bdf8] border border-[#0055ff]/60'
+                            ? 'bg-[#0a0e17] text-[#38bdf8] border border-[#2563eb]/60'
                             : 'bg-[#0a0e17] text-[#94a3b8] hover:text-[#ffffff] border border-[#1a202c]'
                         }`}
                       >
@@ -801,8 +801,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         data-tv-modal-group={`sat-${satGroup.satelliteId}`}
                         className={`rounded-lg border p-2.5 sm:p-3 transition-all flex flex-col gap-2.5 ${
                           someChecked
-                            ? 'bg-[#0a0e17] border-[#0055ff]/70 shadow-[0_0_10px_rgba(0,85,255,0.2)]'
-                            : 'bg-[#0a0e17]/80 border-[#1a202c] hover:border-[#e11d48]/60'
+                            ? 'bg-[#0a0e17] border-[#2563eb]/70 shadow-[0_0_10px_rgba(37,99,235,0.2)]'
+                            : 'bg-[#0a0e17]/80 border-[#1a202c] hover:border-[#ec4899]/60'
                         }`}
                       >
                         {/* En-tête compact de la carte Satellite */}
@@ -816,7 +816,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 <span className="text-xs sm:text-sm font-bold text-[#ffffff] truncate">
                                   {satGroup.orbitalPosition}
                                 </span>
-                                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded border uppercase tracking-wider bg-[#1d4ed8]/20 text-[#ffffff] border-[#0055ff]/50">
+                                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded border uppercase tracking-wider bg-[#1d4ed8]/20 text-[#ffffff] border-[#2563eb]/50">
                                   {activeCount}/{groupIds.length} actif{activeCount > 1 ? 's' : ''}
                                 </span>
                               </div>
@@ -829,7 +829,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           <button
                             type="button"
                             onClick={() => toggleSatelliteGroup(groupIds)}
-                            className="tv-dpad-btn text-[11px] font-semibold text-[#cbd5e1] hover:text-[#ffffff] px-2 py-1 rounded bg-[#141a26] border border-[#1a202c] hover:border-[#0055ff] shrink-0 cursor-pointer transition-colors"
+                            className="tv-dpad-btn text-[11px] font-semibold text-[#cbd5e1] hover:text-[#ffffff] px-2 py-1 rounded bg-[#141a26] border border-[#1a202c] hover:border-[#2563eb] shrink-0 cursor-pointer transition-colors"
                           >
                             {allChecked ? 'Tout décocher' : 'Tout cocher'}
                           </button>
@@ -876,8 +876,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                   isLockedByFreemium
                                     ? 'bg-[#141a26]/40 border-[#1a202c] text-[#64748b] opacity-60'
                                     : checked
-                                    ? 'bg-[#1a202c] border-2 border-[#0055ff] text-[#ffffff] shadow-[0_0_10px_rgba(0,85,255,0.3)] font-semibold'
-                                    : 'bg-[#141a26] border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:bg-[#1a202c] hover:border-[#e11d48]/70 font-medium'
+                                    ? 'bg-[#1a202c] border-2 border-[#2563eb] text-[#ffffff] shadow-[0_0_10px_rgba(37,99,235,0.3)] font-semibold'
+                                    : 'bg-[#141a26] border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:bg-[#1a202c] hover:border-[#ec4899]/70 font-medium'
                                 }`}
                               >
                                 <div className="flex items-center gap-1.5 min-w-0">
@@ -906,10 +906,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
 
               {/* Encadré 4 : Catégories Thématiques — Style ChannelRowCard */}
-              <div className="p-3 sm:p-3.5 rounded-lg bg-[#141a26] border border-[#1a202c] hover:border-[#e11d48]/40 transition-all space-y-3">
+              <div className="p-3 sm:p-3.5 rounded-lg bg-[#141a26] border border-[#1a202c] hover:border-[#ec4899]/40 transition-all space-y-3">
                 <div className="space-y-0.5">
                   <h3 className="text-xs sm:text-sm font-bold text-[#ffffff] flex items-center gap-2">
-                    <Film className="w-4 h-4 text-[#e11d48]" />
+                    <Film className="w-4 h-4 text-[#ec4899]" />
                     {tr.thematicCategoriesTitle}
                   </h3>
                   <p className="text-xs text-[#cbd5e1] leading-relaxed">
@@ -950,13 +950,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         }}
                         className={`tv-dpad-btn p-2.5 sm:p-3 rounded-lg transition-all cursor-pointer flex items-start gap-2.5 border text-xs ${
                           checked
-                            ? 'bg-[#1a202c] border-2 border-[#e11d48] text-[#ffffff] shadow-[0_0_12px_rgba(225,29,72,0.35)] font-semibold'
-                            : 'bg-[#141a26] border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:bg-[#1a202c] hover:border-[#e11d48]/70 font-medium'
+                            ? 'bg-[#1a202c] border-2 border-[#ec4899] text-[#ffffff] shadow-[0_0_12px_rgba(236,72,153,0.35)] font-semibold'
+                            : 'bg-[#141a26] border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:bg-[#1a202c] hover:border-[#ec4899]/70 font-medium'
                         }`}
                       >
                         <div className="mt-0.5 shrink-0">
                           {checked ? (
-                            <CheckSquare className="w-3.5 h-3.5 text-[#e11d48]" />
+                            <CheckSquare className="w-3.5 h-3.5 text-[#ec4899]" />
                           ) : (
                             <Square className="w-3.5 h-3.5 text-[#64748b]" />
                           )}
@@ -979,9 +979,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
 
               {/* Encadré 5 : Filtres Audio VO & Sous-titres — Style ChannelRowCard */}
-              <div className="p-3 sm:p-3.5 rounded-lg bg-[#141a26] border border-[#1a202c] hover:border-[#e11d48]/40 transition-all space-y-2.5">
+              <div className="p-3 sm:p-3.5 rounded-lg bg-[#141a26] border border-[#1a202c] hover:border-[#ec4899]/40 transition-all space-y-2.5">
                 <h3 className="text-xs sm:text-sm font-bold text-[#ffffff] flex items-center gap-1.5">
-                  <Volume2 className="w-3.5 h-3.5 text-[#0055ff]" />
+                  <Volume2 className="w-3.5 h-3.5 text-[#38bdf8]" />
                   {tr.audioSubtitlesTitle}
                 </h3>
 
@@ -1016,20 +1016,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     }}
                     className={`tv-dpad-btn p-2.5 sm:p-3 rounded-lg transition-all cursor-pointer flex items-start gap-2.5 border ${
                       draft.excludePolishLektor
-                        ? 'bg-[#1a202c] border-2 border-[#0055ff] text-[#ffffff] shadow-[0_0_10px_rgba(0,85,255,0.3)]'
-                        : 'bg-[#141a26] border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:bg-[#1a202c] hover:border-[#e11d48]/70'
+                        ? 'bg-[#1a202c] border-2 border-[#2563eb] text-[#ffffff] shadow-[0_0_10px_rgba(37,99,235,0.3)]'
+                        : 'bg-[#141a26] border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:bg-[#1a202c] hover:border-[#ec4899]/70'
                     }`}
                   >
                     <div className="mt-0.5 shrink-0">
                       {draft.excludePolishLektor ? (
-                        <CheckSquare className="w-3.5 h-3.5 text-[#0055ff]" />
+                        <CheckSquare className="w-3.5 h-3.5 text-[#38bdf8]" />
                       ) : (
                         <Square className="w-3.5 h-3.5 text-[#64748b]" />
                       )}
                     </div>
                     <div className="space-y-0.5">
                       <div className="flex items-center gap-1.5">
-                        <ShieldAlert className="w-3.5 h-3.5 text-[#0055ff]" />
+                        <ShieldAlert className="w-3.5 h-3.5 text-[#38bdf8]" />
                         <span className="text-xs font-bold text-[#ffffff]">
                           {tr.excludePolishLektorTitle}
                         </span>
@@ -1067,20 +1067,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     }}
                     className={`tv-dpad-btn p-2.5 sm:p-3 rounded-lg transition-all cursor-pointer flex items-start gap-2.5 border ${
                       draft.excludeNoSubtitles
-                        ? 'bg-[#1a202c] border-2 border-[#0055ff] text-[#ffffff] shadow-[0_0_10px_rgba(0,85,255,0.3)]'
-                        : 'bg-[#141a26] border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:bg-[#1a202c] hover:border-[#e11d48]/70'
+                        ? 'bg-[#1a202c] border-2 border-[#2563eb] text-[#ffffff] shadow-[0_0_10px_rgba(37,99,235,0.3)]'
+                        : 'bg-[#141a26] border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:bg-[#1a202c] hover:border-[#ec4899]/70'
                     }`}
                   >
                     <div className="mt-0.5 shrink-0">
                       {draft.excludeNoSubtitles ? (
-                        <CheckSquare className="w-3.5 h-3.5 text-[#0055ff]" />
+                        <CheckSquare className="w-3.5 h-3.5 text-[#38bdf8]" />
                       ) : (
                         <Square className="w-3.5 h-3.5 text-[#64748b]" />
                       )}
                     </div>
                     <div className="space-y-0.5">
                       <div className="flex items-center gap-1.5">
-                        <Subtitles className="w-3.5 h-3.5 text-[#0055ff]" />
+                        <Subtitles className="w-3.5 h-3.5 text-[#38bdf8]" />
                         <span className="text-xs font-bold text-[#ffffff]">
                           {tr.requireSubtitlesTitle}
                         </span>
@@ -1096,7 +1096,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               {/* Encadré 6 : Tri Intelligent & Habitudes de visionnage — Style ChannelRowCard */}
               <div
                 data-tv-modal-group="watch-habits"
-                className="p-3 sm:p-3.5 rounded-lg bg-[#141a26] border border-[#1a202c] hover:border-[#e11d48]/40 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                className="p-3 sm:p-3.5 rounded-lg bg-[#141a26] border border-[#1a202c] hover:border-[#ec4899]/40 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
               >
                 <div className="space-y-1.5 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -1108,7 +1108,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         ? 'Tri Intelligent & Habitudes de visionnage'
                         : 'Smart Sort & Viewing Habits'}
                     </h3>
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded border uppercase tracking-wider bg-[#1d4ed8]/20 text-[#ffffff] border-[#0055ff]/50">
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded border uppercase tracking-wider bg-[#1d4ed8]/20 text-[#ffffff] border-[#2563eb]/50">
                       {toStandardDigits(watchedChannelsCount)}{' '}
                       {activeLang === 'ar' ? 'قناة' : activeLang === 'fr' ? 'chaînes' : 'channels'} ·{' '}
                       {toStandardDigits(totalWatchCount)}{' '}
@@ -1159,10 +1159,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {activeTab === 'sources' && (
             <>
               {/* Encadré Sources 1 : État du Cache IndexedDB */}
-              <div className="p-3 sm:p-3.5 rounded-lg bg-[#141a26] border border-[#1a202c] hover:border-[#e11d48]/40 transition-all flex flex-wrap items-center justify-between gap-3">
+              <div className="p-3 sm:p-3.5 rounded-lg bg-[#141a26] border border-[#1a202c] hover:border-[#ec4899]/40 transition-all flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-8 h-8 rounded-lg bg-[#0a0e17] border border-[#1a202c] flex items-center justify-center shrink-0">
-                    <HardDrive className="w-4 h-4 text-[#0055ff]" />
+                    <HardDrive className="w-4 h-4 text-[#38bdf8]" />
                   </div>
                   <div className="min-w-0">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-[#ffffff]">
@@ -1201,7 +1201,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           autoRefreshHours: e.target.checked ? 12 : 0,
                         }))
                       }
-                      className="rounded border-[#1a202c] bg-[#0a0e17] text-[#e11d48] focus:ring-[#e11d48]"
+                      className="rounded border-[#1a202c] bg-[#0a0e17] text-[#ec4899] focus:ring-[#ec4899]"
                     />
                     {tr.autoRefresh12h}
                   </label>
@@ -1219,10 +1219,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
 
               {/* Encadré Sources 2 : Liste des flux XMLTV configurés */}
-              <div className="p-3 sm:p-3.5 rounded-lg bg-[#141a26] border border-[#1a202c] hover:border-[#e11d48]/40 transition-all space-y-2.5">
+              <div className="p-3 sm:p-3.5 rounded-lg bg-[#141a26] border border-[#1a202c] hover:border-[#ec4899]/40 transition-all space-y-2.5">
                 <div className="flex items-center justify-between mb-1">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-[#cbd5e1] flex items-center gap-1.5">
-                    <Globe className="w-3.5 h-3.5 text-[#0055ff]" />
+                    <Globe className="w-3.5 h-3.5 text-[#38bdf8]" />
                     {tr.xmltvSourcesActiveTitle} (
                     {draft.sources.filter((s) => s.enabled).length}/
                     {draft.sources.length})
@@ -1254,11 +1254,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           data-tv-focusable="true"
                           checked={source.enabled}
                           onChange={() => handleToggleSource(source.id)}
-                          className="w-4 h-4 rounded border-[#1a202c] bg-[#141a26] text-[#e11d48] focus:ring-[#e11d48]"
+                          className="w-4 h-4 rounded border-[#1a202c] bg-[#141a26] text-[#ec4899] focus:ring-[#ec4899]"
                         />
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded border uppercase tracking-wider bg-[#1d4ed8]/20 text-[#ffffff] border-[#0055ff]/50">
+                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded border uppercase tracking-wider bg-[#1d4ed8]/20 text-[#ffffff] border-[#2563eb]/50">
                               {source.country}
                             </span>
                             <span className="text-xs sm:text-sm font-semibold text-[#ffffff] truncate">
@@ -1289,10 +1289,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               {/* Encadré Sources 3 : Ajouter un flux XMLTV personnalisé */}
               <form
                 onSubmit={handleAddSource}
-                className="p-3 sm:p-3.5 rounded-lg bg-[#141a26] border border-[#1a202c] hover:border-[#e11d48]/40 transition-all space-y-3"
+                className="p-3 sm:p-3.5 rounded-lg bg-[#141a26] border border-[#1a202c] hover:border-[#ec4899]/40 transition-all space-y-3"
               >
                 <h3 className="text-xs font-bold uppercase tracking-wider text-[#ffffff] flex items-center gap-1.5">
-                  <Plus className="w-3.5 h-3.5 text-[#e11d48]" />
+                  <Plus className="w-3.5 h-3.5 text-[#ec4899]" />
                   {tr.addCustomXmltvTitle}
                 </h3>
 
@@ -1305,7 +1305,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         e.target.value as Exclude<CountryCode, 'Tous'>
                       )
                     }
-                    className="px-3 py-2 rounded-lg bg-[#0a0e17] border border-[#1a202c] text-xs text-[#ffffff] focus:outline-none focus:border-[#0055ff]"
+                    className="px-3 py-2 rounded-lg bg-[#0a0e17] border border-[#1a202c] text-xs text-[#ffffff] focus:outline-none focus:border-[#2563eb]"
                   >
                     <option value="AR">🇲🇦/🇦🇪 Nilesat 7°W / Badr 26°E (AR)</option>
                     <option value="FR">🇫🇷 France (FR)</option>
@@ -1324,7 +1324,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
                     placeholder={tr.sourceNamePlaceholder}
-                    className="px-3 py-2 rounded-lg bg-[#0a0e17] border border-[#1a202c] text-xs text-[#ffffff] placeholder-[#cbd5e1]/60 focus:outline-none focus:border-[#0055ff]"
+                    className="px-3 py-2 rounded-lg bg-[#0a0e17] border border-[#1a202c] text-xs text-[#ffffff] placeholder-[#cbd5e1]/60 focus:outline-none focus:border-[#2563eb]"
                   />
 
                   <input
@@ -1333,7 +1333,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     value={newUrl}
                     onChange={(e) => setNewUrl(e.target.value)}
                     placeholder="https://.../epg.xml.gz"
-                    className="sm:col-span-2 px-3 py-2 rounded-lg bg-[#0a0e17] border border-[#1a202c] text-xs text-[#ffffff] placeholder-[#cbd5e1]/60 font-mono focus:outline-none focus:border-[#0055ff]"
+                    className="sm:col-span-2 px-3 py-2 rounded-lg bg-[#0a0e17] border border-[#1a202c] text-xs text-[#ffffff] placeholder-[#cbd5e1]/60 font-mono focus:outline-none focus:border-[#2563eb]"
                   />
                 </div>
 
@@ -1341,7 +1341,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <button
                     type="submit"
                     data-tv-focusable="true"
-                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#e11d48] hover:bg-[#ff0033] border-[1.5px] border-[#ff0033] text-xs font-bold text-[#ffffff] shadow-[0_0_12px_rgba(225,29,72,0.45)] transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-[#ec4899] to-[#8b5cf6] hover:from-[#db2777] hover:to-[#7c3aed] border border-[#ec4899]/50 text-xs font-bold text-[#ffffff] shadow-[0_0_12px_rgba(236,72,153,0.35)] transition-colors cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     {tr.addSourceBtn}
@@ -1354,9 +1354,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {activeTab === 'legal' && (
             <div className="space-y-3">
               {/* Encadré Légal 1 : Clause Google Play Store */}
-              <div className="p-3 sm:p-3.5 rounded-lg bg-[#141a26] border border-[#1a202c] hover:border-[#e11d48]/40 transition-all space-y-2">
+              <div className="p-3 sm:p-3.5 rounded-lg bg-[#141a26] border border-[#1a202c] hover:border-[#ec4899]/40 transition-all space-y-2">
                 <div className="flex items-center gap-2 text-[#ffffff] font-bold text-sm">
-                  <ShieldCheck className="w-5 h-5 text-[#0055ff] shrink-0" />
+                  <ShieldCheck className="w-5 h-5 text-[#38bdf8] shrink-0" />
                   <span>{tr.legalNonStreamingTitle}</span>
                 </div>
                 <p className="text-xs text-[#cbd5e1] leading-relaxed">
@@ -1365,13 +1365,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
 
               {/* Encadré Légal 2 : Attribution Officielle TMDB & TVMaze */}
-              <div className="p-3 sm:p-3.5 rounded-lg bg-[#141a26] border border-[#1a202c] hover:border-[#e11d48]/40 transition-all space-y-2.5">
+              <div className="p-3 sm:p-3.5 rounded-lg bg-[#141a26] border border-[#1a202c] hover:border-[#ec4899]/40 transition-all space-y-2.5">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-2 text-[#ffffff] font-bold text-sm">
-                    <Sparkles className="w-4 h-4 text-[#e11d48] shrink-0" />
+                    <Sparkles className="w-4 h-4 text-[#ec4899] shrink-0" />
                     <span>{tr.legalTmdbTitle}</span>
                   </div>
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded border uppercase tracking-wider bg-[#1d4ed8]/20 text-[#ffffff] border-[#0055ff]/50">
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded border uppercase tracking-wider bg-[#1d4ed8]/20 text-[#ffffff] border-[#2563eb]/50">
                     TMDB API v3
                   </span>
                 </div>
@@ -1411,9 +1411,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
 
               {/* Encadré Légal 3 : Politique de Confidentialité & RGPD */}
-              <div className="p-3 sm:p-3.5 rounded-lg bg-[#141a26] border border-[#1a202c] hover:border-[#e11d48]/40 transition-all space-y-2">
+              <div className="p-3 sm:p-3.5 rounded-lg bg-[#141a26] border border-[#1a202c] hover:border-[#ec4899]/40 transition-all space-y-2">
                 <div className="flex items-center gap-2 text-[#ffffff] font-bold text-sm">
-                  <Lock className="w-4 h-4 text-[#0055ff] shrink-0" />
+                  <Lock className="w-4 h-4 text-[#38bdf8] shrink-0" />
                   <span>{tr.legalPrivacyTitle}</span>
                 </div>
                 <p className="text-xs text-[#cbd5e1] leading-relaxed">
@@ -1432,7 +1432,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     · v2.5.0 (Play Store Release Ready)
                   </span>
                 </div>
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded border uppercase tracking-wider bg-[#1d4ed8]/20 text-[#ffffff] border-[#0055ff]/50">
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded border uppercase tracking-wider bg-[#1d4ed8]/20 text-[#ffffff] border-[#2563eb]/50">
                   PWA Standalone & Android TV Ready
                 </span>
               </div>
@@ -1440,7 +1440,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           )}
         </div>
 
-        {/* Footer Actions — Rouge/Crimson Sky Sport pour l'action principale */}
+        {/* Footer Actions — Harmonieux avec la palette PulseEPG */}
         <div
           data-tv-modal-zone="footer"
           data-tv-row="settings-footer"
@@ -1463,7 +1463,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 onSaveSettings(draft, false);
                 onClose();
               }}
-              className="tv-dpad-btn inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#1d4ed8] hover:bg-[#0055ff] text-xs font-semibold text-[#ffffff] border border-[#0055ff] transition-colors cursor-pointer"
+              className="tv-dpad-btn inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#1d4ed8] hover:bg-[#2563eb] text-xs font-semibold text-[#ffffff] border border-[#2563eb] transition-colors cursor-pointer"
             >
               <Check className="w-4 h-4 text-[#ffffff]" />
               {tr.saveBtn}
@@ -1476,7 +1476,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 onSaveSettings(draft, true);
                 onClose();
               }}
-              className="tv-dpad-btn inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#e11d48] hover:bg-[#ff0033] border-[1.5px] border-[#ff0033] text-xs font-bold text-[#ffffff] shadow-[0_0_12px_rgba(225,29,72,0.45)] transition-all cursor-pointer"
+              className="tv-dpad-btn inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-gradient-to-r from-[#ec4899] to-[#8b5cf6] hover:from-[#db2777] hover:to-[#7c3aed] border border-[#ec4899]/50 text-xs font-bold text-[#ffffff] shadow-[0_0_12px_rgba(236,72,153,0.35)] transition-all cursor-pointer"
             >
               <RefreshCw className="w-4 h-4" />
               {tr.saveAndApplyBtn}

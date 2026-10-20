@@ -41,16 +41,16 @@ export const LoadingStatusBanner: React.FC<LoadingStatusBannerProps> = ({
     return (
       <div
         role="alert"
-        className="mb-4 rounded-lg bg-[#141a26] border border-[#e11d48]/50 p-3.5 sm:p-4"
+        className="mb-4 rounded-lg bg-[#141a26] border border-[#ef4444]/50 p-3.5 sm:p-4"
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-start sm:items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-[#e11d48]/15 border border-[#ff0033]/40 flex items-center justify-center text-[#e11d48] shrink-0">
+            <div className="w-9 h-9 rounded-lg bg-[#ef4444]/15 border border-[#ef4444]/40 flex items-center justify-center text-[#ef4444] shrink-0">
               <AlertTriangle className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-bold uppercase tracking-wider text-[#e11d48]">
+                <span className="text-xs font-bold uppercase tracking-wider text-[#ef4444]">
                   {activeLang === 'ar'
                     ? 'تنبيه مزامنة EPG عبر HTTPS'
                     : activeLang === 'fr'
@@ -69,7 +69,7 @@ export const LoadingStatusBanner: React.FC<LoadingStatusBannerProps> = ({
               <button
                 type="button"
                 onClick={onRetry}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#e11d48] hover:bg-[#ff0033] border border-[#ff0033] text-xs font-bold text-[#ffffff] shadow-[0_0_12px_rgba(225,29,72,0.45)] transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#ef4444] hover:bg-[#dc2626] border border-[#ef4444] text-xs font-bold text-[#ffffff] shadow-[0_0_12px_rgba(239,68,68,0.45)] transition-colors cursor-pointer"
               >
                 <RefreshCw className="w-3.5 h-3.5 text-[#ffffff]" />
                 <span>{tr.refreshBtn}</span>
@@ -79,7 +79,7 @@ export const LoadingStatusBanner: React.FC<LoadingStatusBannerProps> = ({
               <button
                 type="button"
                 onClick={onLoadOfflineFallback}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1d4ed8]/25 hover:bg-[#1d4ed8] border border-[#0055ff] text-xs font-semibold text-[#ffffff] transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1d4ed8]/25 hover:bg-[#1d4ed8] border border-[#2563eb] text-xs font-semibold text-[#ffffff] transition-colors cursor-pointer"
               >
                 <Satellite className="w-3.5 h-3.5 text-[#ffffff]" />
                 <span>
@@ -113,7 +113,7 @@ export const LoadingStatusBanner: React.FC<LoadingStatusBannerProps> = ({
     <div className="mb-4 rounded-lg bg-[#141a26] border border-[#1a202c] p-3.5 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-[#0a0e17] border border-[#1a202c] flex items-center justify-center text-[#e11d48] shrink-0">
+          <div className="w-9 h-9 rounded-lg bg-[#0a0e17] border border-[#1a202c] flex items-center justify-center text-[#ec4899] shrink-0">
             <Loader2 className="w-5 h-5 animate-spin" />
           </div>
           <div>
@@ -122,7 +122,7 @@ export const LoadingStatusBanner: React.FC<LoadingStatusBannerProps> = ({
                 {tr.workerTitle}
               </span>
               {total > 0 && (
-                <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-[#1d4ed8]/25 text-[#ffffff] border border-[#0055ff]/50">
+                <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-[#1d4ed8]/25 text-[#ffffff] border border-[#2563eb]/50">
                   {toStandardDigits(completed)} / {toStandardDigits(total)} {tr.workerStreams}
                 </span>
               )}
@@ -135,11 +135,11 @@ export const LoadingStatusBanner: React.FC<LoadingStatusBannerProps> = ({
 
         <div className="flex items-center gap-3 text-xs font-mono">
           <div className="px-2.5 py-1 rounded-lg bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1]">
-            <Radio className="w-3 h-3 inline me-1 text-[#e11d48]" />
+            <Radio className="w-3 h-3 inline me-1 text-[#ec4899]" />
             {toStandardDigits(p.channelsParsed)} {tr.workerChannelsCount}
           </div>
           <div className="px-2.5 py-1 rounded-lg bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1]">
-            <Server className="w-3 h-3 inline me-1 text-[#0055ff]" />
+            <Server className="w-3 h-3 inline me-1 text-[#38bdf8]" />
             {toStandardDigits(p.programmesParsed.toLocaleString('en-US'))} {tr.workerProgrammesCount}
           </div>
         </div>
@@ -155,7 +155,7 @@ export const LoadingStatusBanner: React.FC<LoadingStatusBannerProps> = ({
                 src.status === 'done'
                   ? 'bg-[#0a0e17] border-[#1a202c] text-[#ffffff]'
                   : src.status === 'downloading' || src.status === 'parsing'
-                  ? 'bg-[#e11d48] border-[#ff0033] text-[#ffffff]'
+                  ? 'bg-[#ec4899] border-[#db2777] text-[#ffffff]'
                   : src.status === 'error'
                   ? 'bg-red-500/10 border-red-500/25 text-red-300'
                   : 'bg-[#0a0e17] border-[#1a202c] text-[#cbd5e1]'

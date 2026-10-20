@@ -146,6 +146,333 @@ export function detectCompetition(title: string, category = ''): CompetitionDef 
   return null;
 }
 
+export type SportType =
+  | 'football'
+  | 'rugby'
+  | 'basketball'
+  | 'tennis'
+  | 'f1'
+  | 'moto'
+  | 'combat'
+  | 'handball'
+  | 'volleyball'
+  | 'cycling'
+  | 'other';
+
+export interface SportInfo {
+  type: SportType;
+  icon: string;
+  name: {
+    fr: string;
+    ar: string;
+    en: string;
+  };
+  regulationTime: {
+    fr: string;
+    ar: string;
+    en: string;
+  };
+  tvSlotExplanation: {
+    fr: string;
+    ar: string;
+    en: string;
+  };
+}
+
+export const SPORTS_REGISTRY: Record<SportType, SportInfo> = {
+  football: {
+    type: 'football',
+    icon: '⚽',
+    name: {
+      fr: 'Football',
+      ar: 'كرة القدم',
+      en: 'Football',
+    },
+    regulationTime: {
+      fr: "90 min (2×45')",
+      ar: "90 دقيقة (شوطان 45')",
+      en: "90 min (2×45')",
+    },
+    tvSlotExplanation: {
+      fr: 'Match : 90 min (+ arrêts) · Créneau TV ~120 min avec avant-match et mi-temps',
+      ar: 'المباراة : 90 دقيقة (+ وقت إضافي) · مدة البث التلفزيوني ~120 دقيقة مع الاستوديو والاستراحة',
+      en: 'Match: 90 min (+ added time) · TV slot ~120 min with pre-game and halftime studio',
+    },
+  },
+  rugby: {
+    type: 'rugby',
+    icon: '🏉',
+    name: {
+      fr: 'Rugby',
+      ar: 'الرغبي',
+      en: 'Rugby',
+    },
+    regulationTime: {
+      fr: "80 min (2×40')",
+      ar: "80 دقيقة (شوطان 40')",
+      en: "80 min (2×40')",
+    },
+    tvSlotExplanation: {
+      fr: 'Match : 80 min · Créneau TV ~115-120 min avec analyses',
+      ar: 'المباراة : 80 دقيقة · مدة البث التلفزيوني ~120 دقيقة مع التحليل',
+      en: 'Match: 80 min · TV slot ~120 min with post-match studio',
+    },
+  },
+  basketball: {
+    type: 'basketball',
+    icon: '🏀',
+    name: {
+      fr: 'Basketball',
+      ar: 'كرة السلة',
+      en: 'Basketball',
+    },
+    regulationTime: {
+      fr: '40 à 48 min (4 quarts-temps)',
+      ar: '40 إلى 48 دقيقة (4 أشواط)',
+      en: '40-48 min (4 quarters)',
+    },
+    tvSlotExplanation: {
+      fr: 'Temps effectif : 40-48 min · Durée réelle de diffusion ~120 min',
+      ar: 'الوقت الفعلي : 40-48 دقيقة · البث التلفزيوني الإجمالي ~ساعتان',
+      en: 'Effective time: 40-48 min · Total TV broadcast ~2 hours',
+    },
+  },
+  tennis: {
+    type: 'tennis',
+    icon: '🎾',
+    name: {
+      fr: 'Tennis',
+      ar: 'التنس',
+      en: 'Tennis',
+    },
+    regulationTime: {
+      fr: '2 à 3 sets gagnants',
+      ar: 'مجموعات (Sets)',
+      en: 'Best of 3 or 5 sets',
+    },
+    tvSlotExplanation: {
+      fr: 'Durée variable par sets gagnants',
+      ar: 'مدة متغيرة بحسب المجموعات الرابحة',
+      en: 'Variable duration by winning sets',
+    },
+  },
+  f1: {
+    type: 'f1',
+    icon: '🏎️',
+    name: {
+      fr: 'Formule 1',
+      ar: 'فورمولا 1',
+      en: 'Formula 1',
+    },
+    regulationTime: {
+      fr: 'Grand Prix (Course)',
+      ar: 'سباق الجائزة الكبرى',
+      en: 'Grand Prix Race',
+    },
+    tvSlotExplanation: {
+      fr: 'Course F1 ~90-120 min · Créneau antenne complet',
+      ar: 'سباق فورمولا 1 ~90-120 دقيقة',
+      en: 'F1 Race ~90-120 min · Full TV broadcast window',
+    },
+  },
+  moto: {
+    type: 'moto',
+    icon: '🏍️',
+    name: {
+      fr: 'MotoGP',
+      ar: 'موتو جي بي',
+      en: 'MotoGP',
+    },
+    regulationTime: {
+      fr: 'Course Moto ~45 min',
+      ar: 'سباق موتو ~45 دقيقة',
+      en: 'MotoGP Race ~45 min',
+    },
+    tvSlotExplanation: {
+      fr: "Course ~45 min + Tour d'honneur et podium",
+      ar: 'السباق ~45 دقيقة + منصة التتويج',
+      en: 'Race ~45 min + podium ceremony',
+    },
+  },
+  combat: {
+    type: 'combat',
+    icon: '🥊',
+    name: {
+      fr: 'MMA / Boxe',
+      ar: 'فنون القتال / ملاكمة',
+      en: 'MMA / Combat',
+    },
+    regulationTime: {
+      fr: '3 à 5 rounds',
+      ar: '3 إلى 5 جولات',
+      en: '3-5 rounds',
+    },
+    tvSlotExplanation: {
+      fr: 'Combat par rounds · Durée totale carte ~120-180 min',
+      ar: 'نزال بالجولات · بث الأمسية كاملة',
+      en: 'Card bouts by rounds · Full broadcast window',
+    },
+  },
+  handball: {
+    type: 'handball',
+    icon: '🤾',
+    name: {
+      fr: 'Handball',
+      ar: 'كرة اليد',
+      en: 'Handball',
+    },
+    regulationTime: {
+      fr: "60 min (2×30')",
+      ar: "60 دقيقة (شوطان 30')",
+      en: "60 min (2×30')",
+    },
+    tvSlotExplanation: {
+      fr: 'Match : 60 min · Créneau TV ~90-100 min',
+      ar: 'المباراة : 60 دقيقة · البث التلفزيوني ~90 دقيقة',
+      en: 'Match: 60 min · TV slot ~90-100 min',
+    },
+  },
+  volleyball: {
+    type: 'volleyball',
+    icon: '🏐',
+    name: {
+      fr: 'Volleyball',
+      ar: 'كرة الطائرة',
+      en: 'Volleyball',
+    },
+    regulationTime: {
+      fr: '3 sets gagnants',
+      ar: '3 مجموعات رابحة',
+      en: 'Best of 5 sets',
+    },
+    tvSlotExplanation: {
+      fr: 'Durée variable par sets (3 sets gagnants)',
+      ar: 'مدة متغيرة بحسب المجموعات (3 مجموعات رابحة)',
+      en: 'Variable duration by sets',
+    },
+  },
+  cycling: {
+    type: 'cycling',
+    icon: '🚴',
+    name: {
+      fr: 'Cyclisme',
+      ar: 'سباق الدراجات',
+      en: 'Cycling',
+    },
+    regulationTime: {
+      fr: 'Étape en ligne',
+      ar: 'مرحلة سباق',
+      en: 'Cycling Stage',
+    },
+    tvSlotExplanation: {
+      fr: 'Étape du jour · Diffusion en direct',
+      ar: 'مرحلة اليوم · بث مباشر',
+      en: 'Daily stage · Live broadcast',
+    },
+  },
+  other: {
+    type: 'other',
+    icon: '🏆',
+    name: {
+      fr: 'Événement Sportif',
+      ar: 'حدث رياضي',
+      en: 'Sports Event',
+    },
+    regulationTime: {
+      fr: 'Durée réglementaire',
+      ar: 'المدة الرسمية',
+      en: 'Regulation time',
+    },
+    tvSlotExplanation: {
+      fr: 'Diffusion en direct du match',
+      ar: 'بث مباشر للمواجهة الرياضية',
+      en: 'Live match broadcast',
+    },
+  },
+};
+
+export function detectSport(title: string, category = '', channelName = ''): SportInfo {
+  const t = `${title} ${category} ${channelName}`.toLowerCase();
+
+  if (/\b(?:rugby|top 14|six nations|6 nations|pro d2|premiership rugby|super rugby|xv de france|all blacks|springboks|رغبي)\b/i.test(t)) {
+    return SPORTS_REGISTRY.rugby;
+  }
+  if (/\b(?:basket|basketball|nba|euroleague|wnba|pro a|betclic elite|fiba|كرة السلة)\b/i.test(t)) {
+    return SPORTS_REGISTRY.basketball;
+  }
+  if (/\b(?:tennis|atp|wta|roland[- ]garros|wimbledon|us open|australian open|grand chelem|davis cup|كأس ديفيز|التنس)\b/i.test(t)) {
+    return SPORTS_REGISTRY.tennis;
+  }
+  if (/\b(?:formula 1|formule 1|\bf1\b|grand prix|indycar|nascar|rallye|wrc|le mans|24h du mans|فورمولا)\b/i.test(t)) {
+    return SPORTS_REGISTRY.f1;
+  }
+  if (/\b(?:motogp|moto 2|moto 3|superbike|موتو)\b/i.test(t)) {
+    return SPORTS_REGISTRY.moto;
+  }
+  if (/\b(?:ufc|mma|boxe|boxing|pfl|bellator|wwe|catch|kickboxing|قتال|ملاكمة)\b/i.test(t)) {
+    return SPORTS_REGISTRY.combat;
+  }
+  if (/\b(?:handball|starligue|ehf|hand|كرة اليد)\b/i.test(t)) {
+    return SPORTS_REGISTRY.handball;
+  }
+  if (/\b(?:volley|volleyball|كرة الطائرة)\b/i.test(t)) {
+    return SPORTS_REGISTRY.volleyball;
+  }
+  if (/\b(?:cyclisme|cycling|tour de france|giro|vuelta|paris-roubaix|دراجات)\b/i.test(t)) {
+    return SPORTS_REGISTRY.cycling;
+  }
+  return SPORTS_REGISTRY.football;
+}
+
+export function formatLiveMatchTiming(
+  elapsedMs: number,
+  sportType: SportType = 'football',
+  statusText?: string,
+  lang: 'fr' | 'ar' | 'en' = 'fr'
+): string {
+  if (statusText && statusText.trim().length > 0) {
+    return statusText;
+  }
+
+  const elapsedMins = Math.max(1, Math.round(elapsedMs / 60000));
+
+  if (sportType === 'football') {
+    if (elapsedMins <= 45) {
+      return `${elapsedMins}'`;
+    }
+    if (elapsedMins > 45 && elapsedMins <= 60) {
+      return lang === 'ar' ? 'استراحة (شوط 1)' : lang === 'en' ? 'Halftime' : 'Mi-temps';
+    }
+    if (elapsedMins > 60 && elapsedMins <= 106) {
+      const secondHalfMin = 45 + (elapsedMins - 60);
+      if (secondHalfMin > 90) {
+        const added = Math.min(8, secondHalfMin - 90);
+        return `90'+${added}`;
+      }
+      return `${secondHalfMin}'`;
+    }
+    return lang === 'ar' ? 'نهاية المباراة' : lang === 'en' ? 'Full Time' : 'Fin du match';
+  }
+
+  if (sportType === 'rugby') {
+    if (elapsedMins <= 40) return `${elapsedMins}'`;
+    if (elapsedMins > 40 && elapsedMins <= 55) {
+      return lang === 'ar' ? 'استراحة (شوط 1)' : 'Mi-temps';
+    }
+    if (elapsedMins > 55 && elapsedMins <= 98) {
+      const secondHalf = 40 + (elapsedMins - 55);
+      return secondHalf > 80 ? `80'+${Math.min(5, secondHalf - 80)}` : `${secondHalf}'`;
+    }
+    return lang === 'ar' ? 'انتهت' : 'Terminé';
+  }
+
+  if (sportType === 'basketball') {
+    return `${Math.min(48, elapsedMins)}'`;
+  }
+
+  return `${elapsedMins}'`;
+}
+
 /** Chaînes de sports généralement gratuites / en clair (FTA) */
 export const FTA_SPORT_KEYWORDS = /arryadia|trt spor|bbc|itv|zdf|das erste|rai sport|servus tv|l'equipe|lequipe|al kass|ad sports|dubai sports|sharjah sports|kuwait sports/i;
 

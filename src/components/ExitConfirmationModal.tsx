@@ -143,9 +143,9 @@ export const ExitConfirmationModal: React.FC<ExitConfirmationModalProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
         {/* En-tête avec icône animée PulseEPG */}
-        <div className="relative mx-auto w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#e11d48]/25 to-[#0055ff]/25 border border-[#e11d48]/50 flex items-center justify-center text-[#e11d48] shadow-[0_0_24px_rgba(225,29,72,0.35)]">
+        <div className="relative mx-auto w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#ec4899]/25 to-[#8b5cf6]/25 border border-[#ec4899]/50 flex items-center justify-center text-[#ec4899] shadow-[0_0_24px_rgba(236,72,153,0.35)]">
           <Tv className="w-7 h-7 text-[#ffffff]" />
-          <Heart className="w-3.5 h-3.5 text-[#e11d48] absolute -top-1 -right-1 animate-pulse" />
+          <Heart className="w-3.5 h-3.5 text-[#ec4899] absolute -top-1 -right-1 animate-pulse" />
         </div>
 
         {/* Titre & Sous-titre */}
@@ -164,7 +164,7 @@ export const ExitConfirmationModal: React.FC<ExitConfirmationModalProps> = ({
           </p>
         </div>
 
-        {/* Boutons d'action : Bouton 1 (Focus par défaut, accent rouge) & Bouton 2 (Neutre / outline) */}
+        {/* Boutons d'action : Bouton 1 (Focus par défaut, accent) & Bouton 2 (Neutre / outline) */}
         <div
           data-tv-modal-zone="footer"
           data-tv-row="exit-modal-actions"
@@ -192,7 +192,7 @@ export const ExitConfirmationModal: React.FC<ExitConfirmationModalProps> = ({
             </span>
           </button>
 
-          {/* Bouton 1 : Continuer à regarder (Focus D-Pad par défaut, style bouton rouge/accentué) */}
+          {/* Bouton 1 : Continuer à regarder (Focus D-Pad par défaut, style bouton bleu/accentué) */}
           <button
             ref={stayBtnRef}
             type="button"
@@ -207,7 +207,7 @@ export const ExitConfirmationModal: React.FC<ExitConfirmationModalProps> = ({
                 exitBtnRef.current?.focus({ preventScroll: true });
               }
             }}
-            className="w-full sm:w-auto px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer bg-[#e11d48] border border-[#ff0033] text-[#ffffff] shadow-[0_0_18px_rgba(225,29,72,0.6)] hover:bg-[#be123c] focus:outline-none focus:border-[#ffffff] focus:ring-2 focus:ring-[#ff0033] focus:scale-105 active:scale-95"
+            className="w-full sm:w-auto px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer bg-[#2563eb] border border-[#3b82f6] text-[#ffffff] shadow-[0_0_18px_rgba(37,99,235,0.6)] hover:bg-[#1d4ed8] focus:outline-none focus:border-[#ffffff] focus:ring-2 focus:ring-[#3b82f6] focus:scale-105 active:scale-95"
           >
             <span className="flex items-center justify-center gap-2">
               <Tv className="w-4 h-4" />

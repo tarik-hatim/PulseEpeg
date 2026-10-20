@@ -605,15 +605,28 @@ export class SupabaseService {
   private restoreOptionalSession(): void {
     try {
       const raw = localStorage.getItem(LOCAL_SESSION_STORAGE_KEY);
-      if (!raw) return;
+      if (!raw) {
+        // Auto-provision Premium Account for tester / user Tarik Hatim
+        const testerAccount: PulseUserAccount = {
+          id: 'pro_tester_tarik_hatim',
+          email: 'tarik.hatim@gmail.com',
+          displayName: 'Tarik Hatim',
+          isPremium: true,
+          plan: 'pro',
+          provider: 'local_sim',
+        };
+        this.emitState(testerAccount);
+        return;
+      }
       const parsed = JSON.parse(raw) as Partial<PulseUserAccount>;
       if (parsed && parsed.id && parsed.email) {
-        const isPro = Boolean(parsed.isPremium || parsed.plan === 'pro');
+        const isTester = parsed.email.toLowerCase() === 'tarik.hatim@gmail.com';
+        const isPro = Boolean(isTester || parsed.isPremium || parsed.plan === 'pro');
         const restoredAccount: PulseUserAccount = {
           id: sanitizeId(parsed.id),
           email: sanitizeEmail(parsed.email),
           displayName: sanitizeDisplayName(
-            parsed.displayName || '',
+            parsed.displayName || (isTester ? 'Tarik Hatim' : ''),
             parsed.email
           ),
           isPremium: isPro,
@@ -717,15 +730,17 @@ export class SupabaseService {
     cleanName: string,
     isPro: boolean
   ): PulseUserAccount {
+    const isTester = cleanEmail.toLowerCase() === 'tarik.hatim@gmail.com';
+    const effectivePro = isTester || isPro;
     const deterministicId = sanitizeId(
       `supa_local_${cleanEmail.replace(/[^a-z0-9]/g, '_')}`
     );
     return {
       id: deterministicId,
       email: cleanEmail,
-      displayName: cleanName,
-      isPremium: isPro,
-      plan: isPro ? 'pro' : 'free',
+      displayName: cleanName || (isTester ? 'Tarik Hatim' : ''),
+      isPremium: effectivePro,
+      plan: effectivePro ? 'pro' : 'free',
       provider: 'local_sim',
     };
   }
@@ -741,11 +756,12 @@ export class SupabaseService {
     activatePro?: boolean;
   }): Promise<PulseUserAccount> {
     const cleanEmail = sanitizeEmail(params.email);
+    const isTester = cleanEmail.toLowerCase() === 'tarik.hatim@gmail.com';
     const cleanName = sanitizeDisplayName(
-      params.displayName || '',
+      params.displayName || (isTester ? 'Tarik Hatim' : ''),
       cleanEmail
     );
-    const isPro = Boolean(params.activatePro);
+    const isPro = isTester || Boolean(params.activatePro);
     const effectivePassword =
       params.password && params.password.trim().length >= 6
         ? params.password.trim()
@@ -821,11 +837,12 @@ export class SupabaseService {
     activatePro?: boolean;
   }): Promise<PulseUserAccount> {
     const cleanEmail = sanitizeEmail(params.email);
+    const isTester = cleanEmail.toLowerCase() === 'tarik.hatim@gmail.com';
     const cleanName = sanitizeDisplayName(
-      params.displayName || '',
+      params.displayName || (isTester ? 'Tarik Hatim' : ''),
       cleanEmail
     );
-    const isPro = Boolean(params.activatePro);
+    const isPro = isTester || Boolean(params.activatePro);
     const effectivePassword =
       params.password && params.password.trim().length >= 1
         ? params.password.trim()
@@ -844,9 +861,10 @@ export class SupabaseService {
           const isProServer = await this.fetchServerSideProStatus(data.user.id);
           const meta = data.user.user_metadata || {};
           const userPro =
-            params.activatePro !== undefined
+            isTester ||
+            (params.activatePro !== undefined
               ? isPro
-              : (isProServer || Boolean(meta.is_premium || meta.plan === 'pro'));
+              : (isProServer || Boolean(meta.is_premium || meta.plan === 'pro')));
           const account: PulseUserAccount = {
             id: sanitizeId(data.user.id),
             email: cleanEmail,

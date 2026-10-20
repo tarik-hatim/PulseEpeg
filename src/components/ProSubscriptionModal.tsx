@@ -95,7 +95,7 @@ export const ProSubscriptionModal: React.FC<ProSubscriptionModalProps> = ({
       >
         {/* Glow décoratif d'arrière-plan */}
         <div className="absolute -top-24 -right-24 w-60 h-60 rounded-full bg-gradient-to-br from-[#f59e0b]/20 to-[#ec4899]/20 blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-24 -left-24 w-60 h-60 rounded-full bg-gradient-to-tr from-[#0055ff]/20 to-[#8b5cf6]/20 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-24 -left-24 w-60 h-60 rounded-full bg-gradient-to-tr from-[#2563eb]/20 to-[#8b5cf6]/20 blur-3xl pointer-events-none" />
 
         {/* En-tête */}
         <div className="flex items-center justify-between border-b border-[#1e293b] pb-3 shrink-0 relative z-10">
@@ -169,7 +169,7 @@ export const ProSubscriptionModal: React.FC<ProSubscriptionModalProps> = ({
                 type="button"
                 onClick={handleCancelSubscription}
                 disabled={isProcessing}
-                className="w-full py-2.5 rounded-xl border border-[#475569] text-xs text-[#94a3b8] hover:text-[#e11d48] hover:border-[#e11d48] transition-colors cursor-pointer font-medium"
+                className="w-full py-2.5 rounded-xl border border-[#475569] text-xs text-[#94a3b8] hover:text-[#ef4444] hover:border-[#ef4444] transition-colors cursor-pointer font-medium"
               >
                 Gérer ou résilier l'abonnement
               </button>
@@ -261,7 +261,7 @@ export const ProSubscriptionModal: React.FC<ProSubscriptionModalProps> = ({
                     onClick={() => setSelectedPlan('monthly')}
                     className={`p-3.5 rounded-2xl border text-start transition-all cursor-pointer ${
                       selectedPlan === 'monthly'
-                        ? 'bg-[#141c2c] border-[#0055ff] shadow-[0_0_20px_rgba(0,85,255,0.25)]'
+                        ? 'bg-[#141c2c] border-[#2563eb] shadow-[0_0_20px_rgba(37,99,235,0.25)]'
                         : 'bg-[#0f1422] border-[#1e293b] hover:border-[#475569]'
                     }`}
                   >

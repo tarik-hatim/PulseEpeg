@@ -130,7 +130,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
         type="button"
         onClick={handleInstallClick}
         data-tv-focusable="true"
-        className="tv-focusable inline-flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg bg-gradient-to-r from-[#e11d48] to-[#be123c] hover:from-[#ff0033] hover:to-[#e11d48] text-[#ffffff] border border-[#ff0033] shadow-[0_0_12px_rgba(225,29,72,0.4)] text-xs font-bold transition-all cursor-pointer shrink-0"
+        className="tv-focusable inline-flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg bg-gradient-to-r from-[#ec4899] to-[#8b5cf6] hover:from-[#db2777] hover:to-[#7c3aed] text-[#ffffff] border border-[#ec4899]/50 shadow-[0_0_12px_rgba(236,72,153,0.35)] text-xs font-bold transition-all cursor-pointer shrink-0"
         title={tr.installApp}
       >
         <Download className="w-3.5 h-3.5 text-[#ffffff] shrink-0" />
@@ -180,7 +180,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
               <div className="flex items-start gap-2">
                 <span className="font-bold text-[#ffffff]">• iOS / Safari :</span>
                 <span className="inline-flex items-center gap-1 flex-wrap">
-                  <Share className="w-3.5 h-3.5 text-[#0055ff] inline" />{' '}
+                  <Share className="w-3.5 h-3.5 text-[#38bdf8] inline" />{' '}
                   {tr.pwaIosStep}
                 </span>
               </div>
@@ -194,7 +194,7 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
               type="button"
               onClick={() => setShowHelperModal(false)}
               data-tv-focusable="true"
-              className="tv-focusable mt-4 w-full py-2.5 rounded-lg bg-[#e11d48] hover:bg-[#ff0033] border border-[#ff0033] text-[#ffffff] font-bold text-xs shadow-[0_0_12px_rgba(225,29,72,0.45)] transition-colors cursor-pointer"
+              className="tv-focusable mt-4 w-full py-2.5 rounded-lg bg-[#2563eb] hover:bg-[#1d4ed8] border border-[#3b82f6] text-[#ffffff] font-bold text-xs shadow-[0_0_12px_rgba(37,99,235,0.4)] transition-colors cursor-pointer"
             >
               {tr.understood}
             </button>

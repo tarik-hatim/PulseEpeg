@@ -269,11 +269,11 @@ export const LauncherIconsPreviewCard: React.FC<{ language: AppLanguage }> = ({
     terminalSpecs.find((t) => t.id === activeTerminal) || terminalSpecs[0];
 
   return (
-    <div className="p-3 sm:p-3.5 rounded-lg bg-[#141a26] border border-[#1a202c] hover:border-[#e11d48]/40 transition-all space-y-3">
+    <div className="p-3 sm:p-3.5 rounded-lg bg-[#141a26] border border-[#1a202c] hover:border-[#ec4899]/40 transition-all space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h4 className="text-xs font-bold text-[#ffffff] flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-[#e11d48] shadow-[0_0_8px_#e11d48]" />
+            <span className="w-2 h-2 rounded-full bg-[#ec4899] shadow-[0_0_8px_#ec4899]" />
             {labels.title}
           </h4>
           <p className="text-[11px] text-[#94a3b8] mt-0.5">{labels.subtitle}</p>
@@ -284,7 +284,7 @@ export const LauncherIconsPreviewCard: React.FC<{ language: AppLanguage }> = ({
             type="button"
             data-tv-focusable="true"
             onClick={handleInstall}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-[#e11d48] text-[#ffffff] border border-[#ff0033] hover:bg-[#be123c] transition-all cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-gradient-to-r from-[#ec4899] to-[#8b5cf6] text-[#ffffff] border border-[#ec4899]/50 hover:from-[#db2777] hover:to-[#7c3aed] transition-all cursor-pointer"
           >
             <Download className="w-3.5 h-3.5" />
             <span>{labels.installBtn}</span>
@@ -305,8 +305,8 @@ export const LauncherIconsPreviewCard: React.FC<{ language: AppLanguage }> = ({
               onClick={() => setActiveTerminal(spec.id)}
               className={`flex items-center gap-2 px-2.5 py-2 rounded-lg border text-left transition-all cursor-pointer ${
                 isActive
-                  ? 'bg-[#1a202c] border-2 border-[#0055ff] text-[#ffffff] shadow-[0_0_10px_rgba(0,85,255,0.35)]'
-                  : 'bg-[#0a0e17] border-[#1a202c] text-[#cbd5e1] hover:border-[#e11d48]/70'
+                  ? 'bg-[#1a202c] border-2 border-[#2563eb] text-[#ffffff] shadow-[0_0_10px_rgba(37,99,235,0.35)]'
+                  : 'bg-[#0a0e17] border-[#1a202c] text-[#cbd5e1] hover:border-[#ec4899]/70'
               }`}
             >
               <IconComp
@@ -331,7 +331,7 @@ export const LauncherIconsPreviewCard: React.FC<{ language: AppLanguage }> = ({
                   src="/pwa-192x192.png?v=nx1"
                   alt="Icône Smartphone Squircle"
                   referrerPolicy="no-referrer"
-                  className="w-14 h-14 rounded-[22%] border border-[#e11d48]/50 shadow-[0_0_16px_rgba(225,29,72,0.35)]"
+                  className="w-14 h-14 rounded-[22%] border border-[#ec4899]/50 shadow-[0_0_16px_rgba(236,72,153,0.35)]"
                 />
                 <span className="text-[10px] font-medium text-[#cbd5e1]">
                   PulseEPG
@@ -343,7 +343,7 @@ export const LauncherIconsPreviewCard: React.FC<{ language: AppLanguage }> = ({
                   src="/pwa-maskable-192x192.png?v=nx1"
                   alt="Icône Smartphone Ronde Adaptive"
                   referrerPolicy="no-referrer"
-                  className="w-14 h-14 rounded-full border border-[#0055ff]/50 shadow-[0_0_16px_rgba(0,85,255,0.3)]"
+                  className="w-14 h-14 rounded-full border border-[#2563eb]/50 shadow-[0_0_16px_rgba(37,99,235,0.3)]"
                 />
                 <span className="text-[10px] font-medium text-[#94a3b8]">
                   Adaptive
@@ -358,7 +358,7 @@ export const LauncherIconsPreviewCard: React.FC<{ language: AppLanguage }> = ({
                 src="/pwa-512x512.png?v=nx1"
                 alt="Icône Tablette HD"
                 referrerPolicy="no-referrer"
-                className="w-20 h-20 rounded-[22%] border border-[#e11d48]/50 shadow-[0_0_20px_rgba(225,29,72,0.35)]"
+                className="w-20 h-20 rounded-[22%] border border-[#ec4899]/50 shadow-[0_0_20px_rgba(236,72,153,0.35)]"
               />
               <span className="text-[11px] font-semibold text-[#ffffff]">
                 PulseEPG HD (Tablette)
@@ -372,7 +372,7 @@ export const LauncherIconsPreviewCard: React.FC<{ language: AppLanguage }> = ({
                 src="/tv-banner-320x180.png?v=nx1"
                 alt="Bannière Android TV Leanback 16:9"
                 referrerPolicy="no-referrer"
-                className="w-40 h-[90px] rounded-lg border-2 border-[#e11d48] shadow-[0_0_18px_rgba(225,29,72,0.4)] object-cover"
+                className="w-40 h-[90px] rounded-lg border-2 border-[#ec4899] shadow-[0_0_18px_rgba(236,72,153,0.4)] object-cover"
               />
               <span className="text-[10px] font-semibold text-[#38bdf8]">
                 Leanback Banner 320×180 dp (16:9)
@@ -386,20 +386,20 @@ export const LauncherIconsPreviewCard: React.FC<{ language: AppLanguage }> = ({
                 src="/pwa-192x192.png?v=nx1"
                 alt="Icône TV Box AOSP"
                 referrerPolicy="no-referrer"
-                className="w-16 h-16 rounded-2xl border-2 border-[#e11d48] shadow-[0_0_16px_rgba(225,29,72,0.35)]"
+                className="w-16 h-16 rounded-2xl border-2 border-[#ec4899] shadow-[0_0_16px_rgba(236,72,153,0.35)]"
               />
               <img
                 src="/tv-banner-320x180.png?v=nx1"
                 alt="Bannière TV Box Leanback"
                 referrerPolicy="no-referrer"
-                className="w-32 h-[72px] rounded-lg border border-[#0055ff]/60 shadow-[0_0_16px_rgba(0,85,255,0.3)] object-cover"
+                className="w-32 h-[72px] rounded-lg border border-[#2563eb]/60 shadow-[0_0_16px_rgba(37,99,235,0.3)] object-cover"
               />
             </div>
           )}
         </div>
 
         <div className="flex-1 min-w-0 text-center sm:text-left space-y-1">
-          <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#e11d48]/15 border border-[#e11d48]/40 text-[10px] font-mono text-[#fda4af]">
+          <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#ec4899]/15 border border-[#ec4899]/40 text-[10px] font-mono text-[#f472b6]">
             {currentSpec.sizes}
           </div>
           <p className="text-xs text-[#e2e8f0] leading-relaxed">
@@ -411,12 +411,12 @@ export const LauncherIconsPreviewCard: React.FC<{ language: AppLanguage }> = ({
               #0a0e17 Studio Dark
             </span>
             <span className="inline-flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-[#e11d48]" />
-              #e11d48 / #ff0033 Ruban Crimson
+              <span className="w-2 h-2 rounded-full bg-[#ec4899]" />
+              #ec4899 / #db2777 Rose Neon
             </span>
             <span className="inline-flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-[#0055ff]" />
-              #0055ff / #38bdf8 Pilier Bleu Royal
+              <span className="w-2 h-2 rounded-full bg-[#2563eb]" />
+              #2563eb / #38bdf8 Bleu Royal
             </span>
           </div>
         </div>

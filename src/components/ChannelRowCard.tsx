@@ -85,56 +85,56 @@ const COUNTRY_ACCENTS: Record<
   { badge: string; border: string; glow: string; flag: string }
 > = {
   DE: {
-    badge: 'bg-[#1d4ed8]/20 text-[#ffffff] border-[#0055ff]/50',
-    border: 'hover:border-[#e11d48]/70',
+    badge: 'bg-[#2563eb]/20 text-[#38bdf8] border-[#38bdf8]/40',
+    border: 'hover:border-[#38bdf8]/60',
     glow: 'from-transparent',
     flag: '🇩🇪',
   },
   ES: {
-    badge: 'bg-[#1d4ed8]/20 text-[#ffffff] border-[#0055ff]/50',
-    border: 'hover:border-[#e11d48]/70',
+    badge: 'bg-[#2563eb]/20 text-[#38bdf8] border-[#38bdf8]/40',
+    border: 'hover:border-[#38bdf8]/60',
     glow: 'from-transparent',
     flag: '🇪🇸',
   },
   FR: {
-    badge: 'bg-[#1d4ed8]/20 text-[#ffffff] border-[#0055ff]/50',
-    border: 'hover:border-[#e11d48]/70',
+    badge: 'bg-[#2563eb]/20 text-[#38bdf8] border-[#38bdf8]/40',
+    border: 'hover:border-[#38bdf8]/60',
     glow: 'from-transparent',
     flag: '🇫🇷',
   },
   IT: {
-    badge: 'bg-[#1d4ed8]/20 text-[#ffffff] border-[#0055ff]/50',
-    border: 'hover:border-[#e11d48]/70',
+    badge: 'bg-[#2563eb]/20 text-[#38bdf8] border-[#38bdf8]/40',
+    border: 'hover:border-[#38bdf8]/60',
     glow: 'from-transparent',
     flag: '🇮🇹',
   },
   PL: {
-    badge: 'bg-[#1d4ed8]/20 text-[#ffffff] border-[#0055ff]/50',
-    border: 'hover:border-[#e11d48]/70',
+    badge: 'bg-[#2563eb]/20 text-[#38bdf8] border-[#38bdf8]/40',
+    border: 'hover:border-[#38bdf8]/60',
     glow: 'from-transparent',
     flag: '🇵🇱',
   },
   AR: {
-    badge: 'bg-[#1d4ed8]/20 text-[#ffffff] border-[#0055ff]/50',
-    border: 'hover:border-[#e11d48]/70',
+    badge: 'bg-[#2563eb]/20 text-[#38bdf8] border-[#38bdf8]/40',
+    border: 'hover:border-[#38bdf8]/60',
     glow: 'from-transparent',
     flag: '🇲🇦/🇦🇪',
   },
   EU: {
-    badge: 'bg-[#1d4ed8]/20 text-[#ffffff] border-[#0055ff]/50',
-    border: 'hover:border-[#e11d48]/70',
+    badge: 'bg-[#2563eb]/20 text-[#38bdf8] border-[#38bdf8]/40',
+    border: 'hover:border-[#38bdf8]/60',
     glow: 'from-transparent',
     flag: '🇪🇺',
   },
   BR: {
-    badge: 'bg-[#1d4ed8]/20 text-[#ffffff] border-[#0055ff]/50',
-    border: 'hover:border-[#e11d48]/70',
+    badge: 'bg-[#2563eb]/20 text-[#38bdf8] border-[#38bdf8]/40',
+    border: 'hover:border-[#38bdf8]/60',
     glow: 'from-transparent',
     flag: '🇧🇷',
   },
   LATAM: {
-    badge: 'bg-[#1d4ed8]/20 text-[#ffffff] border-[#0055ff]/50',
-    border: 'hover:border-[#e11d48]/70',
+    badge: 'bg-[#2563eb]/20 text-[#38bdf8] border-[#38bdf8]/40',
+    border: 'hover:border-[#38bdf8]/60',
     glow: 'from-transparent',
     flag: '🌎',
   },
@@ -579,7 +579,7 @@ const ChannelRowCardInner: React.FC<ChannelRowCardProps> = ({
               {satBadges.map((sat, sIdx) => (
                 <span
                   key={sIdx}
-                  className="px-2 py-0.5 rounded-full text-[10px] font-semibold border border-[#0055ff]/40 bg-[#0055ff]/10 text-[#38bdf8] uppercase tracking-wider shrink-0"
+                  className="px-2 py-0.5 rounded-full text-[10px] font-semibold border border-[#38bdf8]/40 bg-[#38bdf8]/10 text-[#38bdf8] uppercase tracking-wider shrink-0"
                 >
                   {sat}
                 </span>
@@ -607,7 +607,7 @@ const ChannelRowCardInner: React.FC<ChannelRowCardProps> = ({
               ) : null}
 
               {isFree ? (
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#0055ff] text-white shrink-0">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#2563eb] text-white shrink-0">
                   {activeLang === 'ar' ? 'مفتوح' : activeLang === 'en' ? 'Free' : 'Clair'}
                 </span>
               ) : (
@@ -632,7 +632,7 @@ const ChannelRowCardInner: React.FC<ChannelRowCardProps> = ({
           }}
           className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer shrink-0 active:scale-90 ${
             isFavorite
-              ? 'bg-[#e11d48] text-white shadow-[0_0_12px_rgba(225,29,72,0.45)]'
+              ? 'bg-[#ec4899] text-white shadow-[0_0_12px_rgba(236,72,153,0.45)]'
               : 'bg-[#141a26] border border-[#1e293b] text-[#94a3b8] hover:text-white hover:border-[#f59e0b]/50'
           }`}
           aria-label={tr.favLabel}
@@ -654,7 +654,7 @@ const ChannelRowCardInner: React.FC<ChannelRowCardProps> = ({
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#1e293b] text-[#94a3b8] shrink-0">
-                  <Clock className="w-3 h-3 text-[#60a5fa]" />
+                  <Clock className="w-3.5 h-3.5 text-[#60a5fa]" />
                   {activeLang === 'ar' ? 'مبرمج' : activeLang === 'en' ? 'Scheduled' : 'Programmé'}
                 </span>
               )}
@@ -664,7 +664,7 @@ const ChannelRowCardInner: React.FC<ChannelRowCardProps> = ({
               </span>
 
               {formattedCurrentSE && (
-                <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#1d4ed8]/20 text-[#38bdf8] border border-[#0055ff]/40 font-mono font-bold">
+                <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#2563eb]/20 text-[#38bdf8] border border-[#38bdf8]/40 font-mono font-bold">
                   {formattedCurrentSE}
                 </span>
               )}
@@ -694,7 +694,7 @@ const ChannelRowCardInner: React.FC<ChannelRowCardProps> = ({
           {/* Barre de progression fine et nette En Direct */}
           <div className="w-full h-1.5 rounded-full bg-[#1e293b] overflow-hidden mt-2">
             <div
-              className="h-full bg-gradient-to-r from-[#e11d48] via-[#ec4899] to-[#0055ff] rounded-full transition-all duration-300"
+              className="h-full bg-gradient-to-r from-[#ec4899] to-[#8b5cf6] rounded-full transition-all duration-300"
               style={{ width: `${isActualLive ? progress : 100}%` }}
             />
           </div>

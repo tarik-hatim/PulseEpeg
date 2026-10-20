@@ -237,7 +237,7 @@ export const RemindersChronologicalView: React.FC<
           {/* Ligne supérieure : Icône + Titre + Badge compteur & Boutons d'action */}
           <div className="w-full flex flex-row flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3 flex-wrap">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#0055ff] to-[#ec4899] flex items-center justify-center text-[#ffffff] shadow-[0_0_16px_rgba(236,72,153,0.45)] shrink-0">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#ec4899] to-[#8b5cf6] flex items-center justify-center text-[#ffffff] shadow-[0_0_16px_rgba(236,72,153,0.45)] shrink-0">
                 <BellRing className="w-5 h-5 shrink-0" />
               </div>
               <div className="flex items-center gap-2.5 flex-wrap">
@@ -246,7 +246,7 @@ export const RemindersChronologicalView: React.FC<
                 </h2>
                 <span
                   dir={isRtl ? 'rtl' : 'ltr'}
-                  className="px-2.5 py-0.5 rounded text-[11px] font-mono font-bold bg-gradient-to-r from-[#0055ff] to-[#ec4899] text-[#ffffff] border border-[#ec4899] shrink-0"
+                  className="px-2.5 py-0.5 rounded text-[11px] font-mono font-bold bg-gradient-to-r from-[#ec4899] to-[#8b5cf6] text-[#ffffff] border border-[#ec4899] shrink-0"
                 >
                   {t('reminders.programmed', language, {
                     count: reminders.length,
@@ -262,7 +262,7 @@ export const RemindersChronologicalView: React.FC<
               <button
                 type="button"
                 onClick={onSimulateImminentAlert}
-                className="tv-focusable inline-flex flex-row items-center gap-2 px-3.5 py-2 rounded-lg bg-gradient-to-r from-[#0055ff] to-[#ec4899] hover:opacity-95 text-[#ffffff] border border-[#ec4899] text-xs font-bold shadow-[0_0_12px_rgba(236,72,153,0.45)] transition-all cursor-pointer shrink-0"
+                className="tv-focusable inline-flex flex-row items-center gap-2 px-3.5 py-2 rounded-lg bg-gradient-to-r from-[#ec4899] to-[#8b5cf6] hover:opacity-95 text-[#ffffff] border border-[#ec4899] text-xs font-bold shadow-[0_0_12px_rgba(236,72,153,0.45)] transition-all cursor-pointer shrink-0"
                 title={t('reminders.testAlertTooltip', language)}
               >
                 <BellRing className="w-3.5 h-3.5 shrink-0" />
@@ -275,9 +275,9 @@ export const RemindersChronologicalView: React.FC<
                 <button
                   type="button"
                   onClick={onClearAllReminders}
-                  className="tv-focusable inline-flex flex-row items-center gap-2 px-3.5 py-2 rounded-lg bg-[#0a0e17] hover:bg-[#e11d48]/20 text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#e11d48] text-xs font-semibold transition-colors cursor-pointer shrink-0"
+                  className="tv-focusable inline-flex flex-row items-center gap-2 px-3.5 py-2 rounded-lg bg-[#0a0e17] hover:bg-[#ef4444]/20 text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#ef4444] text-xs font-semibold transition-colors cursor-pointer shrink-0"
                 >
-                  <Trash2 className="w-3.5 h-3.5 text-[#e11d48] shrink-0" />
+                  <Trash2 className="w-3.5 h-3.5 text-[#ef4444] shrink-0" />
                   <span className="whitespace-nowrap">
                     {t('reminders.clearAll', language)}
                   </span>
@@ -304,7 +304,7 @@ export const RemindersChronologicalView: React.FC<
             onClick={() => setSubFilter('all')}
             className={`tv-focusable inline-flex flex-row items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs transition-all shrink-0 cursor-pointer ${
               subFilter === 'all'
-                ? 'bg-gradient-to-r from-[#0055ff] to-[#ec4899] border border-[#ec4899] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(236,72,153,0.45)]'
+                ? 'bg-gradient-to-r from-[#ec4899] to-[#8b5cf6] border border-[#ec4899] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(236,72,153,0.45)]'
                 : 'bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] font-medium'
             }`}
           >
@@ -322,7 +322,7 @@ export const RemindersChronologicalView: React.FC<
             onClick={() => setSubFilter('imminent')}
             className={`tv-focusable inline-flex flex-row items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs transition-all shrink-0 cursor-pointer ${
               subFilter === 'imminent'
-                ? 'bg-[#e11d48] border border-[#ff0033] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(225,29,72,0.45)]'
+                ? 'bg-[#ef4444] border border-[#f87171] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(239,68,68,0.45)]'
                 : 'bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] font-medium'
             }`}
           >
@@ -340,7 +340,7 @@ export const RemindersChronologicalView: React.FC<
             onClick={() => setSubFilter('sport')}
             className={`tv-focusable inline-flex flex-row items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs transition-all shrink-0 cursor-pointer ${
               subFilter === 'sport'
-                ? 'bg-[#1d4ed8] border border-[#0055ff] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(0,85,255,0.45)]'
+                ? 'bg-[#2563eb] border border-[#3b82f6] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(37,99,235,0.45)]'
                 : 'bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] font-medium'
             }`}
           >
@@ -358,7 +358,7 @@ export const RemindersChronologicalView: React.FC<
             onClick={() => setSubFilter('cinema')}
             className={`tv-focusable inline-flex flex-row items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs transition-all shrink-0 cursor-pointer ${
               subFilter === 'cinema'
-                ? 'bg-[#1d4ed8] border border-[#0055ff] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(0,85,255,0.45)]'
+                ? 'bg-[#2563eb] border border-[#3b82f6] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(37,99,235,0.45)]'
                 : 'bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] font-medium'
             }`}
           >
@@ -379,7 +379,7 @@ export const RemindersChronologicalView: React.FC<
           dir={isRtl ? 'rtl' : 'ltr'}
           className="w-full rounded-lg border border-dashed border-[#1a202c] bg-[#141a26] p-8 text-center"
         >
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#0055ff]/25 to-[#ec4899]/25 border border-[#ec4899]/50 flex items-center justify-center mx-auto mb-3">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#ec4899]/25 to-[#8b5cf6]/25 border border-[#ec4899]/50 flex items-center justify-center mx-auto mb-3">
             <Bell className="w-6 h-6 text-[#ec4899]" />
           </div>
           <h3 className="w-full whitespace-normal text-base font-bold text-[#ffffff]">
@@ -389,7 +389,7 @@ export const RemindersChronologicalView: React.FC<
           </h3>
           <p className="w-full whitespace-normal text-xs sm:text-sm text-[#cbd5e1] mt-1.5 leading-relaxed">
             {t('reminders.emptyDescPrefix', language)}{' '}
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gradient-to-r from-[#0055ff] to-[#ec4899] text-[#ffffff] font-bold text-[10px]">
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gradient-to-r from-[#ec4899] to-[#8b5cf6] text-[#ffffff] font-bold text-[10px]">
               <Bell className="w-2.5 h-2.5 shrink-0" />{' '}
               {t('reminders.emptyDescBadge', language)}
             </span>{' '}
@@ -462,7 +462,7 @@ export const RemindersChronologicalView: React.FC<
                 className={`tv-card-focusable group relative w-full rounded-lg p-3.5 sm:p-4 border transition-all cursor-pointer ${
                   isLive || isImminent
                     ? 'bg-[#141a26] border-[1.5px] border-[#ec4899] shadow-[0_0_18px_rgba(236,72,153,0.35)]'
-                    : 'bg-[#141a26] border-[#0055ff]/50 hover:border-[#ec4899]'
+                    : 'bg-[#141a26] border-[#1e293b] hover:border-[#ec4899]'
                 }`}
               >
                 <div className="w-full flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -483,13 +483,13 @@ export const RemindersChronologicalView: React.FC<
 
                     <div className="flex-1 min-w-[180px]">
                       <div className="flex flex-row items-center gap-2 flex-wrap">
-                        <span className="inline-flex flex-row items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider bg-gradient-to-r from-[#0055ff] to-[#ec4899] text-[#ffffff] border border-[#ec4899] shadow-[0_0_8px_rgba(236,72,153,0.4)] shrink-0">
+                        <span className="inline-flex flex-row items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider bg-gradient-to-r from-[#ec4899] to-[#8b5cf6] text-[#ffffff] border border-[#ec4899] shadow-[0_0_8px_rgba(236,72,153,0.4)] shrink-0">
                           <BellRing className="w-2.5 h-2.5 shrink-0" />
                           <span>{t('reminders.activeBadge', language)}</span>
                         </span>
                         <span
                           dir="ltr"
-                          className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50 uppercase shrink-0"
+                          className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#1d4ed8]/20 text-[#ffffff] border border-[#2563eb]/50 uppercase shrink-0"
                         >
                           {satLabel}
                         </span>
@@ -521,24 +521,24 @@ export const RemindersChronologicalView: React.FC<
                   <div className="w-full flex-1 min-w-[220px] lg:ps-4 lg:border-s lg:border-[#1a202c]">
                     <div className="flex flex-row items-center gap-2 flex-wrap">
                       {isLive ? (
-                        <span className="inline-flex flex-row items-center gap-1.5 px-2.5 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider bg-[#e11d48] text-[#ffffff] border border-[#ff0033] shadow-[0_0_10px_rgba(225,29,72,0.5)]">
+                        <span className="inline-flex flex-row items-center gap-1.5 px-2.5 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider bg-[#ef4444] text-[#ffffff] border border-[#f87171] shadow-[0_0_10px_rgba(239,68,68,0.5)]">
                           <span className="w-1.5 h-1.5 rounded-full bg-[#ffffff] animate-pulse shrink-0" />
                           <span>{countdown.label}</span>
                         </span>
                       ) : isImminent ? (
-                        <span className="inline-flex flex-row items-center gap-1.5 px-2.5 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider bg-gradient-to-r from-[#0055ff] to-[#ec4899] text-[#ffffff] border border-[#ec4899] animate-pulse">
+                        <span className="inline-flex flex-row items-center gap-1.5 px-2.5 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider bg-gradient-to-r from-[#ec4899] to-[#8b5cf6] text-[#ffffff] border border-[#ec4899] animate-pulse">
                           <BellRing className="w-3 h-3 shrink-0" />
                           <span>{countdown.label}</span>
                         </span>
                       ) : (
-                        <span className="inline-flex flex-row items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-[#1d4ed8]/25 text-[#60a5fa] border border-[#0055ff]/50">
+                        <span className="inline-flex flex-row items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-[#1d4ed8]/25 text-[#60a5fa] border border-[#2563eb]/50">
                           <Clock className="w-3 h-3 shrink-0" />
                           <span>{countdown.label}</span>
                         </span>
                       )}
 
                       {rem.category && (
-                        <span className="text-[10px] px-2 py-0.5 rounded bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50 font-medium">
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-[#1d4ed8]/20 text-[#ffffff] border border-[#2563eb]/50 font-medium">
                           {translateDynamicGenre(rem.category, language)}
                         </span>
                       )}
@@ -581,7 +581,7 @@ export const RemindersChronologicalView: React.FC<
                         e.stopPropagation();
                         onRemoveReminder(rem.id);
                       }}
-                      className="tv-focusable inline-flex flex-row items-center gap-2 px-3.5 py-2 rounded-lg bg-[#0a0e17] hover:bg-[#e11d48] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#ff0033] text-xs font-semibold transition-colors cursor-pointer shrink-0"
+                      className="tv-focusable inline-flex flex-row items-center gap-2 px-3.5 py-2 rounded-lg bg-[#0a0e17] hover:bg-[#ef4444] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c] hover:border-[#f87171] text-xs font-semibold transition-colors cursor-pointer shrink-0"
                       title={t('reminders.removeTooltip', language)}
                     >
                       <BellOff className="w-3.5 h-3.5 text-[#ec4899] shrink-0" />
@@ -674,7 +674,7 @@ export const RemindersChronologicalView: React.FC<
                         {formatTimeShort(prog.startMs)} –{' '}
                         {formatTimeShort(prog.stopMs)}
                       </span>
-                      <span className="px-1.5 py-0.2 rounded bg-[#1d4ed8]/20 text-[#cbd5e1] border border-[#0055ff]/40">
+                      <span className="px-1.5 py-0.2 rounded bg-[#1d4ed8]/20 text-[#cbd5e1] border border-[#2563eb]/40">
                         {countdown.label}
                       </span>
                     </div>
@@ -685,7 +685,7 @@ export const RemindersChronologicalView: React.FC<
                     </p>
                   </div>
 
-                  <span className="inline-flex flex-row items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#0055ff] to-[#ec4899] text-[#ffffff] border border-[#ec4899] text-xs font-bold shrink-0 shadow-[0_0_10px_rgba(236,72,153,0.35)]">
+                  <span className="inline-flex flex-row items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#ec4899] to-[#8b5cf6] text-[#ffffff] border border-[#ec4899] text-xs font-bold shrink-0 shadow-[0_0_10px_rgba(236,72,153,0.35)]">
                     <Bell className="w-3.5 h-3.5 shrink-0" />
                     <span className="whitespace-nowrap">
                       {t('reminders.addReminderBtn', language)}

@@ -643,8 +643,7 @@ const TRANSLATIONS: Partial<Record<AppLanguage, Translations>> & {
     savedRemindersTitle: 'Saved programme reminders',
   },
   ar: {
-    appSubtitle:
-      'دليل التلفزيون العالمي · الأقمار الصناعية · أفلام ومسلسلات ورياضة مباشرة',
+    appSubtitle: 'دليلك الشامل للقنوات',
     liveTab: 'مباشر الآن',
     gridTab: 'شبكة البرامج',
     favoritesTab: 'المفضلة',

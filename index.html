@@ -17,7 +17,7 @@
     <link rel="icon" type="image/png" sizes="512x512" href="/pwa-512x512.png?v=nx1" />
     <link rel="apple-touch-icon" sizes="152x152" href="/pwa-152x152.png?v=nx1" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=nx1" />
-    <title>PulseEPG - Global TV Guide</title>
+    <title>PulseEPG — Guide TV XML.GZ Mobile</title>
     <meta name="description" content="Application mobile responsive de guide TV EPG (XML.GZ) avec décompression en arrière-plan, cache IndexedDB/LocalStorage et compatibilité APK Capacitor." />
     <meta property="og:title" content="PulseEPG — Guide TV XML.GZ Mobile" />
     <meta property="og:description" content="Application mobile responsive de guide TV EPG (XML.GZ) avec décompression en arrière-plan, cache IndexedDB/LocalStorage et compatibilité APK Capacitor." />
@@ -27,7 +27,25 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <style>
-      html, body { background-color: #0a0e17 !important; color: #ffffff !important; margin: 0 !important; margin-top: 0 !important; padding-top: 0 !important; width: 100%; min-height: 100%; overflow-x: clip; font-family: system-ui, -apple-system, sans-serif; }
+      html, body, #root {
+        background-color: #0a0e17 !important;
+        color: #ffffff !important;
+        margin: 0 !important;
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+        width: 100% !important;
+        max-width: 100vw !important;
+        min-height: 100%;
+        overflow-x: hidden !important;
+        font-family: system-ui, -apple-system, sans-serif;
+        box-sizing: border-box !important;
+      }
+      html[dir="rtl"], body[dir="rtl"], #root[dir="rtl"] {
+        direction: rtl;
+        text-align: right;
+        overflow-x: hidden !important;
+        max-width: 100vw !important;
+      }
       body { padding: 0 10px 12px 10px !important; margin-top: 0 !important; padding-top: 0 !important; box-sizing: border-box !important; }
       @media (max-width: 767px) {
         body { padding: 0 10px 12px 10px !important; margin-top: 0 !important; padding-top: 0 !important; }

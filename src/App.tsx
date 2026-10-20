@@ -6104,28 +6104,26 @@ export function App() {
   return (
     <div
       dir={langOpt.dir}
-      className="min-h-screen mt-0 pt-0 bg-[#0a0e17] text-[#ffffff] flex flex-col selection:bg-[#e11d48] selection:text-[#ffffff]"
+      className="min-h-screen w-full max-w-full overflow-x-hidden mt-0 pt-0 bg-[#0a0e17] text-[#ffffff] flex flex-col selection:bg-[#ec4899] selection:text-[#ffffff]"
     >
-      {/* Top Navigation Bar — Collé au haut de l'écran (top: 0; left: 0; width: 100%; z-index: 1000; background: #0b0f19) */}
+      {/* Top Navigation Bar — Collé au haut de l'écran avec dégagement mobile pour le logo */}
       {/* Top Navigation Bar — Fidèle à la photo : Logo + Sous-titre + 2 boutons d'actions, Onglets, Recherche & Filtres, Stats & Date */}
       <header
         data-tv-zone="header"
         data-dpad-active={activeDpadZone === 'header' ? 'true' : undefined}
-        className="sticky top-0 left-0 z-[1000] w-full bg-[#0b0f19] backdrop-blur-md border-b border-[#1a202c] px-4 py-3 sm:px-6"
+        className="sticky top-0 inset-x-0 z-[1000] w-full bg-[#0b0f19] backdrop-blur-md border-b border-[#1a202c] px-4 pt-[52px] pb-3 sm:px-6 sm:py-3"
       >
         <div className="max-w-[1600px] w-full mx-auto space-y-2.5">
           {/* Ligne 1 : Brand Logo PulseEPG à gauche + Boutons Rafraîchir & Paramètres à droite (aucun bouton Passe Pro) */}
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#f59e0b] text-[#0a0e17] font-black text-lg sm:text-xl flex items-center justify-center shrink-0 shadow-sm">
-                P
-              </div>
+              <PulseEpgLogo adaptiveTerminalSize={true} />
               <div className="min-w-0">
                 <h1 className="text-base sm:text-lg 2xl:text-xl font-bold tracking-tight text-white leading-tight truncate">
                   PulseEPG
                 </h1>
                 <p className="text-[11px] sm:text-xs text-[#94a3b8] leading-tight truncate">
-                  {activeLang === 'ar' ? 'دليل القنوات الفضائية · أوروبا' : 'Guide TV satellite · Europe'}
+                  {activeLang === 'ar' ? 'دليلك الشامل للقنوات' : 'Guide TV satellite · Europe'}
                 </p>
               </div>
             </div>
@@ -6189,13 +6187,13 @@ export function App() {
               }}
               className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2 shrink-0 transition-all cursor-pointer active:scale-95 ${
                 viewMode === 'live'
-                  ? 'bg-[#e11d48] text-white font-bold shadow-[0_0_14px_rgba(225,29,72,0.5)] border border-[#ff0033]'
-                  : 'bg-[#141a26] border border-[#1e293b] text-[#cbd5e1] hover:text-white hover:border-[#e11d48]/50'
+                  ? 'bg-[#ef4444] text-white font-bold shadow-[0_0_14px_rgba(239,68,68,0.5)] border border-[#f87171]'
+                  : 'bg-[#141a26] border border-[#1e293b] text-[#cbd5e1] hover:text-white hover:border-[#ef4444]/50'
               }`}
             >
               <span
                 className={`w-2 h-2 rounded-full shrink-0 ${
-                  viewMode === 'live' ? 'bg-white animate-pulse shadow-[0_0_6px_#ffffff]' : 'bg-[#e11d48]'
+                  viewMode === 'live' ? 'bg-white animate-pulse shadow-[0_0_6px_#ffffff]' : 'bg-[#ef4444]'
                 }`}
               />
               <span>{tr.liveTab}</span>
@@ -6212,8 +6210,8 @@ export function App() {
               }}
               className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2 shrink-0 transition-all cursor-pointer active:scale-95 ${
                 viewMode === 'sports'
-                  ? 'bg-[#0055ff] text-white font-bold shadow-[0_0_14px_rgba(0,85,255,0.45)] border border-[#3b82f6]'
-                  : 'bg-[#141a26] border border-[#1e293b] text-[#cbd5e1] hover:text-white hover:border-[#0055ff]/50'
+                  ? 'bg-[#2563eb] text-white font-bold shadow-[0_0_14px_rgba(37,99,235,0.45)] border border-[#60a5fa]'
+                  : 'bg-[#141a26] border border-[#1e293b] text-[#cbd5e1] hover:text-white hover:border-[#2563eb]/50'
               }`}
             >
               <span className="text-sm">⚽</span>
@@ -6230,8 +6228,8 @@ export function App() {
               }}
               className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2 shrink-0 transition-all cursor-pointer active:scale-95 ${
                 viewMode === 'grid'
-                  ? 'bg-[#0055ff] text-white font-bold shadow-[0_0_14px_rgba(0,85,255,0.45)] border border-[#3b82f6]'
-                  : 'bg-[#141a26] border border-[#1e293b] text-[#cbd5e1] hover:text-white hover:border-[#0055ff]/50'
+                  ? 'bg-[#7c3aed] text-white font-bold shadow-[0_0_14px_rgba(124,58,237,0.45)] border border-[#a855f7]'
+                  : 'bg-[#141a26] border border-[#1e293b] text-[#cbd5e1] hover:text-white hover:border-[#7c3aed]/50'
               }`}
             >
               <LayoutGrid className="w-3.5 h-3.5 shrink-0" />
@@ -6254,8 +6252,8 @@ export function App() {
               }}
               className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2 shrink-0 transition-all cursor-pointer active:scale-95 ${
                 viewMode === 'favorites'
-                  ? 'bg-[#e11d48] text-white font-bold shadow-[0_0_14px_rgba(225,29,72,0.5)] border border-[#ff0033]'
-                  : 'bg-[#141a26] border border-[#1e293b] text-[#cbd5e1] hover:text-white hover:border-[#e11d48]/50'
+                  ? 'bg-[#ec4899] text-white font-bold shadow-[0_0_14px_rgba(236,72,153,0.5)] border border-[#f472b6]'
+                  : 'bg-[#141a26] border border-[#1e293b] text-[#cbd5e1] hover:text-white hover:border-[#ec4899]/50'
               }`}
             >
               <Heart
@@ -6288,8 +6286,8 @@ export function App() {
                 }}
                 className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2 shrink-0 transition-all cursor-pointer active:scale-95 ${
                   viewMode === 'reminders'
-                    ? 'bg-[#0055ff] text-white font-bold shadow-[0_0_14px_rgba(0,85,255,0.45)] border border-[#3b82f6]'
-                    : 'bg-[#141a26] border border-[#1e293b] text-[#cbd5e1] hover:text-white hover:border-[#0055ff]/50'
+                    ? 'bg-[#8b5cf6] text-white font-bold shadow-[0_0_14px_rgba(139,92,246,0.45)] border border-[#a78bfa]'
+                    : 'bg-[#141a26] border border-[#1e293b] text-[#cbd5e1] hover:text-white hover:border-[#8b5cf6]/50'
                 }`}
               >
                 <Bell className="w-3.5 h-3.5 shrink-0" />
@@ -6317,7 +6315,7 @@ export function App() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={activeLang === 'ar' ? 'البحث عن القنوات...' : 'Rechercher des chaînes...'}
-                className="w-full bg-[#0b101b] border border-[#1e293b] rounded-xl ps-10 pe-9 py-2.5 text-xs sm:text-sm text-white placeholder-[#64748b] focus:outline-none focus:border-[#0055ff] transition-colors"
+                className="w-full bg-[#0b101b] border border-[#1e293b] rounded-xl ps-10 pe-9 py-2.5 text-xs sm:text-sm text-white placeholder-[#64748b] focus:outline-none focus:border-[#38bdf8] transition-colors"
               />
               {searchQuery && (
                 <button
@@ -6337,14 +6335,14 @@ export function App() {
               onClick={() => setIsMobileExtraFiltersOpen((prev) => !prev)}
               className={`shrink-0 flex items-center gap-2 px-3.5 sm:px-4 py-2.5 rounded-xl border text-xs sm:text-sm font-semibold transition-all cursor-pointer active:scale-95 ${
                 isMobileExtraFiltersOpen || activeExtraFiltersCount > 0
-                  ? 'bg-[#0055ff]/25 border-[#0055ff] text-[#ffffff] shadow-[0_0_10px_rgba(0,85,255,0.35)]'
-                  : 'bg-[#141a26] border border-[#1e293b] text-white hover:border-[#0055ff]/50'
+                  ? 'bg-[#2563eb]/25 border-[#2563eb] text-[#ffffff] shadow-[0_0_10px_rgba(37,99,235,0.35)]'
+                  : 'bg-[#141a26] border border-[#1e293b] text-white hover:border-[#2563eb]/50'
               }`}
             >
               <SlidersHorizontal className="w-4 h-4 text-[#cbd5e1]" />
               <span>{activeLang === 'ar' ? 'تصفية' : 'Filtres'}</span>
               {activeExtraFiltersCount > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[#e11d48] text-[#ffffff]">
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[#ec4899] text-[#ffffff]">
                   {toStandardDigits(String(activeExtraFiltersCount))}
                 </span>
               )}
@@ -6370,7 +6368,7 @@ export function App() {
               <select
                 value={selectedEpgDayOffset}
                 onChange={(e) => handleSelectEpgDay(parseInt(e.target.value, 10))}
-                className="appearance-none ps-3 pe-7 py-1.5 rounded-xl bg-[#141a26] border border-[#1e293b] text-xs font-semibold text-white focus:outline-none focus:border-[#0055ff] transition-colors cursor-pointer"
+                className="appearance-none ps-3 pe-7 py-1.5 rounded-xl bg-[#141a26] border border-[#1e293b] text-xs font-semibold text-white focus:outline-none focus:border-[#38bdf8] transition-colors cursor-pointer"
               >
                 <option value={0}>{activeLang === 'ar' ? 'اليوم' : "Aujourd'hui"}</option>
                 <option value={1}>{activeLang === 'ar' ? 'غداً (+1)' : 'Demain (+1)'}</option>
@@ -6405,12 +6403,12 @@ export function App() {
                 {activeLang === 'ar' ? 'الفلاتر النشطة :' : activeLang === 'fr' ? 'Filtres actifs :' : 'Active filters:'}
               </span>
               {selectedSatellite !== 'Tous' && (
-                <span className="px-2 py-0.5 rounded-full bg-[#0055ff]/20 border border-[#0055ff]/40 text-[#38bdf8] text-[10px] font-semibold">
+                <span className="px-2 py-0.5 rounded-full bg-[#2563eb]/20 border border-[#2563eb]/40 text-[#38bdf8] text-[10px] font-semibold">
                   🛰️ {translateSatelliteFilter(selectedSatellite, activeLang)}
                 </span>
               )}
               {selectedBouquet !== 'Tous' && (
-                <span className="px-2 py-0.5 rounded-full bg-[#0055ff]/20 border border-[#0055ff]/40 text-[#38bdf8] text-[10px] font-semibold">
+                <span className="px-2 py-0.5 rounded-full bg-[#2563eb]/20 border border-[#2563eb]/40 text-[#38bdf8] text-[10px] font-semibold">
                   📺 {translateBouquetFilter(selectedBouquet, activeLang, selectedSatellite)}
                 </span>
               )}
@@ -6601,7 +6599,7 @@ export function App() {
                   >
                     <div className="flex items-center justify-between pb-2.5 mb-2 border-b border-[#334155]">
                       <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[#ffffff]">
-                        <Clock className="w-3.5 h-3.5 text-[#0055ff]" />
+                        <Clock className="w-3.5 h-3.5 text-[#38bdf8]" />
                         <span>{activeLang === 'ar' ? 'عمليات البحث الأخيرة' : activeLang === 'fr' ? 'Recherches récentes' : 'Recent Searches'}</span>
                       </div>
                       <button
@@ -6612,7 +6610,7 @@ export function App() {
                           setRecentSearches([]);
                           setIsSearchDropdownOpen(false);
                         }}
-                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#cbd5e1] hover:text-[#e11d48] transition-colors cursor-pointer"
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#cbd5e1] hover:text-[#ef4444] transition-colors cursor-pointer"
                       >
                         <Trash2 className="w-3 h-3" />
                         <span>{activeLang === 'ar' ? 'مسح' : activeLang === 'fr' ? 'Effacer' : 'Clear'}</span>
@@ -6914,7 +6912,7 @@ export function App() {
                           onClick={() => {
                             handleResetWatchHabits();
                           }}
-                          className="tv-dpad-btn w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-[#0a0e17]/80 border border-[#1a202c] text-[11px] font-semibold text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#e11d48]/60 transition-colors cursor-pointer"
+                          className="tv-dpad-btn w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-[#0a0e17]/80 border border-[#1a202c] text-[11px] font-semibold text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#ec4899]/60 transition-colors cursor-pointer"
                         >
                           <span className="inline-flex items-center gap-1.5 truncate">
                             <RotateCcw className="w-3 h-3 text-[#ec4899] shrink-0" />
@@ -7007,14 +7005,14 @@ export function App() {
                 title={activeLang === 'ar' ? 'فلاتر الأقمار، الباقات والمناطق' : 'Filtres Satellites, Bouquets et Zones (Accès direct immédiat)'}
                 className={`tv-dpad-btn inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer shrink-0 ${
                   isMobileExtraFiltersOpen || activeExtraFiltersCount > 0
-                    ? 'bg-[#0055ff]/25 text-[#ffffff] border border-[#0055ff] shadow-[0_0_10px_rgba(0,85,255,0.35)]'
+                    ? 'bg-[#2563eb]/25 text-[#ffffff] border border-[#2563eb] shadow-[0_0_10px_rgba(37,99,235,0.35)]'
                     : 'bg-[#0a0e17] text-[#cbd5e1] hover:text-[#ffffff] border border-[#1a202c]'
                 }`}
               >
                 <SlidersHorizontal className="w-3.5 h-3.5 text-[#38bdf8] shrink-0" />
                 <span>{activeLang === 'ar' ? 'تصفية' : activeLang === 'fr' ? 'Filtres' : 'Filters'}</span>
                 {activeExtraFiltersCount > 0 && (
-                  <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[#e11d48] text-[#ffffff]">
+                  <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[#ec4899] text-[#ffffff]">
                     {toStandardDigits(activeExtraFiltersCount)}
                   </span>
                 )}
@@ -7027,13 +7025,13 @@ export function App() {
 
               {/* Horodateur Temps Réel */}
               <div className="inline-flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-[#0a0e17] border border-[#1a202c] text-xs font-mono text-[#cbd5e1] shrink-0 select-none">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#e11d48] shadow-[0_0_8px_#e11d48] shrink-0 animate-pulse" />
+                <span className="w-1.5 h-1.5 rounded-full bg-[#ef4444] shadow-[0_0_8px_#ef4444] shrink-0 animate-pulse" />
                 <Clock className="w-3.5 h-3.5 text-[#cbd5e1]" />
                 <span>{formatDayLabel(nowMs, activeLang)}</span>
                 <span className="font-bold text-[#ffffff]">
                   {formatTimeShort(nowMs)}
                 </span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#1d4ed8]/25 text-[#ffffff] border border-[#0055ff]/50 font-sans font-medium">
+                <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#2563eb]/20 text-[#38bdf8] border border-[#38bdf8]/40 font-sans font-medium">
                   {APP_TIMEZONE_LABEL}
                 </span>
               </div>
@@ -7057,8 +7055,8 @@ export function App() {
                   onClick={() => setIsMobileExtraFiltersOpen((prev) => !prev)}
                   className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold shrink-0 transition-all cursor-pointer me-1.5 ${
                     isMobileExtraFiltersOpen || activeExtraFiltersCount > 0
-                      ? 'bg-[#0055ff] text-[#ffffff] shadow-[0_0_10px_rgba(0,85,255,0.4)]'
-                      : 'bg-[#141a26] text-[#cbd5e1] border border-[#1a202c] hover:text-[#ffffff] hover:border-[#0055ff]/60'
+                      ? 'bg-[#2563eb] text-[#ffffff] shadow-[0_0_10px_rgba(37,99,235,0.4)]'
+                      : 'bg-[#141a26] text-[#cbd5e1] border border-[#1a202c] hover:text-[#ffffff] hover:border-[#38bdf8]/60'
                   }`}
                   aria-expanded={isMobileExtraFiltersOpen}
                   title={activeLang === 'ar' ? 'عرض/إخفاء فلاتر الأقمار والباقات' : 'Afficher/masquer les filtres satellites, bouquets et zones sans avoir à glisser'}
@@ -7066,7 +7064,7 @@ export function App() {
                   <SlidersHorizontal className="w-3.5 h-3.5 text-[#38bdf8] shrink-0" />
                   <span>{activeLang === 'ar' ? 'فلاتر الأقمار' : activeLang === 'fr' ? 'Filtres SAT' : 'SAT Filters'}</span>
                   {activeExtraFiltersCount > 0 && (
-                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[#e11d48] text-[#ffffff]">
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[#ec4899] text-[#ffffff]">
                       {toStandardDigits(activeExtraFiltersCount)}
                     </span>
                   )}
@@ -7078,7 +7076,7 @@ export function App() {
                 </button>
 
                 <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0 select-none">
-                  <Film className="w-3.5 h-3.5 text-[#e11d48]" />
+                  <Film className="w-3.5 h-3.5 text-[#ec4899]" />
                   {tr.filterCatLabel}
                 </span>
                 {visibleCategoryOptions.map((cat, catIdx) => {
@@ -7221,7 +7219,7 @@ export function App() {
                       : 'More filters (SAT/Bouquet/Zone)'}
                   </span>
                   {activeExtraFiltersCount > 0 && (
-                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[#e11d48] text-[#ffffff]">
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[#ec4899] text-[#ffffff]">
                       {toStandardDigits(activeExtraFiltersCount)}
                     </span>
                   )}
@@ -7249,7 +7247,7 @@ export function App() {
                     className="filter-ribbon no-scrollbar pt-1 border-t border-[#1a202c]"
                   >
                     <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0 select-none">
-                      <Globe className="w-3.5 h-3.5 text-[#0055ff]" />
+                      <Globe className="w-3.5 h-3.5 text-[#38bdf8]" />
                       {activeLang === 'es' ? 'Région / Zona:' : 'Região / Zona:'}
                     </span>
 
@@ -7362,7 +7360,7 @@ export function App() {
                     className="filter-ribbon no-scrollbar pt-1 border-t border-[#1a202c]"
                   >
                     <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0 select-none">
-                      <Satellite className="w-3.5 h-3.5 text-[#0055ff]" />
+                      <Satellite className="w-3.5 h-3.5 text-[#38bdf8]" />
                       {tr.filterSatLabel}
                     </span>
                     {visibleSatelliteOptions.map((sat) => {
@@ -7457,8 +7455,8 @@ export function App() {
                 )}
 
                 {ramWarningMessage && (
-                  <div className="px-3 py-2 rounded-lg bg-[#0a0e17] border border-[#0055ff]/60 text-[#ffffff] text-xs font-medium flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-[#0055ff] shrink-0" />
+                  <div className="px-3 py-2 rounded-lg bg-[#0a0e17] border border-[#2563eb]/60 text-[#ffffff] text-xs font-medium flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#2563eb] shrink-0" />
                     <span>{ramWarningMessage}</span>
                   </div>
                 )}
@@ -7473,7 +7471,7 @@ export function App() {
                     className="filter-ribbon no-scrollbar pt-1 border-t border-[#1a202c]"
                   >
                     <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0 select-none">
-                      <Globe className="w-3.5 h-3.5 text-[#0055ff]" />
+                      <Globe className="w-3.5 h-3.5 text-[#38bdf8]" />
                       {tr.filterCountryLabel || tr.filterZoneLabel}
                     </span>
                     {visibleCountryOptions.map((cCode) => {
@@ -7528,7 +7526,7 @@ export function App() {
                     className="filter-ribbon no-scrollbar pt-1.5 border-t border-[#1a202c]"
                   >
                     <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0 select-none">
-                      <Sparkles className="w-3 h-3 text-[#e11d48]" />
+                      <Sparkles className="w-3 h-3 text-[#ec4899]" />
                       {tr.filterGenreLabel}
                     </span>
                     {visibleGroupOptions.map((grp) => {
@@ -7579,7 +7577,7 @@ export function App() {
                 className="filter-ribbon flex flex-row overflow-x-auto whitespace-nowrap gap-2 py-1 no-scrollbar pt-1.5 border-t border-[#1a202c] items-center"
               >
                 <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#cbd5e1] me-1 shrink-0 select-none">
-                  <Calendar className="w-3.5 h-3.5 text-[#0055ff]" />
+                  <Calendar className="w-3.5 h-3.5 text-[#38bdf8]" />
                   {activeLang === 'ar' ? 'دليل 7 أيام :' : activeLang === 'fr' ? 'EPG 7 Jours :' : '7-Day EPG:'}
                 </span>
                 {mainSevenDayBarItems.map((item) => (
@@ -7603,10 +7601,10 @@ export function App() {
                       item.isActive
                         ? item.isCatchUp
                           ? 'bg-gradient-to-r from-[#ec4899] to-[#8b5cf6] border border-[#ec4899] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(236,72,153,0.45)]'
-                          : 'bg-[#e11d48] border border-[#ff0033] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(225,29,72,0.45)]'
+                          : 'bg-gradient-to-r from-[#2563eb] to-[#1d4ed8] border border-[#60a5fa] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(37,99,235,0.45)]'
                         : item.isLocked
-                        ? 'bg-[#0a0e17]/90 border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60 font-medium'
-                        : 'bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#0055ff]/60 font-medium'
+                        ? 'bg-[#0a0e17]/90 border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#38bdf8]/60 font-medium'
+                        : 'bg-[#0a0e17] border border-[#1a202c] text-[#cbd5e1] hover:text-[#ffffff] hover:border-[#38bdf8]/60 font-medium'
                     }`}
                   >
                     {item.isCatchUp && !item.isLocked && (
@@ -7644,7 +7642,7 @@ export function App() {
                   </span>
                 </>
               )}
-              <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] bg-[#1d4ed8]/20 text-[#ffffff] border border-[#0055ff]/50 font-medium ms-1">
+              <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] bg-[#1d4ed8]/20 text-[#ffffff] border border-[#2563eb]/50 font-medium ms-1">
                 <Subtitles className="w-3 h-3 text-[#60a5fa]" />
                 VO + SUB
               </span>
@@ -7660,7 +7658,7 @@ export function App() {
               <button
                 type="button"
                 onClick={resetAllFilters}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#e11d48] border border-[#ff0033] text-xs font-bold text-[#ffffff] shadow-[0_0_10px_rgba(225,29,72,0.4)] cursor-pointer"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#ec4899] border border-[#f43f5e] text-xs font-bold text-[#ffffff] shadow-[0_0_10px_rgba(236,72,153,0.4)] cursor-pointer"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 {tr.resetFiltersBtn}
@@ -7674,7 +7672,7 @@ export function App() {
         {viewMode === 'favorites' && reminders.length > 0 && (
           <div className="mb-4 rounded-lg p-4 bg-[#141a26] border border-[#1a202c] space-y-2.5">
             <h3 className="text-xs font-bold flex items-center gap-1.5 text-[#ffffff] uppercase tracking-wider">
-              <Bell className="w-3.5 h-3.5 text-[#e11d48]" />
+              <Bell className="w-3.5 h-3.5 text-[#ec4899]" />
               {tr.savedRemindersTitle} ({reminders.length})
             </h3>
             <div className="divide-y divide-[#1a202c]">
@@ -7695,7 +7693,7 @@ export function App() {
                   <button
                     type="button"
                     onClick={() => handleRemoveReminderById(rem.id)}
-                    className="p-1.5 rounded-lg text-[#cbd5e1] hover:text-[#e11d48] cursor-pointer"
+                    className="p-1.5 rounded-lg text-[#cbd5e1] hover:text-[#ef4444] cursor-pointer"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -7818,7 +7816,7 @@ export function App() {
               </div>
             ) : epgError ? (
               <>
-                <AlertTriangle className="w-10 h-10 text-[#e11d48] mx-auto mb-3" />
+                <AlertTriangle className="w-10 h-10 text-[#ef4444] mx-auto mb-3" />
                 <h3 className="text-base font-bold text-[#ffffff]">
                   {activeLang === 'ar'
                     ? 'فشل تحميل بث EPG عبر HTTPS'
@@ -7833,7 +7831,7 @@ export function App() {
                   <button
                     type="button"
                     onClick={() => triggerEpgSync(settings)}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#e11d48] border border-[#ff0033] text-[#ffffff] font-bold text-xs shadow-[0_0_12px_rgba(225,29,72,0.45)] cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#2563eb] border border-[#3b82f6] text-[#ffffff] font-bold text-xs shadow-[0_0_12px_rgba(37,99,235,0.45)] cursor-pointer"
                   >
                     <RefreshCw className="w-3.5 h-3.5" />
                     {tr.refreshBtn}
@@ -7844,7 +7842,7 @@ export function App() {
                       handleLoadOfflineFallback(settings);
                       resetAllFilters();
                     }}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#1d4ed8]/25 border border-[#0055ff] text-[#ffffff] hover:bg-[#1d4ed8] font-semibold text-xs cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#1d4ed8]/25 border border-[#2563eb] text-[#ffffff] hover:bg-[#1d4ed8] font-semibold text-xs cursor-pointer"
                   >
                     <Satellite className="w-3.5 h-3.5" />
                     {activeLang === 'ar'
@@ -7857,7 +7855,7 @@ export function App() {
               </>
             ) : (
               <>
-                <Satellite className="w-10 h-10 text-[#0055ff] mx-auto mb-3" />
+                <Satellite className="w-10 h-10 text-[#38bdf8] mx-auto mb-3" />
                 <h3 className="text-base font-bold text-[#ffffff]">
                   {tr.noChannelsFoundTitle}
                 </h3>
@@ -7867,7 +7865,7 @@ export function App() {
                 <button
                   type="button"
                   onClick={resetAllFilters}
-                  className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#e11d48] border border-[#ff0033] text-[#ffffff] font-bold text-xs shadow-[0_0_12px_rgba(225,29,72,0.45)] cursor-pointer"
+                  className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#2563eb] border border-[#3b82f6] text-[#ffffff] font-bold text-xs shadow-[0_0_12px_rgba(37,99,235,0.45)] cursor-pointer"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
                   {tr.showAllSatellitesBtn}
@@ -7953,12 +7951,12 @@ export function App() {
             onClick={handleSyncToLive}
             aria-label="Sync to Live"
             title="Sync to Live"
-            className="inline-flex items-center gap-2.5 px-4 py-2.5 rounded-lg bg-[#e11d48] hover:bg-[#ff0033] text-[#ffffff] font-bold text-xs sm:text-sm shadow-[0_0_20px_rgba(225,29,72,0.55)] border border-[#ff0033] transition-colors cursor-pointer"
+            className="inline-flex items-center gap-2.5 px-4 py-2.5 rounded-lg bg-[#2563eb] hover:bg-[#1d4ed8] text-[#ffffff] font-bold text-xs sm:text-sm shadow-[0_0_20px_rgba(37,99,235,0.55)] border border-[#3b82f6] transition-colors cursor-pointer"
           >
             <span className="w-2 h-2 rounded-full bg-[#ffffff] shadow-[0_0_8px_#ffffff] shrink-0 animate-pulse" />
             <Radio className="w-4 h-4 text-[#ffffff] shrink-0" />
             <span>Sync to Live</span>
-            <span className="px-2 py-0.5 rounded bg-[#0a0e17] text-[#ffffff] border border-[#ff0033]/60 font-mono text-[11px] font-bold">
+            <span className="px-2 py-0.5 rounded bg-[#0a0e17] text-[#ffffff] border border-[#3b82f6]/60 font-mono text-[11px] font-bold">
               {formattedOffsetBadge}
             </span>
           </button>
@@ -7986,7 +7984,7 @@ export function App() {
             }}
             className="inline-flex items-center gap-1.5 text-[#cbd5e1] hover:text-[#ffffff] font-semibold cursor-pointer"
           >
-            <Scale className="w-3.5 h-3.5 text-[#0055ff]" />
+            <Scale className="w-3.5 h-3.5 text-[#38bdf8]" />
             <span>{tr.tabLegalPlayStore}</span>
           </button>
         </div>
@@ -8035,9 +8033,9 @@ export function App() {
         <div
           role="alert"
           aria-live="assertive"
-          className="toast-notification border-[#e11d48]"
+          className="toast-notification border-[#ef4444]"
         >
-          <AlertTriangle className="w-5 h-5 text-[#e11d48] shrink-0" />
+          <AlertTriangle className="w-5 h-5 text-[#ef4444] shrink-0" />
           <span className="text-xs sm:text-sm font-semibold text-[#ffffff]">
             {ramWarningMessage}
           </span>

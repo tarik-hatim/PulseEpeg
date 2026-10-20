@@ -197,7 +197,7 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
           className="px-5 py-4 bg-[#0b0f19] border-b border-[#1a202c] flex items-center justify-between gap-3 shrink-0 w-full"
         >
           <div className="flex items-center gap-3 min-w-0 flex-1">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#0055ff] to-[#ec4899] flex items-center justify-center text-[#ffffff] shrink-0 shadow-[0_0_14px_rgba(236,72,153,0.4)]">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#ec4899] to-[#8b5cf6] flex items-center justify-center text-[#ffffff] shrink-0 shadow-[0_0_14px_rgba(236,72,153,0.4)]">
               {authState.isPremium ? (
                 <Crown className="w-5 h-5 text-[#fde047]" />
               ) : (
@@ -213,7 +213,7 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
                   className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold shrink-0 ${
                     authState.isPremium
                       ? 'bg-gradient-to-r from-[#f59e0b] to-[#ec4899] text-[#ffffff]'
-                      : 'bg-[#1d4ed8]/25 text-[#38bdf8] border border-[#0055ff]/50'
+                      : 'bg-[#1d4ed8]/25 text-[#38bdf8] border border-[#2563eb]/50'
                   }`}
                 >
                   {badgeLabel}
@@ -231,7 +231,7 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
             onClick={onClose}
             aria-label={t('auth.close', language)}
             title={t('auth.close', language)}
-            className="tv-dpad-btn inline-flex items-center justify-center w-9 h-9 rounded-lg bg-[#e11d48]/20 border border-[#e11d48]/70 text-[#ffffff] hover:bg-[#e11d48] transition-colors cursor-pointer shrink-0"
+            className="tv-dpad-btn inline-flex items-center justify-center w-9 h-9 rounded-lg bg-[#141a26] border border-[#1e293b] text-[#cbd5e1] hover:text-[#ffffff] hover:bg-[#1e293b] transition-colors cursor-pointer shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
@@ -258,7 +258,7 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
                 type="button"
                 data-tv-focusable="true"
                 onClick={onClose}
-                className="tv-dpad-btn px-3 py-1.5 rounded-lg bg-[#0055ff] hover:bg-[#1d4ed8] text-[11px] font-bold text-[#ffffff] shrink-0 cursor-pointer"
+                className="tv-dpad-btn px-3 py-1.5 rounded-lg bg-[#2563eb] hover:bg-[#1d4ed8] text-[11px] font-bold text-[#ffffff] shrink-0 cursor-pointer"
               >
                 OK
               </button>
@@ -320,7 +320,7 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
                     className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold shrink-0 ${
                       authState.isPremium
                         ? 'bg-gradient-to-r from-[#f59e0b] to-[#ec4899] text-[#ffffff] shadow-[0_0_12px_rgba(245,158,11,0.45)]'
-                        : 'bg-[#1d4ed8]/25 text-[#38bdf8] border border-[#0055ff]/60'
+                        : 'bg-[#1d4ed8]/25 text-[#38bdf8] border border-[#2563eb]/60'
                     }`}
                   >
                     <span>
@@ -426,7 +426,7 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
                   data-tv-focusable="true"
                   onClick={handleSignOut}
                   disabled={isLoading}
-                  className="tv-dpad-btn inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-[#0a0e17] border border-[#334155] text-xs font-semibold text-[#cbd5e1] hover:text-[#e11d48] hover:border-[#e11d48] transition-colors cursor-pointer"
+                  className="tv-dpad-btn inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-[#0a0e17] border border-[#334155] text-xs font-semibold text-[#cbd5e1] hover:text-[#ef4444] hover:border-[#ef4444] transition-colors cursor-pointer"
                 >
                   <LogOut className={`w-3.5 h-3.5 shrink-0 ${isRtl ? 'rotate-180' : ''}`} />
                   <span className="whitespace-normal">
@@ -438,7 +438,7 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
                   type="button"
                   data-tv-focusable="true"
                   onClick={onClose}
-                  className="tv-dpad-btn px-4 py-2.5 rounded-xl bg-[#0055ff] hover:bg-[#1d4ed8] text-xs font-bold text-[#ffffff] transition-colors cursor-pointer"
+                  className="tv-dpad-btn px-4 py-2.5 rounded-xl bg-[#2563eb] hover:bg-[#1d4ed8] text-xs font-bold text-[#ffffff] transition-colors cursor-pointer"
                 >
                   {t('auth.continueBtn', language)}
                 </button>
@@ -475,7 +475,7 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
                   onClick={() => setMode('login')}
                   className={`tv-dpad-btn inline-flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer w-full ${
                     mode === 'login'
-                      ? 'bg-[#e11d48] text-[#ffffff]'
+                      ? 'bg-[#2563eb] text-[#ffffff]'
                       : 'text-[#cbd5e1] hover:text-[#ffffff]'
                   }`}
                 >
@@ -490,7 +490,7 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
                   onClick={() => setMode('register')}
                   className={`tv-dpad-btn inline-flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer w-full ${
                     mode === 'register'
-                      ? 'bg-[#e11d48] text-[#ffffff]'
+                      ? 'bg-[#2563eb] text-[#ffffff]'
                       : 'text-[#cbd5e1] hover:text-[#ffffff]'
                   }`}
                 >
@@ -656,7 +656,7 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
                 </div>
 
                 {errorMessage && (
-                  <p className="text-xs text-[#e11d48] font-medium whitespace-normal break-words text-start">
+                  <p className="text-xs text-[#ef4444] font-medium whitespace-normal break-words text-start">
                     {errorMessage}
                   </p>
                 )}
@@ -670,7 +670,7 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
                     type="submit"
                     data-tv-focusable="true"
                     disabled={isLoading}
-                    className="tv-dpad-btn w-full py-3 rounded-xl bg-gradient-to-r from-[#0055ff] to-[#ec4899] text-xs sm:text-sm font-bold text-[#ffffff] shadow-[0_0_15px_rgba(236,72,153,0.4)] cursor-pointer"
+                    className="tv-dpad-btn w-full py-3 rounded-xl bg-gradient-to-r from-[#ec4899] to-[#8b5cf6] text-xs sm:text-sm font-bold text-[#ffffff] shadow-[0_0_15px_rgba(236,72,153,0.4)] cursor-pointer"
                   >
                     {mode === 'login'
                       ? t('auth.signIn', language)

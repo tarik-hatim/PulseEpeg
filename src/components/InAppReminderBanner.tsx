@@ -197,7 +197,7 @@ export const InAppReminderBanner: React.FC<InAppReminderBannerProps> = ({
           <div className="flex items-center gap-1.5 flex-nowrap overflow-hidden">
             {isImminentOrLive ? (
               isLiveNow ? (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-[#e11d48] text-[#ffffff] shrink-0">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-[#ef4444] text-[#ffffff] shrink-0">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#ffffff] animate-pulse shrink-0" />
                   <span>{t('reminders.bannerLive', language)}</span>
                 </span>
@@ -258,7 +258,7 @@ export const InAppReminderBanner: React.FC<InAppReminderBannerProps> = ({
           {isLiveNow && (
             <div className="h-1 w-full bg-[#0a0e17] rounded-full overflow-hidden">
               <div
-                className="h-full bg-gradient-to-r from-[#2563eb] via-[#ec4899] to-[#e11d48] rounded-full"
+                className="h-full bg-gradient-to-r from-[#2563eb] via-[#ec4899] to-[#ef4444] rounded-full"
                 style={{ width: `${progress}%` }}
               />
             </div>
@@ -293,7 +293,7 @@ export const InAppReminderBanner: React.FC<InAppReminderBannerProps> = ({
           }}
           aria-label={t('reminders.bannerDismissTitle', language)}
           title={t('reminders.bannerDismissTitle', language)}
-          className="tv-focusable p-1.5 rounded-lg bg-[#0a0e17] hover:bg-[#e11d48] border border-[#1a202c] hover:border-[#ff0033] text-[#cbd5e1] hover:text-[#ffffff] transition-colors cursor-pointer"
+          className="tv-focusable p-1.5 rounded-lg bg-[#0a0e17] hover:bg-[#ef4444] border border-[#1a202c] hover:border-[#f87171] text-[#cbd5e1] hover:text-[#ffffff] transition-colors cursor-pointer"
         >
           <X className="w-4 h-4" />
         </button>

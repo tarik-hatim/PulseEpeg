@@ -259,8 +259,13 @@ async function startServer() {
   let fixturesCache: { data: any[]; timestamp: number } | null = null;
   app.get('/api/sports/fixtures', async (_req, res) => {
     const now = Date.now();
-    if (fixturesCache && now - fixturesCache.timestamp < 10 * 60 * 1000) {
-      res.setHeader('Cache-Control', 'public, max-age=600');
+    const hasAnyLive = fixturesCache?.data?.some((f: any) => f.isLive);
+    const ttlMs = hasAnyLive ? 30 * 1000 : 3 * 60 * 1000; // 30s si match en direct pour scores instantanés
+    if (fixturesCache && now - fixturesCache.timestamp < ttlMs) {
+      res.setHeader(
+        'Cache-Control',
+        hasAnyLive ? 'public, max-age=30' : 'public, max-age=180'
+      );
       res.json(fixturesCache.data);
       return;
     }
@@ -269,6 +274,7 @@ async function startServer() {
       {
         id: 'ucl',
         code: 'uefa.champions',
+        sport: 'soccer',
         label: 'Ligue des Champions UEFA',
         broadcasters: [
           { name: 'Canal+ Foot', satellite: 'Astra 19.2°E', isFree: false },
@@ -278,45 +284,31 @@ async function startServer() {
         ],
       },
       {
-        id: 'afc',
-        code: 'afc.champions',
-        label: "Ligue des Champions d'Asie (AFC)",
+        id: 'uel',
+        code: 'uefa.europa',
+        sport: 'soccer',
+        label: 'Ligue Europa UEFA',
         broadcasters: [
-          { name: 'beIN Sports AFC', satellite: "Badr / Es'hailSat 26°E", isFree: false },
-          { name: 'SSC 1 HD', satellite: "Badr / Es'hailSat 26°E", isFree: false },
-          { name: 'Abu Dhabi Sports Asia', satellite: 'Nilesat 7°W', isFree: false },
-        ],
-      },
-      {
-        id: 'eng2',
-        code: 'eng.2',
-        label: 'Championship (Angleterre)',
-        broadcasters: [
-          { name: 'Sky Sports Football', satellite: 'Astra 28.2°E', isFree: false },
-          { name: 'beIN Sports Max 4', satellite: 'Astra 19.2°E', isFree: false },
-        ],
-      },
-      {
-        id: 'mls',
-        code: 'usa.1',
-        label: 'Major League Soccer (MLS)',
-        broadcasters: [
-          { name: 'Apple TV (MLS Season Pass)', satellite: 'Streaming Global', isFree: false },
-          { name: 'beIN Sports Max 7', satellite: 'Astra 19.2°E', isFree: false },
+          { name: 'Canal+ Foot', satellite: 'Astra 19.2°E', isFree: false },
+          { name: 'beIN Sports 2 FR', satellite: 'Astra 19.2°E', isFree: false },
+          { name: 'RMC Sport 1', satellite: 'Astra 19.2°E', isFree: false },
         ],
       },
       {
         id: 'pl',
         code: 'eng.1',
+        sport: 'soccer',
         label: 'Premier League',
         broadcasters: [
           { name: 'Canal+ Premier League', satellite: 'Astra 19.2°E', isFree: false },
           { name: 'Sky Sports Main Event', satellite: 'Astra 28.2°E', isFree: false },
+          { name: 'beIN Sports 1 FR', satellite: 'Astra 19.2°E', isFree: false },
         ],
       },
       {
         id: 'laliga',
         code: 'esp.1',
+        sport: 'soccer',
         label: 'LaLiga',
         broadcasters: [
           { name: 'beIN Sports 1 FR', satellite: 'Astra 19.2°E', isFree: false },
@@ -326,6 +318,7 @@ async function startServer() {
       {
         id: 'ligue1',
         code: 'fra.1',
+        sport: 'soccer',
         label: 'Ligue 1',
         broadcasters: [
           { name: 'DAZN 1', satellite: 'Astra 19.2°E', isFree: false },
@@ -333,20 +326,84 @@ async function startServer() {
         ],
       },
       {
+        id: 'seriea',
+        code: 'ita.1',
+        sport: 'soccer',
+        label: 'Serie A',
+        broadcasters: [
+          { name: 'beIN Sports 2 FR', satellite: 'Astra 19.2°E', isFree: false },
+          { name: 'Sky Sport Calcio', satellite: 'Hotbird 13°E', isFree: false },
+        ],
+      },
+      {
+        id: 'bundesliga',
+        code: 'ger.1',
+        sport: 'soccer',
+        label: 'Bundesliga',
+        broadcasters: [
+          { name: 'beIN Sports 3 FR', satellite: 'Astra 19.2°E', isFree: false },
+          { name: 'Sky Sport Bundesliga', satellite: 'Astra 19.2°E', isFree: false },
+        ],
+      },
+      {
+        id: 'spl',
+        code: 'sau.1',
+        sport: 'soccer',
+        label: 'Saudi Pro League (Roshn)',
+        broadcasters: [
+          { name: 'SSC 1 HD', satellite: "Badr / Es'hailSat 26°E", isFree: false },
+          { name: 'Canal+ Sport 360', satellite: 'Astra 19.2°E', isFree: false },
+        ],
+      },
+      {
+        id: 'afc',
+        code: 'afc.champions',
+        sport: 'soccer',
+        label: "Ligue des Champions d'Asie (AFC)",
+        broadcasters: [
+          { name: 'beIN Sports AFC', satellite: "Badr / Es'hailSat 26°E", isFree: false },
+          { name: 'SSC 1 HD', satellite: "Badr / Es'hailSat 26°E", isFree: false },
+          { name: 'Abu Dhabi Sports Asia', satellite: 'Nilesat 7°W', isFree: false },
+        ],
+      },
+      {
         id: 'caf',
         code: 'caf.champions',
+        sport: 'soccer',
         label: 'Ligue des Champions CAF',
         broadcasters: [
           { name: 'beIN Sports 6', satellite: 'Nilesat 7°W', isFree: false },
           { name: 'Arryadia (TNT)', satellite: 'Nilesat 7°W', isFree: true },
         ],
       },
+      {
+        id: 'eng2',
+        code: 'eng.2',
+        sport: 'soccer',
+        label: 'Championship (Angleterre)',
+        broadcasters: [
+          { name: 'Sky Sports Football', satellite: 'Astra 28.2°E', isFree: false },
+          { name: 'beIN Sports Max 4', satellite: 'Astra 19.2°E', isFree: false },
+        ],
+      },
+      {
+        id: 'mls',
+        code: 'usa.1',
+        sport: 'soccer',
+        label: 'Major League Soccer (MLS)',
+        broadcasters: [
+          { name: 'Apple TV (MLS Season Pass)', satellite: 'Streaming Global', isFree: false },
+          { name: 'beIN Sports Max 7', satellite: 'Astra 19.2°E', isFree: false },
+        ],
+      },
     ];
 
+    const dMinus1 = new Date(now - 86400000);
     const d0 = new Date(now);
     const d1 = new Date(now + 86400000);
     const d2 = new Date(now + 2 * 86400000);
     const dateStrs = [
+      dMinus1.toISOString().slice(0, 10).replace(/-/g, ''),
       d0.toISOString().slice(0, 10).replace(/-/g, ''),
       d1.toISOString().slice(0, 10).replace(/-/g, ''),
       d2.toISOString().slice(0, 10).replace(/-/g, ''),
@@ -357,15 +414,14 @@ async function startServer() {
       LEAGUES_CONFIG.map(async (cfg) => {
         for (const dt of dateStrs) {
           try {
-            const response = await fetch(
-              `https://site.api.espn.com/apis/site/v2/sports/soccer/${cfg.code}/scoreboard?dates=${dt}`
-            );
+            const url = `https://site.api.espn.com/apis/site/v2/sports/${cfg.sport || 'soccer'}/${cfg.code}/scoreboard?dates=${dt}`;
+            const response = await fetch(url);
             if (!response.ok) continue;
             const data = (await response.json()) as any;
             for (const ev of data.events || []) {
               const comp = ev.competitions?.[0];
-              const home = comp?.competitors?.find((c: any) => c.homeAway === 'home');
-              const away = comp?.competitors?.find((c: any) => c.homeAway === 'away');
+              const home = comp?.competitors?.find((c: any) => c.homeAway === 'home') || comp?.competitors?.[0];
+              const away = comp?.competitors?.find((c: any) => c.homeAway === 'away') || comp?.competitors?.[1];
               if (!home || !away) continue;
               const startMs = new Date(ev.date).getTime();
               const stopMs = startMs + 105 * 60000;
@@ -374,26 +430,45 @@ async function startServer() {
               const isLive =
                 state === 'in' ||
                 ev.status?.type?.name === 'STATUS_IN_PROGRESS' ||
-                ev.status?.type?.name === 'STATUS_HALFTIME';
+                ev.status?.type?.name === 'STATUS_HALFTIME' ||
+                ev.status?.type?.name === 'STATUS_FIRST_HALF' ||
+                ev.status?.type?.name === 'STATUS_SECOND_HALF' ||
+                ev.status?.type?.name === 'STATUS_OVERTIME' ||
+                ev.status?.type?.name === 'STATUS_SHOOTOUT';
               const isEnded =
                 isCompleted ||
                 ev.status?.type?.name === 'STATUS_FULL_TIME' ||
-                ev.status?.type?.name === 'STATUS_FINAL_PENALTIES';
+                ev.status?.type?.name === 'STATUS_FINAL_PENALTIES' ||
+                ev.status?.type?.name === 'STATUS_FINAL';
+
+              // Extraction certifiée du score exact
+              const rawHome = home.score !== undefined && home.score !== null ? String(home.score).trim() : undefined;
+              const rawAway = away.score !== undefined && away.score !== null ? String(away.score).trim() : undefined;
+              const homeScore = rawHome !== undefined ? rawHome : (isLive || isEnded ? '0' : undefined);
+              const awayScore = rawAway !== undefined ? rawAway : (isLive || isEnded ? '0' : undefined);
+
+              const statusText =
+                ev.status?.type?.shortDetail ||
+                ev.status?.displayClock ||
+                ev.status?.type?.detail ||
+                ev.status?.type?.description ||
+                '';
+
               fixtures.push({
                 id: ev.id,
                 competitionId: cfg.id,
                 competitionLabel: cfg.label,
                 homeTeam: home.team?.displayName || home.team?.name,
                 homeTeamLogo: home.team?.logo,
-                homeScore: home.score,
+                homeScore,
                 awayTeam: away.team?.displayName || away.team?.name,
                 awayTeamLogo: away.team?.logo,
-                awayScore: away.score,
+                awayScore,
                 startMs,
                 stopMs,
                 isLive,
                 isEnded,
-                statusText: ev.status?.type?.detail || ev.status?.type?.description || '',
+                statusText,
                 broadcasters: cfg.broadcasters,
               });
             }
@@ -408,7 +483,10 @@ async function startServer() {
     fixtures.sort((a, b) => a.startMs - b.startMs);
     fixturesCache = { data: fixtures, timestamp: now };
 
-    res.setHeader('Cache-Control', 'public, max-age=600');
+    res.setHeader(
+      'Cache-Control',
+      hasAnyLive ? 'public, max-age=30' : 'public, max-age=180'
+    );
     res.json(fixtures);
   });
 

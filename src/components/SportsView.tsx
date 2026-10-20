@@ -36,6 +36,9 @@ import {
   formatVideoDuration,
   VideoHighlight,
   GlobalSportFixture,
+  detectSport,
+  formatLiveMatchTiming,
+  SportInfo,
 } from '../utils/sportsEngine';
 import { lookupTransponderSync } from '../services/satelliteCatalogService';
 import { toStandardDigits } from '../utils/timeFormat';
@@ -167,6 +170,7 @@ export interface SportsEvent {
   isMatch: boolean;
   matchInfo: ReturnType<typeof parseMatch>;
   competition: ReturnType<typeof detectCompetition>;
+  sport: SportInfo;
   airings: Array<{
     channel: EpgChannel;
     programme: EpgProgramme;
@@ -328,6 +332,7 @@ export const SportsView: React.FC<SportsViewProps> = ({
         if (!mInfo) continue;
 
         const comp = detectCompetition(p.title, p.category);
+        const sport = detectSport(p.title, p.category || '', channel.displayName);
         const k = eventKey(p.title, p.startMs);
 
         const existing = eventsMap.get(k);
@@ -342,6 +347,7 @@ export const SportsView: React.FC<SportsViewProps> = ({
             isMatch: true,
             matchInfo: mInfo,
             competition: comp,
+            sport,
             airings: [{ channel, programme: p, isFree }],
           });
         }
@@ -358,6 +364,11 @@ export const SportsView: React.FC<SportsViewProps> = ({
         regex: new RegExp(f.competitionLabel, 'i'),
         sport: 'Football',
       };
+      const sport = detectSport(
+        `${f.homeTeam} vs ${f.awayTeam}`,
+        f.competitionLabel,
+        f.broadcasters[0]?.name || ''
+      );
       const mInfo = {
         home: norm(f.homeTeam),
         away: norm(f.awayTeam),
@@ -448,6 +459,7 @@ export const SportsView: React.FC<SportsViewProps> = ({
           isMatch: true,
           matchInfo: mInfo,
           competition: comp,
+          sport,
           airings,
           fixtureMeta: f,
         });
@@ -680,17 +692,17 @@ export const SportsView: React.FC<SportsViewProps> = ({
       {todayFreeMatches.length > 0 && viewTab !== 'ended' && (
         <section
           aria-label="Matchs en clair aujourd'hui"
-          className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#0055ff]/20 via-[#1d4ed8]/25 to-[#0055ff]/15 border border-[#0055ff]/40 p-4 shadow-lg backdrop-blur-md"
+          className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#2563eb]/20 via-[#1d4ed8]/25 to-[#2563eb]/15 border border-[#2563eb]/40 p-4 shadow-lg backdrop-blur-md"
         >
           <div className="flex items-center justify-between gap-3 mb-3">
             <div className="flex items-center gap-2">
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#0055ff]/25 border border-[#0055ff]/50 text-[#38bdf8]">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#2563eb]/25 border border-[#2563eb]/50 text-[#38bdf8]">
                 <Flame className="w-4 h-4 animate-pulse" />
               </span>
               <div>
                 <h2 className="text-sm font-bold text-[#ffffff] flex items-center gap-2">
                   {activeLang === 'ar' ? 'مباريات مجانية اليوم (قنوات مفتوحة / FTA)' : 'En clair aujourd’hui (Chaînes gratuites / FTA)'}
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#0055ff]/20 text-[#38bdf8] font-mono border border-[#0055ff]/40">
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#2563eb]/20 text-[#38bdf8] font-mono border border-[#2563eb]/40">
                     {activeLang === 'ar' ? 'بدون اشتراك' : 'Sans abonnement'}
                   </span>
                 </h2>
@@ -726,12 +738,13 @@ export const SportsView: React.FC<SportsViewProps> = ({
                         `${formatDate(ev.programme.startMs)} · ${formatTime(ev.programme.startMs)}`
                       )}
                     </span>
-                    <span className="text-[10px] text-[#cbd5e1] truncate max-w-[110px]">
-                      {ev.competition?.label || 'Sport'}
+                    <span className="text-[10px] text-[#cbd5e1] truncate max-w-[130px] flex items-center gap-1">
+                      <span>{ev.sport?.icon || '⚽'}</span>
+                      <span>{ev.competition?.label || (activeLang === 'ar' ? ev.sport?.name.ar : ev.sport?.name.fr)}</span>
                     </span>
                   </div>
 
-                  <h3 className="text-xs font-bold text-[#ffffff] group-hover:text-[#34d399] line-clamp-1 transition-colors">
+                  <h3 className="text-xs font-bold text-[#ffffff] group-hover:text-[#34d399] line-clamp-2 leading-snug transition-colors">
                     {ev.programme.title}
                   </h3>
 
@@ -759,13 +772,13 @@ export const SportsView: React.FC<SportsViewProps> = ({
             onClick={() => setViewTab('live')}
             className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               viewTab === 'live'
-                ? 'bg-[#e11d48] text-[#ffffff] shadow-[0_0_16px_rgba(225,29,72,0.4)] border border-[#ff0033]'
+                ? 'bg-[#ef4444] text-[#ffffff] shadow-[0_0_16px_rgba(239,68,68,0.4)] border border-[#f87171]'
                 : 'bg-[#141c2c] text-[#94a3b8] hover:text-[#ffffff] border border-[#1e293b]'
             }`}
           >
             <span
               className={`w-2 h-2 rounded-full ${
-                viewTab === 'live' ? 'bg-[#ffffff] animate-ping' : 'bg-[#e11d48]'
+                viewTab === 'live' ? 'bg-[#ffffff] animate-ping' : 'bg-[#ef4444]'
               }`}
             />
             <span>{activeLang === 'ar' ? 'مباشر الآن' : 'En direct'}</span>
@@ -779,7 +792,7 @@ export const SportsView: React.FC<SportsViewProps> = ({
             onClick={() => setViewTab('upcoming')}
             className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               viewTab === 'upcoming'
-                ? 'bg-[#0055ff] text-[#ffffff] shadow-[0_0_16px_rgba(0,85,255,0.4)] border border-[#3b82f6]'
+                ? 'bg-[#2563eb] text-[#ffffff] shadow-[0_0_16px_rgba(37,99,235,0.4)] border border-[#3b82f6]'
                 : 'bg-[#141c2c] text-[#94a3b8] hover:text-[#ffffff] border border-[#1e293b]'
             }`}
           >
@@ -809,18 +822,18 @@ export const SportsView: React.FC<SportsViewProps> = ({
 
         {/* Barre de recherche */}
         <div className="relative min-w-[200px] flex-1 sm:max-w-xs">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#64748b]" />
+          <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#64748b]" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={activeLang === 'ar' ? 'فريق، مباراة أو بطولة...' : 'Équipe, match ou compétition...'}
-            className="w-full pl-8 pr-7 py-1.5 text-xs rounded-xl bg-[#141c2c] border border-[#1e293b] text-[#ffffff] placeholder-[#64748b] focus:outline-none focus:border-[#0055ff]"
+            className="w-full ps-9 pe-8 py-1.5 text-xs rounded-xl bg-[#141c2c] border border-[#1e293b] text-[#ffffff] placeholder-[#64748b] focus:outline-none focus:border-[#38bdf8]"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#64748b] hover:text-[#ffffff]"
+              className="absolute end-2.5 top-1/2 -translate-y-1/2 text-[#64748b] hover:text-[#ffffff] cursor-pointer"
             >
               <X className="w-3 h-3" />
             </button>
@@ -873,7 +886,7 @@ export const SportsView: React.FC<SportsViewProps> = ({
                   onClick={() => setBroadcasterScope('my_bouquets')}
                   className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     broadcasterScope === 'my_bouquets'
-                      ? 'bg-[#0055ff] text-[#ffffff] shadow-[0_0_10px_rgba(0,85,255,0.4)]'
+                      ? 'bg-[#2563eb] text-[#ffffff] shadow-[0_0_10px_rgba(37,99,235,0.4)]'
                       : 'text-[#94a3b8] hover:text-[#ffffff]'
                   }`}
                   title={activeLang === 'ar' ? 'عرض قنوات باقاتك المحددة فقط' : 'Afficher uniquement les chaînes de vos bouquets configurés (ex: Canal+, TNT, Movistar, etc.)'}
@@ -887,7 +900,7 @@ export const SportsView: React.FC<SportsViewProps> = ({
                   onClick={() => setBroadcasterScope('all')}
                   className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     broadcasterScope === 'all'
-                      ? 'bg-[#0055ff] text-[#ffffff] shadow-[0_0_10px_rgba(0,85,255,0.4)]'
+                      ? 'bg-[#2563eb] text-[#ffffff] shadow-[0_0_10px_rgba(37,99,235,0.4)]'
                       : 'text-[#94a3b8] hover:text-[#ffffff]'
                   }`}
                   title={activeLang === 'ar' ? 'عرض جميع القنوات الفضائية الدولية' : 'Afficher tous les diffuseurs satellites internationaux'}
@@ -903,7 +916,7 @@ export const SportsView: React.FC<SportsViewProps> = ({
                 onClick={() => setOnlyFree((v) => !v)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                   onlyFree
-                    ? 'bg-[#0055ff]/25 text-[#38bdf8] border border-[#0055ff] shadow-[0_0_10px_rgba(0,85,255,0.35)]'
+                    ? 'bg-[#2563eb]/25 text-[#38bdf8] border border-[#2563eb] shadow-[0_0_10px_rgba(37,99,235,0.35)]'
                     : 'bg-[#141c2c] text-[#64748b] border border-[#1e293b] hover:text-[#cbd5e1]'
                 }`}
               >
@@ -941,7 +954,7 @@ export const SportsView: React.FC<SportsViewProps> = ({
             onClick={() => setSelectedCompetitionId('all')}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium shrink-0 transition-all cursor-pointer ${
               selectedCompetitionId === 'all'
-                ? 'bg-[#0055ff] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(0,85,255,0.4)]'
+                ? 'bg-[#2563eb] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(37,99,235,0.4)]'
                 : 'bg-[#141c2c] text-[#94a3b8] hover:text-[#ffffff] border border-[#1e293b]'
             }`}
           >
@@ -954,7 +967,7 @@ export const SportsView: React.FC<SportsViewProps> = ({
               onClick={() => setSelectedCompetitionId(comp.id)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${
                 selectedCompetitionId === comp.id
-                  ? 'bg-[#0055ff] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(0,85,255,0.4)]'
+                  ? 'bg-[#2563eb] text-[#ffffff] font-bold shadow-[0_0_12px_rgba(37,99,235,0.4)]'
                   : 'bg-[#141c2c] text-[#94a3b8] hover:text-[#ffffff] border border-[#1e293b]'
               }`}
             >
@@ -995,46 +1008,70 @@ export const SportsView: React.FC<SportsViewProps> = ({
                     key={`ended-${ev.key}`}
                     className="p-3.5 rounded-2xl bg-[#0f1422] border border-[#1e293b] flex flex-col justify-between gap-2.5 shadow-sm"
                   >
-                    <div className="flex items-center justify-between text-xs text-[#94a3b8]">
-                      <span>{formatDate(ev.programme.startMs)} · {formatTime(ev.programme.startMs)}</span>
+                    <div className="flex items-center justify-between text-xs text-[#94a3b8] flex-wrap gap-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#1e293b] text-white border border-[#334155] text-[10px] font-bold">
+                          <span>{ev.sport?.icon || '⚽'}</span>
+                          <span>{activeLang === 'ar' ? ev.sport?.name.ar : ev.sport?.name.fr}</span>
+                        </span>
+                        <span>{formatDate(ev.programme.startMs)} · {formatTime(ev.programme.startMs)}</span>
+                      </div>
                       <span className="text-[11px] text-[#cbd5e1] font-semibold">
                         {ev.competition ? (activeLang === 'ar' ? COMPETITION_ARABIC_NAMES[ev.competition.id] || ev.competition.label : ev.competition.label) : (activeLang === 'ar' ? 'مباراة' : 'Match')}
                       </span>
                     </div>
 
-                    {/* Affiche avec logos et score final */}
-                    <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-[#0a0e17] border border-[#1e293b]">
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        {ev.fixtureMeta?.homeTeamLogo && (
-                          <img
-                            src={ev.fixtureMeta.homeTeamLogo}
-                            alt=""
-                            className="w-5 h-5 object-contain shrink-0"
-                          />
-                        )}
-                        <span className="font-bold text-xs text-[#ffffff] truncate">
-                          {ev.matchInfo?.rawHome || ev.programme.title}
-                        </span>
-                      </div>
-
-                      <div className="px-2 py-0.5 rounded bg-[#1e293b] text-xs font-mono font-bold text-[#fde047] shrink-0">
-                        {ev.fixtureMeta?.homeScore !== undefined && ev.fixtureMeta?.awayScore !== undefined
-                          ? `${toStandardDigits(String(ev.fixtureMeta.homeScore))} - ${toStandardDigits(String(ev.fixtureMeta.awayScore))}`
-                          : (activeLang === 'ar' ? 'انتهت' : 'Terminé')}
-                      </div>
-
-                      <div className="flex items-center justify-end gap-2 flex-1 min-w-0">
-                        <span className="font-bold text-xs text-[#ffffff] truncate text-right">
-                          {ev.matchInfo?.rawAway}
-                        </span>
-                        {ev.fixtureMeta?.awayTeamLogo && (
-                          <img
-                            src={ev.fixtureMeta.awayTeamLogo}
-                            alt=""
-                            className="w-5 h-5 object-contain shrink-0"
-                          />
+                    {/* Affiche avec logos et score final (noms complets non tronqués) */}
+                    <div className="p-2.5 rounded-xl bg-[#0a0e17] border border-[#1e293b] space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          {ev.fixtureMeta?.homeTeamLogo ? (
+                            <img
+                              src={ev.fixtureMeta.homeTeamLogo}
+                              alt=""
+                              className="w-5 h-5 object-contain shrink-0"
+                            />
+                          ) : (
+                            <div className="w-5 h-5 rounded-full bg-[#1e293b] text-[9px] font-bold text-[#94a3b8] flex items-center justify-center shrink-0">
+                              {(ev.matchInfo?.rawHome || ev.programme.title).charAt(0)}
+                            </div>
+                          )}
+                          <span className="font-bold text-xs sm:text-sm text-[#ffffff] break-words line-clamp-2 leading-tight">
+                            {ev.matchInfo?.rawHome || ev.programme.title}
+                          </span>
+                        </div>
+                        {ev.fixtureMeta?.homeScore !== undefined && (
+                          <span className="px-2 py-0.5 rounded bg-[#1e293b] text-xs font-mono font-bold text-[#fde047] shrink-0">
+                            {toStandardDigits(String(ev.fixtureMeta.homeScore))}
+                          </span>
                         )}
                       </div>
+
+                      {ev.matchInfo?.rawAway && (
+                        <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-[#1e293b]/60">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            {ev.fixtureMeta?.awayTeamLogo ? (
+                              <img
+                                src={ev.fixtureMeta.awayTeamLogo}
+                                alt=""
+                                className="w-5 h-5 object-contain shrink-0"
+                              />
+                            ) : (
+                              <div className="w-5 h-5 rounded-full bg-[#1e293b] text-[9px] font-bold text-[#94a3b8] flex items-center justify-center shrink-0">
+                                {ev.matchInfo.rawAway.charAt(0)}
+                              </div>
+                            )}
+                            <span className="font-bold text-xs sm:text-sm text-[#ffffff] break-words line-clamp-2 leading-tight">
+                              {ev.matchInfo.rawAway}
+                            </span>
+                          </div>
+                          {ev.fixtureMeta?.awayScore !== undefined && (
+                            <span className="px-2 py-0.5 rounded bg-[#1e293b] text-xs font-mono font-bold text-[#fde047] shrink-0">
+                              {toStandardDigits(String(ev.fixtureMeta.awayScore))}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     <button
@@ -1137,7 +1174,7 @@ export const SportsView: React.FC<SportsViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setViewTab('upcoming')}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#e11d48] hover:bg-[#ff0033] text-xs font-bold text-white transition-all shadow-[0_0_15px_rgba(225,29,72,0.3)] cursor-pointer"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#ef4444] hover:bg-[#dc2626] text-xs font-bold text-white transition-all shadow-[0_0_15px_rgba(239,68,68,0.3)] cursor-pointer"
                 >
                   <Clock className="w-4 h-4" />
                   {activeLang === 'ar' ? 'استعراض المباريات القادمة' : 'Consulter les prochains matchs (À venir)'}
@@ -1173,32 +1210,54 @@ export const SportsView: React.FC<SportsViewProps> = ({
                   key={ev.key}
                   className={`group relative flex flex-col justify-between rounded-2xl border p-4 transition-all duration-200 ${
                     isLive
-                      ? 'bg-gradient-to-b from-[#141a29] to-[#0c101a] border-[#e11d48]/40 shadow-[0_4px_20px_rgba(225,29,72,0.12)]'
-                      : 'bg-[#0f1422] border-[#1e293b] hover:border-[#0055ff]/50'
+                      ? 'bg-gradient-to-b from-[#141a29] to-[#0c101a] border-[#ef4444]/40 shadow-[0_4px_20px_rgba(239,68,68,0.12)]'
+                      : 'bg-[#0f1422] border-[#1e293b] hover:border-[#38bdf8]/50'
                   }`}
                 >
-                  {/* Timing, Compétition, Rappel */}
-                  <div className="flex items-center justify-between text-xs mb-2.5">
-                    <div className="flex items-center gap-2">
+                  {/* Ligne 1 : Badge Sport + Timing + Compétition + Bouton Rappel */}
+                  <div className="flex items-center justify-between text-xs mb-2 gap-2 flex-wrap">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {/* Badge Sport (⚽ Football, 🏉 Rugby, 🏀 Basketball, etc.) */}
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#1e293b] text-white border border-[#334155] text-[11px] font-bold shadow-sm">
+                        <span>{ev.sport?.icon || '⚽'}</span>
+                        <span>
+                          {activeLang === 'ar'
+                            ? ev.sport?.name.ar || 'رياضة'
+                            : ev.sport?.name.fr || 'Sport'}
+                        </span>
+                      </span>
+
+                      {/* Statut En direct ou Heure programmée */}
                       {isLive ? (
-                        <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#e11d48]/20 border border-[#e11d48]/60 text-[#ff4d6d] font-bold font-mono text-[11px] animate-pulse">
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#ff0033]" />
-                          {activeLang === 'ar' ? 'مباشر' : 'DIRECT'} {ev.fixtureMeta?.statusText ? `· ${ev.fixtureMeta.statusText}` : `· ${toStandardDigits(String(Math.round(elapsedMs / 60000)))}'`}
+                        <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#ef4444]/20 border border-[#ef4444]/60 text-[#f87171] font-bold font-mono text-[11px] animate-pulse">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#ef4444]" />
+                          <span>{activeLang === 'ar' ? 'مباشر' : 'DIRECT'}</span>
+                          <span>·</span>
+                          <span>
+                            {formatLiveMatchTiming(
+                              elapsedMs,
+                              ev.sport?.type || 'football',
+                              ev.fixtureMeta?.statusText,
+                              activeLang === 'ar' ? 'ar' : activeLang === 'en' ? 'en' : 'fr'
+                            )}
+                          </span>
                         </span>
                       ) : (
-                        <span className="px-2 py-0.5 rounded-full bg-[#0055ff]/15 border border-[#0055ff]/30 text-[#60a5fa] font-mono text-[11px]">
+                        <span className="px-2 py-0.5 rounded-full bg-[#2563eb]/15 border border-[#2563eb]/30 text-[#60a5fa] font-mono text-[11px]">
                           {formatDate(ev.programme.startMs)} · {formatTime(ev.programme.startMs)}
                         </span>
                       )}
 
                       {ev.competition && (
-                        <span className="text-[11px] text-[#cbd5e1] font-semibold truncate max-w-[150px]">
-                          {ev.competition.label}
+                        <span className="text-[11px] text-[#cbd5e1] font-semibold truncate max-w-[140px]">
+                          {activeLang === 'ar' && COMPETITION_ARABIC_NAMES[ev.competition.id]
+                            ? COMPETITION_ARABIC_NAMES[ev.competition.id]
+                            : ev.competition.label}
                         </span>
                       )}
                     </div>
 
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 shrink-0">
                       {onToggleReminder && !isLive && (
                         <button
                           type="button"
@@ -1216,70 +1275,116 @@ export const SportsView: React.FC<SportsViewProps> = ({
                     </div>
                   </div>
 
-                  {/* Affiche avec logos des équipes et boutons favoris */}
+                  {/* Ligne 2 : Clarification durée du sport vs créneau TV (évite toute confusion sur 119/120 min) */}
+                  <div className="flex items-center justify-between text-[10px] text-[#94a3b8] px-2.5 py-1 rounded-lg bg-[#0a0e17] border border-[#1e293b]/70 mb-2.5">
+                    <span className="flex items-center gap-1 font-medium text-[#cbd5e1]">
+                      <Clock className="w-3 h-3 text-[#38bdf8] shrink-0" />
+                      <span>
+                        {activeLang === 'ar'
+                          ? `المباراة : ${ev.sport?.regulationTime.ar || '90 دقيقة'}`
+                          : `Match : ${ev.sport?.regulationTime.fr || '90 min'}`}
+                      </span>
+                    </span>
+                    <span className="text-[#64748b] font-mono text-[9px] sm:text-[10px]">
+                      {activeLang === 'ar'
+                        ? `البث : ${formatTime(ev.programme.startMs)} — ${formatTime(ev.programme.stopMs)}`
+                        : `Créneau TV : ${formatTime(ev.programme.startMs)} — ${formatTime(ev.programme.stopMs)}`}
+                    </span>
+                  </div>
+
+                  {/* Ligne 3 : Affiche avec noms de clubs COMPLETS (non tronqués) et logos */}
                   {ev.matchInfo ? (
-                    <div className="my-2 flex items-center justify-between gap-2 p-3 rounded-xl bg-[#090d16]/80 border border-[#1e293b]">
-                      {/* Domicile */}
-                      <div className="flex-1 flex items-center justify-start gap-2 overflow-hidden">
-                        {ev.fixtureMeta?.homeTeamLogo && (
-                          <img
-                            src={ev.fixtureMeta.homeTeamLogo}
-                            alt=""
-                            className="w-6 h-6 object-contain shrink-0"
-                          />
-                        )}
-                        <span className="font-bold text-xs sm:text-sm text-[#ffffff] truncate">
-                          {ev.matchInfo.rawHome}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={(e) => handleToggleFavoriteTeam(ev.matchInfo!.home, e)}
-                          title={activeLang === 'ar' ? 'إضافة إلى الفرق المفضلة' : 'Ajouter aux équipes favorites'}
-                          className="text-[#64748b] hover:text-[#fbbf24] transition-colors shrink-0"
-                        >
-                          <Star
-                            className={`w-3.5 h-3.5 ${
-                              isHomeFav ? 'fill-[#fbbf24] text-[#fbbf24]' : ''
-                            }`}
-                          />
-                        </button>
+                    <div className="my-1.5 p-3 rounded-xl bg-[#090d16]/90 border border-[#1e293b] space-y-2.5">
+                      {/* Club Domicile — Nom complet non tronqué */}
+                      <div className="flex items-center justify-between gap-2.5">
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          {ev.fixtureMeta?.homeTeamLogo ? (
+                            <img
+                              src={ev.fixtureMeta.homeTeamLogo}
+                              alt=""
+                              className="w-6 h-6 object-contain shrink-0"
+                            />
+                          ) : (
+                            <div className="w-6 h-6 rounded-full bg-[#1e293b] border border-[#334155] text-[10px] font-bold text-[#94a3b8] flex items-center justify-center shrink-0">
+                              {ev.matchInfo.rawHome.charAt(0)}
+                            </div>
+                          )}
+                          <span className="font-bold text-xs sm:text-sm text-[#ffffff] break-words line-clamp-2 leading-tight">
+                            {ev.matchInfo.rawHome}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          {isLive && ev.fixtureMeta?.homeScore !== undefined ? (
+                            <span className="px-2 py-0.5 rounded-lg bg-[#ef4444]/20 border border-[#ef4444]/50 text-xs font-mono font-bold text-[#f87171] min-w-[28px] text-center">
+                              {toStandardDigits(String(ev.fixtureMeta.homeScore))}
+                            </span>
+                          ) : null}
+                          <button
+                            type="button"
+                            onClick={(e) => handleToggleFavoriteTeam(ev.matchInfo!.home, e)}
+                            title={activeLang === 'ar' ? 'إضافة إلى الفرق المفضلة' : 'Ajouter aux équipes favorites'}
+                            className="text-[#64748b] hover:text-[#fbbf24] transition-colors shrink-0 cursor-pointer p-1"
+                          >
+                            <Star
+                              className={`w-3.5 h-3.5 ${
+                                isHomeFav ? 'fill-[#fbbf24] text-[#fbbf24]' : ''
+                              }`}
+                            />
+                          </button>
+                        </div>
                       </div>
 
-                      {/* Score en direct ou séparateur VS */}
-                      {isLive && ev.fixtureMeta?.homeScore !== undefined && ev.fixtureMeta?.awayScore !== undefined ? (
-                        <div className="px-2 py-0.5 rounded-lg bg-[#e11d48]/20 border border-[#e11d48]/50 text-xs font-mono font-bold text-[#ff4d6d] shrink-0">
-                          {toStandardDigits(String(ev.fixtureMeta.homeScore))} - {toStandardDigits(String(ev.fixtureMeta.awayScore))}
-                        </div>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded-md bg-[#1e293b] text-[10px] font-extrabold text-[#94a3b8] tracking-widest uppercase shrink-0">
-                          VS
+                      {/* Séparateur / VS central */}
+                      <div className="flex items-center justify-between px-2 text-[9px] text-[#64748b] font-semibold border-t border-[#1e293b]/60 pt-1.5">
+                        <span className="uppercase tracking-wider font-mono text-[9px] text-[#64748b]">
+                          {activeLang === 'ar' ? 'ضد' : 'VS'}
                         </span>
-                      )}
-
-                      {/* Extérieur */}
-                      <div className="flex-1 flex items-center justify-end gap-2 overflow-hidden text-right">
-                        <button
-                          type="button"
-                          onClick={(e) => handleToggleFavoriteTeam(ev.matchInfo!.away, e)}
-                          title={activeLang === 'ar' ? 'إضافة إلى الفرق المفضلة' : 'Ajouter aux équipes favorites'}
-                          className="text-[#64748b] hover:text-[#fbbf24] transition-colors shrink-0"
-                        >
-                          <Star
-                            className={`w-3.5 h-3.5 ${
-                              isAwayFav ? 'fill-[#fbbf24] text-[#fbbf24]' : ''
-                            }`}
-                          />
-                        </button>
-                        <span className="font-bold text-xs sm:text-sm text-[#ffffff] truncate">
-                          {ev.matchInfo.rawAway}
-                        </span>
-                        {ev.fixtureMeta?.awayTeamLogo && (
-                          <img
-                            src={ev.fixtureMeta.awayTeamLogo}
-                            alt=""
-                            className="w-6 h-6 object-contain shrink-0"
-                          />
+                        {isLive && (
+                          <span className="text-[#f87171] font-mono text-[9px] font-bold">
+                            {activeLang === 'ar' ? 'مباشر الآن' : 'EN COURS'}
+                          </span>
                         )}
+                      </div>
+
+                      {/* Club Extérieur — Nom complet non tronqué */}
+                      <div className="flex items-center justify-between gap-2.5">
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          {ev.fixtureMeta?.awayTeamLogo ? (
+                            <img
+                              src={ev.fixtureMeta.awayTeamLogo}
+                              alt=""
+                              className="w-6 h-6 object-contain shrink-0"
+                            />
+                          ) : (
+                            <div className="w-6 h-6 rounded-full bg-[#1e293b] border border-[#334155] text-[10px] font-bold text-[#94a3b8] flex items-center justify-center shrink-0">
+                              {ev.matchInfo.rawAway.charAt(0)}
+                            </div>
+                          )}
+                          <span className="font-bold text-xs sm:text-sm text-[#ffffff] break-words line-clamp-2 leading-tight">
+                            {ev.matchInfo.rawAway}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          {isLive && ev.fixtureMeta?.awayScore !== undefined ? (
+                            <span className="px-2 py-0.5 rounded-lg bg-[#ef4444]/20 border border-[#ef4444]/50 text-xs font-mono font-bold text-[#f87171] min-w-[28px] text-center">
+                              {toStandardDigits(String(ev.fixtureMeta.awayScore))}
+                            </span>
+                          ) : null}
+                          <button
+                            type="button"
+                            onClick={(e) => handleToggleFavoriteTeam(ev.matchInfo!.away, e)}
+                            title={activeLang === 'ar' ? 'إضافة إلى الفرق المفضلة' : 'Ajouter aux équipes favorites'}
+                            className="text-[#64748b] hover:text-[#fbbf24] transition-colors shrink-0 cursor-pointer p-1"
+                          >
+                            <Star
+                              className={`w-3.5 h-3.5 ${
+                                isAwayFav ? 'fill-[#fbbf24] text-[#fbbf24]' : ''
+                              }`}
+                            />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ) : (
@@ -1291,7 +1396,7 @@ export const SportsView: React.FC<SportsViewProps> = ({
                   {isLive && (
                     <div className="my-1.5 w-full bg-[#1e293b] h-1.5 rounded-full overflow-hidden">
                       <div
-                        className="bg-gradient-to-r from-[#e11d48] to-[#ff0033] h-full transition-all duration-500 rounded-full"
+                        className="bg-gradient-to-r from-[#ef4444] to-[#f43f5e] h-full transition-all duration-500 rounded-full"
                         style={{ width: `${progressPct}%` }}
                       />
                     </div>
@@ -1351,7 +1456,7 @@ export const SportsView: React.FC<SportsViewProps> = ({
                                   onClick={() => onSelectChannel(airing.channel, airing.programme)}
                                   className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-all cursor-pointer group/ch border ${
                                     isLoadedInGuide
-                                      ? 'bg-[#141c2c] hover:bg-[#0055ff]/25 border-[#0055ff]/60 hover:border-[#0055ff]'
+                                      ? 'bg-[#141c2c] hover:bg-[#2563eb]/25 border-[#2563eb]/60 hover:border-[#2563eb]'
                                       : isMyBouquet
                                       ? 'bg-[#141c2c] hover:bg-[#1e293b] border-[#1e293b] hover:border-[#38bdf8]'
                                       : 'bg-[#0f1422]/60 hover:bg-[#141c2c] border-[#1e293b]/70 opacity-80 hover:opacity-100'
@@ -1359,14 +1464,14 @@ export const SportsView: React.FC<SportsViewProps> = ({
                                 >
                                   <span
                                     className={`w-1.5 h-1.5 rounded-full ${
-                                      airing.isFree ? 'bg-[#38bdf8]' : 'bg-[#e11d48]'
+                                      airing.isFree ? 'bg-[#38bdf8]' : 'bg-[#ef4444]'
                                     }`}
                                   />
                                   <span className="text-[#f1f5f9] font-medium group-hover/ch:text-[#ffffff]">
                                     {airing.channel.displayName}
                                   </span>
                                   {isLoadedInGuide && (
-                                    <span className="text-[9px] px-1 py-0.2 rounded bg-[#0055ff]/20 text-[#38bdf8] font-mono">
+                                    <span className="text-[9px] px-1 py-0.2 rounded bg-[#2563eb]/20 text-[#38bdf8] font-mono">
                                       {activeLang === 'ar' ? 'دليل القنوات' : 'Guide TV'}
                                     </span>
                                   )}
@@ -1389,7 +1494,7 @@ export const SportsView: React.FC<SportsViewProps> = ({
                             <button
                               type="button"
                               onClick={() => setBroadcasterScope('all')}
-                              className="px-2 py-0.5 rounded bg-[#1e293b] hover:bg-[#0055ff] text-[11px] font-semibold text-[#cbd5e1] hover:text-[#ffffff] transition-colors shrink-0 cursor-pointer"
+                              className="px-2 py-0.5 rounded bg-[#1e293b] hover:bg-[#2563eb] text-[11px] font-semibold text-[#cbd5e1] hover:text-[#ffffff] transition-colors shrink-0 cursor-pointer"
                             >
                               {activeLang === 'ar' ? 'عرض' : 'Voir'}
                             </button>
@@ -1455,7 +1560,7 @@ export const SportsView: React.FC<SportsViewProps> = ({
                     setIsFullscreen(false);
                   }}
                   title={activeLang === 'ar' ? 'إغلاق المشغّل' : 'Fermer le lecteur'}
-                  className="p-1.5 rounded-lg text-[#94a3b8] hover:text-[#ffffff] hover:bg-[#e11d48]/20 transition-colors cursor-pointer"
+                  className="p-1.5 rounded-lg text-[#94a3b8] hover:text-[#ffffff] hover:bg-[#ef4444]/20 transition-colors cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>

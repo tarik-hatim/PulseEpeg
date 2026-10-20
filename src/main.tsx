@@ -82,7 +82,7 @@ class TvBootErrorBoundary extends Component<
               padding: '10px 22px',
               borderRadius: '10px',
               border: '2px solid #ffffff',
-              backgroundColor: '#0055ff',
+              backgroundColor: '#2563eb',
               color: '#ffffff',
               fontSize: '15px',
               fontWeight: 700,

@@ -357,7 +357,16 @@ export function formatDurationMinutes(
   lang?: AppLanguage
 ): string {
   const activeLang = lang || getActiveLanguage();
-  const mins = Math.max(1, Math.round((stopMs - startMs) / 60000));
+  let mins = Math.max(1, Math.round((stopMs - startMs) / 60000));
+  // Normalisation des créneaux EPG télévisuels (ex: 119 min ou 121 min -> 2h nettes, 89/91 -> 1h30, 59/61 -> 1h)
+  if (mins === 119 || mins === 121) {
+    mins = 120;
+  } else if (mins === 89 || mins === 91) {
+    mins = 90;
+  } else if (mins === 59 || mins === 61) {
+    mins = 60;
+  }
+
   if (activeLang === 'ar') {
     if (mins < 60) return `${toStandardDigits(mins)} دقيقة`;
     const h = Math.floor(mins / 60);
