@@ -32,6 +32,10 @@ class TvBootErrorBoundary extends Component<
     console.warn('PulseEPG Boot ErrorBoundary caught error:', error, errorInfo);
   }
 
+  handleSimpleReload = (): void => {
+    window.location.reload();
+  };
+
   handleResetAndReload = (): void => {
     try {
       if (typeof localStorage !== 'undefined') {
@@ -45,8 +49,10 @@ class TvBootErrorBoundary extends Component<
 
   render(): ReactNode {
     if (this.state.hasError) {
+      const isArabic = typeof document !== 'undefined' && document.documentElement.dir === 'rtl';
       return (
         <div
+          dir={isArabic ? 'rtl' : 'ltr'}
           style={{
             minHeight: '100vh',
             backgroundColor: '#0a0e17',
@@ -60,37 +66,74 @@ class TvBootErrorBoundary extends Component<
             fontFamily: 'system-ui, -apple-system, sans-serif',
           }}
         >
-          <h1 style={{ fontSize: '22px', fontWeight: 700, marginBottom: '8px' }}>
-            PulseEPG — Mode de récupération Android TV
+          <div
+            style={{
+              width: '64px',
+              height: '64px',
+              borderRadius: '16px',
+              backgroundColor: 'rgba(239, 68, 68, 0.15)',
+              border: '1px solid rgba(239, 68, 68, 0.4)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '28px',
+              marginBottom: '16px',
+            }}
+          >
+            ⚠️
+          </div>
+          <h1 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '8px' }}>
+            {isArabic ? 'حدث خطأ غير متوقع في التطبيق' : 'Une interruption inattendue est survenue'}
           </h1>
           <p
             style={{
-              fontSize: '14px',
+              fontSize: '13px',
               color: '#94a3b8',
               maxWidth: '480px',
-              marginBottom: '18px',
+              marginBottom: '20px',
+              lineHeight: 1.5,
             }}
           >
-            {this.state.errorMessage ||
-              'Une erreur est survenue lors de l’initialisation du profil.'}
+            {isArabic
+              ? 'نعتذر عن هذا العطل المؤقت. يمكنك إعادة تحميل التطبيق بأمان لمواصلة التصفح، أو إعادة الضبط إن استمرت المشكلة.'
+              : 'Nous vous prions de nous excuser pour ce contretemps. Rechargez l’application pour reprendre votre session, ou réinitialisez si le problème persiste.'}
           </p>
-          <button
-            type="button"
-            autoFocus
-            onClick={this.handleResetAndReload}
-            style={{
-              padding: '10px 22px',
-              borderRadius: '10px',
-              border: '2px solid #ffffff',
-              backgroundColor: '#2563eb',
-              color: '#ffffff',
-              fontSize: '15px',
-              fontWeight: 700,
-              cursor: 'pointer',
-            }}
-          >
-            Réinitialiser le profil &amp; Relancer
-          </button>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
+            <button
+              type="button"
+              autoFocus
+              onClick={this.handleSimpleReload}
+              style={{
+                padding: '10px 24px',
+                borderRadius: '12px',
+                border: 'none',
+                backgroundColor: '#2563eb',
+                color: '#ffffff',
+                fontSize: '14px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                boxShadow: '0 0 16px rgba(37,99,235,0.4)',
+              }}
+            >
+              {isArabic ? 'إعادة تحميل التطبيق' : 'Recharger l’application'}
+            </button>
+            <button
+              type="button"
+              onClick={this.handleResetAndReload}
+              style={{
+                padding: '10px 18px',
+                borderRadius: '12px',
+                border: '1px solid #334155',
+                backgroundColor: '#141a26',
+                color: '#cbd5e1',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              {isArabic ? 'إعادة الضبط والبدء' : 'Réinitialiser & Relancer'}
+            </button>
+          </div>
         </div>
       );
     }

@@ -6382,9 +6382,9 @@ export function App() {
       </header>
 
       {/* Main Content (10-Foot UI & TV Overscan compatible) */}
-      <main className="tv-overscan-main flex-1 max-w-[1600px] w-full mx-auto py-2 sm:py-4">
-        {/* Les logs techniques de chargement XMLTV ("WEB WORKER XMLTV MULTI-FLUX") s'exécutent silencieusement en arrière-plan */}
-        {false && (
+      <main className="tv-overscan-main flex-1 max-w-[1600px] w-full mx-auto px-3 sm:px-6 py-2 sm:py-4">
+        {/* Notification conviviale et accessible en cas d'erreur ou d'exception réseau EPG */}
+        {epgError && !isSyncing && (
           <LoadingStatusBanner
             progress={workerProgress}
             isSyncing={isSyncing}
@@ -6486,8 +6486,7 @@ export function App() {
                 className="tv-dpad-btn search-input-box relative w-full rounded-lg cursor-pointer"
               >
                 <Search
-                  style={{ left: '14px', top: '50%', transform: 'translateY(-50%)' }}
-                  className="w-4 h-4 text-[#cbd5e1] absolute pointer-events-none z-10"
+                  className="w-4 h-4 text-[#cbd5e1] absolute start-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10"
                 />
                 <input
                   ref={searchInputRef}
@@ -6559,12 +6558,7 @@ export function App() {
                     realignHeaderAndTopScroll();
                   }}
                   placeholder={tr.searchPlaceholder}
-                  style={{
-                    paddingLeft: '48px',
-                    paddingRight: '16px',
-                    border: '1.5px solid rgba(255, 255, 255, 0.2)',
-                  }}
-                  className="search-text-input w-full py-2 rounded-lg bg-[#0a0e17] text-xs sm:text-sm text-[#ffffff] placeholder-[#cbd5e1]/70 transition-all cursor-pointer focus:outline-none focus:border-[#38bdf8] focus:shadow-[0_0_15px_rgba(56,189,248,0.45)]"
+                  className="search-text-input w-full ps-11 pe-9 py-2 rounded-lg bg-[#0a0e17] text-xs sm:text-sm text-[#ffffff] placeholder-[#cbd5e1]/70 transition-all cursor-pointer focus:outline-none focus:border-[#38bdf8] focus:shadow-[0_0_15px_rgba(56,189,248,0.45)] border border-white/20"
                 />
               </div>
               {searchQuery && (

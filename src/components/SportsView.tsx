@@ -1315,11 +1315,13 @@ export const SportsView: React.FC<SportsViewProps> = ({
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0">
-                          {isLive && ev.fixtureMeta?.homeScore !== undefined ? (
-                            <span className="px-2 py-0.5 rounded-lg bg-[#ef4444]/20 border border-[#ef4444]/50 text-xs font-mono font-bold text-[#f87171] min-w-[28px] text-center">
-                              {toStandardDigits(String(ev.fixtureMeta.homeScore))}
+                          {isLive && (
+                            <span className="px-2.5 py-1 rounded-lg bg-[#ef4444]/25 border border-[#ef4444]/60 text-xs sm:text-sm font-mono font-extrabold text-white min-w-[30px] text-center shadow-[0_0_8px_rgba(239,68,68,0.3)]">
+                              {toStandardDigits(
+                                String(ev.fixtureMeta?.homeScore !== undefined ? ev.fixtureMeta.homeScore : '0')
+                              )}
                             </span>
-                          ) : null}
+                          )}
                           <button
                             type="button"
                             onClick={(e) => handleToggleFavoriteTeam(ev.matchInfo!.home, e)}
@@ -1335,17 +1337,39 @@ export const SportsView: React.FC<SportsViewProps> = ({
                         </div>
                       </div>
 
-                      {/* Séparateur / VS central */}
-                      <div className="flex items-center justify-between px-2 text-[9px] text-[#64748b] font-semibold border-t border-[#1e293b]/60 pt-1.5">
-                        <span className="uppercase tracking-wider font-mono text-[9px] text-[#64748b]">
-                          {activeLang === 'ar' ? 'ضد' : 'VS'}
-                        </span>
-                        {isLive && (
-                          <span className="text-[#f87171] font-mono text-[9px] font-bold">
-                            {activeLang === 'ar' ? 'مباشر الآن' : 'EN COURS'}
+                      {/* Séparateur / VS ou Tableau d'affichage central Score Exact en direct */}
+                      {isLive ? (
+                        <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#ef4444]/20 via-[#ef4444]/30 to-[#ef4444]/20 border border-[#ef4444]/50 my-1 shadow-[0_0_14px_rgba(239,68,68,0.2)]">
+                          <div className="flex items-center gap-2">
+                            <span className="relative flex h-2 w-2">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#ef4444] opacity-80" />
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#ef4444]" />
+                            </span>
+                            <span className="text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider text-[#fca5a5]">
+                              {activeLang === 'ar' ? 'النتيجة المباشرة' : 'Score en direct'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 font-mono font-black text-sm sm:text-base text-white">
+                            <span className="px-2 py-0.5 rounded-md bg-black/60 border border-[#ef4444]/60 text-white min-w-[28px] text-center shadow-inner">
+                              {toStandardDigits(
+                                String(ev.fixtureMeta?.homeScore !== undefined ? ev.fixtureMeta.homeScore : '0')
+                              )}
+                            </span>
+                            <span className="text-[#f87171] font-bold">:</span>
+                            <span className="px-2 py-0.5 rounded-md bg-black/60 border border-[#ef4444]/60 text-white min-w-[28px] text-center shadow-inner">
+                              {toStandardDigits(
+                                String(ev.fixtureMeta?.awayScore !== undefined ? ev.fixtureMeta.awayScore : '0')
+                              )}
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between px-2 text-[9px] text-[#64748b] font-semibold border-t border-[#1e293b]/60 pt-1.5">
+                          <span className="uppercase tracking-wider font-mono text-[9px] text-[#64748b]">
+                            {activeLang === 'ar' ? 'ضد' : 'VS'}
                           </span>
-                        )}
-                      </div>
+                        </div>
+                      )}
 
                       {/* Club Extérieur — Nom complet non tronqué */}
                       <div className="flex items-center justify-between gap-2.5">
@@ -1367,11 +1391,13 @@ export const SportsView: React.FC<SportsViewProps> = ({
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0">
-                          {isLive && ev.fixtureMeta?.awayScore !== undefined ? (
-                            <span className="px-2 py-0.5 rounded-lg bg-[#ef4444]/20 border border-[#ef4444]/50 text-xs font-mono font-bold text-[#f87171] min-w-[28px] text-center">
-                              {toStandardDigits(String(ev.fixtureMeta.awayScore))}
+                          {isLive && (
+                            <span className="px-2.5 py-1 rounded-lg bg-[#ef4444]/25 border border-[#ef4444]/60 text-xs sm:text-sm font-mono font-extrabold text-white min-w-[30px] text-center shadow-[0_0_8px_rgba(239,68,68,0.3)]">
+                              {toStandardDigits(
+                                String(ev.fixtureMeta?.awayScore !== undefined ? ev.fixtureMeta.awayScore : '0')
+                              )}
                             </span>
-                          ) : null}
+                          )}
                           <button
                             type="button"
                             onClick={(e) => handleToggleFavoriteTeam(ev.matchInfo!.away, e)}
