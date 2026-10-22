@@ -413,7 +413,7 @@ export function detectSport(title: string, category = '', channelName = ''): Spo
   if (/\b(?:tennis|atp|wta|roland[- ]garros|wimbledon|us open|australian open|grand chelem|davis cup|كأس ديفيز|التنس)\b/i.test(t)) {
     return SPORTS_REGISTRY.tennis;
   }
-  if (/\b(?:formula 1|formule 1|\bf1\b|grand prix|indycar|nascar|rallye|wrc|le mans|24h du mans|فورمولا)\b/i.test(t)) {
+  if (/\b(?:formula 1|formule 1|\bf1\b|grand prix|indycar|nascar|rallye|wrc|le mans|24h du mans|automoto|auto-moto|auto moto|course auto|ميكانيك|فورمولا)\b/i.test(t)) {
     return SPORTS_REGISTRY.f1;
   }
   if (/\b(?:motogp|moto 2|moto 3|superbike|موتو)\b/i.test(t)) {
@@ -430,6 +430,9 @@ export function detectSport(title: string, category = '', channelName = ''): Spo
   }
   if (/\b(?:cyclisme|cycling|tour de france|giro|vuelta|paris-roubaix|دراجات)\b/i.test(t)) {
     return SPORTS_REGISTRY.cycling;
+  }
+  if (/\b(?:automoto|auto[\s-]moto|motorsport)\b/i.test(channelName)) {
+    return SPORTS_REGISTRY.f1;
   }
   return SPORTS_REGISTRY.football;
 }
@@ -895,12 +898,432 @@ export interface GlobalSportFixture {
   }>;
 }
 
-export async function fetchGlobalSportFixtures(): Promise<GlobalSportFixture[]> {
+export const GLOBAL_LEAGUES_CONFIG = [
+  {
+    id: 'ucl',
+    code: 'uefa.champions',
+    sport: 'soccer',
+    label: 'Ligue des Champions UEFA',
+    broadcasters: [
+      { name: 'Canal+ Foot', satellite: 'Astra 19.2°E', isFree: false },
+      { name: 'beIN Sports 1 FR', satellite: 'Astra 19.2°E', isFree: false },
+      { name: 'Movistar Liga de Campeones', satellite: 'Astra 19.2°E', isFree: false },
+      { name: 'Sky Sport Austria', satellite: 'Astra 19.2°E', isFree: false },
+    ],
+  },
+  {
+    id: 'uel',
+    code: 'uefa.europa',
+    sport: 'soccer',
+    label: 'Ligue Europa UEFA',
+    broadcasters: [
+      { name: 'Canal+ Foot', satellite: 'Astra 19.2°E', isFree: false },
+      { name: 'beIN Sports 2 FR', satellite: 'Astra 19.2°E', isFree: false },
+      { name: 'RMC Sport 1', satellite: 'Astra 19.2°E', isFree: false },
+    ],
+  },
+  {
+    id: 'pl',
+    code: 'eng.1',
+    sport: 'soccer',
+    label: 'Premier League',
+    broadcasters: [
+      { name: 'Canal+ Premier League', satellite: 'Astra 19.2°E', isFree: false },
+      { name: 'Sky Sports Main Event', satellite: 'Astra 28.2°E', isFree: false },
+      { name: 'beIN Sports 1 FR', satellite: 'Astra 19.2°E', isFree: false },
+    ],
+  },
+  {
+    id: 'laliga',
+    code: 'esp.1',
+    sport: 'soccer',
+    label: 'LaLiga',
+    broadcasters: [
+      { name: 'beIN Sports 1 FR', satellite: 'Astra 19.2°E', isFree: false },
+      { name: 'Movistar LaLiga', satellite: 'Astra 19.2°E', isFree: false },
+    ],
+  },
+  {
+    id: 'ligue1',
+    code: 'fra.1',
+    sport: 'soccer',
+    label: 'Ligue 1',
+    broadcasters: [
+      { name: 'DAZN 1', satellite: 'Astra 19.2°E', isFree: false },
+      { name: 'beIN Sports 1 FR', satellite: 'Astra 19.2°E', isFree: false },
+    ],
+  },
+  {
+    id: 'seriea',
+    code: 'ita.1',
+    sport: 'soccer',
+    label: 'Serie A',
+    broadcasters: [
+      { name: 'beIN Sports 2 FR', satellite: 'Astra 19.2°E', isFree: false },
+      { name: 'Sky Sport Calcio', satellite: 'Hotbird 13°E', isFree: false },
+    ],
+  },
+  {
+    id: 'bundesliga',
+    code: 'ger.1',
+    sport: 'soccer',
+    label: 'Bundesliga',
+    broadcasters: [
+      { name: 'beIN Sports 3 FR', satellite: 'Astra 19.2°E', isFree: false },
+      { name: 'Sky Sport Bundesliga', satellite: 'Astra 19.2°E', isFree: false },
+    ],
+  },
+  {
+    id: 'spl',
+    code: 'sau.1',
+    sport: 'soccer',
+    label: 'Saudi Pro League (Roshn)',
+    broadcasters: [
+      { name: 'SSC 1 HD', satellite: "Badr / Es'hailSat 26°E", isFree: false },
+      { name: 'Canal+ Sport 360', satellite: 'Astra 19.2°E', isFree: false },
+    ],
+  },
+  {
+    id: 'afc',
+    code: 'afc.champions',
+    sport: 'soccer',
+    label: "Ligue des Champions d'Asie (AFC)",
+    broadcasters: [
+      { name: 'beIN Sports AFC', satellite: "Badr / Es'hailSat 26°E", isFree: false },
+      { name: 'SSC 1 HD', satellite: "Badr / Es'hailSat 26°E", isFree: false },
+      { name: 'Abu Dhabi Sports Asia', satellite: 'Nilesat 7°W', isFree: false },
+    ],
+  },
+  {
+    id: 'caf',
+    code: 'caf.champions',
+    sport: 'soccer',
+    label: 'Ligue des Champions CAF',
+    broadcasters: [
+      { name: 'beIN Sports 6', satellite: 'Nilesat 7°W', isFree: false },
+      { name: 'Arryadia (TNT)', satellite: 'Nilesat 7°W', isFree: true },
+    ],
+  },
+  {
+    id: 'eng2',
+    code: 'eng.2',
+    sport: 'soccer',
+    label: 'Championship (Angleterre)',
+    broadcasters: [
+      { name: 'Sky Sports Football', satellite: 'Astra 28.2°E', isFree: false },
+      { name: 'beIN Sports Max 4', satellite: 'Astra 19.2°E', isFree: false },
+    ],
+  },
+  {
+    id: 'mls',
+    code: 'usa.1',
+    sport: 'soccer',
+    label: 'Major League Soccer (MLS)',
+    broadcasters: [
+      { name: 'Apple TV (MLS Season Pass)', satellite: 'Streaming Global', isFree: false },
+      { name: 'beIN Sports Max 7', satellite: 'Astra 19.2°E', isFree: false },
+    ],
+  },
+];
+
+const CACHED_FIXTURES_KEY = 'pulseepg_cached_fixtures_v2';
+
+const DEFAULT_SEED_FIXTURES: GlobalSportFixture[] = [
+  {
+    id: 'seed-ucl-1',
+    competitionId: 'ucl',
+    competitionLabel: 'Ligue des Champions UEFA',
+    homeTeam: 'Bayern Munich',
+    homeTeamLogo: 'https://a.espncdn.com/i/teamlogos/soccer/500/132.png',
+    awayTeam: 'Arsenal',
+    awayTeamLogo: 'https://a.espncdn.com/i/teamlogos/soccer/500/359.png',
+    startMs: Date.now() + 2 * 3600_000,
+    stopMs: Date.now() + 4 * 3600_000,
+    isLive: false,
+    isEnded: false,
+    statusText: '21:00',
+    broadcasters: [
+      { name: 'Canal+ Foot', satellite: 'Astra 19.2°E', isFree: false },
+      { name: 'beIN Sports 1 FR', satellite: 'Astra 19.2°E', isFree: false },
+      { name: 'Movistar Liga de Campeones', satellite: 'Astra 19.2°E', isFree: false },
+    ],
+  },
+  {
+    id: 'seed-ucl-2',
+    competitionId: 'ucl',
+    competitionLabel: 'Ligue des Champions UEFA',
+    homeTeam: 'Real Madrid',
+    homeTeamLogo: 'https://a.espncdn.com/i/teamlogos/soccer/500/86.png',
+    awayTeam: 'Borussia Dortmund',
+    awayTeamLogo: 'https://a.espncdn.com/i/teamlogos/soccer/500/124.png',
+    startMs: Date.now() + 3 * 3600_000,
+    stopMs: Date.now() + 5 * 3600_000,
+    isLive: false,
+    isEnded: false,
+    statusText: '21:00',
+    broadcasters: [
+      { name: 'Canal+ Foot', satellite: 'Astra 19.2°E', isFree: false },
+      { name: 'Movistar Liga de Campeones', satellite: 'Astra 19.2°E', isFree: false },
+    ],
+  },
+  {
+    id: 'seed-ucl-3',
+    competitionId: 'ucl',
+    competitionLabel: 'Ligue des Champions UEFA',
+    homeTeam: 'Lille',
+    homeTeamLogo: 'https://a.espncdn.com/i/teamlogos/soccer/500/166.png',
+    awayTeam: 'Galatasaray',
+    awayTeamLogo: 'https://a.espncdn.com/i/teamlogos/soccer/500/434.png',
+    startMs: Date.now() + 1 * 3600_000,
+    stopMs: Date.now() + 3 * 3600_000,
+    isLive: false,
+    isEnded: false,
+    statusText: '18:45',
+    broadcasters: [
+      { name: 'Canal+ Foot', satellite: 'Astra 19.2°E', isFree: false },
+      { name: 'beIN Sports 2 FR', satellite: 'Astra 19.2°E', isFree: false },
+    ],
+  },
+  {
+    id: 'seed-ucl-4',
+    competitionId: 'ucl',
+    competitionLabel: 'Ligue des Champions UEFA',
+    homeTeam: 'Como',
+    homeTeamLogo: 'https://a.espncdn.com/i/teamlogos/soccer/500/2608.png',
+    awayTeam: 'Manchester United',
+    awayTeamLogo: 'https://a.espncdn.com/i/teamlogos/soccer/500/360.png',
+    startMs: Date.now() + 1 * 3600_000,
+    stopMs: Date.now() + 3 * 3600_000,
+    isLive: false,
+    isEnded: false,
+    statusText: '18:45',
+    broadcasters: [
+      { name: 'Canal+ Sport 360', satellite: 'Astra 19.2°E', isFree: false },
+      { name: 'beIN Sports Max 4', satellite: 'Astra 19.2°E', isFree: false },
+    ],
+  },
+  {
+    id: 'seed-ucl-5',
+    competitionId: 'ucl',
+    competitionLabel: 'Ligue des Champions UEFA',
+    homeTeam: 'Club Brugge',
+    homeTeamLogo: 'https://a.espncdn.com/i/teamlogos/soccer/500/414.png',
+    awayTeam: 'Lens',
+    awayTeamLogo: 'https://a.espncdn.com/i/teamlogos/soccer/500/164.png',
+    startMs: Date.now() + 4 * 3600_000,
+    stopMs: Date.now() + 6 * 3600_000,
+    isLive: false,
+    isEnded: false,
+    statusText: '21:00',
+    broadcasters: [
+      { name: 'Canal+ Live', satellite: 'Astra 19.2°E', isFree: false },
+      { name: 'beIN Sports Max 5', satellite: 'Astra 19.2°E', isFree: false },
+    ],
+  },
+  {
+    id: 'seed-pl-1',
+    competitionId: 'pl',
+    competitionLabel: 'Premier League',
+    homeTeam: 'Manchester City',
+    homeTeamLogo: 'https://a.espncdn.com/i/teamlogos/soccer/500/382.png',
+    awayTeam: 'Liverpool',
+    awayTeamLogo: 'https://a.espncdn.com/i/teamlogos/soccer/500/364.png',
+    startMs: Date.now() + 24 * 3600_000,
+    stopMs: Date.now() + 26 * 3600_000,
+    isLive: false,
+    isEnded: false,
+    statusText: '17:30',
+    broadcasters: [
+      { name: 'Canal+ Premier League', satellite: 'Astra 19.2°E', isFree: false },
+      { name: 'Sky Sports Main Event', satellite: 'Astra 28.2°E', isFree: false },
+    ],
+  },
+  {
+    id: 'seed-laliga-1',
+    competitionId: 'laliga',
+    competitionLabel: 'LaLiga',
+    homeTeam: 'Barcelona',
+    homeTeamLogo: 'https://a.espncdn.com/i/teamlogos/soccer/500/83.png',
+    awayTeam: 'Atletico Madrid',
+    awayTeamLogo: 'https://a.espncdn.com/i/teamlogos/soccer/500/1068.png',
+    startMs: Date.now() + 28 * 3600_000,
+    stopMs: Date.now() + 30 * 3600_000,
+    isLive: false,
+    isEnded: false,
+    statusText: '21:00',
+    broadcasters: [
+      { name: 'beIN Sports 1 FR', satellite: 'Astra 19.2°E', isFree: false },
+      { name: 'Movistar LaLiga', satellite: 'Astra 19.2°E', isFree: false },
+    ],
+  },
+];
+
+export function loadCachedGlobalFixtures(): GlobalSportFixture[] {
+  if (typeof localStorage === 'undefined') return DEFAULT_SEED_FIXTURES;
   try {
-    const res = await fetch('/api/sports/fixtures');
-    if (!res.ok) return [];
-    return (await res.json()) as GlobalSportFixture[];
+    const raw = localStorage.getItem(CACHED_FIXTURES_KEY);
+    if (!raw) return DEFAULT_SEED_FIXTURES;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) return DEFAULT_SEED_FIXTURES;
+    return parsed.map((item: any) => ({
+      ...item,
+      broadcasters:
+        Array.isArray(item.broadcasters) && item.broadcasters.length > 0
+          ? item.broadcasters
+          : [{ name: 'Canal+ / beIN Sports', satellite: 'Astra 19.2°E', isFree: false }],
+    }));
   } catch {
-    return [];
+    return DEFAULT_SEED_FIXTURES;
   }
+}
+
+export function saveCachedGlobalFixtures(fixtures: GlobalSportFixture[]): void {
+  if (typeof localStorage === 'undefined' || !fixtures || fixtures.length === 0) return;
+  try {
+    localStorage.setItem(CACHED_FIXTURES_KEY, JSON.stringify(fixtures));
+  } catch {
+    // quota exceeded
+  }
+}
+
+/** Interrogation directe et autonome de l'API publique ESPN (fonctionne à 100% dans l'APK Android) */
+export async function fetchClientEspnFixtures(): Promise<GlobalSportFixture[]> {
+  const now = Date.now();
+  const dMinus1 = new Date(now - 86400000);
+  const d0 = new Date(now);
+  const d1 = new Date(now + 86400000);
+  const d2 = new Date(now + 2 * 86400000);
+  const dateStrs = [
+    dMinus1.toISOString().slice(0, 10).replace(/-/g, ''),
+    d0.toISOString().slice(0, 10).replace(/-/g, ''),
+    d1.toISOString().slice(0, 10).replace(/-/g, ''),
+    d2.toISOString().slice(0, 10).replace(/-/g, ''),
+  ];
+
+  const fixtures: GlobalSportFixture[] = [];
+  const seenIds = new Set<string>();
+
+  await Promise.all(
+    GLOBAL_LEAGUES_CONFIG.map(async (cfg) => {
+      for (const dt of dateStrs) {
+        try {
+          const url = `https://site.api.espn.com/apis/site/v2/sports/${cfg.sport || 'soccer'}/${cfg.code}/scoreboard?dates=${dt}`;
+          const response = await fetch(url);
+          if (!response.ok) continue;
+          const data = (await response.json()) as any;
+          for (const ev of data.events || []) {
+            if (seenIds.has(ev.id)) continue;
+            seenIds.add(ev.id);
+
+            const comp = ev.competitions?.[0];
+            const home = comp?.competitors?.find((c: any) => c.homeAway === 'home') || comp?.competitors?.[0];
+            const away = comp?.competitors?.find((c: any) => c.homeAway === 'away') || comp?.competitors?.[1];
+            if (!home || !away) continue;
+
+            const startMs = new Date(ev.date).getTime();
+            const stopMs = startMs + 105 * 60000;
+            const state = ev.status?.type?.state;
+            const statusName = (ev.status?.type?.name || '').toUpperCase();
+            const statusDetail = (
+              ev.status?.type?.shortDetail ||
+              ev.status?.displayClock ||
+              ev.status?.type?.detail ||
+              ev.status?.type?.description ||
+              ''
+            ).trim();
+
+            const isEnded =
+              ev.status?.type?.completed === true ||
+              state === 'post' ||
+              statusName === 'STATUS_FULL_TIME' ||
+              statusName === 'STATUS_FINAL_PENALTIES' ||
+              statusName === 'STATUS_FINAL' ||
+              statusName === 'STATUS_POSTPONED' ||
+              statusName === 'STATUS_CANCELLED' ||
+              /final|ft|full\s*time|postponed|cancelled|terminé|termin|fin|نهاية/i.test(statusDetail);
+
+            const isLive =
+              !isEnded &&
+              (state === 'in' ||
+                statusName === 'STATUS_IN_PROGRESS' ||
+                statusName === 'STATUS_HALFTIME' ||
+                statusName === 'STATUS_FIRST_HALF' ||
+                statusName === 'STATUS_SECOND_HALF' ||
+                statusName === 'STATUS_OVERTIME' ||
+                statusName === 'STATUS_SHOOTOUT' ||
+                /'|\bmin\b|mi-temps|half/i.test(statusDetail));
+
+            let homeScore: string | undefined = undefined;
+            let awayScore: string | undefined = undefined;
+            if (isLive || isEnded) {
+              const rawHome =
+                home.score !== undefined && home.score !== null ? String(home.score).trim() : undefined;
+              const rawAway =
+                away.score !== undefined && away.score !== null ? String(away.score).trim() : undefined;
+              homeScore = rawHome !== undefined ? rawHome : '0';
+              awayScore = rawAway !== undefined ? rawAway : '0';
+            }
+
+            const statusText = statusDetail || (isEnded ? 'FT' : isLive ? 'Live' : 'Scheduled');
+
+            fixtures.push({
+              id: ev.id,
+              competitionId: cfg.id,
+              competitionLabel: cfg.label,
+              homeTeam: home.team?.displayName || home.team?.name || 'Home',
+              homeTeamLogo: home.team?.logo,
+              homeScore,
+              awayTeam: away.team?.displayName || away.team?.name || 'Away',
+              awayTeamLogo: away.team?.logo,
+              awayScore,
+              startMs,
+              stopMs,
+              isLive,
+              isEnded,
+              statusText,
+              broadcasters: cfg.broadcasters,
+            });
+          }
+        } catch {
+          // ignore error for single league/date
+        }
+      }
+    })
+  );
+
+  fixtures.sort((a, b) => a.startMs - b.startMs);
+  return fixtures;
+}
+
+export async function fetchGlobalSportFixtures(): Promise<GlobalSportFixture[]> {
+  // 1. Essayer le endpoint interne (/api/sports/fixtures) avec timeout court (3.5s)
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 3500);
+    const res = await fetch('/api/sports/fixtures', { signal: controller.signal });
+    clearTimeout(timer);
+    if (res.ok) {
+      const data = (await res.json()) as GlobalSportFixture[];
+      if (Array.isArray(data) && data.length > 0) {
+        saveCachedGlobalFixtures(data);
+        return data;
+      }
+    }
+  } catch {
+    // Échec attendu dans l'APK Android (localhost:443 indisponible)
+  }
+
+  // 2. Repli autonome : Interrogation directe de l'API ESPN publique (fonctionne directement sur Android sans proxy)
+  try {
+    const directFixtures = await fetchClientEspnFixtures();
+    if (directFixtures.length > 0) {
+      saveCachedGlobalFixtures(directFixtures);
+      return directFixtures;
+    }
+  } catch {
+    // Hors-ligne ou connexion réseau limitée
+  }
+
+  // 3. Repli de secours : Restitution du cache local
+  return loadCachedGlobalFixtures();
 }

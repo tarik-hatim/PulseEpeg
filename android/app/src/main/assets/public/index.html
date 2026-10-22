@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="fr" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0a0e17" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="PulseEPG" />
+    <link rel="manifest" href="/manifest.json?v=nx1" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg?v=nx1" />
+    <link rel="icon" type="image/png" sizes="72x72" href="/pwa-72x72.png?v=nx1" />
+    <link rel="icon" type="image/png" sizes="96x96" href="/pwa-96x96.png?v=nx1" />
+    <link rel="icon" type="image/png" sizes="128x128" href="/pwa-128x128.png?v=nx1" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/pwa-192x192.png?v=nx1" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/pwa-512x512.png?v=nx1" />
+    <link rel="apple-touch-icon" sizes="152x152" href="/pwa-152x152.png?v=nx1" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=nx1" />
+    <title>PulseEPG — Guide TV XML.GZ Mobile</title>
+    <meta name="description" content="Application mobile responsive de guide TV EPG (XML.GZ) avec décompression en arrière-plan, cache IndexedDB/LocalStorage et compatibilité APK Capacitor." />
+    <meta property="og:title" content="PulseEPG — Guide TV XML.GZ Mobile" />
+    <meta property="og:description" content="Application mobile responsive de guide TV EPG (XML.GZ) avec décompression en arrière-plan, cache IndexedDB/LocalStorage et compatibilité APK Capacitor." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <style>html,body,#root{min-height:100%;font-family:system-ui,-apple-system,sans-serif;color:#fff!important;box-sizing:border-box!important;background-color:#0a0e17!important;width:100%!important;max-width:100vw!important;margin:0!important;padding:0!important;overflow-x:hidden!important}html[dir=rtl],body[dir=rtl],#root[dir=rtl]{text-align:right;direction:rtl;max-width:100vw!important;margin:0!important;padding:0!important;overflow-x:hidden!important}body{box-sizing:border-box!important;background-color:#0a0e17!important;margin:0!important;padding:0!important}img,svg{max-width:100%;height:auto}*,:before,:after{box-sizing:border-box}</style>
+    <style>:root{--bg-color:#0a0e17;--surface-color:#141a26;--border-color:#1a202c;--text-color:#fff;--text-muted:#cbd5e1;--accent-blue:#05f;--accent-crimson:#e11d48}#root{background-color:var(--bg-color,#0a0e17);min-height:100%;color:var(--text-color,#fff)}#tv-boot-splash{z-index:9999;color:var(--text-color,#fff);text-align:center;box-sizing:border-box;flex-direction:column;justify-content:center;align-items:center;padding:24px;display:flex;position:fixed;top:0;bottom:0;left:0;right:0;background:#0f172a radial-gradient(circle at 50% 35%,rgba(0,85,255,.15) 0%,#0f172a 75%)!important;overflow:visible!important}.tv-boot-logo-box{aspect-ratio:1;transform-origin:50%;will-change:transform, box-shadow;background-color:#0f172a;border:1.5px solid rgba(225,29,72,.55);border-radius:24px;flex-shrink:0;justify-content:center;align-items:center;margin:0 auto 22px;transition:transform .2s ease-in-out,box-shadow .2s ease-in-out,border-color .2s ease-in-out,filter .2s ease-in-out;display:flex;transform:scale(1);box-shadow:0 0 32px rgba(225,29,72,.4),0 0 20px rgba(0,85,255,.28);object-fit:contain!important;object-position:center!important;box-sizing:border-box!important;width:104px!important;min-width:0!important;max-width:200px!important;height:104px!important;min-height:0!important;max-height:200px!important;overflow:hidden!important}.tv-boot-logo-box:hover,.tv-boot-logo-box:focus,.tv-boot-logo-box.focused{filter:drop-shadow(0 0 14px rgba(236,72,153,.55));z-index:10;border-color:#ec4899!important;outline:none!important;transition:transform .2s ease-in-out,box-shadow .2s ease-in-out,border-color .2s ease-in-out,filter .2s ease-in-out!important;transform:scale(1.05)!important;box-shadow:0 0 0 3px rgba(236,72,153,.75),0 0 34px rgba(225,29,72,.65),0 10px 26px rgba(0,85,255,.45)!important}.tv-boot-logo-box:focus-visible{filter:drop-shadow(0 0 14px rgba(236,72,153,.55));z-index:10;border-color:#ec4899!important;outline:none!important;transition:transform .2s ease-in-out,box-shadow .2s ease-in-out,border-color .2s ease-in-out,filter .2s ease-in-out!important;transform:scale(1.05)!important;box-shadow:0 0 0 3px rgba(236,72,153,.75),0 0 34px rgba(225,29,72,.65),0 10px 26px rgba(0,85,255,.45)!important}.tv-boot-logo-box>*,.tv-boot-logo-svg{flex-shrink:1;margin:auto;display:block;object-fit:contain!important;object-position:center!important;width:100%!important;min-width:0!important;max-width:200px!important;height:100%!important;min-height:0!important;max-height:200px!important}.tv-boot-spinner{border:4px solid #e11d48;border-color:#e11d48 #05f rgba(225,29,72,.22) rgba(225,29,72,.22);border-radius:50%;flex-shrink:0;width:44px;height:44px;margin:0 auto 18px;animation:.85s linear infinite tvBootSpin}.tv-boot-title{letter-spacing:.02em;color:var(--text-color,#fff);margin:0 0 6px;font-size:22px;font-weight:700}.tv-boot-status{color:#38bdf8;margin:0 0 6px;font-size:16px;font-weight:600}.tv-boot-sub{color:#94a3b8;max-width:420px;margin:0 auto;font-size:13px;line-height:1.45}.tv-boot-retry-btn{color:#fff;cursor:pointer;background-color:#05f;border:2px solid #fff;border-radius:10px;margin-top:18px;padding:10px 20px;font-size:14px;font-weight:700;display:none}.tv-boot-retry-btn:focus{background-color:#1d4ed8;outline:3px solid #ec4899}@keyframes tvBootSpin{0%{transform:rotate(0)}to{transform:rotate(360deg)}}</style>
+    <script type="module" crossorigin src="/assets/index-DyXHg5YJ.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-CvolB5Hb.css">
+  </head>
+  <body class="bg-[#0a0e17] text-[#ffffff] antialiased selection:bg-[#e11d48] selection:text-[#ffffff]">
+    <div id="root">
+      <!-- Fallback visuel immédiat affiché à 0ms avant l'exécution du moindre script JS (Android TV / Box Echolink Atomo) -->
+      <div id="tv-boot-splash" role="status" aria-live="polite" style="overflow: visible; background-color: #0f172a;">
+        <div class="tv-boot-logo-box" tabindex="0" style="width: 104px; height: 104px; max-width: 200px; max-height: 200px; margin: 0 auto 22px auto; object-fit: contain; object-position: center; overflow: hidden; background-color: #0f172a; border-radius: 24px; border: 1.5px solid rgba(225, 29, 72, 0.55); box-shadow: 0 0 32px rgba(225, 29, 72, 0.4), 0 0 20px rgba(0, 85, 255, 0.28); transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;" aria-hidden="true">
+          <svg class="tv-boot-logo-svg" width="104" height="104" preserveAspectRatio="xMidYMid meet" style="width: 100%; height: 100%; max-width: 200px; max-height: 200px; margin: auto; object-fit: contain; object-position: center; display: block;" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="bootStem" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#38bdf8" />
+                <stop offset="30%" stop-color="#0055ff" />
+                <stop offset="100%" stop-color="#0f2361" />
+              </linearGradient>
+              <linearGradient id="bootUnder" x1="100%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#e11d48" />
+                <stop offset="65%" stop-color="#0055ff" />
+                <stop offset="100%" stop-color="#172554" />
+              </linearGradient>
+              <linearGradient id="bootHero" x1="0%" y1="0%" x2="95%" y2="90%">
+                <stop offset="0%" stop-color="#ff335c" />
+                <stop offset="38%" stop-color="#ff0033" />
+                <stop offset="100%" stop-color="#9f1239" />
+              </linearGradient>
+              <linearGradient id="pulseWaveGrad" x1="0%" y1="50%" x2="100%" y2="50%">
+                <stop offset="0%" stop-color="#38bdf8" />
+                <stop offset="35%" stop-color="#0055ff" />
+                <stop offset="70%" stop-color="#e11d48" />
+                <stop offset="100%" stop-color="#ff0033" />
+              </linearGradient>
+            </defs>
+            <rect width="512" height="512" rx="44" fill="#0f172a" />
+            <path d="M 128 92 C 128 81, 136 74, 147 74 H 200 C 210 74, 218 81, 218 92 V 430 Q 173 422, 128 438 Z" fill="url(#bootStem)" />
+            <path d="M 314 184 H 404 C 404 274, 338 332, 232 332 H 176 V 248 H 232 C 284 248, 314 224, 314 196 Z" fill="url(#bootUnder)" />
+            <path d="M 128 148 L 218 112 V 224 L 128 246 Z" fill="#020409" fill-opacity="0.7" />
+            <path d="M 128 92 C 128 81, 136 74, 147 74 H 242 C 344 74, 404 126, 404 202 C 404 214, 402 226, 397 238 L 308 198 C 312 191, 314 183, 314 174 C 314 149, 284 134, 232 134 H 206 L 128 168 Z" fill="url(#bootHero)" />
+            <path d="M 238 386 H 278 L 298 340 L 324 424 L 348 362 L 364 386 H 404" stroke="url(#pulseWaveGrad)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M 238 386 H 278 L 298 340 L 324 424 L 348 362 L 364 386 H 404" stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </div>
+        <div class="tv-boot-spinner" aria-hidden="true"></div>
+        <h1 class="tv-boot-title">PulseEPG</h1>
+        <p id="tv-boot-status-text" class="tv-boot-status">Chargement...</p>
+        <p id="tv-boot-sub-text" class="tv-boot-sub">Initialisation du Guide TV &amp; compatibilité Android TV</p>
+        <button id="tv-boot-retry-btn" type="button" class="tv-boot-retry-btn" onclick="window.__pulseRecoverBoot && window.__pulseRecoverBoot()">
+          Réinitialiser &amp; Relancer
+        </button>
+      </div>
+    </div>
+    <script>
+      (function () {
+        try {
+          if (typeof window.globalThis === 'undefined') {
+            window.globalThis = window;
+          }
+          // Polyfill sécurisé pour ResizeObserver sur anciens moteurs WebView Android TV
+          if (typeof window.ResizeObserver === 'undefined') {
+            window.ResizeObserver = function (callback) {
+              this.callback = callback;
+              this.observe = function () {};
+              this.unobserve = function () {};
+              this.disconnect = function () {};
+            };
+          }
+          // Polyfill sécurisé pour IntersectionObserver sur anciens moteurs WebView Android TV
+          if (typeof window.IntersectionObserver === 'undefined') {
+            window.IntersectionObserver = function () {
+              this.observe = function () {};
+              this.unobserve = function () {};
+              this.disconnect = function () {};
+            };
+          }
+          // Polyfill Element.prototype.scrollTo et window.scrollTo pour anciens WebViews qui refusent ScrollToOptions
+          var origWinScrollTo = window.scrollTo;
+          if (typeof origWinScrollTo === 'function') {
+            window.scrollTo = function (a, b) {
+              try {
+                if (a && typeof a === 'object') {
+                  origWinScrollTo.call(window, a.left || 0, a.top || 0);
+                } else {
+                  origWinScrollTo.call(window, a || 0, b || 0);
+                }
+              } catch (_e) {}
+            };
+          }
+          if (typeof Element !== 'undefined' && Element.prototype) {
+            var origElScrollTo = Element.prototype.scrollTo;
+            Element.prototype.scrollTo = function (a, b) {
+              try {
+                if (a && typeof a === 'object') {
+                  if (typeof a.left === 'number') this.scrollLeft = a.left;
+                  if (typeof a.top === 'number') this.scrollTop = a.top;
+                } else if (typeof origElScrollTo === 'function') {
+                  origElScrollTo.call(this, a || 0, b || 0);
+                } else {
+                  if (typeof a === 'number') this.scrollLeft = a;
+                  if (typeof b === 'number') this.scrollTop = b;
+                }
+              } catch (_e) {}
+            };
+            var origScrollIntoView = Element.prototype.scrollIntoView;
+            if (typeof origScrollIntoView === 'function') {
+              Element.prototype.scrollIntoView = function (arg) {
+                try {
+                  origScrollIntoView.call(this, arg);
+                } catch (_e) {
+                  try {
+                    origScrollIntoView.call(this, false);
+                  } catch (_e2) {}
+                }
+              };
+            }
+          }
+          // Polyfills Array.prototype.flatMap / at / String.prototype.replaceAll / Object.hasOwn pour WebView Chromium < 73
+          if (!Array.prototype.flatMap) {
+            Array.prototype.flatMap = function (callback, thisArg) {
+              var res = [];
+              for (var i = 0; i < this.length; i++) {
+                if (i in this) {
+                  var el = callback.call(thisArg, this[i], i, this);
+                  if (Array.isArray(el)) {
+                    for (var j = 0; j < el.length; j++) res.push(el[j]);
+                  } else {
+                    res.push(el);
+                  }
+                }
+              }
+              return res;
+            };
+          }
+          if (!String.prototype.replaceAll) {
+            String.prototype.replaceAll = function (search, replacement) {
+              return this.split(search).join(replacement);
+            };
+          }
+          if (!Object.hasOwn) {
+            Object.hasOwn = function (obj, prop) {
+              return Object.prototype.hasOwnProperty.call(obj, prop);
+            };
+          }
+          window.__pulseRecoverBoot = function () {
+            try {
+              if (window.localStorage) {
+                window.localStorage.clear();
+              }
+            } catch (_e) {}
+            window.location.reload();
+          };
+          var showBootRecovery = function (msg) {
+            try {
+              var statusEl = document.getElementById('tv-boot-status-text');
+              var subEl = document.getElementById('tv-boot-sub-text');
+              var btnEl = document.getElementById('tv-boot-retry-btn');
+              if (statusEl) statusEl.textContent = 'Chargement en mode compatibilité TV...';
+              if (subEl && msg) subEl.textContent = String(msg).slice(0, 140);
+              if (btnEl) {
+                btnEl.style.display = 'inline-block';
+                btnEl.focus();
+              }
+            } catch (_e) {}
+          };
+          window.addEventListener('error', function (e) {
+            try {
+              if (window.self !== window.top) return;
+              var splash = document.getElementById('tv-boot-splash');
+              if (splash && e && e.message && !/ResizeObserver|WebSocket|favicon/i.test(e.message)) {
+                showBootRecovery(e.message);
+              }
+            } catch (_err) {}
+          });
+          // Ne jamais bloquer le splash sur les rejets de promesses asynchrones (requêtes réseau, ESPN, etc.)
+          window.addEventListener('unhandledrejection', function () {});
+        } catch (_bootErr) {}
+      })();
+    </script>
+  </body>
+</html>
+

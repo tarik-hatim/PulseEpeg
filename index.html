@@ -373,17 +373,16 @@
             } catch (_e) {}
           };
           window.addEventListener('error', function (e) {
-            var splash = document.getElementById('tv-boot-splash');
-            if (splash && e && e.message) {
-              showBootRecovery(e.message);
-            }
+            try {
+              if (window.self !== window.top) return;
+              var splash = document.getElementById('tv-boot-splash');
+              if (splash && e && e.message && !/ResizeObserver|WebSocket|favicon/i.test(e.message)) {
+                showBootRecovery(e.message);
+              }
+            } catch (_err) {}
           });
-          window.addEventListener('unhandledrejection', function (e) {
-            var splash = document.getElementById('tv-boot-splash');
-            if (splash && e && e.reason) {
-              showBootRecovery(e.reason.message || e.reason);
-            }
-          });
+          // Ne jamais bloquer le splash sur les rejets de promesses asynchrones (requêtes réseau, ESPN, etc.)
+          window.addEventListener('unhandledrejection', function () {});
         } catch (_bootErr) {}
       })();
     </script>

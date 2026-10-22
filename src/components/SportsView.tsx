@@ -42,6 +42,7 @@ import {
   formatLiveMatchTiming,
   SportInfo,
   isVideoMatchingBothTeams,
+  loadCachedGlobalFixtures,
 } from '../utils/sportsEngine';
 import { lookupTransponderSync } from '../services/satelliteCatalogService';
 import { toStandardDigits } from '../utils/timeFormat';
@@ -79,7 +80,8 @@ export function isBroadcasterMatchingBouquets(
   channelByName: Map<string, EpgChannel>,
   activeLang: string
 ): boolean {
-  const normName = channelName.toLowerCase().trim();
+  if (!channelName) return true;
+  const normName = String(channelName).toLowerCase().trim();
 
   // 1. Chaîne déjà présente dans le guide TV actif de l'utilisateur
   if (channelByName.has(normName)) {
@@ -217,7 +219,9 @@ export const SportsView: React.FC<SportsViewProps> = ({
   const [favoriteTeams, setFavoriteTeams] = useState<string[]>(() => getFavoriteTeams());
 
   // Affiches et rencontres d'envergure mondiale (Ligue des Champions UEFA & Asie, Botola Pro, MLS, Championship, etc.)
-  const [globalFixtures, setGlobalFixtures] = useState<GlobalSportFixture[]>([]);
+  const [globalFixtures, setGlobalFixtures] = useState<GlobalSportFixture[]>(() =>
+    loadCachedGlobalFixtures()
+  );
   const [isFixturesLoading, setIsFixturesLoading] = useState(false);
 
   // Flux de résumés vidéo automatiques (ex: Ligue des Champions, LaLiga, etc.)
@@ -323,7 +327,8 @@ export const SportsView: React.FC<SportsViewProps> = ({
 
   // Agrégation et fusion : Guide TV local + Grands matchs d'audience mondiale
   const allSportsEvents = useMemo(() => {
-    const horizonMs = nowMs + 48 * 3600_000;
+    // Horizon étendu à 7 jours pour afficher le programme complet des matchs de la semaine
+    const horizonMs = nowMs + 7 * 24 * 3600_000;
     const pastHorizonMs = nowMs - 24 * 3600_000;
     const eventsMap = new Map<string, SportsEvent>();
 
@@ -407,10 +412,15 @@ export const SportsView: React.FC<SportsViewProps> = ({
         regex: new RegExp(f.competitionLabel, 'i'),
         sport: 'Football',
       };
+      const broadcasters =
+        Array.isArray(f.broadcasters) && f.broadcasters.length > 0
+          ? f.broadcasters
+          : [{ name: 'Canal+ / beIN Sports', satellite: 'Astra 19.2°E', isFree: false }];
+
       const sport = detectSport(
         `${f.homeTeam} vs ${f.awayTeam}`,
         f.competitionLabel,
-        f.broadcasters[0]?.name || ''
+        broadcasters[0]?.name || ''
       );
       const mInfo = {
         home: norm(f.homeTeam),
@@ -423,8 +433,8 @@ export const SportsView: React.FC<SportsViewProps> = ({
       const existing = eventsMap.get(k);
       if (existing) {
         existing.fixtureMeta = f;
-        for (const b of f.broadcasters) {
-          const found = channelByName.get(b.name.toLowerCase().trim());
+        for (const b of broadcasters) {
+          const found = channelByName.get((b.name || '').toLowerCase().trim());
           const targetChannel: EpgChannel = found || {
             id: `broadcaster-${b.name}`,
             displayName: b.name,
@@ -457,8 +467,8 @@ export const SportsView: React.FC<SportsViewProps> = ({
           }
         }
       } else {
-        const airings = f.broadcasters.map((b) => {
-          const found = channelByName.get(b.name.toLowerCase().trim());
+        const airings = broadcasters.map((b) => {
+          const found = channelByName.get((b.name || '').toLowerCase().trim());
           const targetChannel: EpgChannel = found || {
             id: `broadcaster-${b.name}`,
             displayName: b.name,
@@ -621,7 +631,11 @@ export const SportsView: React.FC<SportsViewProps> = ({
           return false;
         }
         if (e.fixtureMeta) {
-          return !e.fixtureMeta.isLive && e.programme.startMs > nowMs;
+          return (
+            !e.fixtureMeta.isLive &&
+            (e.programme.startMs > nowMs ||
+              (nowMs - e.programme.startMs < 20 * 60000 && !e.fixtureMeta.isEnded))
+          );
         }
         return e.programme.startMs > nowMs;
       }),

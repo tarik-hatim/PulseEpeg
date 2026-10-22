@@ -157,35 +157,23 @@ try {
         )
     );
 
-  if (!isCapacitorOrTvWebView && 'serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      try {
-        if ('caches' in window) {
-          caches
-            .keys()
-            .then((keys) => {
-              for (const key of keys) {
-                if (key !== 'pulse-epg-shell-v6') {
-                  void caches.delete(key);
-                }
-              }
-            })
-            .catch(() => undefined);
+  const isInIframeOrDev =
+    typeof window !== 'undefined' &&
+    (window.self !== window.top || import.meta.env.DEV);
+
+  // En iframe (preview AI Studio) ou dev Vite, désenregistrer les workers pour garantir un rechargement sans cache
+  if (isInIframeOrDev && typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+    navigator.serviceWorker
+      .getRegistrations()
+      .then((regs) => {
+        for (const reg of regs) {
+          void reg.unregister();
         }
-        navigator.serviceWorker
-          .register('/sw.js')
-          .then((registration) => {
-            void registration.update().catch(() => undefined);
-          })
-          .catch((err) => {
-            console.warn(
-              'Échec de l’enregistrement du Service Worker PulseEPG:',
-              err
-            );
-          });
-      } catch {
-        // Ignore Service Worker errors on older WebViews
-      }
+      })
+      .catch(() => undefined);
+  } else if (!isCapacitorOrTvWebView && typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch(() => undefined);
     });
   }
 } catch {
@@ -196,6 +184,12 @@ function bootstrapApplication(): void {
   try {
     const rootElement = document.getElementById('root');
     if (!rootElement) return;
+
+    // Supprimer immédiatement le splash screen statique pour libérer l'affichage React
+    const splash = document.getElementById('tv-boot-splash');
+    if (splash) {
+      splash.remove();
+    }
 
     createRoot(rootElement).render(
       <StrictMode>
