@@ -33,12 +33,15 @@ import {
   fetchCompetitionHighlights,
   fetchGlobalSportFixtures,
   isExplicitlyLive,
+  isExplicitlyLiveTitle,
+  isMatchEqual,
   formatVideoDuration,
   VideoHighlight,
   GlobalSportFixture,
   detectSport,
   formatLiveMatchTiming,
   SportInfo,
+  isVideoMatchingBothTeams,
 } from '../utils/sportsEngine';
 import { lookupTransponderSync } from '../services/satelliteCatalogService';
 import { toStandardDigits } from '../utils/timeFormat';
@@ -220,6 +223,11 @@ export const SportsView: React.FC<SportsViewProps> = ({
   // Flux de résumés vidéo automatiques (ex: Ligue des Champions, LaLiga, etc.)
   const [feedHighlights, setFeedHighlights] = useState<VideoHighlight[]>([]);
   const [isFeedLoading, setIsFeedLoading] = useState(false);
+  const [highlightLang, setHighlightLang] = useState<string>(activeLang);
+
+  useEffect(() => {
+    setHighlightLang(activeLang);
+  }, [activeLang]);
 
   // Lecteur vidéo 100% IN-APP (aucun lien externe)
   const [activePlayer, setActivePlayer] = useState<{
@@ -256,28 +264,46 @@ export const SportsView: React.FC<SportsViewProps> = ({
   }, []);
 
   // Chargement automatique des résumés officiels quand on est sur l'onglet "Résumés vidéo"
-  const loadHighlightsFeed = useCallback(async (compId: string, query: string) => {
-    setIsFeedLoading(true);
-    try {
-      if (query.trim().length >= 2) {
-        const results = await searchVideos(`${query} resume officiel match highlights`);
-        setFeedHighlights(results);
-      } else {
-        const results = await fetchCompetitionHighlights(compId === 'all' ? 'ucl' : compId);
-        setFeedHighlights(results);
+  const loadHighlightsFeed = useCallback(
+    async (compId: string, query: string, lang: string) => {
+      setIsFeedLoading(true);
+      try {
+        const targetLang = lang || activeLang;
+        if (query.trim().length >= 2) {
+          let suffix = 'highlights resume';
+          if (targetLang === 'ar') {
+            suffix = 'ملخص أهداف مباراة بي ان سبورت';
+          } else if (targetLang === 'fr') {
+            suffix = 'résumé officiel buts Canal+ beIN Sports';
+          } else if (targetLang === 'es') {
+            suffix = 'resumen oficial goles Movistar';
+          }
+          const results = await searchVideos(
+            `${query.trim()} ${suffix}`,
+            targetLang
+          );
+          setFeedHighlights(results);
+        } else {
+          const results = await fetchCompetitionHighlights(
+            compId === 'all' ? 'ucl' : compId,
+            targetLang
+          );
+          setFeedHighlights(results);
+        }
+      } catch {
+        // Ignorer erreur
+      } finally {
+        setIsFeedLoading(false);
       }
-    } catch {
-      // Ignorer erreur
-    } finally {
-      setIsFeedLoading(false);
-    }
-  }, []);
+    },
+    [activeLang]
+  );
 
   useEffect(() => {
     if (viewTab === 'ended') {
-      void loadHighlightsFeed(selectedCompetitionId, searchQuery);
+      void loadHighlightsFeed(selectedCompetitionId, searchQuery, highlightLang);
     }
-  }, [viewTab, selectedCompetitionId, searchQuery, loadHighlightsFeed]);
+  }, [viewTab, selectedCompetitionId, searchQuery, highlightLang, loadHighlightsFeed]);
 
   const channelById = useMemo(() => {
     const map = new Map<string, EpgChannel>();
@@ -331,12 +357,28 @@ export const SportsView: React.FC<SportsViewProps> = ({
         // Doit obligatoirement être une affiche sportive valide identifiant 2 équipes distinctes
         if (!mInfo) continue;
 
+        // Détecter si cette affiche correspond à une rencontre répertoriée dans le flux mondial officiel
+        const matchedGlobal = globalFixtures.find((f) =>
+          isMatchEqual(f.homeTeam, f.awayTeam, mInfo.home, mInfo.away)
+        );
+
+        // Si le match officiel correspondant s'est déjà achevé antérieurement, cette diffusion est une rediffusion
+        if (matchedGlobal?.isEnded && p.startMs > matchedGlobal.startMs) {
+          if (!isExplicitlyLiveTitle(p.title, p.description)) {
+            // Ignorer les rediffusions non directes
+            continue;
+          }
+        }
+
         const comp = detectCompetition(p.title, p.category);
         const sport = detectSport(p.title, p.category || '', channel.displayName);
         const k = eventKey(p.title, p.startMs);
 
         const existing = eventsMap.get(k);
         if (existing) {
+          if (matchedGlobal && !existing.fixtureMeta) {
+            existing.fixtureMeta = matchedGlobal;
+          }
           if (!existing.airings.some((a) => a.channel.id === channel.id)) {
             existing.airings.push({ channel, programme: p, isFree });
           }
@@ -349,6 +391,7 @@ export const SportsView: React.FC<SportsViewProps> = ({
             competition: comp,
             sport,
             airings: [{ channel, programme: p, isFree }],
+            fixtureMeta: matchedGlobal,
           });
         }
       }
@@ -520,21 +563,32 @@ export const SportsView: React.FC<SportsViewProps> = ({
   const liveEvents = useMemo(
     () =>
       filteredEvents.filter((e) => {
-        // Cas 1 : Fixture sportive officielle issue du flux mondial en direct
+        // Règle 1 : Un match terminé ou ayant un statut final ne peut JAMAIS être affiché sous "En direct"
+        if (
+          e.fixtureMeta?.isEnded === true ||
+          /final|ft|full\s*time|terminé|termin|fin|نهاية/i.test(e.fixtureMeta?.statusText || '')
+        ) {
+          return false;
+        }
+
+        // Cas 1 : Rencontre sportive officielle issue du flux mondial en direct
         if (e.fixtureMeta) {
-          return e.fixtureMeta.isLive === true && !e.fixtureMeta.isEnded;
+          return e.fixtureMeta.isLive === true;
         }
 
         // Cas 2 : Programme issu de l'EPG d'une chaîne
-        // Pour être certifié sous "En direct", il doit impérativement :
+        // Doit impérativement remplir l'ensemble des conditions suivantes :
         // 1. Être dans sa fenêtre de diffusion en cours
-        // 2. Être une véritable affiche de match (isMatch)
-        // 3. Ne pas être une rediffusion, archive ou résumé (isReplay)
-        // 4. Comporter une mention explicite de DIRECT ("Direct", "Live", "En direct", "Directo", "مباشر", "بث مباشر")
-        //    dans le titre, la description ou la catégorie EPG.
-        //    (Sans cette mention, une chaîne de sport rediffusant un ancien match ne sera jamais affichée sous "En direct" !)
+        // 2. Durée écoulée depuis le début inférieure ou égale à 105 min (90' de jeu + mi-temps 15')
+        // 3. Être une véritable affiche de match (isMatch)
+        // 4. Ne pas être une rediffusion, archive ou résumé
+        // 5. Ne pas correspondre à un match déjà terminé dans le flux officiel mondial
+        // 6. Comporter une mention explicite et certifiée de DIRECT dans le titre
         const isTimingNow = e.programme.startMs <= nowMs && e.programme.stopMs > nowMs;
         if (!isTimingNow || !e.isMatch) return false;
+
+        const elapsedMs = nowMs - e.programme.startMs;
+        if (elapsedMs > 105 * 60000) return false;
 
         if (
           isReplay(e.programme.title) ||
@@ -543,20 +597,31 @@ export const SportsView: React.FC<SportsViewProps> = ({
           return false;
         }
 
-        return isExplicitlyLive(
-          e.programme.title,
-          e.programme.description,
-          e.programme.category
-        );
+        if (e.matchInfo) {
+          const hasEndedInGlobal = globalFixtures.some(
+            (f) =>
+              f.isEnded &&
+              isMatchEqual(f.homeTeam, f.awayTeam, e.matchInfo!.home, e.matchInfo!.away)
+          );
+          if (hasEndedInGlobal) return false;
+        }
+
+        return isExplicitlyLiveTitle(e.programme.title, e.programme.description);
       }),
-    [filteredEvents, nowMs]
+    [filteredEvents, globalFixtures, nowMs]
   );
 
   const upcomingEvents = useMemo(
     () =>
       filteredEvents.filter((e) => {
+        if (
+          e.fixtureMeta?.isEnded === true ||
+          /final|ft|full\s*time|terminé|termin|fin|نهاية/i.test(e.fixtureMeta?.statusText || '')
+        ) {
+          return false;
+        }
         if (e.fixtureMeta) {
-          return !e.fixtureMeta.isLive && !e.fixtureMeta.isEnded && e.programme.startMs > nowMs;
+          return !e.fixtureMeta.isLive && e.programme.startMs > nowMs;
         }
         return e.programme.startMs > nowMs;
       }),
@@ -568,9 +633,16 @@ export const SportsView: React.FC<SportsViewProps> = ({
       filteredEvents
         .filter((e) => {
           if (e.fixtureMeta) {
-            return e.fixtureMeta.isEnded === true || (!e.fixtureMeta.isLive && e.programme.stopMs <= nowMs);
+            return (
+              e.fixtureMeta.isEnded === true ||
+              /final|ft|full\s*time|terminé|termin|fin|نهاية/i.test(e.fixtureMeta.statusText || '') ||
+              (!e.fixtureMeta.isLive && e.programme.stopMs <= nowMs)
+            );
           }
-          return e.programme.stopMs <= nowMs;
+          return (
+            e.programme.stopMs <= nowMs ||
+            (nowMs - e.programme.startMs > 105 * 60000 && !isExplicitlyLive(e.programme.title, e.programme.description))
+          );
         })
         .slice(-60)
         .reverse(),
@@ -595,21 +667,33 @@ export const SportsView: React.FC<SportsViewProps> = ({
       /^\s*(live|direct|en direct|directo|en vivo|canlı|مباشر)\s*[:\-–|]?\s*/i,
       ''
     );
+    const targetLang = highlightLang || activeLang;
 
     if (ev.matchInfo) {
       try {
         const res = await highlightFor(
           ev.matchInfo.home,
           ev.matchInfo.away,
-          ev.programme.startMs
+          ev.programme.startMs,
+          targetLang
         );
         if (res?.v) {
-          const alternates = await searchVideos(`${ev.matchInfo.home} ${ev.matchInfo.away}`);
+          const searchTitle =
+            targetLang === 'ar'
+              ? `${ev.matchInfo.rawHome} ${ev.matchInfo.rawAway} ملخص`
+              : `${ev.matchInfo.home} ${ev.matchInfo.away} highlights`;
+          const alternates = await searchVideos(searchTitle, targetLang);
+          const strictAlternates = alternates.filter(
+            (x) => x.id !== res.v.id && isVideoMatchingBothTeams(x.title, ev.matchInfo!.home, ev.matchInfo!.away)
+          );
+
           setActivePlayer({
             videoId: res.v.id,
             title: res.v.title || cleanTitle,
             channelName: res.v.channel,
-            alternateVideos: alternates.filter((x) => x.id !== res.v.id).slice(0, 5),
+            alternateVideos: strictAlternates.length > 0
+              ? strictAlternates.slice(0, 5)
+              : alternates.filter((x) => x.id !== res.v.id).slice(0, 5),
           });
           return;
         }
@@ -618,14 +702,22 @@ export const SportsView: React.FC<SportsViewProps> = ({
       }
     }
 
-    const fallbackResults = await searchVideos(`${cleanTitle} highlights resume`);
+    const querySuffix =
+      targetLang === 'ar' ? 'ملخص أهداف مباراة' : 'highlights';
+    const fallbackResults = await searchVideos(`${cleanTitle} ${querySuffix}`, targetLang);
     if (fallbackResults.length > 0) {
-      const first = fallbackResults[0];
+      let chosen = fallbackResults[0];
+      if (ev.matchInfo) {
+        const strictMatch = fallbackResults.find((v) =>
+          isVideoMatchingBothTeams(v.title, ev.matchInfo!.home, ev.matchInfo!.away)
+        );
+        if (strictMatch) chosen = strictMatch;
+      }
       setActivePlayer({
-        videoId: first.id,
-        title: first.title || cleanTitle,
-        channelName: first.channel,
-        alternateVideos: fallbackResults.slice(1, 6),
+        videoId: chosen.id,
+        title: chosen.title || cleanTitle,
+        channelName: chosen.channel,
+        alternateVideos: fallbackResults.filter((x) => x.id !== chosen.id).slice(0, 5),
       });
     }
   };
@@ -980,7 +1072,7 @@ export const SportsView: React.FC<SportsViewProps> = ({
       {/* 4. VUE RÉSUMÉS VIDÉO (Flux direct de vidéos + Matchs terminés) */}
       {viewTab === 'ended' && (
         <section className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-1">
             <h3 className="text-sm font-bold text-[#ffffff] flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-[#a855f7]" />
               {activeLang === 'ar' ? 'الملخصات الرسمية والأهداف' : 'Résumés officiels & Temps forts vidéo'}
@@ -994,6 +1086,61 @@ export const SportsView: React.FC<SportsViewProps> = ({
                 {activeLang === 'ar' ? 'جاري التحديث...' : 'Actualisation...'}
               </span>
             )}
+          </div>
+
+          {/* Sélecteur de langue des commentateurs (beIN Sports Arabe, Canal+ Français, etc.) */}
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 px-1 bg-[#0a0e17] rounded-xl border border-[#1e293b]">
+            <span className="text-[11px] font-semibold text-[#94a3b8] shrink-0 ps-2">
+              {activeLang === 'ar' ? '🎙️ لغة التعليق :' : '🎙️ Commentateurs :'}
+            </span>
+            <button
+              type="button"
+              onClick={() => setHighlightLang('ar')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                highlightLang === 'ar'
+                  ? 'bg-gradient-to-r from-[#2563eb] to-[#38bdf8] text-white shadow-[0_0_12px_rgba(37,99,235,0.45)]'
+                  : 'bg-[#141c2c] text-[#cbd5e1] hover:text-white border border-[#1e293b]'
+              }`}
+            >
+              <span>🇸🇦 🇲🇦</span>
+              <span>تعليق عربي (beIN Sports / SSC)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setHighlightLang('fr')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                highlightLang === 'fr'
+                  ? 'bg-gradient-to-r from-[#2563eb] to-[#38bdf8] text-white shadow-[0_0_12px_rgba(37,99,235,0.45)]'
+                  : 'bg-[#141c2c] text-[#cbd5e1] hover:text-white border border-[#1e293b]'
+              }`}
+            >
+              <span>🇫🇷</span>
+              <span>Français (Canal+ / RMC / beIN FR)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setHighlightLang('en')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                highlightLang === 'en'
+                  ? 'bg-gradient-to-r from-[#2563eb] to-[#38bdf8] text-white shadow-[0_0_12px_rgba(37,99,235,0.45)]'
+                  : 'bg-[#141c2c] text-[#cbd5e1] hover:text-white border border-[#1e293b]'
+              }`}
+            >
+              <span>🇬🇧 🇺🇸</span>
+              <span>English (TNT / CBS / UEFA)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setHighlightLang('es')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                highlightLang === 'es'
+                  ? 'bg-gradient-to-r from-[#2563eb] to-[#38bdf8] text-white shadow-[0_0_12px_rgba(37,99,235,0.45)]'
+                  : 'bg-[#141c2c] text-[#cbd5e1] hover:text-white border border-[#1e293b]'
+              }`}
+            >
+              <span>🇪🇸</span>
+              <span>Español (Movistar+)</span>
+            </button>
           </div>
 
           {/* Matchs terminés */}
@@ -1080,7 +1227,13 @@ export const SportsView: React.FC<SportsViewProps> = ({
                       className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-[#7c3aed] hover:bg-[#6d28d9] text-[#ffffff] text-xs font-bold transition-all cursor-pointer shadow-[0_0_12px_rgba(124,58,237,0.35)]"
                     >
                       <Play className="w-3.5 h-3.5 fill-current" />
-                      <span>{activeLang === 'ar' ? 'مشاهدة الملخص الرسمي' : 'Lire le résumé officiel'}</span>
+                      <span>
+                        {highlightLang === 'ar'
+                          ? 'مشاهدة الملخص (تعليق عربي beIN)'
+                          : activeLang === 'ar'
+                          ? 'مشاهدة الملخص الرسمي'
+                          : 'Lire le résumé officiel'}
+                      </span>
                     </button>
                   </article>
                 ))}
@@ -1091,12 +1244,26 @@ export const SportsView: React.FC<SportsViewProps> = ({
           {/* Grille des résumés officiels vidéo (YouTube Feed) */}
           {feedHighlights.length > 0 && (
             <div className="space-y-2">
-              <h4 className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wider">
-                {activeLang === 'ar' ? 'فيديوهات وملخصات رسمية (UEFA والبطولات الكبرى)' : 'Vidéos officielles (UEFA, Ligues & Fédérations)'}
-              </h4>
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wider flex items-center gap-1.5">
+                  <span>{activeLang === 'ar' ? 'فيديوهات وملخصات رسمية (UEFA والبطولات الكبرى)' : 'Vidéos & Résumés officiels (UEFA, Ligues & Fédérations)'}</span>
+                </h4>
+                <span className="text-[11px] text-[#38bdf8] font-mono">
+                  {toStandardDigits(String(feedHighlights.length))} {activeLang === 'ar' ? 'فيديو' : 'vidéos'}
+                </span>
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
                 {feedHighlights.map((v) => {
                   const durText = formatVideoDuration(v.dur);
+                  const isArabicVideo =
+                    highlightLang === 'ar' ||
+                    /bein|دوري|أبطال|شوالي|دراجي|كوتش|ملخص|عالم الرياضة|el coach|extra/i.test(
+                      v.title + ' ' + v.channel
+                    );
+                  const isFrenchVideo =
+                    highlightLang === 'fr' ||
+                    /canal|rmc|dazn|footballia|résumé/i.test(v.title + ' ' + v.channel);
+
                   return (
                     <article
                       key={v.id}
@@ -1123,11 +1290,30 @@ export const SportsView: React.FC<SportsViewProps> = ({
                       </div>
 
                       <div className="p-3 flex flex-col justify-between flex-1 gap-2">
-                        <h4 className="text-xs font-bold text-[#ffffff] group-hover:text-[#c084fc] line-clamp-2 transition-colors leading-snug">
-                          {v.title}
-                        </h4>
+                        <div className="space-y-1.5">
+                          {/* Badge Commentateur / Chaîne */}
+                          <div className="flex items-center gap-1.5">
+                            {isArabicVideo ? (
+                              <span className="px-2 py-0.5 rounded-full bg-[#2563eb]/25 border border-[#38bdf8]/50 text-[#38bdf8] text-[9px] font-bold">
+                                🎙️ beIN Sports (تعليق عربي)
+                              </span>
+                            ) : isFrenchVideo ? (
+                              <span className="px-2 py-0.5 rounded-full bg-[#a855f7]/25 border border-[#c084fc]/50 text-[#c084fc] text-[9px] font-bold">
+                                🎙️ Canal+ / RMC (Français)
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full bg-[#334155]/60 border border-[#64748b]/50 text-[#cbd5e1] text-[9px] font-bold">
+                                🎙️ {v.channel}
+                              </span>
+                            )}
+                          </div>
 
-                        <div className="flex items-center justify-between text-[11px] text-[#94a3b8] pt-1 border-t border-[#1e293b]/60">
+                          <h4 className="text-xs font-bold text-[#ffffff] group-hover:text-[#c084fc] line-clamp-2 transition-colors leading-snug">
+                            {v.title}
+                          </h4>
+                        </div>
+
+                        <div className="flex items-center justify-between text-[11px] text-[#94a3b8] pt-1.5 border-t border-[#1e293b]/60">
                           <span className="flex items-center gap-1 font-semibold text-[#cbd5e1] truncate max-w-[150px]">
                             {v.channel}
                             {v.verified && (
@@ -1143,6 +1329,28 @@ export const SportsView: React.FC<SportsViewProps> = ({
                   );
                 })}
               </div>
+            </div>
+          )}
+
+          {/* État de secours si aucun flux n'est chargé */}
+          {endedEvents.length === 0 && feedHighlights.length === 0 && !isFeedLoading && (
+            <div className="flex flex-col items-center justify-center py-12 px-4 text-center rounded-2xl border border-[#1e293b] bg-[#0b101b]/60">
+              <Play className="w-10 h-10 text-[#a855f7] mb-2.5 opacity-80" />
+              <h4 className="text-sm font-bold text-white mb-1">
+                {activeLang === 'ar' ? 'ملخصات دوري أبطال أوروبا والبطولات الكبرى' : 'Résumés UEFA Champions League'}
+              </h4>
+              <p className="text-xs text-[#94a3b8] max-w-sm mb-3">
+                {activeLang === 'ar'
+                  ? 'اضغط أدناه لتحميل ملخصات دوري أبطال أوروبا بتعليق بي ان سبورت.'
+                  : 'Cliquez ci-dessous pour charger les résumés officiels de la Ligue des Champions.'}
+              </p>
+              <button
+                type="button"
+                onClick={() => void loadHighlightsFeed(selectedCompetitionId, '', highlightLang)}
+                className="px-4 py-2 rounded-xl bg-[#7c3aed] text-white text-xs font-bold hover:bg-[#6d28d9] transition-all shadow-md cursor-pointer"
+              >
+                {activeLang === 'ar' ? 'عرض ملخصات دوري أبطال أوروبا' : 'Charger les résumés'}
+              </button>
             </div>
           )}
         </section>
@@ -1187,15 +1395,27 @@ export const SportsView: React.FC<SportsViewProps> = ({
         return (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
             {currentList.map((ev) => {
-              const isLive =
-                (ev.programme.startMs <= nowMs && ev.programme.stopMs > nowMs) ||
-                ev.fixtureMeta?.isLive === true;
+              const isEnded =
+                ev.fixtureMeta?.isEnded === true ||
+                /final|ft|full\s*time|terminé|termin|fin|نهاية/i.test(ev.fixtureMeta?.statusText || '') ||
+                (!ev.fixtureMeta?.isLive && ev.programme.stopMs <= nowMs);
+
               const durationMs = ev.programme.stopMs - ev.programme.startMs;
               const elapsedMs = Math.max(0, nowMs - ev.programme.startMs);
               const progressPct = Math.min(
                 100,
                 Math.max(0, (elapsedMs / (durationMs || 1)) * 100)
               );
+
+              // Un match n'est en direct QUE s'il n'est pas terminé, et soit confirmé par l'API, soit dans la limite stricte de 105 min avec mention direct
+              const isLive =
+                !isEnded &&
+                (ev.fixtureMeta?.isLive === true ||
+                  (ev.programme.startMs <= nowMs &&
+                    ev.programme.stopMs > nowMs &&
+                    elapsedMs <= 105 * 60000 &&
+                    !ev.fixtureMeta &&
+                    isExplicitlyLiveTitle(ev.programme.title, ev.programme.description)));
 
               const hasReminder = isProgrammeReminderSet?.(ev.programme.id) ?? false;
               const isHomeFav = ev.matchInfo
@@ -1292,124 +1512,113 @@ export const SportsView: React.FC<SportsViewProps> = ({
                     </span>
                   </div>
 
-                  {/* Ligne 3 : Affiche avec noms de clubs COMPLETS (non tronqués) et logos */}
+                  {/* Ligne 3 : Affiche FlashScore en 2 rangées strictes (Logo + Nom complet + Score adjacent) */}
                   {ev.matchInfo ? (
-                    <div className="my-1.5 p-3 rounded-xl bg-[#090d16]/90 border border-[#1e293b] space-y-2.5">
-                      {/* Club Domicile — Nom complet non tronqué */}
-                      <div className="flex items-center justify-between gap-2.5">
-                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                          {ev.fixtureMeta?.homeTeamLogo ? (
-                            <img
-                              src={ev.fixtureMeta.homeTeamLogo}
-                              alt=""
-                              className="w-6 h-6 object-contain shrink-0"
-                            />
-                          ) : (
-                            <div className="w-6 h-6 rounded-full bg-[#1e293b] border border-[#334155] text-[10px] font-bold text-[#94a3b8] flex items-center justify-center shrink-0">
-                              {ev.matchInfo.rawHome.charAt(0)}
-                            </div>
-                          )}
-                          <span className="font-bold text-xs sm:text-sm text-[#ffffff] break-words line-clamp-2 leading-tight">
-                            {ev.matchInfo.rawHome}
-                          </span>
-                        </div>
+                    <div className="my-2 p-3 rounded-xl bg-[#090d16]/95 border border-[#1e293b] flex items-center gap-3">
+                      {/* Étoile de favori FlashScore (centrée verticalement sur la rencontre) */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleFavoriteTeam(ev.matchInfo!.home, e);
+                        }}
+                        title={activeLang === 'ar' ? 'إضافة إلى الفرق المفضلة' : 'Ajouter aux équipes favorites'}
+                        className="text-[#64748b] hover:text-[#fbbf24] transition-colors shrink-0 cursor-pointer self-center p-1"
+                      >
+                        <Star
+                          className={`w-4 h-4 ${
+                            isHomeFav || isAwayFav ? 'fill-[#fbbf24] text-[#fbbf24]' : ''
+                          }`}
+                        />
+                      </button>
 
-                        <div className="flex items-center gap-2 shrink-0">
-                          {isLive && (
-                            <span className="px-2.5 py-1 rounded-lg bg-[#ef4444]/25 border border-[#ef4444]/60 text-xs sm:text-sm font-mono font-extrabold text-white min-w-[30px] text-center shadow-[0_0_8px_rgba(239,68,68,0.3)]">
-                              {toStandardDigits(
-                                String(ev.fixtureMeta?.homeScore !== undefined ? ev.fixtureMeta.homeScore : '0')
-                              )}
-                            </span>
-                          )}
-                          <button
-                            type="button"
-                            onClick={(e) => handleToggleFavoriteTeam(ev.matchInfo!.home, e)}
-                            title={activeLang === 'ar' ? 'إضافة إلى الفرق المفضلة' : 'Ajouter aux équipes favorites'}
-                            className="text-[#64748b] hover:text-[#fbbf24] transition-colors shrink-0 cursor-pointer p-1"
-                          >
-                            <Star
-                              className={`w-3.5 h-3.5 ${
-                                isHomeFav ? 'fill-[#fbbf24] text-[#fbbf24]' : ''
-                              }`}
-                            />
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Séparateur / VS ou Tableau d'affichage central Score Exact en direct */}
-                      {isLive ? (
-                        <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#ef4444]/20 via-[#ef4444]/30 to-[#ef4444]/20 border border-[#ef4444]/50 my-1 shadow-[0_0_14px_rgba(239,68,68,0.2)]">
-                          <div className="flex items-center gap-2">
-                            <span className="relative flex h-2 w-2">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#ef4444] opacity-80" />
-                              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#ef4444]" />
-                            </span>
-                            <span className="text-[10px] sm:text-[11px] font-extrabold uppercase tracking-wider text-[#fca5a5]">
-                              {activeLang === 'ar' ? 'النتيجة المباشرة' : 'Score en direct'}
+                      {/* Deux rangées (Domicile & Extérieur) avec logos, noms complets et scores alignés */}
+                      <div className="flex-1 min-w-0 flex flex-col justify-center gap-2">
+                        {/* Rangée 1 : Équipe Domicile + (Statut direct / chrono) + Score Domicile */}
+                        <div className="flex items-center justify-between gap-2.5">
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                            {ev.fixtureMeta?.homeTeamLogo ? (
+                              <img
+                                src={ev.fixtureMeta.homeTeamLogo}
+                                alt=""
+                                className="w-5 h-5 sm:w-6 sm:h-6 object-contain shrink-0"
+                              />
+                            ) : (
+                              <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-[#1e293b] border border-[#334155] text-[10px] font-bold text-[#94a3b8] flex items-center justify-center shrink-0">
+                                {ev.matchInfo.rawHome.charAt(0)}
+                              </div>
+                            )}
+                            <span className="font-semibold text-xs sm:text-sm text-[#ffffff] break-words line-clamp-1 leading-tight">
+                              {ev.matchInfo.rawHome}
                             </span>
                           </div>
-                          <div className="flex items-center gap-2 font-mono font-black text-sm sm:text-base text-white">
-                            <span className="px-2 py-0.5 rounded-md bg-black/60 border border-[#ef4444]/60 text-white min-w-[28px] text-center shadow-inner">
-                              {toStandardDigits(
-                                String(ev.fixtureMeta?.homeScore !== undefined ? ev.fixtureMeta.homeScore : '0')
-                              )}
-                            </span>
-                            <span className="text-[#f87171] font-bold">:</span>
-                            <span className="px-2 py-0.5 rounded-md bg-black/60 border border-[#ef4444]/60 text-white min-w-[28px] text-center shadow-inner">
-                              {toStandardDigits(
-                                String(ev.fixtureMeta?.awayScore !== undefined ? ev.fixtureMeta.awayScore : '0')
-                              )}
-                            </span>
+
+                          <div className="flex items-center gap-2.5 shrink-0">
+                            {isLive && (
+                              <span className="text-[#ef4444] font-bold font-mono text-xs sm:text-sm">
+                                {formatLiveMatchTiming(
+                                  elapsedMs,
+                                  ev.sport?.type || 'football',
+                                  ev.fixtureMeta?.statusText,
+                                  activeLang === 'ar' ? 'ar' : activeLang === 'en' ? 'en' : 'fr'
+                                )}
+                              </span>
+                            )}
+                            {ev.fixtureMeta?.homeScore !== undefined && (
+                              <span
+                                className={`font-mono font-bold text-sm sm:text-base min-w-[20px] text-center ${
+                                  isLive ? 'text-[#ef4444] font-black' : 'text-white'
+                                }`}
+                              >
+                                {toStandardDigits(String(ev.fixtureMeta.homeScore))}
+                              </span>
+                            )}
                           </div>
                         </div>
-                      ) : (
-                        <div className="flex items-center justify-between px-2 text-[9px] text-[#64748b] font-semibold border-t border-[#1e293b]/60 pt-1.5">
-                          <span className="uppercase tracking-wider font-mono text-[9px] text-[#64748b]">
-                            {activeLang === 'ar' ? 'ضد' : 'VS'}
-                          </span>
-                        </div>
-                      )}
 
-                      {/* Club Extérieur — Nom complet non tronqué */}
-                      <div className="flex items-center justify-between gap-2.5">
-                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                          {ev.fixtureMeta?.awayTeamLogo ? (
-                            <img
-                              src={ev.fixtureMeta.awayTeamLogo}
-                              alt=""
-                              className="w-6 h-6 object-contain shrink-0"
-                            />
-                          ) : (
-                            <div className="w-6 h-6 rounded-full bg-[#1e293b] border border-[#334155] text-[10px] font-bold text-[#94a3b8] flex items-center justify-center shrink-0">
-                              {ev.matchInfo.rawAway.charAt(0)}
-                            </div>
-                          )}
-                          <span className="font-bold text-xs sm:text-sm text-[#ffffff] break-words line-clamp-2 leading-tight">
-                            {ev.matchInfo.rawAway}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-2 shrink-0">
-                          {isLive && (
-                            <span className="px-2.5 py-1 rounded-lg bg-[#ef4444]/25 border border-[#ef4444]/60 text-xs sm:text-sm font-mono font-extrabold text-white min-w-[30px] text-center shadow-[0_0_8px_rgba(239,68,68,0.3)]">
-                              {toStandardDigits(
-                                String(ev.fixtureMeta?.awayScore !== undefined ? ev.fixtureMeta.awayScore : '0')
-                              )}
+                        {/* Rangée 2 : Équipe Extérieur + Score Extérieur */}
+                        <div className="flex items-center justify-between gap-2.5">
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                            {ev.fixtureMeta?.awayTeamLogo ? (
+                              <img
+                                src={ev.fixtureMeta.awayTeamLogo}
+                                alt=""
+                                className="w-5 h-5 sm:w-6 sm:h-6 object-contain shrink-0"
+                              />
+                            ) : (
+                              <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-[#1e293b] border border-[#334155] text-[10px] font-bold text-[#94a3b8] flex items-center justify-center shrink-0">
+                                {ev.matchInfo.rawAway.charAt(0)}
+                              </div>
+                            )}
+                            <span className="font-semibold text-xs sm:text-sm text-[#ffffff] break-words line-clamp-1 leading-tight">
+                              {ev.matchInfo.rawAway}
                             </span>
-                          )}
-                          <button
-                            type="button"
-                            onClick={(e) => handleToggleFavoriteTeam(ev.matchInfo!.away, e)}
-                            title={activeLang === 'ar' ? 'إضافة إلى الفرق المفضلة' : 'Ajouter aux équipes favorites'}
-                            className="text-[#64748b] hover:text-[#fbbf24] transition-colors shrink-0 cursor-pointer p-1"
-                          >
-                            <Star
-                              className={`w-3.5 h-3.5 ${
-                                isAwayFav ? 'fill-[#fbbf24] text-[#fbbf24]' : ''
-                              }`}
-                            />
-                          </button>
+                          </div>
+
+                          <div className="flex items-center gap-2.5 shrink-0">
+                            {isLive && (
+                              <span
+                                className="invisible text-xs sm:text-sm font-mono font-bold select-none"
+                                aria-hidden="true"
+                              >
+                                {formatLiveMatchTiming(
+                                  elapsedMs,
+                                  ev.sport?.type || 'football',
+                                  ev.fixtureMeta?.statusText,
+                                  activeLang === 'ar' ? 'ar' : activeLang === 'en' ? 'en' : 'fr'
+                                )}
+                              </span>
+                            )}
+                            {ev.fixtureMeta?.awayScore !== undefined && (
+                              <span
+                                className={`font-mono font-bold text-sm sm:text-base min-w-[20px] text-center ${
+                                  isLive ? 'text-[#ef4444] font-black' : 'text-white'
+                                }`}
+                              >
+                                {toStandardDigits(String(ev.fixtureMeta.awayScore))}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>

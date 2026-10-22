@@ -1,0 +1,5 @@
+{
+  "summary":  "Dossier d'Architecture Technique et Spécifications Système (DAT / Architecture Document) pour PulseEPG.\nComprend le diagramme de composants et de déploiement UML, les diagrammes de séquence pour le flux EPG et la synchronisation des scores en direct, le schéma Entité-Relation (ERD) des données et la stratégie de cache/performance.",
+  "updatedAt":  "2026-10-21T14:23:47.435204126Z",
+  "userFacing":  true
+}

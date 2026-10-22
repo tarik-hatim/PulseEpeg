@@ -15,7 +15,7 @@ export const PREFIX =
 export const SEP = /\s+(?:vs\.?|\bv\.\b|versus|contre|gegen|contra|ضد|أمام|مقابل)\s+/i;
 
 export const REPLAY =
-  /\b(?:rediffusion|rediff\w*|replay|resume|résumé|highlights?|best of|magazine|mag|repeticion|resumen|melhores momentos|tekrar|ozet|özet|wiederholung|zusammenfassung|classic match|classic|archive|retro|podcast|talk|doku|documentary|documentaire|resumo|preview|avant-match|pre-?game|studio|sezon|season|analyse|talk|debrief|ozeti|zapping|revue|entretien)\b|إعادة|ملخص|أرشيف|سهرة|حوار|استوديو/i;
+  /\b(?:rediffusion|rediff\w*|replay|rerun|re-run|retransmission|différé|relive|re-live|recorded|resume|résumé|highlights?|best of|magazine|mag|repeticion|resumen|melhores momentos|tekrar|ozet|özet|wiederholung|zusammenfassung|classic match|classic|archive|retro|podcast|talk|doku|documentary|documentaire|resumo|preview|avant-match|pre-?game|studio|sezon|season|analyse|talk|debrief|ozeti|zapping|revue|entretien)\b|إعادة|اعادة|ملخص|أرشيف|سهرة|حوار|استوديو|تسجيل|مسجل/i;
 
 export const NON_MATCH_TERMS =
   /\b(?:film|movie|serie|série|episode|épisode|saison|season|journal|news|mag|magazine|doku|docu|documentaire|reportage|edition|édition|show|emission|émission|part|parte|fallout|dead reckoning|skyfall|vo\+sub|inédit|direct 24|talk|chronique|special|spécial|multiplex|top gun|mission impossible|dune|the rookie|chicago fire|law & order|fbi|csi|montre|contre-la-montre|seul contre|tous contre|batman|superman|godzilla|kong|hunter|anime|manga|débat|face-à-face|face à face|justice|tribunal|crime|police|guerre|politique|invité|entretien|interview|conférence|zapping|revue|debrief|soir de|jour de foot|club|studio|avant-match|pre-?game|replay|rediff|clash)\b/i;
@@ -31,6 +31,16 @@ export function isExplicitlyLive(title: string, description = '', category = '')
     LIVE_INDICATOR_REGEX.test(title) ||
     (description ? LIVE_INDICATOR_REGEX.test(description) : false) ||
     /\b(?:live|direct|en direct|directo|en vivo)\b/i.test(category)
+  );
+}
+
+/** Détection stricte d'un indicateur de direct DANS LE TITRE ou description (exclut les catégories génériques de chaînes) */
+export function isExplicitlyLiveTitle(title: string, description = ''): boolean {
+  if (isReplay(title) || (description && isReplay(description))) return false;
+  return (
+    PREFIX.test(title) ||
+    LIVE_INDICATOR_REGEX.test(title) ||
+    (description ? LIVE_INDICATOR_REGEX.test(description) : false)
   );
 }
 
@@ -424,6 +434,24 @@ export function detectSport(title: string, category = '', channelName = ''): Spo
   return SPORTS_REGISTRY.football;
 }
 
+export function isMatchEqual(
+  homeA: string,
+  awayA: string,
+  homeB: string,
+  awayB: string
+): boolean {
+  const hA = norm(homeA);
+  const aA = norm(awayA);
+  const hB = norm(homeB);
+  const aB = norm(awayB);
+
+  const direct =
+    (hA.includes(hB) || hB.includes(hA)) && (aA.includes(aB) || aB.includes(aA));
+  const swapped =
+    (hA.includes(aB) || aB.includes(hA)) && (aA.includes(hB) || hB.includes(aA));
+  return direct || swapped;
+}
+
 export function formatLiveMatchTiming(
   elapsedMs: number,
   sportType: SportType = 'football',
@@ -431,6 +459,9 @@ export function formatLiveMatchTiming(
   lang: 'fr' | 'ar' | 'en' = 'fr'
 ): string {
   if (statusText && statusText.trim().length > 0) {
+    if (/final|ft|full\s*time|terminé|termin|fin|نهاية/i.test(statusText)) {
+      return lang === 'ar' ? 'نهاية المباراة' : lang === 'en' ? 'Full Time' : 'Fin du match';
+    }
     return statusText;
   }
 
@@ -443,7 +474,7 @@ export function formatLiveMatchTiming(
     if (elapsedMins > 45 && elapsedMins <= 60) {
       return lang === 'ar' ? 'استراحة (شوط 1)' : lang === 'en' ? 'Halftime' : 'Mi-temps';
     }
-    if (elapsedMins > 60 && elapsedMins <= 106) {
+    if (elapsedMins > 60 && elapsedMins <= 105) {
       const secondHalfMin = 45 + (elapsedMins - 60);
       if (secondHalfMin > 90) {
         const added = Math.min(8, secondHalfMin - 90);
@@ -568,13 +599,25 @@ export const fold = (s: string) =>
 
 const STOP_WORDS = new Set([
   'the', 'and', 'les', 'fc', 'cf', 'sc', 'ac', 'afc', 'club', 'de', 'del', 'la', 'le',
-  'real', 'united', 'city', 'sport', 'sporting', 'deportivo', 'atletico',
+  'real', 'united', 'city', 'sport', 'sporting', 'deportivo',
 ]);
 
 const tokens = (s: string) =>
   fold(s)
     .split(/[^\p{L}\p{N}]+/u)
     .filter((w) => w.length >= 3 && !STOP_WORDS.has(w));
+
+/** Vérifie si un titre de vidéo contient effectivement les deux clubs ou équipes adverses */
+export function isVideoMatchingBothTeams(videoTitle: string, home: string, away: string): boolean {
+  const t = fold(videoTitle);
+  const homeT = tokens(home).length ? tokens(home) : fold(home).split(/\s+/).filter((w) => w.length >= 3);
+  const awayT = tokens(away).length ? tokens(away) : fold(away).split(/\s+/).filter((w) => w.length >= 3);
+
+  const homeHit = homeT.length > 0 && homeT.some((w) => t.includes(w) || (w.length >= 5 && t.includes(w.slice(0, 5))));
+  const awayHit = awayT.length > 0 && awayT.some((w) => t.includes(w) || (w.length >= 5 && t.includes(w.slice(0, 5))));
+
+  return homeHit && awayHit;
+}
 
 function teamHit(team: string, words: string[]): number {
   const t = tokens(team).length ? tokens(team) : fold(team).split(/\s+/).filter(Boolean);
@@ -631,17 +674,18 @@ export function rankHighlights(
 
 const searchMemo = new Map<string, Promise<VideoHighlight[]>>();
 
-export async function searchVideos(q: string): Promise<VideoHighlight[]> {
-  const key = fold(q).trim();
-  if (!searchMemo.has(key)) {
+export async function searchVideos(q: string, lang = 'fr'): Promise<VideoHighlight[]> {
+  const cleanQ = q.trim();
+  const cacheKey = `${cleanQ}_${lang}`;
+  if (!searchMemo.has(cacheKey)) {
     searchMemo.set(
-      key,
-      fetch(`/api/public/yt?q=${encodeURIComponent(key)}`)
+      cacheKey,
+      fetch(`/api/public/yt?q=${encodeURIComponent(cleanQ)}&lang=${encodeURIComponent(lang)}`)
         .then((r) => (r.ok ? (r.json() as Promise<VideoHighlight[]>) : []))
         .catch(() => [])
     );
   }
-  return searchMemo.get(key)!;
+  return searchMemo.get(cacheKey)!;
 }
 
 export async function isEmbeddable(id: string): Promise<boolean> {
@@ -654,38 +698,172 @@ export async function isEmbeddable(id: string): Promise<boolean> {
 export async function highlightFor(
   home: string,
   away: string,
-  startMs: number
+  _startMs: number,
+  lang = 'fr'
 ): Promise<{ v: VideoHighlight; embed: boolean } | null> {
-  const videos = await searchVideos(`${home} ${away}`);
-  const ranked = rankHighlights(home, away, startMs, videos).slice(0, 5);
-  for (const v of ranked) {
-    if (await isEmbeddable(v.id)) return { v, embed: true };
+  const normLang = lang.toLowerCase().slice(0, 2);
+  
+  // Requêtes ciblées propres (sans surcharge de chaînes qui détourne les résultats vers d'autres affiches)
+  let targetedQuery = `${home} ${away} highlights`;
+  if (normLang === 'ar') {
+    targetedQuery = `${home} ${away} ملخص اهداف`;
+  } else if (normLang === 'fr') {
+    targetedQuery = `${home} ${away} résumé buts`;
+  } else if (normLang === 'es') {
+    targetedQuery = `${home} ${away} resumen goles`;
   }
-  return ranked[0] ? { v: ranked[0], embed: true } : null;
+
+  // 1. Recherche avec requête ciblée
+  const videos = await searchVideos(targetedQuery, normLang);
+  
+  // Chercher la vidéo qui contient STRICTEMENT les deux équipes adverses
+  let matched = videos.find((v) => isVideoMatchingBothTeams(v.title, home, away));
+
+  // 2. Si non trouvée, essayer avec "home away highlights" en anglais (officiel UEFA / diffuseurs)
+  if (!matched) {
+    const enVideos = await searchVideos(`${home} ${away} highlights`, 'en');
+    matched = enVideos.find((v) => isVideoMatchingBothTeams(v.title, home, away));
+  }
+
+  // 3. Si non trouvée, essayer avec les guillemets stricts `"${home}" "${away}"`
+  if (!matched) {
+    const exactVideos = await searchVideos(`"${home}" "${away}"`, normLang);
+    matched = exactVideos.find((v) => isVideoMatchingBothTeams(v.title, home, away));
+  }
+
+  // 4. Si toujours non trouvée, utiliser rankHighlights sur les vidéos retournées
+  if (!matched && videos.length > 0) {
+    const ranked = rankHighlights(home, away, _startMs, videos);
+    if (ranked.length > 0) {
+      matched = ranked[0];
+    }
+  }
+
+  if (matched) {
+    return { v: matched, embed: true };
+  }
+
+  // 5. En dernier recours, si au moins une vidéo existe et ne cite pas un club tiers évident (ex: Bayern Munich)
+  if (videos.length > 0) {
+    const firstNonRival = videos.find(
+      (v) => !/bayern|barcelona|arsenal|liverpool|juventus|dortmund|city/i.test(v.title)
+    );
+    if (firstNonRival) {
+      return { v: firstNonRival, embed: true };
+    }
+  }
+
+  return null;
 }
 
-export const COMPETITION_HIGHLIGHT_QUERIES: Record<string, string> = {
-  all: 'UEFA Champions League highlights official match',
-  ucl: 'UEFA Champions League highlights official match',
-  uel: 'UEFA Europa League highlights official',
-  pl: 'Premier League highlights official match',
-  laliga: 'LaLiga highlights official resume',
-  ligue1: "Ligue 1 resume match",
-  seriea: 'Serie A highlights official match',
-  bundesliga: 'Bundesliga highlights official match',
-  botola: 'Botola Pro inwi resume match Arryadia',
-  spl: 'Saudi Pro League highlights Roshn match',
-  f1: 'Formula 1 highlights official',
-  nba: 'NBA game highlights official',
+export const COMPETITION_HIGHLIGHT_QUERIES_BY_LANG: Record<string, Record<string, string>> = {
+  ar: {
+    all: 'ملخص دوري أبطال أوروبا bein sports تعليق عربي',
+    ucl: 'ملخص دوري أبطال أوروبا bein sports تعليق عربي',
+    uel: 'ملخص الدوري الأوروبي bein sports تعليق عربي',
+    pl: 'ملخص الدوري الإنجليزي الممتاز bein sports تعليق عربي',
+    laliga: 'ملخص الدوري الإسباني bein sports تعليق عربي',
+    ligue1: 'ملخص الدوري الفرنسي bein sports تعليق عربي',
+    seriea: 'ملخص الدوري الإيطالي أبوظبي الرياضية تعليق عربي',
+    bundesliga: 'ملخص الدوري الألماني bein sports تعليق عربي',
+    botola: 'ملخص البطولة الاحترافية المغربية الرياضية Arryadia',
+    spl: 'ملخص دوري روشن السعودي شركة الرياضة السعودية SSC',
+    afc: 'ملخص دوري أبطال آسيا beIN SPORTS SSC تعليق عربي',
+    f1: 'ملخص سباق الفورمولا 1 بي ان سبورت',
+    nba: 'ملخص دوري كرة السلة الأمريكي NBA بي ان سبورت',
+  },
+  fr: {
+    all: 'Ligue des Champions résumé officiel Canal+ Foot beIN Sports',
+    ucl: 'Ligue des Champions résumé officiel Canal+ Foot beIN Sports',
+    uel: 'Ligue Europa résumé officiel Canal+ beIN Sports',
+    pl: 'Premier League résumé match Canal+ Premier League',
+    laliga: 'LaLiga résumé officiel buts beIN Sports France',
+    ligue1: 'Ligue 1 résumé officiel buts DAZN beIN Sports',
+    seriea: 'Serie A résumé officiel beIN Sports France',
+    bundesliga: 'Bundesliga résumé officiel beIN Sports France',
+    botola: 'Botola Pro inwi résumé match Arryadia',
+    spl: 'Saudi Pro League résumé Canal+ Sport 360',
+    afc: "Ligue des Champions d'Asie résumé beIN",
+    f1: 'Formule 1 résumé Canal+ Sport',
+    nba: 'NBA résumé officiel beIN Sports',
+  },
+  en: {
+    all: 'UEFA Champions League highlights official match TNT Sports CBS Golazo',
+    ucl: 'UEFA Champions League highlights official match TNT Sports CBS Golazo',
+    uel: 'UEFA Europa League highlights official TNT Sports',
+    pl: 'Premier League highlights official match Sky Sports',
+    laliga: 'LaLiga highlights official resume',
+    ligue1: 'Ligue 1 resume match',
+    seriea: 'Serie A highlights official match',
+    bundesliga: 'Bundesliga highlights official match',
+    botola: 'Botola Pro Inwi match highlights',
+    spl: 'Saudi Pro League highlights Roshn match',
+    afc: 'AFC Champions League highlights',
+    f1: 'Formula 1 highlights official',
+    nba: 'NBA game highlights official',
+  },
+  es: {
+    all: 'Champions League resumen oficial goles Movistar Liga de Campeones',
+    ucl: 'Champions League resumen oficial goles Movistar Liga de Campeones',
+    uel: 'Europa League resumen oficial Movistar',
+    pl: 'Premier League resumen oficial DAZN',
+    laliga: 'LaLiga resumen oficial goles DAZN Movistar',
+    ligue1: 'Ligue 1 resumen oficial',
+    seriea: 'Serie A resumen oficial',
+    bundesliga: 'Bundesliga resumen oficial',
+    botola: 'Botola Pro Inwi resumen',
+    spl: 'Saudi Pro League resumen',
+    afc: 'AFC Champions League resumen',
+    f1: 'Formula 1 resumen Movistar DAZN',
+    nba: 'NBA resumen oficial',
+  },
+  de: {
+    all: 'UEFA Champions League Highlights DAZN Sky Sport',
+    ucl: 'UEFA Champions League Highlights DAZN Sky Sport',
+    uel: 'Europa League Highlights RTL Sky',
+    pl: 'Premier League Highlights Sky Sport',
+    laliga: 'LaLiga Highlights DAZN',
+    ligue1: 'Ligue 1 Highlights DAZN',
+    seriea: 'Serie A Highlights DAZN',
+    bundesliga: 'Bundesliga Highlights DAZN Sky Sport',
+    botola: 'Botola Pro Highlights',
+    spl: 'Saudi Pro League Highlights',
+    afc: 'AFC Champions League Highlights',
+    f1: 'Formel 1 Highlights Sky Sport',
+    nba: 'NBA Highlights DAZN',
+  },
+  it: {
+    all: 'Champions League sintesi gol Sky Sport Mediaset',
+    ucl: 'Champions League sintesi gol Sky Sport Mediaset',
+    uel: 'Europa League sintesi gol Sky Sport',
+    pl: 'Premier League sintesi gol Sky Sport',
+    laliga: 'LaLiga sintesi gol DAZN',
+    ligue1: 'Ligue 1 sintesi gol',
+    seriea: 'Serie A sintesi gol DAZN Sky',
+    bundesliga: 'Bundesliga sintesi gol Sky Sport',
+    botola: 'Botola Pro sintesi',
+    spl: 'Saudi Pro League sintesi',
+    afc: 'AFC Champions League sintesi',
+    f1: 'Formula 1 sintesi Sky Sport',
+    nba: 'NBA sintesi Sky Sport',
+  },
 };
 
+export const COMPETITION_HIGHLIGHT_QUERIES: Record<string, string> = COMPETITION_HIGHLIGHT_QUERIES_BY_LANG.en;
+
 export async function fetchCompetitionHighlights(
-  compId = 'ucl'
+  compId = 'ucl',
+  lang = 'fr'
 ): Promise<VideoHighlight[]> {
+  const normLang = lang.toLowerCase().slice(0, 2);
+  const langTable =
+    COMPETITION_HIGHLIGHT_QUERIES_BY_LANG[normLang] ||
+    COMPETITION_HIGHLIGHT_QUERIES_BY_LANG.fr;
   const q =
-    COMPETITION_HIGHLIGHT_QUERIES[compId] ||
-    COMPETITION_HIGHLIGHT_QUERIES.ucl;
-  return searchVideos(q);
+    langTable[compId] ||
+    langTable.ucl ||
+    'UEFA Champions League highlights';
+  return searchVideos(q, normLang);
 }
 
 export function formatVideoDuration(seconds: number): string {

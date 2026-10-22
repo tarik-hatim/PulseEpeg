@@ -6111,7 +6111,7 @@ export function App() {
       <header
         data-tv-zone="header"
         data-dpad-active={activeDpadZone === 'header' ? 'true' : undefined}
-        className="sticky top-0 inset-x-0 z-[1000] w-full bg-[#0b0f19] backdrop-blur-md border-b border-[#1a202c] px-4 pt-[52px] pb-3 sm:px-6 sm:py-3"
+        className="sticky top-0 inset-x-0 z-[1000] w-full bg-[#0b0f19] backdrop-blur-md border-b border-[#1a202c] px-4 pt-1.5 pb-2.5 sm:px-6 sm:py-3"
       >
         <div className="max-w-[1600px] w-full mx-auto space-y-2.5">
           {/* Ligne 1 : Brand Logo PulseEPG à gauche + Boutons Rafraîchir & Paramètres à droite (aucun bouton Passe Pro) */}

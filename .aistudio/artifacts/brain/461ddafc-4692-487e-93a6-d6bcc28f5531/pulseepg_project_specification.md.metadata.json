@@ -1,0 +1,5 @@
+{
+  "summary":  "Documentation technique complète et exhaustive du projet PulseEPG (دليلك الشامل للقنوات).\nComprend la vision du produit, l'architecture globale (React, TypeScript, Express, Web Workers, Firebase/Supabase), le moteur sportif avancé avec gestion certifiée des scores et des directs, le catalogue des satellites et transpondeurs, la spécification détaillée des endpoints d'API, la gestion des rôles et de l'accès Pro, ainsi que les instructions de déploiement et d'exploitation.",
+  "updatedAt":  "2026-10-21T13:54:31.322952694Z",
+  "userFacing":  true
+}

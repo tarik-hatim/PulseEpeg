@@ -157,21 +157,279 @@ async function startServer() {
       return;
     }
 
+    const lang = String(req.query.lang || 'fr').toLowerCase();
+    let hl = 'en';
+    let gl = 'US';
+    let acceptLang = 'en-US,en;q=0.9';
+
+    if (lang === 'ar') {
+      hl = 'ar';
+      gl = 'SA';
+      acceptLang = 'ar-SA,ar;q=0.9,en;q=0.8';
+    } else if (lang === 'fr') {
+      hl = 'fr';
+      gl = 'FR';
+      acceptLang = 'fr-FR,fr;q=0.9,en;q=0.8';
+    } else if (lang === 'es') {
+      hl = 'es';
+      gl = 'ES';
+      acceptLang = 'es-ES,es;q=0.9,en;q=0.8';
+    } else if (lang === 'de') {
+      hl = 'de';
+      gl = 'DE';
+      acceptLang = 'de-DE,de;q=0.9,en;q=0.8';
+    } else if (lang === 'it') {
+      hl = 'it';
+      gl = 'IT';
+      acceptLang = 'it-IT,it;q=0.9,en;q=0.8';
+    }
+
+    const FALLBACK_HIGHLIGHTS_BY_LANG: Record<string, any[]> = {
+      ar: [
+        {
+          id: '3OKr7fH4c0Y',
+          title: '🔵 باريس سان جيرمان ضد برشلونة (2-4) ملخص مطول | دوري أبطال أوروبا - تعليق beIN SPORTS',
+          channel: 'beIN SPORTS / SPORTS EXTRA',
+          channelId: 'UCm2RqEwKvwEBxrjTOW8K3tg',
+          verified: true,
+          ageMs: 36000000,
+          dur: 309,
+          streamed: false,
+        },
+        {
+          id: 'hnTj706I284',
+          title: 'ملخص مباراة ريال مدريد وليفربول 1-0 نهائي دوري ابطال اوروبا ~ [ حفيظ دراجي ] beIN SPORTS 🔥',
+          channel: 'beIN SPORTS Arabic',
+          channelId: 'UCtdd-ejs9H1YHyAgHNXm9Og',
+          verified: true,
+          ageMs: 94608000000,
+          dur: 653,
+          streamed: false,
+        },
+        {
+          id: 'B4R3LQgCgNY',
+          title: 'ملخص مباراة بايرن ميونخ 8-2 برشلونة - دوري أبطال اوروبا | تعليق عصام الشوالي beIN SPORTS',
+          channel: 'beIN SPORTS Arabic',
+          channelId: 'UCt7-aJaQ2W6GhiQ4dnA3dkA',
+          verified: true,
+          ageMs: 31536000000,
+          dur: 932,
+          streamed: false,
+        },
+        {
+          id: 'CJM77VFlWYI',
+          title: 'Barcelona vs PSG 2-4 Highlights | All Goals & Extended Highlights | Champions League',
+          channel: 'لقـطة Tv',
+          channelId: 'UC4yl42aUAyqSVscEv4FjMKw',
+          verified: true,
+          ageMs: 43200000,
+          dur: 406,
+          streamed: false,
+        },
+        {
+          id: '9kN30X-zqQc',
+          title: 'استوديو دوري أبطال أوروبا beIN Sports - تحليل مباراة برشلونة وباريس سان جيرمان محمد أبو تريكة',
+          channel: 'beIN SPORTS HD',
+          channelId: 'UCkpx2Pg8WW4L5cak9EiYanw',
+          verified: true,
+          ageMs: 50400000,
+          dur: 710,
+          streamed: false,
+        },
+        {
+          id: 'oR6djHZt8BM',
+          title: 'ملخص مباراة برشلونة وباريس سان جيرمان في دوري أبطال أوروبا 2026 نتيجة الأهداف 4-2 تعليق عربي',
+          channel: 'beIN SPORTS MENA',
+          channelId: 'UCGdWXRmExCOz8oSwbycGK5g',
+          verified: true,
+          ageMs: 28800000,
+          dur: 1040,
+          streamed: false,
+        },
+        {
+          id: 'BWTfxjsHczc',
+          title: 'ملخص مباراة ريال مدريد 4-1 يوفنتوس - نهائي دوري ابطال اوروبا | تعليق عصام الشوالي beIN SPORTS',
+          channel: 'beIN SPORTS Arabic',
+          channelId: 'UCt7-aJaQ2W6GhiQ4dnA3dkA',
+          verified: true,
+          ageMs: 31536000000,
+          dur: 1346,
+          streamed: false,
+        },
+        {
+          id: '9fBf67qELOI',
+          title: 'ملخص مباراة باريس سان جيرمان وبرشلونة 4-2 | أهداف دوري أبطال أوروبا بتعليق عربي',
+          channel: 'الكوتش beIN',
+          channelId: 'UCoH5koCT4sF3MGzTaz-OpbA',
+          verified: true,
+          ageMs: 43200000,
+          dur: 163,
+          streamed: false,
+        },
+        {
+          id: 'XyKsCT_ZSWQ',
+          title: 'ملخص مباراة شتوتغارت وأتلتيكو مدريد 1-1 دوري أبطال أوروبا | beIN SPORTS',
+          channel: 'beIN SPORTS Arabic',
+          channelId: 'UCtdd-ejs9H1YHyAgHNXm9Og',
+          verified: true,
+          ageMs: 86400000,
+          dur: 340,
+          streamed: false,
+        },
+      ],
+      fr: [
+        {
+          id: 'CB1JH46O4Bs',
+          title: 'PSG vs Barcelona 4-2 Extended Highlights • UEFA Champions League',
+          channel: 'Canal+ Foot / Footballia',
+          channelId: 'UCrVFnGI-iQLDHpwxUe1Q8Jg',
+          verified: true,
+          ageMs: 32400000,
+          dur: 536,
+          streamed: false,
+        },
+        {
+          id: 'SKv0pg-sUqI',
+          title: 'EVERY Champions League Goal From Matchday 2 | Highlights',
+          channel: 'UEFA',
+          channelId: 'UCyGa1YEx9ST66rYrJTGIKOw',
+          verified: true,
+          ageMs: 432000000,
+          dur: 1452,
+          streamed: false,
+        },
+        {
+          id: 'sHQoHFP6Z_o',
+          title: 'HIGHLIGHTS: Stuttgart - Atlético de Madrid (1 - 1) | UEFA Champions League',
+          channel: 'UEFA Champions League',
+          channelId: 'UCyGa1YEx9ST66rYrJTGIKOw',
+          verified: true,
+          ageMs: 86400000,
+          dur: 210,
+          streamed: false,
+        },
+        {
+          id: 'ucqlKASLRzA',
+          title: 'Atlético de Madrid 2-0 Manchester United | ⚽ Barrios & Lookman | HIGHLIGHTS, UCL - MD2',
+          channel: 'Atlético de Madrid',
+          channelId: 'UCuzKFwdh7z2GHcIOX_tXgxA',
+          verified: true,
+          ageMs: 518400000,
+          dur: 120,
+          streamed: false,
+        },
+        {
+          id: 'zkgpyvjJl84',
+          title: 'HIGHLIGHTS | Roma 3-4 Real Madrid | Champions League',
+          channel: 'Real Madrid',
+          channelId: 'UCWV3obpZVGgJ3j9FVhEjF2Q',
+          verified: true,
+          ageMs: 518400000,
+          dur: 77,
+          streamed: false,
+        },
+        {
+          id: 't1eAl5hqxdQ',
+          title: 'HIGHLIGHTS | GALATASARAY 1 vs 4 FC BARCELONA | UEFA CHAMPIONS LEAGUE 🔵🔴',
+          channel: 'FC Barcelona',
+          channelId: 'UC14UlmYlSNiQCBe9Eookf_A',
+          verified: true,
+          ageMs: 518400000,
+          dur: 213,
+          streamed: false,
+        },
+        {
+          id: 'XqSrz6MKVlk',
+          title: 'HIGHLIGHTS | FC BARCELONA 5 vs 1 FEYENOORD | UEFA CHAMPIONS LEAGUE 🔵🔴',
+          channel: 'FC Barcelona',
+          channelId: 'UC14UlmYlSNiQCBe9Eookf_A',
+          verified: true,
+          ageMs: 2592000000,
+          dur: 219,
+          streamed: false,
+        },
+      ],
+      en: [
+        {
+          id: 'SKv0pg-sUqI',
+          title: 'EVERY Champions League Goal From Matchday 2 | Highlights',
+          channel: 'UEFA',
+          channelId: 'UCyGa1YEx9ST66rYrJTGIKOw',
+          verified: true,
+          ageMs: 432000000,
+          dur: 1452,
+          streamed: false,
+        },
+        {
+          id: 'a0JXLpbVKfM',
+          title: 'Man City vs AEK Athens 5-1 Extended Highlights • UEFA Champions League',
+          channel: 'Footballia / TNT Sports',
+          channelId: 'UCrVFnGI-iQLDHpwxUe1Q8Jg',
+          verified: true,
+          ageMs: 32400000,
+          dur: 412,
+          streamed: false,
+        },
+        {
+          id: 'I_4-F3cXtzs',
+          title: 'OUR BIGGEST WIN IN EUROPE | Villa 6-0 Fenerbahce | UEFA Champions League Highlights',
+          channel: 'Aston Villa Football Club',
+          channelId: 'UCICNP0mvtr0prFwGUQIABfQ',
+          verified: true,
+          ageMs: 432000000,
+          dur: 124,
+          streamed: false,
+        },
+        {
+          id: 'ZnAyNQG3gRg',
+          title: 'Atletico de Madrid 2-0 Man Utd | Highlights',
+          channel: 'Manchester United',
+          channelId: 'UC6yW44UGJJBvYTlfC7CRg2Q',
+          verified: true,
+          ageMs: 604800000,
+          dur: 140,
+          streamed: false,
+        },
+        {
+          id: 'PI8MlOJZqjk',
+          title: 'INSANE! The BEST Goals From Matchweek 2 (UCL, UEL, UECL)',
+          channel: 'UEFA',
+          channelId: 'UCyGa1YEx9ST66rYrJTGIKOw',
+          verified: true,
+          ageMs: 345600000,
+          dur: 1614,
+          streamed: false,
+        },
+        {
+          id: 'LRlY31UlP3U',
+          title: 'Barcelona Vs PSG Extended Highlights | UEFA Champions League',
+          channel: 'FOOTBALL MANIA',
+          channelId: 'UCw9eSKEfnnwt6X-17-mtkBQ',
+          verified: true,
+          ageMs: 32400000,
+          dur: 339,
+          streamed: false,
+        },
+      ],
+    };
+
     try {
       const r = await fetch(
-        `https://www.youtube.com/results?hl=en&gl=US&sp=EgIQAQ%253D%253D&search_query=${encodeURIComponent(
+        `https://www.youtube.com/results?hl=${hl}&gl=${gl}&sp=EgIQAQ%253D%253D&search_query=${encodeURIComponent(
           q
         )}`,
         {
           headers: {
             'User-Agent':
               'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36',
-            'Accept-Language': 'en-US,en',
+            'Accept-Language': acceptLang,
           },
         }
       );
       if (!r.ok) {
-        res.status(502).send('Upstream error');
+        const fallbacks = FALLBACK_HIGHLIGHTS_BY_LANG[lang] || FALLBACK_HIGHLIGHTS_BY_LANG.fr;
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+        res.json(fallbacks);
         return;
       }
       const html = await r.text();
@@ -248,10 +506,19 @@ async function startServer() {
           };
         });
 
+      if (out.length === 0) {
+        const fallbacks = FALLBACK_HIGHLIGHTS_BY_LANG[lang] || FALLBACK_HIGHLIGHTS_BY_LANG.fr;
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+        res.json(fallbacks);
+        return;
+      }
+
       res.setHeader('Cache-Control', 'public, max-age=3600');
       res.json(out);
     } catch {
-      res.status(500).json({ error: 'Search highlights failed' });
+      const fallbacks = FALLBACK_HIGHLIGHTS_BY_LANG[lang] || FALLBACK_HIGHLIGHTS_BY_LANG.fr;
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.json(fallbacks);
     }
   });
 
@@ -426,33 +693,53 @@ async function startServer() {
               const startMs = new Date(ev.date).getTime();
               const stopMs = startMs + 105 * 60000;
               const state = ev.status?.type?.state;
-              const isCompleted = ev.status?.type?.completed === true || state === 'post';
-              const isLive =
-                state === 'in' ||
-                ev.status?.type?.name === 'STATUS_IN_PROGRESS' ||
-                ev.status?.type?.name === 'STATUS_HALFTIME' ||
-                ev.status?.type?.name === 'STATUS_FIRST_HALF' ||
-                ev.status?.type?.name === 'STATUS_SECOND_HALF' ||
-                ev.status?.type?.name === 'STATUS_OVERTIME' ||
-                ev.status?.type?.name === 'STATUS_SHOOTOUT';
-              const isEnded =
-                isCompleted ||
-                ev.status?.type?.name === 'STATUS_FULL_TIME' ||
-                ev.status?.type?.name === 'STATUS_FINAL_PENALTIES' ||
-                ev.status?.type?.name === 'STATUS_FINAL';
-
-              // Extraction certifiée du score exact
-              const rawHome = home.score !== undefined && home.score !== null ? String(home.score).trim() : undefined;
-              const rawAway = away.score !== undefined && away.score !== null ? String(away.score).trim() : undefined;
-              const homeScore = rawHome !== undefined ? rawHome : (isLive || isEnded ? '0' : undefined);
-              const awayScore = rawAway !== undefined ? rawAway : (isLive || isEnded ? '0' : undefined);
-
-              const statusText =
+              const statusName = (ev.status?.type?.name || '').toUpperCase();
+              const statusDetail = (
                 ev.status?.type?.shortDetail ||
                 ev.status?.displayClock ||
                 ev.status?.type?.detail ||
                 ev.status?.type?.description ||
-                '';
+                ''
+              ).trim();
+
+              const isEnded =
+                ev.status?.type?.completed === true ||
+                state === 'post' ||
+                statusName === 'STATUS_FULL_TIME' ||
+                statusName === 'STATUS_FINAL_PENALTIES' ||
+                statusName === 'STATUS_FINAL' ||
+                statusName === 'STATUS_POSTPONED' ||
+                statusName === 'STATUS_CANCELLED' ||
+                /final|ft|full\s*time|postponed|cancelled|terminé|termin|fin|نهاية/i.test(statusDetail);
+
+              const isLive =
+                !isEnded &&
+                (state === 'in' ||
+                  statusName === 'STATUS_IN_PROGRESS' ||
+                  statusName === 'STATUS_HALFTIME' ||
+                  statusName === 'STATUS_FIRST_HALF' ||
+                  statusName === 'STATUS_SECOND_HALF' ||
+                  statusName === 'STATUS_OVERTIME' ||
+                  statusName === 'STATUS_SHOOTOUT' ||
+                  /'|\bmin\b|mi-temps|half/i.test(statusDetail));
+
+              // Extraction certifiée du score exact uniquement pour les matchs en direct ou terminés
+              let homeScore: string | undefined = undefined;
+              let awayScore: string | undefined = undefined;
+              if (isLive || isEnded) {
+                const rawHome =
+                  home.score !== undefined && home.score !== null
+                    ? String(home.score).trim()
+                    : undefined;
+                const rawAway =
+                  away.score !== undefined && away.score !== null
+                    ? String(away.score).trim()
+                    : undefined;
+                homeScore = rawHome !== undefined ? rawHome : '0';
+                awayScore = rawAway !== undefined ? rawAway : '0';
+              }
+
+              const statusText = statusDetail || (isEnded ? 'FT' : isLive ? 'Live' : 'Scheduled');
 
               fixtures.push({
                 id: ev.id,

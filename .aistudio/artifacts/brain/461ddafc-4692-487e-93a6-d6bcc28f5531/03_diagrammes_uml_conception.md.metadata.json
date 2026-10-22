@@ -1,0 +1,5 @@
+{
+  "summary":  "Dossier de Conception Détaillée UML pour le projet PulseEPG.\nComprend le diagramme de classes complet du domaine métier, la machine à états finis (Statechart) modélisant le cycle de vie réglementaire d'un match de sport, ainsi que le diagramme de paquetages applicatifs.",
+  "updatedAt":  "2026-10-21T14:24:08.531412044Z",
+  "userFacing":  true
+}
