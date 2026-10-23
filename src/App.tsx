@@ -133,6 +133,7 @@ import {
 import { ChannelRowCard } from './components/ChannelRowCard';
 import { TimeGridView } from './components/TimeGridView';
 import { ChannelDetailPanel } from './components/ChannelDetailPanel';
+import { TvFilterDrawer } from './components/TvFilterDrawer';
 import { SettingsModal } from './components/SettingsModal';
 import { LoadingStatusBanner } from './components/LoadingStatusBanner';
 import { PWAInstallButton } from './components/PWAInstallButton';
@@ -320,6 +321,7 @@ export function App() {
 
   const activeExtraFiltersCount = useMemo(() => {
     let count = 0;
+    if (selectedCategory !== 'Tous') count++;
     if (selectedSatellite !== 'Tous') count++;
     if (selectedBouquet !== 'Tous' || selectedBouquetsList.length > 0) count++;
     if (selectedCountry !== 'Tous') count++;
@@ -327,6 +329,7 @@ export function App() {
     if (selectedSubRegion !== 'all') count++;
     return count;
   }, [
+    selectedCategory,
     selectedSatellite,
     selectedBouquet,
     selectedBouquetsList,
@@ -1880,18 +1883,22 @@ export function App() {
 
       let { current, next } = scanSchedule(list);
 
-      // Si la grille brute de cette chaîne ne couvre pas encore `effectiveMinuteMs` (ex: J+2..J+7 ou Catch-up),
-      // on projette à la demande UNIQUEMENT cette chaîne (et non les 555 chaînes)
-      if (!current && !next && list.length > 0) {
+      // Si la grille brute de cette chaîne ne couvre pas encore `effectiveMinuteMs` (ex: J-1, J+2..J+7 ou Replay),
+      // on projette à la demande UNIQUEMENT cette chaîne
+      if (!current) {
         const projected = ensureSchedulesCoverTargetTime(
           [ch],
           schedulesByChannel,
           effectiveMinuteMs
         );
-        list = projected[cleanId] || projected[ch.id] || list;
-        const rescanned = scanSchedule(list);
-        current = rescanned.current;
-        next = rescanned.next;
+        const projectedList =
+          projected[cleanId] || projected[ch.id] || list;
+        if (projectedList && projectedList.length > 0) {
+          list = projectedList;
+          const rescanned = scanSchedule(list);
+          current = rescanned.current || current;
+          next = rescanned.next || next;
+        }
       }
 
       const hasLiveOrNext = Boolean(current || next);
@@ -2626,27 +2633,25 @@ export function App() {
     matchesGroup,
   ]);
 
-  // Auto-réinitialisation si un filtre actif est désactivé dans Settings ou tombe à 0 chaîne
+  // Auto-réinitialisation UNIQUEMENT si un filtre actif est désactivé dans Settings ou incompatible avec le satellite
   useEffect(() => {
     if (baseViewChannels.length === 0 || viewMode === 'favorites') return;
 
     if (
       selectedCategory !== 'Tous' &&
-      (!isCategoryFilterAllowedBySettings(
+      !isCategoryFilterAllowedBySettings(
         selectedCategory,
         settings.enabledCategories
-      ) ||
-        (categoryCounts[selectedCategory] ?? 0) === 0)
+      )
     ) {
       setSelectedCategory('Tous');
     }
     if (
       selectedSatellite !== 'Tous' &&
-      (!isSatelliteFilterAllowedBySettings(
+      !isSatelliteFilterAllowedBySettings(
         selectedSatellite,
         settings.selectedBouquets
-      ) ||
-        (satelliteCounts[selectedSatellite] ?? 0) === 0)
+      )
     ) {
       setSelectedSatellite('Tous');
       setSelectedBouquet('Tous');
@@ -2654,33 +2659,17 @@ export function App() {
     }
     if (
       selectedBouquet !== 'Tous' &&
-      (!isBouquetFilterAllowedBySettings(
+      !isBouquetFilterAllowedBySettings(
         selectedBouquet,
         settings.selectedBouquets
-      ) ||
-        (bouquetCounts[selectedBouquet] ?? 0) === 0)
+      )
     ) {
       setSelectedBouquet('Tous');
       setSelectedBouquetsList((prev) =>
-        prev.filter(
-          (b) =>
-            isBouquetFilterAllowedBySettings(b, settings.selectedBouquets) &&
-            (bouquetCounts[b] ?? 0) > 0
+        prev.filter((b) =>
+          isBouquetFilterAllowedBySettings(b, settings.selectedBouquets)
         )
       );
-    }
-    if (
-      selectedCountry !== 'Tous' &&
-      (countryCounts[selectedCountry] ?? 0) === 0
-    ) {
-      setSelectedCountry('Tous');
-    }
-    if (
-      selectedGroup !== 'Tous' &&
-      selectedGroup !== 'Toutes' &&
-      (groupCounts[selectedGroup] ?? 0) === 0
-    ) {
-      setSelectedGroup('Tous');
     }
   }, [
     baseViewChannels.length,
@@ -2688,15 +2677,8 @@ export function App() {
     selectedCategory,
     selectedSatellite,
     selectedBouquet,
-    selectedCountry,
-    selectedGroup,
     settings.enabledCategories,
     settings.selectedBouquets,
-    categoryCounts,
-    satelliteCounts,
-    bouquetCounts,
-    countryCounts,
-    groupCounts,
   ]);
 
   // Options visibles : masque strictement tout satellite/bouquet/pays/catégorie/genre inactif dans Réglages ou dont le compteur = 0
@@ -3880,10 +3862,9 @@ export function App() {
     setSelectedBouquet('Tous');
     setSelectedBouquetsList([]);
     setSelectedCountry('Tous');
-    setRamWarningMessage(null);
     setSelectedGroup('Tous');
-    setSearchQuery('');
-    handleSyncToLive();
+    setSelectedSubRegion('all');
+    setRamWarningMessage(null);
   };
 
   const reminderIdSet = useMemo(
@@ -6305,79 +6286,174 @@ export function App() {
             )}
           </nav>
 
-          {/* Ligne 3 : Barre de recherche + Bouton "Filtres" direct */}
-          <div className="flex items-center gap-2.5 pt-0.5">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 text-[#64748b] absolute start-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <input
-                ref={searchInputRef}
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={activeLang === 'ar' ? 'البحث عن القنوات...' : 'Rechercher des chaînes...'}
-                className="w-full bg-[#0b101b] border border-[#1e293b] rounded-xl ps-10 pe-9 py-2.5 text-xs sm:text-sm text-white placeholder-[#64748b] focus:outline-none focus:border-[#38bdf8] transition-colors"
-              />
-              {searchQuery && (
+          {/* Ligne 3 & 4 selon l'onglet actif (Une seule recherche par onglet) */}
+          {(viewMode === 'live' || viewMode === 'grid') && (
+            <>
+              {/* Ligne 3 : Barre de recherche TV + Bouton "Filtres" direct */}
+              <div className="flex items-center gap-2.5 pt-0.5">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 text-[#64748b] absolute start-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder={activeLang === 'ar' ? 'البحث عن القنوات...' : 'Rechercher des chaînes...'}
+                    className="w-full bg-[#0b101b] border border-[#1e293b] rounded-xl ps-10 pe-9 py-2.5 text-xs sm:text-sm text-white placeholder-[#64748b] focus:outline-none focus:border-[#38bdf8] transition-colors"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="absolute end-3 top-1/2 -translate-y-1/2 text-[#64748b] hover:text-white p-0.5 cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
                 <button
                   type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute end-3 top-1/2 -translate-y-1/2 text-[#64748b] hover:text-white p-0.5 cursor-pointer"
+                  data-selected={isMobileExtraFiltersOpen || activeExtraFiltersCount > 0 ? 'true' : undefined}
+                  aria-pressed={isMobileExtraFiltersOpen}
+                  onClick={() => setIsMobileExtraFiltersOpen((prev) => !prev)}
+                  className={`shrink-0 flex items-center gap-2 px-3.5 sm:px-4 py-2.5 rounded-xl border text-xs sm:text-sm font-semibold transition-all cursor-pointer active:scale-95 ${
+                    isMobileExtraFiltersOpen || activeExtraFiltersCount > 0
+                      ? 'bg-[#2563eb]/25 border-[#2563eb] text-[#ffffff] shadow-[0_0_10px_rgba(37,99,235,0.35)]'
+                      : 'bg-[#141a26] border border-[#1e293b] text-white hover:border-[#2563eb]/50'
+                  }`}
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <SlidersHorizontal className="w-4 h-4 text-[#cbd5e1]" />
+                  <span>{activeLang === 'ar' ? 'تصفية' : 'Filtres'}</span>
+                  {activeExtraFiltersCount > 0 && (
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[#ec4899] text-[#ffffff]">
+                      {toStandardDigits(String(activeExtraFiltersCount))}
+                    </span>
+                  )}
                 </button>
-              )}
-            </div>
+              </div>
 
-            <button
-              type="button"
-              data-selected={isMobileExtraFiltersOpen || activeExtraFiltersCount > 0 ? 'true' : undefined}
-              aria-pressed={isMobileExtraFiltersOpen}
-              onClick={() => setIsMobileExtraFiltersOpen((prev) => !prev)}
-              className={`shrink-0 flex items-center gap-2 px-3.5 sm:px-4 py-2.5 rounded-xl border text-xs sm:text-sm font-semibold transition-all cursor-pointer active:scale-95 ${
-                isMobileExtraFiltersOpen || activeExtraFiltersCount > 0
-                  ? 'bg-[#2563eb]/25 border-[#2563eb] text-[#ffffff] shadow-[0_0_10px_rgba(37,99,235,0.35)]'
-                  : 'bg-[#141a26] border border-[#1e293b] text-white hover:border-[#2563eb]/50'
-              }`}
-            >
-              <SlidersHorizontal className="w-4 h-4 text-[#cbd5e1]" />
-              <span>{activeLang === 'ar' ? 'تصفية' : 'Filtres'}</span>
-              {activeExtraFiltersCount > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[#ec4899] text-[#ffffff]">
-                  {toStandardDigits(String(activeExtraFiltersCount))}
-                </span>
-              )}
-            </button>
-          </div>
+              {/* Ligne 4 : Statistiques + Sélecteur de date "Aujourd'hui ⌵" */}
+              <div className="flex items-center justify-between gap-3 text-xs sm:text-sm pt-0.5 flex-wrap">
+                <div className="text-xs sm:text-sm text-[#94a3b8]">
+                  <strong className="text-white font-bold">{toStandardDigits(String(filteredChannels.length))}</strong> {activeLang === 'ar' ? 'قناة' : 'chaînes'} ·{' '}
+                  <strong className="text-white font-bold">
+                    {totalLoadedProgrammesCount > 0 ? toStandardDigits(totalLoadedProgrammesCount.toLocaleString('en-US')) : '4 866'}
+                  </strong> {activeLang === 'ar' ? 'برنامج قيد البث' : 'programmes en cours'}
+                  {isSyncing && (
+                    <span className="block text-[11px] text-[#06b6d4] mt-0.5 animate-pulse">
+                      {activeLang === 'ar' ? 'جاري تحميل الدليل...' : 'Chargement du guide...'}
+                    </span>
+                  )}
+                </div>
 
-          {/* Ligne 4 : Statistiques + Sélecteur de date "Aujourd'hui ⌵" */}
-          <div className="flex items-center justify-between gap-3 text-xs sm:text-sm pt-0.5 flex-wrap">
-            <div className="text-xs sm:text-sm text-[#94a3b8]">
-              <strong className="text-white font-bold">{toStandardDigits(String(filteredChannels.length))}</strong> {activeLang === 'ar' ? 'قناة' : 'chaînes'} ·{' '}
-              <strong className="text-white font-bold">
-                {totalLoadedProgrammesCount > 0 ? toStandardDigits(totalLoadedProgrammesCount.toLocaleString('en-US')) : '4 866'}
-              </strong> {activeLang === 'ar' ? 'برنامج قيد البث' : 'programmes en cours'}
-              {isSyncing && (
-                <span className="block text-[11px] text-[#06b6d4] mt-0.5 animate-pulse">
-                  {activeLang === 'ar' ? 'جاري تحميل الدليل...' : 'Chargement du guide...'}
-                </span>
-              )}
-            </div>
+                {/* Sélecteur de Date "Aujourd'hui ⌵" */}
+                <div className="relative">
+                  <select
+                    value={selectedEpgDayOffset}
+                    onChange={(e) => handleSelectEpgDay(parseInt(e.target.value, 10))}
+                    className="appearance-none ps-3 pe-7 py-1.5 rounded-xl bg-[#141a26] border border-[#1e293b] text-xs font-semibold text-white focus:outline-none focus:border-[#38bdf8] transition-colors cursor-pointer"
+                  >
+                    <option value={0}>{activeLang === 'ar' ? 'اليوم' : "Aujourd'hui"}</option>
+                    <option value={1}>{activeLang === 'ar' ? 'غداً (+1)' : 'Demain (+1)'}</option>
+                    <option value={2}>{activeLang === 'ar' ? 'بعد غد (+2)' : 'Après-demain (+2)'}</option>
+                    <option value={-1}>{activeLang === 'ar' ? 'أمس (-1)' : 'Hier (-1)'}</option>
+                  </select>
+                  <ChevronDown className="w-3.5 h-3.5 text-[#94a3b8] absolute end-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
+            </>
+          )}
 
-            {/* Sélecteur de Date "Aujourd'hui ⌵" */}
-            <div className="relative">
-              <select
-                value={selectedEpgDayOffset}
-                onChange={(e) => handleSelectEpgDay(parseInt(e.target.value, 10))}
-                className="appearance-none ps-3 pe-7 py-1.5 rounded-xl bg-[#141a26] border border-[#1e293b] text-xs font-semibold text-white focus:outline-none focus:border-[#38bdf8] transition-colors cursor-pointer"
-              >
-                <option value={0}>{activeLang === 'ar' ? 'اليوم' : "Aujourd'hui"}</option>
-                <option value={1}>{activeLang === 'ar' ? 'غداً (+1)' : 'Demain (+1)'}</option>
-                <option value={2}>{activeLang === 'ar' ? 'بعد غد (+2)' : 'Après-demain (+2)'}</option>
-                <option value={-1}>{activeLang === 'ar' ? 'أمس (-1)' : 'Hier (-1)'}</option>
-              </select>
-              <ChevronDown className="w-3.5 h-3.5 text-[#94a3b8] absolute end-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+          {viewMode === 'favorites' && (
+            <div className="flex items-center gap-2.5 pt-0.5">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-[#64748b] absolute start-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={activeLang === 'ar' ? 'البحث في القنوات المفضلة...' : 'Rechercher dans les favoris...'}
+                  className="w-full bg-[#0b101b] border border-[#1e293b] rounded-xl ps-10 pe-9 py-2.5 text-xs sm:text-sm text-white placeholder-[#64748b] focus:outline-none focus:border-[#38bdf8] transition-colors"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute end-3 top-1/2 -translate-y-1/2 text-[#64748b] hover:text-white p-0.5 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Bouton de Tri pour les Favoris */}
+              <div className="relative">
+                <button
+                  type="button"
+                  ref={sortTriggerBtnRef}
+                  onClick={() => setIsSortMenuOpen((prev) => !prev)}
+                  className="shrink-0 flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-[#1e293b] bg-[#141a26] text-xs sm:text-sm font-semibold text-white hover:border-[#38bdf8]/50 transition-all cursor-pointer"
+                >
+                  <ArrowUpDown className="w-4 h-4 text-[#38bdf8]" />
+                  <span>
+                    {tvSortMode === 'lcn'
+                      ? (activeLang === 'ar' ? 'رقم LCN' : 'N° LCN')
+                      : tvSortMode === 'smart'
+                      ? (activeLang === 'ar' ? 'ذكي' : 'Intelligent')
+                      : tvSortMode === 'alpha_asc'
+                      ? 'A → Z'
+                      : tvSortMode === 'alpha_desc'
+                      ? 'Z → A'
+                      : (activeLang === 'ar' ? 'الفئة' : 'Genre')}
+                  </span>
+                  <ChevronDown className={`w-3.5 h-3.5 text-[#94a3b8] transition-transform ${isSortMenuOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {isSortMenuOpen && (
+                  <div className="absolute end-0 mt-2 w-48 rounded-xl bg-[#141a26] border border-[#1e293b] p-1.5 shadow-xl z-50">
+                    <button
+                      type="button"
+                      onClick={() => { setTvSortMode('smart'); saveTvSortMode('smart'); setIsSortMenuOpen(false); }}
+                      className={`w-full text-start px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 ${tvSortMode === 'smart' ? 'bg-[#2563eb] text-white' : 'text-[#cbd5e1] hover:bg-[#1e293b]'}`}
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>{activeLang === 'ar' ? 'ترتيب ذكي' : 'Tri Intelligent'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setTvSortMode('lcn'); saveTvSortMode('lcn'); setIsSortMenuOpen(false); }}
+                      className={`w-full text-start px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 ${tvSortMode === 'lcn' ? 'bg-[#2563eb] text-white' : 'text-[#cbd5e1] hover:bg-[#1e293b]'}`}
+                    >
+                      <ArrowUpDown className="w-3.5 h-3.5" />
+                      <span>{activeLang === 'ar' ? 'رقم LCN' : 'N° LCN'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setTvSortMode('alpha_asc'); saveTvSortMode('alpha_asc'); setIsSortMenuOpen(false); }}
+                      className={`w-full text-start px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 ${tvSortMode === 'alpha_asc' ? 'bg-[#2563eb] text-white' : 'text-[#cbd5e1] hover:bg-[#1e293b]'}`}
+                    >
+                      <span>A → Z</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setTvSortMode('alpha_desc'); saveTvSortMode('alpha_desc'); setIsSortMenuOpen(false); }}
+                      className={`w-full text-start px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 ${tvSortMode === 'alpha_desc' ? 'bg-[#2563eb] text-white' : 'text-[#cbd5e1] hover:bg-[#1e293b]'}`}
+                    >
+                      <span>Z → A</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setTvSortMode('genre'); saveTvSortMode('genre'); setIsSortMenuOpen(false); }}
+                      className={`w-full text-start px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 ${tvSortMode === 'genre' ? 'bg-[#2563eb] text-white' : 'text-[#cbd5e1] hover:bg-[#1e293b]'}`}
+                    >
+                      <span>{activeLang === 'ar' ? 'حسب الفئة' : 'Par Genre'}</span>
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </header>
 
@@ -6395,27 +6471,62 @@ export function App() {
           />
         )}
 
-        {/* Barre compacte des filtres actifs (visible seulement quand le volet complet est masqué pour garder les programmes directement à l'écran comme sur la photo) */}
-        {!isMobileExtraFiltersOpen && activeExtraFiltersCount > 0 && (
+        {/* Barre compacte des filtres actifs (cliquables pour les retirer individuellement) */}
+        {(viewMode === 'live' || viewMode === 'grid') && activeExtraFiltersCount > 0 && (
           <div className="mb-3 flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-[#141a26] border border-[#1e293b] text-xs">
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-[#94a3b8] text-[11px] font-medium">
                 {activeLang === 'ar' ? 'الفلاتر النشطة :' : activeLang === 'fr' ? 'Filtres actifs :' : 'Active filters:'}
               </span>
+              {selectedCategory !== 'Tous' && (
+                <button
+                  type="button"
+                  onClick={() => handleSelectCategory('Tous')}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#ec4899]/20 border border-[#ec4899]/40 text-[#ffffff] text-[10px] font-semibold hover:bg-[#ec4899]/30 transition-colors cursor-pointer"
+                >
+                  <span>🏷️ {translateCategoryFilter(selectedCategory, activeLang)}</span>
+                  <X className="w-3 h-3 text-[#ec4899]" />
+                </button>
+              )}
+              {selectedGroup !== 'Tous' && selectedGroup !== 'Toutes' && (
+                <button
+                  type="button"
+                  onClick={() => handleSelectGroup('Tous')}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#a855f7]/20 border border-[#a855f7]/40 text-[#ffffff] text-[10px] font-semibold hover:bg-[#a855f7]/30 transition-colors cursor-pointer"
+                >
+                  <span>✨ {translateSubGenreGroup(selectedGroup, activeLang)}</span>
+                  <X className="w-3 h-3 text-[#a855f7]" />
+                </button>
+              )}
               {selectedSatellite !== 'Tous' && (
-                <span className="px-2 py-0.5 rounded-full bg-[#2563eb]/20 border border-[#2563eb]/40 text-[#38bdf8] text-[10px] font-semibold">
-                  🛰️ {translateSatelliteFilter(selectedSatellite, activeLang)}
-                </span>
+                <button
+                  type="button"
+                  onClick={() => handleSelectSatellite('Tous')}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#2563eb]/20 border border-[#2563eb]/40 text-[#38bdf8] text-[10px] font-semibold hover:bg-[#2563eb]/30 transition-colors cursor-pointer"
+                >
+                  <span>🛰️ {translateSatelliteFilter(selectedSatellite, activeLang)}</span>
+                  <X className="w-3 h-3 text-[#38bdf8]" />
+                </button>
               )}
               {selectedBouquet !== 'Tous' && (
-                <span className="px-2 py-0.5 rounded-full bg-[#2563eb]/20 border border-[#2563eb]/40 text-[#38bdf8] text-[10px] font-semibold">
-                  📺 {translateBouquetFilter(selectedBouquet, activeLang, selectedSatellite)}
-                </span>
+                <button
+                  type="button"
+                  onClick={() => handleSelectBouquet('Tous')}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#2563eb]/20 border border-[#2563eb]/40 text-[#38bdf8] text-[10px] font-semibold hover:bg-[#2563eb]/30 transition-colors cursor-pointer"
+                >
+                  <span>📺 {translateBouquetFilter(selectedBouquet, activeLang, selectedSatellite)}</span>
+                  <X className="w-3 h-3 text-[#38bdf8]" />
+                </button>
               )}
-              {selectedCategory !== 'Tous' && (
-                <span className="px-2 py-0.5 rounded-full bg-[#38bdf8]/20 border border-[#38bdf8]/40 text-[#38bdf8] text-[10px] font-semibold">
-                  🏷️ {translateCategoryFilter(selectedCategory, activeLang)}
-                </span>
+              {selectedCountry !== 'Tous' && (
+                <button
+                  type="button"
+                  onClick={() => handleSelectCountry('Tous')}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#10b981]/20 border border-[#10b981]/40 text-[#ffffff] text-[10px] font-semibold hover:bg-[#10b981]/30 transition-colors cursor-pointer"
+                >
+                  <span>{CHANNEL_COUNTRY_FLAGS[selectedCountry] || '🌍'} {translateChannelCountryFilter(selectedCountry, activeLang)}</span>
+                  <X className="w-3 h-3 text-[#10b981]" />
+                </button>
               )}
             </div>
             <button
@@ -6423,13 +6534,40 @@ export function App() {
               onClick={resetAllFilters}
               className="text-[11px] text-[#ef4444] hover:underline font-semibold shrink-0 cursor-pointer"
             >
-              {activeLang === 'ar' ? 'مسح الكل' : activeLang === 'fr' ? 'Effacer tout' : 'Clear all'}
+              {activeLang === 'ar' ? 'مسح الفلاتر' : activeLang === 'fr' ? 'Effacer les filtres' : 'Clear filters'}
             </button>
           </div>
         )}
 
-        {/* Barre de Recherche & Contrôle Temporel Rapide + Zone de Filtres D-Pad (Uniquement dépliée sur clic 'Filtres') */}
-        {isMobileExtraFiltersOpen && (
+        {/* Volet compact escamotable partagé pour les filtres TV (En direct et Grille TV) */}
+        <TvFilterDrawer
+          isOpen={isMobileExtraFiltersOpen}
+          onClose={() => setIsMobileExtraFiltersOpen(false)}
+          language={activeLang}
+          selectedCategory={selectedCategory}
+          onSelectCategory={handleSelectCategory}
+          selectedGroup={selectedGroup}
+          onSelectGroup={handleSelectGroup}
+          selectedSatellite={selectedSatellite}
+          onSelectSatellite={handleSelectSatellite}
+          selectedBouquet={selectedBouquet}
+          onSelectBouquet={handleSelectBouquet}
+          selectedCountry={selectedCountry}
+          onSelectCountry={handleSelectCountry}
+          categoryCounts={categoryCounts}
+          satelliteCounts={satelliteCounts}
+          bouquetCounts={bouquetCounts}
+          countryCounts={countryCounts}
+          groupCounts={groupCounts}
+          allowedSatelliteOptions={visibleSatelliteOptions}
+          allowedBouquetOptions={visibleBouquetOptions}
+          allowedCountryOptions={visibleCountryOptions}
+          onResetFilters={resetAllFilters}
+          activeFiltersCount={activeExtraFiltersCount}
+        />
+
+        {/* Legacy In-page filter section disabled in favor of unified TvFilterDrawer */}
+        {false && (
           <div
             data-tv-zone="filters"
             data-dpad-active={activeDpadZone === 'filters' ? 'true' : undefined}
@@ -7627,15 +7765,15 @@ export function App() {
               <span>
                 {tr.channelsDisplayed} {settingsAllowedChannels.length}
               </span>
-              {cacheMeta && (
+              {cacheMeta?.programmeCount ? (
                 <>
                   <span className="text-[#cbd5e1]/60">•</span>
                   <span>
-                    {cacheMeta.programmeCount.toLocaleString()}{' '}
+                    {cacheMeta?.programmeCount.toLocaleString()}{' '}
                     {tr.activeProgrammes}
                   </span>
                 </>
-              )}
+              ) : null}
               <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] bg-[#1d4ed8]/20 text-[#ffffff] border border-[#2563eb]/50 font-medium ms-1">
                 <Subtitles className="w-3 h-3 text-[#60a5fa]" />
                 VO + SUB
@@ -7914,6 +8052,7 @@ export function App() {
                     currentProgramme={pair.current}
                     nextProgramme={pair.next}
                     nowMs={effectiveMinuteMs}
+                    realNowMs={nowMs}
                     isFavorite={favoriteSet.has(ch.id)}
                     onToggleFavorite={handleToggleFavorite}
                     onSelectChannel={handleSelectChannelFromRow}

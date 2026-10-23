@@ -13,7 +13,13 @@ import {
   Tv,
   Users,
   X,
+  Trophy,
+  Shield,
+  MapPin,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
+import { detectCompetition, parseMatch, detectSport } from '../utils/sportsEngine';
 import {
   AppLanguage,
   BouquetFilter,
@@ -131,6 +137,7 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
   const [enrichedProg, setEnrichedProg] = useState<EpgProgramme | null>(
     initialSelectedProgramme
   );
+  const [isParaboleOpen, setIsParaboleOpen] = useState<boolean>(false);
 
   const tpInfo = useMemo(
     () => lookupTransponderSync(channel.displayName),
@@ -346,6 +353,197 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
     };
   }, [displayProg, channel.contentCategory, activeLang, tr]);
 
+  const sportDetails = useMemo(() => {
+    if (!displayProg) return null;
+    const title = displayProg.title || '';
+    const subTitle = displayProg.subTitle || '';
+    const desc = displayProg.description || '';
+    const category = displayProg.category || '';
+    const chCat = channel.contentCategory || '';
+    const chGroup = channel.group || '';
+
+    const comp = detectCompetition(title, category);
+    const match = parseMatch(title);
+    const isSportChannel = chCat === 'Sport / Football' || chGroup === 'Sport / Football';
+    const isSportCat = /sport|football|soccer|tennis|rugby|basket|f1|moto|combat|cyclisme/i.test(category);
+
+    if (!comp && !match && !isSportChannel && !isSportCat) {
+      return null;
+    }
+
+    // 1. Saison {YYYY/YYYY+1}
+    const progDate = new Date(displayProg.startMs);
+    const progYear = progDate.getFullYear();
+    const progMonth = progDate.getMonth() + 1;
+    const season = progMonth >= 7 ? `${progYear}/${progYear + 1}` : `${progYear - 1}/${progYear}`;
+
+    // 2. Compétition et Pays / Zone
+    let competitionName = comp?.label || '';
+    let countryOrZone = '';
+    let sportType = comp?.sport || 'Football';
+
+    const combined = `${title} ${subTitle} ${desc} ${category}`.toLowerCase();
+
+    if (comp) {
+      switch (comp.id) {
+        case 'ucl':
+          competitionName = 'UEFA Champions League';
+          countryOrZone = activeLang === 'ar' ? 'أوروبا / الويفا' : 'Europe / UEFA';
+          break;
+        case 'uecl':
+          competitionName = 'UEFA Conference League';
+          countryOrZone = activeLang === 'ar' ? 'أوروبا / الويفا' : 'Europe / UEFA';
+          break;
+        case 'uel':
+          competitionName = 'UEFA Europa League';
+          countryOrZone = activeLang === 'ar' ? 'أوروبا / الويفا' : 'Europe / UEFA';
+          break;
+        case 'uefa_nl':
+          competitionName = 'UEFA Nations League';
+          countryOrZone = activeLang === 'ar' ? 'أوروبا / الويفا' : 'Europe / UEFA';
+          break;
+        case 'pl':
+          competitionName = 'Premier League';
+          countryOrZone = activeLang === 'ar' ? 'إنجلترا' : 'Angleterre';
+          break;
+        case 'eng2':
+          competitionName = 'EFL Championship';
+          countryOrZone = activeLang === 'ar' ? 'إنجلترا' : 'Angleterre';
+          break;
+        case 'laliga':
+          competitionName = 'LaLiga';
+          countryOrZone = activeLang === 'ar' ? 'إسبانيا' : 'Espagne';
+          break;
+        case 'copa_del_rey':
+          competitionName = 'Copa del Rey';
+          countryOrZone = activeLang === 'ar' ? 'إسبانيا' : 'Espagne';
+          break;
+        case 'seriea':
+          competitionName = 'Serie A';
+          countryOrZone = activeLang === 'ar' ? 'إيطاليا' : 'Italie';
+          break;
+        case 'bundesliga':
+          competitionName = 'Bundesliga';
+          countryOrZone = activeLang === 'ar' ? 'ألمانيا' : 'Allemagne';
+          break;
+        case 'ligue1':
+          competitionName = 'Ligue 1';
+          countryOrZone = activeLang === 'ar' ? 'فرنسا' : 'France';
+          break;
+        case 'botola':
+          competitionName = 'Botola Pro Inwi';
+          countryOrZone = activeLang === 'ar' ? 'المغرب' : 'Maroc';
+          break;
+        case 'spl':
+          competitionName = 'Saudi Pro League (Roshn)';
+          countryOrZone = activeLang === 'ar' ? 'المملكة العربية السعودية' : 'Arabie Saoudite';
+          break;
+        case 'afc':
+          competitionName = 'AFC Champions League';
+          countryOrZone = activeLang === 'ar' ? 'آسيا / AFC' : 'Asie / AFC';
+          break;
+        case 'can':
+          competitionName = "Coupe d'Afrique des Nations (CAN)";
+          countryOrZone = activeLang === 'ar' ? 'إفريقيا / CAF' : 'Afrique / CAF';
+          break;
+        case 'mls':
+          competitionName = 'Major League Soccer (MLS)';
+          countryOrZone = activeLang === 'ar' ? 'الولايات المتحدة' : 'États-Unis';
+          break;
+        case 'f1':
+          competitionName = 'Formule 1 (FIA Formula One)';
+          countryOrZone = activeLang === 'ar' ? 'عالمي / FIA' : 'Monde / FIA';
+          sportType = 'Auto';
+          break;
+        case 'motogp':
+          competitionName = 'MotoGP (FIM Road Racing)';
+          countryOrZone = activeLang === 'ar' ? 'عالمي / FIM' : 'Monde / FIM';
+          sportType = 'Moto';
+          break;
+        case 'nba':
+          competitionName = 'NBA Basketball';
+          countryOrZone = activeLang === 'ar' ? 'أمريكا الشمالية' : 'États-Unis';
+          sportType = 'Basket';
+          break;
+        case 'tennis':
+          competitionName = 'Tournoi ATP/WTA';
+          countryOrZone = activeLang === 'ar' ? 'دولي' : 'International';
+          sportType = 'Tennis';
+          break;
+        case 'rugby':
+          competitionName = 'Rugby (Top 14 / Six Nations)';
+          countryOrZone = activeLang === 'ar' ? 'أوروبا / دولي' : 'Europe / International';
+          sportType = 'Rugby';
+          break;
+        case 'mma':
+          competitionName = 'UFC / PFL MMA';
+          countryOrZone = activeLang === 'ar' ? 'عالمي' : 'International';
+          sportType = 'Combat';
+          break;
+      }
+    } else {
+      if (/premier league|fa cup|carabao/i.test(combined)) {
+        competitionName = 'Football Anglais';
+        countryOrZone = activeLang === 'ar' ? 'إنجلترا' : 'Angleterre';
+      } else if (/laliga|copa del rey|liga ea sports/i.test(combined)) {
+        competitionName = 'Football Espagnol';
+        countryOrZone = activeLang === 'ar' ? 'إسبانيا' : 'Espagne';
+      } else if (/serie a|coppa italia|calcio/i.test(combined)) {
+        competitionName = 'Serie A';
+        countryOrZone = activeLang === 'ar' ? 'إيطاليا' : 'Italie';
+      } else if (/ligue 1|coupe de france/i.test(combined)) {
+        competitionName = 'Ligue 1';
+        countryOrZone = activeLang === 'ar' ? 'فرنسا' : 'France';
+      } else if (/bundesliga|dfb-pokal/i.test(combined)) {
+        competitionName = 'Bundesliga';
+        countryOrZone = activeLang === 'ar' ? 'ألمانيا' : 'Allemagne';
+      } else if (/champions league|uefa/i.test(combined)) {
+        competitionName = 'UEFA Champions League';
+        countryOrZone = activeLang === 'ar' ? 'أوروبا / الويفا' : 'Europe / UEFA';
+      } else {
+        competitionName = category || 'Événement sportif';
+        countryOrZone = activeLang === 'ar' ? 'دولي' : 'International';
+      }
+    }
+
+    // 3. Phase / Journée / Tour
+    let roundOrPhase = '';
+    const matchdayMatch = combined.match(/(?:journée|journee|j\.?|matchday|giornata|jornada|spieltag)\s*(\d+)/i);
+    if (matchdayMatch) {
+      roundOrPhase = activeLang === 'ar' ? `الجولة ${toStandardDigits(matchdayMatch[1])}` : `Journée ${matchdayMatch[1]}`;
+    } else if (/phase de (?:ligue|classement)|league phase|classement/i.test(combined)) {
+      roundOrPhase = activeLang === 'ar' ? 'مرحلة الدوري / الترتيب' : 'Phase de ligue / classement';
+    } else if (/32(?:e|th)?(?:\s*de\s*finale)?|round of 32|seizi[èe]mes?/i.test(combined)) {
+      roundOrPhase = activeLang === 'ar' ? 'دور الـ 32' : '32e de finale (Round of 32)';
+    } else if (/16(?:e|th)?(?:\s*de\s*finale)?|round of 16|huiti[èe]mes?|8e de finale/i.test(combined)) {
+      roundOrPhase = activeLang === 'ar' ? 'ثمن النهائي (دور الـ 16)' : '8e de finale (Round of 16)';
+    } else if (/quarts?(?:\s*de\s*finale)?|quarter-?finals?/i.test(combined)) {
+      roundOrPhase = activeLang === 'ar' ? 'ربع النهائي' : 'Quarts de finale';
+    } else if (/demi-?finales?|semi-?finals?/i.test(combined)) {
+      roundOrPhase = activeLang === 'ar' ? 'نصف النهائي' : 'Demi-finale';
+    } else if (/finale\b|final\b/i.test(combined)) {
+      roundOrPhase = activeLang === 'ar' ? 'النهائي' : 'Finale';
+    } else if (/essais libres|free practice|fp[1-3]/i.test(combined)) {
+      roundOrPhase = activeLang === 'ar' ? 'تجارب حرة' : 'Essais Libres';
+    } else if (/qualifications?|qualifying/i.test(combined)) {
+      roundOrPhase = activeLang === 'ar' ? 'التصفيات التأهيلية' : 'Qualifications';
+    } else if (/course|grand prix|gp\b/i.test(combined)) {
+      roundOrPhase = activeLang === 'ar' ? 'السباق الرسمي' : 'Course officielle';
+    } else {
+      roundOrPhase = activeLang === 'ar' ? 'لقاء رسمي' : 'Rencontre officielle';
+    }
+
+    return {
+      isSport: true,
+      competitionName,
+      season,
+      countryOrZone,
+      roundOrPhase,
+      sportType,
+      matchInfo: match,
+    };
+  }, [displayProg, channel, activeLang]);
+
   return (
     <div
       dir={langOpt.dir}
@@ -438,24 +636,6 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                         selectedBouquets
                       )
                     )}
-                  </span>
-                )}
-                {tpInfo?.frequency && (
-                  <span className="text-[10px] font-mono font-medium px-1.5 py-0.5 rounded bg-[#0b101b] text-[#38bdf8] border border-[#38bdf8]/40">
-                    📡 {tpInfo.frequency} {tpInfo.polarization} {tpInfo.symbolRate}
-                  </span>
-                )}
-                {tpInfo && (
-                  <span
-                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                      tpInfo.isEncrypted
-                        ? 'bg-[#334155]/30 text-[#94a3b8] border border-[#475569]/40'
-                        : 'bg-[#2563eb]/20 text-[#38bdf8] border border-[#38bdf8]/40'
-                    }`}
-                  >
-                    {tpInfo.isEncrypted
-                      ? (activeLang === 'ar' ? 'مشفر' : activeLang === 'en' ? 'Pay TV' : 'Crypté')
-                      : (activeLang === 'ar' ? 'مفتوح (FTA)' : activeLang === 'en' ? 'Free (FTA)' : 'En clair (FTA)')}
                   </span>
                 )}
               </div>
@@ -573,145 +753,285 @@ export const ChannelDetailPanel: React.FC<ChannelDetailPanelProps> = ({
                 </div>
               )}
 
-              {/* Disposition compacte Side-by-Side (Mobile: w-24 flex-shrink-0 + flex-1 min-w-0 | TV / Desktop: w-32 lg:max-w-[120px]) */}
-              <div className="flex flex-row gap-3 sm:gap-4 lg:gap-5 items-start mb-4">
-                {ensureHttpsUrl(displayProg.icon) ? (
-                  <div className="w-24 flex-shrink-0 lg:w-32 lg:max-w-[120px]">
-                    <img
-                      src={ensureHttpsUrl(displayProg.icon)}
-                      alt={displayMetadata.mainTitle}
-                      className="w-24 h-[135px] sm:w-28 sm:h-[155px] lg:w-32 lg:h-[176px] rounded-lg object-cover bg-[#141a26] border border-[#1a202c]"
-                      loading="lazy"
-                    />
-                  </div>
-                ) : (
-                  <div className="w-24 h-[135px] sm:w-28 sm:h-[155px] lg:w-32 lg:h-[176px] rounded-lg bg-[#141a26] border border-[#1a202c] flex flex-col items-center justify-center p-2 text-center flex-shrink-0 lg:w-32 lg:max-w-[120px]">
-                    <Film className="w-6 h-6 text-[#cbd5e1] mb-1" />
-                    <span className="text-[10px] font-semibold text-[#cbd5e1] line-clamp-3">
-                      {displayMetadata.mainTitle}
-                    </span>
-                  </div>
-                )}
+              {/* Affichage conditionnel : Fiche sportive pure VS Fiche Cinéma / Séries */}
+              {sportDetails?.isSport ? (
+                <div className="space-y-4 mb-4">
+                  {/* Disposition spécifique Sport : petite illustration de la compétition + métadonnées sportives pures */}
+                  <div className="flex flex-row gap-3 sm:gap-4 items-start">
+                    {/* Vignette compacte de la compétition (remplace le poster cinéma) */}
+                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl bg-gradient-to-br from-[#1e293b] via-[#111827] to-[#0f172a] border border-[#38bdf8]/40 flex flex-col items-center justify-center p-2 text-center shadow-md shrink-0">
+                      <Trophy className="w-7 h-7 sm:w-8 sm:h-8 text-[#38bdf8] mb-1" />
+                      <span className="text-[9px] font-bold text-[#ffffff] uppercase tracking-wider line-clamp-2 leading-tight">
+                        {sportDetails.competitionName}
+                      </span>
+                    </div>
 
-                {/* Droite : Bloc d'informations aligné à côté de l'affiche */}
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-base sm:text-lg font-extrabold text-[#ffffff] leading-snug mb-3">
-                    {displayMetadata.mainTitle}
-                  </h3>
+                    {/* Informations de la rencontre sportive */}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-base sm:text-lg font-black text-[#ffffff] leading-snug mb-2">
+                        {displayMetadata.mainTitle}
+                      </h3>
 
-                  {displayMetadata.allowSeasonEpisode &&
-                    (displayMetadata.formattedSE ||
-                      displayMetadata.cleanEpisodeTitle) && (
-                      <div className="mt-1 mb-2.5 flex items-center gap-1.5 flex-wrap">
-                        {displayMetadata.formattedSE && (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-[#1d4ed8]/20 text-[#ffffff] border border-[#2563eb]/50">
-                            {displayMetadata.formattedSE}
+                      <div className="space-y-1.5 text-xs">
+                        {/* Ligne 1 : Pays / Zone géographique */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-[#94a3b8] font-medium min-w-[75px]">
+                            {activeLang === 'ar' ? 'البلد / المنطقة' : 'Pays / Zone'}
                           </span>
-                        )}
-                        {displayMetadata.cleanEpisodeTitle && (
-                          <span className="text-xs font-semibold text-[#cbd5e1]">
-                            {displayMetadata.formattedSE ? '• ' : ''}«{' '}
-                            {displayMetadata.cleanEpisodeTitle} »
+                          <span className="font-bold text-[#38bdf8] flex items-center gap-1">
+                            <MapPin className="w-3 h-3 text-[#38bdf8]" />
+                            {sportDetails.countryOrZone}
                           </span>
-                        )}
+                        </div>
+
+                        {/* Ligne 2 : Compétition & Saison {YYYY/YYYY+1} */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-[#94a3b8] font-medium min-w-[75px]">
+                            {activeLang === 'ar' ? 'البطولة' : 'Compétition'}
+                          </span>
+                          <span className="font-bold text-[#ffffff]">
+                            {sportDetails.competitionName}{' '}
+                            <span className="text-[#38bdf8] font-semibold">{`{${sportDetails.season}}`}</span>
+                          </span>
+                        </div>
+
+                        {/* Ligne 3 : Tour / Phase / Journée */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-[#94a3b8] font-medium min-w-[75px]">
+                            {activeLang === 'ar' ? 'المرحلة' : 'Phase'}
+                          </span>
+                          <span className="font-semibold text-[#ec4899]">
+                            {sportDetails.roundOrPhase}
+                          </span>
+                        </div>
+
+                        {/* Ligne 4 : Diffuseur / Satellite */}
+                        <div className="flex items-center gap-2 pt-0.5">
+                          <span className="text-[#94a3b8] font-medium min-w-[75px]">
+                            {activeLang === 'ar' ? 'البث' : 'Diffusion'}
+                          </span>
+                          <span className="font-medium text-[#cbd5e1] truncate">
+                            {channel.displayName} · {getSingleSatelliteBadgeForChannel(channel, activeSatellite, selectedBouquets)}
+                          </span>
+                        </div>
                       </div>
-                    )}
-
-                  <div className="mt-2 space-y-1 text-xs leading-relaxed">
-                    <div className="text-[#cbd5e1]">
-                      <span className="font-semibold text-[#cbd5e1]">
-                        {tr.modalOriginalTitle}{' '}
-                      </span>
-                      <span className="font-bold text-[#ffffff]">
-                        {displayMetadata.originalTitleLine}
-                      </span>
-                    </div>
-
-                    <div className="text-[#cbd5e1]">
-                      <span className="font-semibold text-[#cbd5e1]">
-                        {tr.modalReleaseDate}{' '}
-                      </span>
-                      <span className="font-medium text-[#ffffff]">
-                        {displayMetadata.releaseDateLine}
-                      </span>
-                    </div>
-
-                    <div className="text-[#cbd5e1]">
-                      <span className="font-semibold text-[#cbd5e1]">
-                        {tr.modalGenre}{' '}
-                      </span>
-                      <span className="font-semibold text-[#ffffff]">
-                        {displayMetadata.genreLine}
-                      </span>
-                    </div>
-
-                    <div className="text-[#cbd5e1]">
-                      <span className="font-semibold text-[#cbd5e1]">
-                        {tr.modalOrigin}{' '}
-                      </span>
-                      <span className="font-medium text-[#ffffff]">
-                        {displayMetadata.originCountryLine}
-                      </span>
                     </div>
                   </div>
 
-                  {displayProg.rating && (
-                    <div className="mt-2.5">
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-bold bg-[#2563eb]/20 text-[#38bdf8] border border-[#38bdf8]/40">
-                        <span>{displayProg.rating}</span>
-                        <Star className="w-3.5 h-3.5 fill-[#f59e0b] text-[#f59e0b]" />
-                        <span className="text-[10px] font-semibold text-[#cbd5e1] uppercase tracking-wider">
-                          TMDB
-                        </span>
-                      </span>
+                  {/* Détails complémentaires du match (si disponibles) */}
+                  {displayProg.description && (
+                    <div className="mt-3 pt-3 border-t border-[#1a202c]">
+                      <div className="text-[11px] font-bold uppercase tracking-wider text-[#94a3b8] mb-1">
+                        {activeLang === 'ar' ? 'معلومات اللقاء' : 'Détails de la rencontre'}
+                      </div>
+                      <p className="text-xs text-[#cbd5e1] leading-relaxed whitespace-pre-line">
+                        {displayProg.description}
+                      </p>
                     </div>
                   )}
                 </div>
-              </div>
-
-              {/* Section Résumé / Description */}
-              <div className="mt-4 pt-3.5 border-t border-[#1a202c]">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-[#ffffff] mb-1.5">
-                  {tr.modalSummary}
-                </div>
-                {displayProg.description ? (
-                  <p className="text-xs sm:text-sm text-[#cbd5e1] leading-relaxed whitespace-pre-line">
-                    {displayProg.description}
-                  </p>
-                ) : (
-                  <p className="text-xs text-[#cbd5e1] italic">
-                    {tr.modalNoDescription}
-                  </p>
-                )}
-              </div>
-
-              {/* Casting & Réalisation (si disponibles) */}
-              {(displayProg.directors?.length ||
-                displayProg.actors?.length) && (
-                <div className="mt-3 pt-2.5 border-t border-[#1a202c] flex flex-wrap gap-x-5 gap-y-1.5 text-[11px] text-[#cbd5e1]">
-                  {displayProg.directors &&
-                    displayProg.directors.length > 0 && (
-                      <div className="flex items-center gap-1.5">
-                        <Film className="w-3.5 h-3.5 text-[#38bdf8] shrink-0" />
-                        <span className="text-[#cbd5e1]">
-                          {tr.modalDirectedBy}
-                        </span>
-                        <span className="text-[#ffffff] font-medium">
-                          {displayProg.directors.join(', ')}
+              ) : (
+                <>
+                  {/* Disposition classique Cinéma / Séries / Documentaires */}
+                  <div className="flex flex-row gap-3 sm:gap-4 lg:gap-5 items-start mb-4">
+                    {ensureHttpsUrl(displayProg.icon) ? (
+                      <div className="w-24 flex-shrink-0 lg:w-32 lg:max-w-[120px]">
+                        <img
+                          src={ensureHttpsUrl(displayProg.icon)}
+                          alt={displayMetadata.mainTitle}
+                          className="w-24 h-[135px] sm:w-28 sm:h-[155px] lg:w-32 lg:h-[176px] rounded-lg object-cover bg-[#141a26] border border-[#1a202c]"
+                          loading="lazy"
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-24 h-[135px] sm:w-28 sm:h-[155px] lg:w-32 lg:h-[176px] rounded-lg bg-[#141a26] border border-[#1a202c] flex flex-col items-center justify-center p-2 text-center flex-shrink-0 lg:w-32 lg:max-w-[120px]">
+                        <Film className="w-6 h-6 text-[#cbd5e1] mb-1" />
+                        <span className="text-[10px] font-semibold text-[#cbd5e1] line-clamp-3">
+                          {displayMetadata.mainTitle}
                         </span>
                       </div>
                     )}
-                  {displayProg.actors && displayProg.actors.length > 0 && (
-                    <div className="flex items-center gap-1.5">
-                      <Users className="w-3.5 h-3.5 text-[#38bdf8] shrink-0" />
-                      <span className="text-[#cbd5e1]">{tr.modalCast}</span>
-                      <span className="text-[#ffffff] font-medium">
-                        {displayProg.actors.join(', ')}
-                      </span>
+
+                    {/* Droite : Bloc d'informations aligné à côté de l'affiche */}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-base sm:text-lg font-extrabold text-[#ffffff] leading-snug mb-3">
+                        {displayMetadata.mainTitle}
+                      </h3>
+
+                      {displayMetadata.allowSeasonEpisode &&
+                        (displayMetadata.formattedSE ||
+                          displayMetadata.cleanEpisodeTitle) && (
+                          <div className="mt-1 mb-2.5 flex items-center gap-1.5 flex-wrap">
+                            {displayMetadata.formattedSE && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold bg-[#1d4ed8]/20 text-[#ffffff] border border-[#2563eb]/50">
+                                {displayMetadata.formattedSE}
+                              </span>
+                            )}
+                            {displayMetadata.cleanEpisodeTitle && (
+                              <span className="text-xs font-semibold text-[#cbd5e1]">
+                                {displayMetadata.formattedSE ? '• ' : ''}«{' '}
+                                {displayMetadata.cleanEpisodeTitle} »
+                              </span>
+                            )}
+                          </div>
+                        )}
+
+                      <div className="mt-2 space-y-1 text-xs leading-relaxed">
+                        <div className="text-[#cbd5e1]">
+                          <span className="font-semibold text-[#cbd5e1]">
+                            {tr.modalOriginalTitle}{' '}
+                          </span>
+                          <span className="font-bold text-[#ffffff]">
+                            {displayMetadata.originalTitleLine}
+                          </span>
+                        </div>
+
+                        <div className="text-[#cbd5e1]">
+                          <span className="font-semibold text-[#cbd5e1]">
+                            {tr.modalReleaseDate}{' '}
+                          </span>
+                          <span className="font-medium text-[#ffffff]">
+                            {displayMetadata.releaseDateLine}
+                          </span>
+                        </div>
+
+                        <div className="text-[#cbd5e1]">
+                          <span className="font-semibold text-[#cbd5e1]">
+                            {tr.modalGenre}{' '}
+                          </span>
+                          <span className="font-semibold text-[#ffffff]">
+                            {displayMetadata.genreLine}
+                          </span>
+                        </div>
+
+                        <div className="text-[#cbd5e1]">
+                          <span className="font-semibold text-[#cbd5e1]">
+                            {tr.modalOrigin}{' '}
+                          </span>
+                          <span className="font-medium text-[#ffffff]">
+                            {displayMetadata.originCountryLine}
+                          </span>
+                        </div>
+                      </div>
+
+                      {displayProg.rating && (
+                        <div className="mt-2.5">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-bold bg-[#2563eb]/20 text-[#38bdf8] border border-[#38bdf8]/40">
+                            <span>{displayProg.rating}</span>
+                            <Star className="w-3.5 h-3.5 fill-[#f59e0b] text-[#f59e0b]" />
+                            <span className="text-[10px] font-semibold text-[#cbd5e1] uppercase tracking-wider">
+                              TMDB
+                            </span>
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Section Résumé / Description */}
+                  <div className="mt-4 pt-3.5 border-t border-[#1a202c]">
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-[#ffffff] mb-1.5">
+                      {tr.modalSummary}
+                    </div>
+                    {displayProg.description ? (
+                      <p className="text-xs sm:text-sm text-[#cbd5e1] leading-relaxed whitespace-pre-line">
+                        {displayProg.description}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-[#cbd5e1] italic">
+                        {tr.modalNoDescription}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Casting & Réalisation (si disponibles) */}
+                  {(displayProg.directors?.length ||
+                    displayProg.actors?.length) && (
+                    <div className="mt-3 pt-2.5 border-t border-[#1a202c] flex flex-wrap gap-x-5 gap-y-1.5 text-[11px] text-[#cbd5e1]">
+                      {displayProg.directors &&
+                        displayProg.directors.length > 0 && (
+                          <div className="flex items-center gap-1.5">
+                            <Film className="w-3.5 h-3.5 text-[#38bdf8] shrink-0" />
+                            <span className="text-[#cbd5e1]">
+                              {tr.modalDirectedBy}
+                            </span>
+                            <span className="text-[#ffffff] font-medium">
+                              {displayProg.directors.join(', ')}
+                            </span>
+                          </div>
+                        )}
+                      {displayProg.actors && displayProg.actors.length > 0 && (
+                        <div className="flex items-center gap-1.5">
+                          <Users className="w-3.5 h-3.5 text-[#38bdf8] shrink-0" />
+                          <span className="text-[#cbd5e1]">{tr.modalCast}</span>
+                          <span className="text-[#ffffff] font-medium">
+                            {displayProg.actors.join(', ')}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   )}
-                </div>
+                </>
               )}
+
+              {/* Accordéon "Infos parabole" (détails transpondeur satellite pour télespectateurs parabole) */}
+              <div className="mt-4 pt-3.5 border-t border-[#1a202c]">
+                <button
+                  type="button"
+                  data-tv-focusable="true"
+                  onClick={() => setIsParaboleOpen((prev) => !prev)}
+                  className="w-full flex items-center justify-between py-1 text-left cursor-pointer group hover:text-[#38bdf8] transition-colors"
+                >
+                  <div className="flex items-center gap-2 text-sm font-bold text-[#ffffff] group-hover:text-[#38bdf8]">
+                    <Radio className="w-4 h-4 text-[#38bdf8]" />
+                    <span>{activeLang === 'ar' ? 'معلومات الدش / Parabole' : 'Infos parabole'}</span>
+                  </div>
+                  {isParaboleOpen ? (
+                    <ChevronUp className="w-4 h-4 text-[#cbd5e1] group-hover:text-[#38bdf8]" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-[#cbd5e1] group-hover:text-[#38bdf8]" />
+                  )}
+                </button>
+
+                {isParaboleOpen && (
+                  <div className="mt-2.5 p-3.5 sm:p-4 rounded-xl bg-[#0a0e17] border border-[#1a202c] grid grid-cols-2 gap-y-3 gap-x-4 text-xs animate-fadeIn">
+                    <div>
+                      <div className="text-[11px] font-medium text-[#94a3b8] mb-0.5">Satellite</div>
+                      <div className="font-bold text-[#ffffff] text-sm truncate">
+                        {getSingleSatelliteBadgeForChannel(channel, activeSatellite, selectedBouquets) || channel.orbitalPosition || 'Astra 19.2°E'}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-[11px] font-medium text-[#94a3b8] mb-0.5">Fréquence</div>
+                      <div className="font-bold text-[#38bdf8] text-sm font-mono truncate">
+                        {tpInfo?.frequency ? `${tpInfo.frequency} MHz` : '11488 MHz'}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-[11px] font-medium text-[#94a3b8] mb-0.5">Polarisation</div>
+                      <div className="font-bold text-[#ffffff] text-sm font-mono">
+                        {tpInfo?.polarization || 'H'}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-[11px] font-medium text-[#94a3b8] mb-0.5">Débit symbole (SR)</div>
+                      <div className="font-bold text-[#ffffff] text-sm font-mono truncate">
+                        {tpInfo?.symbolRate ? `${tpInfo.symbolRate} kS/s` : '27500 kS/s'}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-[11px] font-medium text-[#94a3b8] mb-0.5">Accès</div>
+                      <div className="font-bold text-[#ffffff] text-sm">
+                        {tpInfo ? (tpInfo.isEncrypted ? 'Crypté' : 'Clair (FTA)') : 'Crypté'}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

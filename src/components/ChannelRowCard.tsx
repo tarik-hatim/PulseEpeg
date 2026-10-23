@@ -59,6 +59,7 @@ interface ChannelRowCardProps {
   currentProgramme: EpgProgramme | null;
   nextProgramme: EpgProgramme | null;
   nowMs: number;
+  realNowMs?: number;
   isFavorite: boolean;
   onToggleFavorite: (channelId: string) => void;
   onSelectChannel: (
@@ -346,6 +347,7 @@ const ChannelRowCardInner: React.FC<ChannelRowCardProps> = ({
   currentProgramme,
   nextProgramme,
   nowMs,
+  realNowMs,
   isFavorite,
   onToggleFavorite,
   onSelectChannel,
@@ -395,14 +397,44 @@ const ChannelRowCardInner: React.FC<ChannelRowCardProps> = ({
     ? cleanBouquetName(rawBouquetBadge, singleSatBadge)
     : null;
 
-  const progress = currentProgramme
-    ? calculateProgress(currentProgramme.startMs, currentProgramme.stopMs, nowMs)
-    : 0;
+  const realSystemNowMs = realNowMs || Date.now();
 
-  const isActualLive =
-    currentProgramme &&
-    currentProgramme.startMs <= nowMs &&
-    currentProgramme.stopMs > nowMs;
+  const isPastView = Boolean(
+    (nowMs && realSystemNowMs - nowMs > 3 * 3600 * 1000) ||
+      (currentProgramme && currentProgramme.stopMs <= realSystemNowMs)
+  );
+
+  const isFutureView = Boolean(
+    (nowMs && nowMs - realSystemNowMs > 3 * 3600 * 1000) ||
+      (currentProgramme && currentProgramme.startMs > realSystemNowMs)
+  );
+
+  const isActualLive = Boolean(
+    !isPastView &&
+      !isFutureView &&
+      currentProgramme &&
+      currentProgramme.startMs <= realSystemNowMs &&
+      currentProgramme.stopMs > realSystemNowMs
+  );
+
+  const isPastProgramme =
+    isPastView ||
+    Boolean(currentProgramme && currentProgramme.stopMs <= realSystemNowMs);
+
+  const isFutureProgramme =
+    isFutureView ||
+    Boolean(currentProgramme && currentProgramme.startMs > realSystemNowMs);
+
+  const progress =
+    isActualLive && currentProgramme
+      ? calculateProgress(
+          currentProgramme.startMs,
+          currentProgramme.stopMs,
+          realSystemNowMs
+        )
+      : isPastProgramme
+      ? 100
+      : 0;
 
   const accent = COUNTRY_ACCENTS[channel.country] || COUNTRY_ACCENTS.FR;
 
@@ -585,15 +617,6 @@ const ChannelRowCardInner: React.FC<ChannelRowCardProps> = ({
                 </span>
               ))}
 
-              {tpInfo && tpInfo.frequency && (
-                <span
-                  title={`Transpondeur Satellite : ${tpInfo.frequency} ${tpInfo.polarization} ${tpInfo.symbolRate}`}
-                  className="px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-[#1e293b]/80 border border-[#334155] text-[#38bdf8] shrink-0"
-                >
-                  {tpInfo.frequency} {tpInfo.polarization} {tpInfo.symbolRate ? `· ${tpInfo.symbolRate}` : ''}
-                </span>
-              )}
-
               {channel.audioTrackLabel ? (
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#1e293b] text-[#94a3b8] flex items-center gap-1 shrink-0">
                   <Volume2 className="w-2.5 h-2.5 text-[#60a5fa] shrink-0" />
@@ -652,6 +675,11 @@ const ChannelRowCardInner: React.FC<ChannelRowCardProps> = ({
                   <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse shrink-0" />
                   {activeLang === 'ar' ? 'مباشر' : activeLang === 'en' ? 'LIVE' : 'DIRECT'}
                 </span>
+              ) : isPastProgramme ? (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#1e293b] text-[#94a3b8] shrink-0">
+                  <Clock className="w-3.5 h-3.5 text-[#ec4899]" />
+                  {activeLang === 'ar' ? 'منتهي' : activeLang === 'en' ? 'Finished' : 'Terminé'}
+                </span>
               ) : (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-[#1e293b] text-[#94a3b8] shrink-0">
                   <Clock className="w-3.5 h-3.5 text-[#60a5fa]" />
@@ -672,7 +700,7 @@ const ChannelRowCardInner: React.FC<ChannelRowCardProps> = ({
 
             {isActualLive && (
               <span className="text-xs text-[#94a3b8] font-medium shrink-0">
-                {formatRemainingTime(currentProgramme.stopMs, nowMs, activeLang)}
+                {formatRemainingTime(currentProgramme.stopMs, realSystemNowMs, activeLang)}
               </span>
             )}
           </div>
@@ -695,7 +723,15 @@ const ChannelRowCardInner: React.FC<ChannelRowCardProps> = ({
           <div className="w-full h-1.5 rounded-full bg-[#1e293b] overflow-hidden mt-2">
             <div
               className="h-full bg-gradient-to-r from-[#ec4899] to-[#8b5cf6] rounded-full transition-all duration-300"
-              style={{ width: `${isActualLive ? progress : 100}%` }}
+              style={{
+                width: `${
+                  isActualLive
+                    ? progress
+                    : isPastProgramme
+                    ? 100
+                    : 0
+                }%`,
+              }}
             />
           </div>
 

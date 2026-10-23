@@ -539,6 +539,15 @@ async function startServer() {
 
     const LEAGUES_CONFIG = [
       {
+        id: 'global_soccer',
+        code: '',
+        sport: 'soccer',
+        label: 'Football International',
+        broadcasters: [
+          { name: 'Canal+ / beIN Sports / DAZN', satellite: 'Astra 19.2°E', isFree: false },
+        ],
+      },
+      {
         id: 'ucl',
         code: 'uefa.champions',
         sport: 'soccer',
@@ -562,6 +571,26 @@ async function startServer() {
         ],
       },
       {
+        id: 'uecl',
+        code: 'uefa.europa.conf',
+        sport: 'soccer',
+        label: 'Ligue Conférence UEFA',
+        broadcasters: [
+          { name: 'Canal+ Live', satellite: 'Astra 19.2°E', isFree: false },
+          { name: 'beIN Sports Max 4', satellite: 'Astra 19.2°E', isFree: false },
+        ],
+      },
+      {
+        id: 'uefa_nl',
+        code: 'uefa.nations',
+        sport: 'soccer',
+        label: 'Ligue des Nations UEFA',
+        broadcasters: [
+          { name: 'TF1', satellite: 'Astra 19.2°E', isFree: true },
+          { name: 'L\'Equipe', satellite: 'Astra 19.2°E', isFree: true },
+        ],
+      },
+      {
         id: 'pl',
         code: 'eng.1',
         sport: 'soccer',
@@ -569,7 +598,6 @@ async function startServer() {
         broadcasters: [
           { name: 'Canal+ Premier League', satellite: 'Astra 19.2°E', isFree: false },
           { name: 'Sky Sports Main Event', satellite: 'Astra 28.2°E', isFree: false },
-          { name: 'beIN Sports 1 FR', satellite: 'Astra 19.2°E', isFree: false },
         ],
       },
       {
@@ -623,6 +651,159 @@ async function startServer() {
         ],
       },
       {
+        id: 'eredivisie',
+        code: 'ned.1',
+        sport: 'soccer',
+        label: 'Eredivisie',
+        broadcasters: [
+          { name: 'ESPN NL', satellite: 'Astra 23.5°E', isFree: false },
+        ],
+      },
+      {
+        id: 'superlig',
+        code: 'tur.1',
+        sport: 'soccer',
+        label: 'Süper Lig (Turquie)',
+        broadcasters: [
+          { name: 'beIN Sports TR', satellite: 'Türksat 42°E', isFree: false },
+        ],
+      },
+      {
+        id: 'superliga_dk',
+        code: 'den.1',
+        sport: 'soccer',
+        label: 'Superliga (Danemark)',
+        broadcasters: [
+          { name: 'TV3 Sport Denmark', satellite: 'Thor 0.8°W', isFree: false },
+        ],
+      },
+      {
+        id: 'ekstraklasa',
+        code: 'pol.1',
+        sport: 'soccer',
+        label: 'Ekstraklasa (Pologne)',
+        broadcasters: [
+          { name: 'Canal+ Sport Polska', satellite: 'Hotbird 13°E', isFree: false },
+        ],
+      },
+      {
+        id: 'liga_portugal',
+        code: 'por.1',
+        sport: 'soccer',
+        label: 'Liga Portugal',
+        broadcasters: [
+          { name: 'Sport TV Portugal', satellite: 'Hispasat 30°W', isFree: false },
+        ],
+      },
+      {
+        id: 'laliga2',
+        code: 'esp.2',
+        sport: 'soccer',
+        label: 'LaLiga 2',
+        broadcasters: [
+          { name: 'LaLiga TV Hypermotion', satellite: 'Astra 19.2°E', isFree: false },
+        ],
+      },
+      {
+        id: 'ligue2',
+        code: 'fra.2',
+        sport: 'soccer',
+        label: 'Ligue 2',
+        broadcasters: [
+          { name: 'beIN Sports 1 FR', satellite: 'Astra 19.2°E', isFree: false },
+        ],
+      },
+      {
+        id: 'bundesliga2',
+        code: 'ger.2',
+        sport: 'soccer',
+        label: '2. Bundesliga',
+        broadcasters: [
+          { name: 'Sky Sport Bundesliga', satellite: 'Astra 19.2°E', isFree: false },
+        ],
+      },
+      {
+        id: 'serieb',
+        code: 'ita.2',
+        sport: 'soccer',
+        label: 'Serie B',
+        broadcasters: [
+          { name: 'Sky Sport Calcio', satellite: 'Hotbird 13°E', isFree: false },
+        ],
+      },
+      {
+        id: 'belgium',
+        code: 'bel.1',
+        sport: 'soccer',
+        label: 'Pro League (Belgique)',
+        broadcasters: [
+          { name: 'Eleven Sports / DAZN BE', satellite: 'Astra 19.2°E', isFree: false },
+        ],
+      },
+      {
+        id: 'swiss',
+        code: 'sui.1',
+        sport: 'soccer',
+        label: 'Super League (Suisse)',
+        broadcasters: [
+          { name: 'blue Sport Suisse', satellite: 'Hotbird 13°E', isFree: false },
+        ],
+      },
+      {
+        id: 'scotland',
+        code: 'sco.1',
+        sport: 'soccer',
+        label: 'Scottish Premiership',
+        broadcasters: [
+          { name: 'Sky Sports Football', satellite: 'Astra 28.2°E', isFree: false },
+        ],
+      },
+      {
+        id: 'austria',
+        code: 'aut.1',
+        sport: 'soccer',
+        label: 'Bundesliga (Autriche)',
+        broadcasters: [
+          { name: 'Sky Sport Austria', satellite: 'Astra 19.2°E', isFree: false },
+        ],
+      },
+      {
+        id: 'greece',
+        code: 'gre.1',
+        sport: 'soccer',
+        label: 'Super League (Grèce)',
+        broadcasters: [
+          { name: 'Cosmote Sport', satellite: 'Eutelsat 9°E', isFree: false },
+        ],
+      },
+      {
+        id: 'botola',
+        code: 'mar.1',
+        sport: 'soccer',
+        label: 'Botola Pro Inwi',
+        broadcasters: [
+          { name: 'Arryadia (TNT)', satellite: 'Nilesat 7°W', isFree: true },
+        ],
+      },
+      {
+        id: 'egypt',
+        code: 'egy.1',
+        sport: 'soccer',
+        label: 'Egyptian Premier League',
+        broadcasters: [
+          { name: 'OnTime Sports', satellite: 'Nilesat 7°W', isFree: true },
+        ],
+      },
+      {
+        id: 'bih',
+        code: 'bih.1',
+        sport: 'soccer',
+        label: 'WWIN Liga BiH',
+        broadcasters: [
+          { name: 'Arena Sport BiH', satellite: 'Eutelsat 16°E', isFree: false },
+        ],
+      },
+      {
         id: 'afc',
         code: 'afc.champions',
         sport: 'soccer',
@@ -630,7 +811,6 @@ async function startServer() {
         broadcasters: [
           { name: 'beIN Sports AFC', satellite: "Badr / Es'hailSat 26°E", isFree: false },
           { name: 'SSC 1 HD', satellite: "Badr / Es'hailSat 26°E", isFree: false },
-          { name: 'Abu Dhabi Sports Asia', satellite: 'Nilesat 7°W', isFree: false },
         ],
       },
       {
@@ -644,13 +824,22 @@ async function startServer() {
         ],
       },
       {
+        id: 'can',
+        code: 'caf.nations',
+        sport: 'soccer',
+        label: "Coupe d'Afrique des Nations (CAN)",
+        broadcasters: [
+          { name: 'beIN Sports MENA', satellite: 'Nilesat 7°W', isFree: false },
+          { name: 'Arryadia (TNT)', satellite: 'Nilesat 7°W', isFree: true },
+        ],
+      },
+      {
         id: 'eng2',
         code: 'eng.2',
         sport: 'soccer',
         label: 'Championship (Angleterre)',
         broadcasters: [
           { name: 'Sky Sports Football', satellite: 'Astra 28.2°E', isFree: false },
-          { name: 'beIN Sports Max 4', satellite: 'Astra 19.2°E', isFree: false },
         ],
       },
       {
@@ -660,7 +849,52 @@ async function startServer() {
         label: 'Major League Soccer (MLS)',
         broadcasters: [
           { name: 'Apple TV (MLS Season Pass)', satellite: 'Streaming Global', isFree: false },
-          { name: 'beIN Sports Max 7', satellite: 'Astra 19.2°E', isFree: false },
+        ],
+      },
+      {
+        id: 'argentina',
+        code: 'arg.1',
+        sport: 'soccer',
+        label: 'Liga Profesional (Argentine)',
+        broadcasters: [
+          { name: 'TNT Sports AR', satellite: 'Intelsat 11', isFree: false },
+        ],
+      },
+      {
+        id: 'brazil',
+        code: 'bra.1',
+        sport: 'soccer',
+        label: 'Brasileirão (Brésil)',
+        broadcasters: [
+          { name: 'Premiere FC', satellite: 'Star One D2', isFree: false },
+        ],
+      },
+      {
+        id: 'copa_del_rey',
+        code: 'esp.copa_del_rey',
+        sport: 'soccer',
+        label: 'Copa del Rey',
+        broadcasters: [
+          { name: 'Movistar Liga de Campeones', satellite: 'Astra 19.2°E', isFree: false },
+        ],
+      },
+      {
+        id: 'fa_cup',
+        code: 'eng.fa',
+        sport: 'soccer',
+        label: 'FA Cup (Angleterre)',
+        broadcasters: [
+          { name: 'beIN Sports 1 FR', satellite: 'Astra 19.2°E', isFree: false },
+          { name: 'BBC One / ITV', satellite: 'Astra 28.2°E', isFree: true },
+        ],
+      },
+      {
+        id: 'nba',
+        code: 'nba',
+        sport: 'basketball',
+        label: 'NBA Basketball',
+        broadcasters: [
+          { name: 'beIN Sports 1 FR', satellite: 'Astra 19.2°E', isFree: false },
         ],
       },
     ];
@@ -676,12 +910,17 @@ async function startServer() {
       d2.toISOString().slice(0, 10).replace(/-/g, ''),
     ];
 
-    const fixtures: any[] = [];
+    const fixturesMap = new Map<string, any>();
     await Promise.all(
       LEAGUES_CONFIG.map(async (cfg) => {
-        for (const dt of dateStrs) {
+        // Interroger avec la date courante et les dates adjacentes
+        const queryDates = ['', ...dateStrs];
+        for (const dt of queryDates) {
           try {
-            const url = `https://site.api.espn.com/apis/site/v2/sports/${cfg.sport || 'soccer'}/${cfg.code}/scoreboard?dates=${dt}`;
+            const leaguePath = cfg.code ? `${cfg.code}/` : '';
+            const url = dt
+              ? `https://site.api.espn.com/apis/site/v2/sports/${cfg.sport || 'soccer'}/${leaguePath}scoreboard?dates=${dt}`
+              : `https://site.api.espn.com/apis/site/v2/sports/${cfg.sport || 'soccer'}/${leaguePath}scoreboard`;
             const response = await fetch(url);
             if (!response.ok) continue;
             const data = (await response.json()) as any;
@@ -721,7 +960,10 @@ async function startServer() {
                   statusName === 'STATUS_SECOND_HALF' ||
                   statusName === 'STATUS_OVERTIME' ||
                   statusName === 'STATUS_SHOOTOUT' ||
-                  /'|\bmin\b|mi-temps|half/i.test(statusDetail));
+                  statusName === 'STATUS_END_OF_PERIOD' ||
+                  statusName === 'STATUS_DELAYED' ||
+                  /'|\bmin\b|mi-temps|half|1st|2nd|ht|et/i.test(statusDetail) ||
+                  (startMs <= now && now <= startMs + 115 * 60000));
 
               // Extraction certifiée du score exact uniquement pour les matchs en direct ou terminés
               let homeScore: string | undefined = undefined;
@@ -740,11 +982,16 @@ async function startServer() {
               }
 
               const statusText = statusDetail || (isEnded ? 'FT' : isLive ? 'Live' : 'Scheduled');
+              const compLabel =
+                ev.league?.name ||
+                comp?.league?.name ||
+                ev.season?.type?.name ||
+                cfg.label;
 
-              fixtures.push({
+              const fixtureObj = {
                 id: ev.id,
-                competitionId: cfg.id,
-                competitionLabel: cfg.label,
+                competitionId: cfg.id === 'global_soccer' ? (ev.league?.slug || 'soccer') : cfg.id,
+                competitionLabel: compLabel,
                 homeTeam: home.team?.displayName || home.team?.name,
                 homeTeamLogo: home.team?.logo,
                 homeScore,
@@ -757,7 +1004,12 @@ async function startServer() {
                 isEnded,
                 statusText,
                 broadcasters: cfg.broadcasters,
-              });
+              };
+
+              const existing = fixturesMap.get(ev.id);
+              if (!existing || isLive || (!existing.isLive && isEnded)) {
+                fixturesMap.set(ev.id, fixtureObj);
+              }
             }
           } catch {
             // Continuer
@@ -766,13 +1018,13 @@ async function startServer() {
       })
     );
 
-    // Tri chronologique des affiches réelles
-    fixtures.sort((a, b) => a.startMs - b.startMs);
+    const fixtures = Array.from(fixturesMap.values()).sort((a, b) => a.startMs - b.startMs);
+    const hasLiveMatch = fixtures.some((f: any) => f.isLive);
     fixturesCache = { data: fixtures, timestamp: now };
 
     res.setHeader(
       'Cache-Control',
-      hasAnyLive ? 'public, max-age=30' : 'public, max-age=180'
+      hasLiveMatch ? 'public, max-age=15' : 'public, max-age=120'
     );
     res.json(fixtures);
   });

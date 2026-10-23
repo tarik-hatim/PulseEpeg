@@ -49,17 +49,30 @@ import { toStandardDigits } from '../utils/timeFormat';
 
 const COMPETITION_ARABIC_NAMES: Record<string, string> = {
   ucl: 'دوري أبطال أوروبا',
+  uecl: 'دوري المؤتمر الأوروبي',
+  uel: 'الدوري الأوروبي',
+  uefa_nl: 'دوري الأمم الأوروبية',
   afc: "دوري أبطال آسيا (AFC)",
+  caf: 'دوري أبطال إفريقيا (CAF)',
   botola: 'البطولة الاحترافية إنوي',
   eng2: 'التشامبيونشيب (إنجلترا)',
   mls: 'الدوري الأمريكي (MLS)',
   pl: 'الدوري الإنجليزي الممتاز',
   laliga: 'الدوري الإسباني (لا ليغا)',
+  copa_del_rey: 'كأس ملك إسبانيا',
+  fa_cup: 'كأس الاتحاد الإنجليزي',
   ligue1: 'الدوري الفرنسي (ليغ 1)',
   seriea: 'الدوري الإيطالي (سيري آ)',
   bundesliga: 'الدوري الألماني (بوندسليغا)',
   spl: 'دوري روشن السعودي',
-  uel: 'الدوري الأوروبي',
+  eredivisie: 'الدوري الهولندي (Eredivisie)',
+  superlig: 'الدوري التركي الممتاز (Süper Lig)',
+  superliga_dk: 'الدوري الدنماركي (Superliga)',
+  ekstraklasa: 'الدوري पोलندي (Ekstraklasa)',
+  liga_portugal: 'الدوري البرتغالي (Liga Portugal)',
+  laliga2: 'الدوري الإسباني الدرجة الثانية',
+  bih: 'دوري البوسنة والهرسك (WWIN Liga)',
+  can: 'كأس أمم إفريقيا (CAN)',
   f1: 'فورمولا 1 (F1)',
   motogp: 'موتو جي بي',
   nba: 'كرة السلة (NBA)',
@@ -209,9 +222,9 @@ export const SportsView: React.FC<SportsViewProps> = ({
   onToggleReminder,
   isProgrammeReminderSet,
 }) => {
-  const [viewTab, setViewTab] = useState<'live' | 'upcoming' | 'ended'>('upcoming');
-  const [broadcasterScope, setBroadcasterScope] = useState<'my_bouquets' | 'all'>('my_bouquets');
-  const [onlyMatches, setOnlyMatches] = useState(true);
+  const [viewTab, setViewTab] = useState<'live' | 'upcoming' | 'ended'>('live');
+  const [broadcasterScope, setBroadcasterScope] = useState<'my_bouquets' | 'all'>('all');
+  const [upcomingDateOffset, setUpcomingDateOffset] = useState<number | 'all'>('all');
   const [onlyFree, setOnlyFree] = useState(false);
   const [onlyFavoriteTeams, setOnlyFavoriteTeams] = useState(false);
   const [selectedCompetitionId, setSelectedCompetitionId] = useState<string>('all');
@@ -529,22 +542,45 @@ export const SportsView: React.FC<SportsViewProps> = ({
     const q = searchQuery.trim().toLowerCase();
 
     return allSportsEvents.filter((ev) => {
-      if (onlyMatches && !ev.isMatch) return false;
-
+      // 1. Filtrage par compétition
       if (selectedCompetitionId !== 'all') {
         if (!ev.competition || ev.competition.id !== selectedCompetitionId) {
           return false;
         }
       }
 
-      if (onlyFree && !ev.airings.some((a) => a.isFree)) return false;
+      // 2. Périmètre des diffuseurs : "Mes bouquets" vs "Tous les matchs"
+      if (broadcasterScope === 'my_bouquets') {
+        const matchingAirings = ev.airings.filter((a) => {
+          if (a.channel.bouquets && selectedBouquets && selectedBouquets.length > 0) {
+            if (a.channel.bouquets.some((b) => selectedBouquets.includes(b as any))) return true;
+          }
+          if (channelByName.has(a.channel.displayName.toLowerCase().trim())) return true;
+          if (channelById.has(a.channel.id)) return true;
+          return isBroadcasterMatchingBouquets(
+            a.channel.displayName,
+            a.channel.orbitalPosition,
+            selectedBouquets,
+            channelByName,
+            activeLang
+          );
+        });
+        if (matchingAirings.length === 0) return false;
 
+        // Filtrage 'En clair' appliqué au périmètre choisi :
+        if (onlyFree && !matchingAirings.some((a) => a.isFree)) return false;
+      } else {
+        if (onlyFree && !ev.airings.some((a) => a.isFree)) return false;
+      }
+
+      // 3. Équipes favorites
       if (onlyFavoriteTeams && ev.matchInfo) {
         if (!matchHasFavoriteTeam(ev.matchInfo.home, ev.matchInfo.away, favoriteTeams)) {
           return false;
         }
       }
 
+      // 4. Recherche par mot-clé
       if (q) {
         const titleMatch = ev.programme.title.toLowerCase().includes(q);
         const homeMatch = ev.matchInfo?.rawHome.toLowerCase().includes(q);
@@ -562,7 +598,11 @@ export const SportsView: React.FC<SportsViewProps> = ({
     });
   }, [
     allSportsEvents,
-    onlyMatches,
+    broadcasterScope,
+    selectedBouquets,
+    channelByName,
+    channelById,
+    activeLang,
     selectedCompetitionId,
     onlyFree,
     onlyFavoriteTeams,
@@ -630,16 +670,29 @@ export const SportsView: React.FC<SportsViewProps> = ({
         ) {
           return false;
         }
-        if (e.fixtureMeta) {
-          return (
-            !e.fixtureMeta.isLive &&
+
+        const isUpcoming = e.fixtureMeta
+          ? !e.fixtureMeta.isLive &&
             (e.programme.startMs > nowMs ||
               (nowMs - e.programme.startMs < 20 * 60000 && !e.fixtureMeta.isEnded))
-          );
+          : e.programme.startMs > nowMs;
+
+        if (!isUpcoming) return false;
+
+        // Filtre de date pour les matchs à venir
+        if (upcomingDateOffset !== 'all') {
+          const baseDate = new Date(nowMs);
+          baseDate.setHours(0, 0, 0, 0);
+          const startOfDay = baseDate.getTime() + (upcomingDateOffset as number) * 86400000;
+          const endOfDay = startOfDay + 86400000;
+          if (e.programme.startMs < startOfDay || e.programme.startMs >= endOfDay) {
+            return false;
+          }
         }
-        return e.programme.startMs > nowMs;
+
+        return true;
       }),
-    [filteredEvents, nowMs]
+    [filteredEvents, nowMs, upcomingDateOffset]
   );
 
   const endedEvents = useMemo(
@@ -674,6 +727,32 @@ export const SportsView: React.FC<SportsViewProps> = ({
       })
       .slice(0, 4);
   }, [allSportsEvents, nowMs]);
+
+  // Options du ruban horizontal de dates pour les matchs à venir
+  const upcomingDateOptions = useMemo(() => {
+    const baseDate = new Date(nowMs);
+    baseDate.setHours(0, 0, 0, 0);
+    const days = [0, 1, 2, 3, 4, 5, 6, 7];
+    return [
+      { id: 'all' as const, label: activeLang === 'ar' ? 'كل المواعيد' : 'Toutes les dates' },
+      ...days.map((offset) => {
+        const dayMs = baseDate.getTime() + offset * 86400000;
+        let label = '';
+        if (offset === 0) {
+          label = activeLang === 'ar' ? "اليوم" : "Aujourd'hui";
+        } else if (offset === 1) {
+          label = activeLang === 'ar' ? "غداً" : "Demain";
+        } else {
+          const dateStr = new Date(dayMs).toLocaleDateString(
+            activeLang === 'ar' ? 'ar-MA' : activeLang === 'fr' ? 'fr-FR' : 'en-US',
+            { weekday: 'short', day: 'numeric', month: 'short' }
+          );
+          label = activeLang === 'ar' ? `+${toStandardDigits(offset)} · ${dateStr}` : `J+${offset} · ${dateStr}`;
+        }
+        return { id: offset, label };
+      }),
+    ];
+  }, [nowMs, activeLang]);
 
   // Lancer la lecture in-app du résumé officiel pour un match terminé
   const handlePlayMatchHighlight = async (ev: SportsEvent) => {
@@ -952,20 +1031,38 @@ export const SportsView: React.FC<SportsViewProps> = ({
         <div className="flex flex-wrap items-center gap-2">
           {viewTab !== 'ended' && (
             <>
-              {/* Matchs uniquement */}
-              <button
-                type="button"
-                onClick={() => setOnlyMatches((v) => !v)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                  onlyMatches
-                    ? 'bg-[#1e293b] text-[#38bdf8] border border-[#38bdf8]/60 shadow-[0_0_10px_rgba(56,189,248,0.2)]'
-                    : 'bg-[#141c2c] text-[#64748b] border border-[#1e293b] hover:text-[#cbd5e1]'
-                }`}
-              >
-                <span>⚽</span>
-                <span>{activeLang === 'ar' ? 'المباريات فقط' : 'Matchs uniquement'}</span>
-                {onlyMatches && <span className="text-[10px] font-bold">✓</span>}
-              </button>
+              {/* Séparation claire des deux intentions : Tous les matchs VS Avec chaîne dans mes bouquets */}
+              <div className="flex items-center gap-1 rounded-xl bg-[#141c2c] p-0.5 border border-[#1e293b]">
+                <button
+                  type="button"
+                  onClick={() => setBroadcasterScope('all')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    broadcasterScope === 'all'
+                      ? 'bg-[#2563eb] text-[#ffffff] shadow-[0_0_10px_rgba(37,99,235,0.4)]'
+                      : 'text-[#94a3b8] hover:text-[#ffffff]'
+                  }`}
+                  title={activeLang === 'ar' ? 'اكتشاف كافة المباريات العالمية، حتى دون توفر قناة في باقاتك' : 'Découvrir toutes les rencontres, même sans chaîne dans vos bouquets'}
+                >
+                  <span>🌐</span>
+                  <span>{activeLang === 'ar' ? 'كل المباريات' : 'Tous les matchs'}</span>
+                  {broadcasterScope === 'all' && <span className="text-[10px] font-bold">✓</span>}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setBroadcasterScope('my_bouquets')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    broadcasterScope === 'my_bouquets'
+                      ? 'bg-[#2563eb] text-[#ffffff] shadow-[0_0_10px_rgba(37,99,235,0.4)]'
+                      : 'text-[#94a3b8] hover:text-[#ffffff]'
+                  }`}
+                  title={activeLang === 'ar' ? 'عرض المباريات التي تملك قناة ناقلة لها في باقاتك المفعلة فقط' : 'Ne garder que les rencontres ayant au moins une chaîne dans vos bouquets'}
+                >
+                  <Tv className="w-3.5 h-3.5 text-[#38bdf8]" />
+                  <span>{activeLang === 'ar' ? 'قناة في باقاتي' : 'Dans mes bouquets'}</span>
+                  {broadcasterScope === 'my_bouquets' && <span className="text-[10px] font-bold">✓</span>}
+                </button>
+              </div>
 
               {/* Équipes favorites */}
               <button
@@ -985,38 +1082,7 @@ export const SportsView: React.FC<SportsViewProps> = ({
                 <span>{activeLang === 'ar' ? `فرقي المفضلة (${toStandardDigits(String(favoriteTeams.length))})` : `Mes équipes (${favoriteTeams.length})`}</span>
               </button>
 
-              {/* Filtre diffuseurs : Mes bouquets configurés vs Tous les satellites */}
-              <div className="flex items-center gap-0.5 rounded-xl bg-[#141c2c] p-0.5 border border-[#1e293b]">
-                <button
-                  type="button"
-                  onClick={() => setBroadcasterScope('my_bouquets')}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                    broadcasterScope === 'my_bouquets'
-                      ? 'bg-[#2563eb] text-[#ffffff] shadow-[0_0_10px_rgba(37,99,235,0.4)]'
-                      : 'text-[#94a3b8] hover:text-[#ffffff]'
-                  }`}
-                  title={activeLang === 'ar' ? 'عرض قنوات باقاتك المحددة فقط' : 'Afficher uniquement les chaînes de vos bouquets configurés (ex: Canal+, TNT, Movistar, etc.)'}
-                >
-                  <Tv className="w-3.5 h-3.5 text-[#38bdf8]" />
-                  <span>{activeLang === 'ar' ? 'باقاتي' : 'Mes bouquets'}</span>
-                  {broadcasterScope === 'my_bouquets' && <span className="text-[10px] font-bold">✓</span>}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setBroadcasterScope('all')}
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                    broadcasterScope === 'all'
-                      ? 'bg-[#2563eb] text-[#ffffff] shadow-[0_0_10px_rgba(37,99,235,0.4)]'
-                      : 'text-[#94a3b8] hover:text-[#ffffff]'
-                  }`}
-                  title={activeLang === 'ar' ? 'عرض جميع القنوات الفضائية الدولية' : 'Afficher tous les diffuseurs satellites internationaux'}
-                >
-                  <span>🌐 {activeLang === 'ar' ? 'كل الأقمار' : 'Tous satellites'}</span>
-                  {broadcasterScope === 'all' && <span className="text-[10px] font-bold">✓</span>}
-                </button>
-              </div>
-
-              {/* En clair uniquement */}
+              {/* En clair uniquement (FTA dans le périmètre choisi) */}
               <button
                 type="button"
                 onClick={() => setOnlyFree((v) => !v)}
@@ -1025,9 +1091,10 @@ export const SportsView: React.FC<SportsViewProps> = ({
                     ? 'bg-[#2563eb]/25 text-[#38bdf8] border border-[#2563eb] shadow-[0_0_10px_rgba(37,99,235,0.35)]'
                     : 'bg-[#141c2c] text-[#64748b] border border-[#1e293b] hover:text-[#cbd5e1]'
                 }`}
+                title={activeLang === 'ar' ? 'عرض القنوات المفتوحة مجاناً في النطاق المحدد' : 'Chaînes gratuites en clair dans le périmètre sélectionné'}
               >
                 <span>🔓</span>
-                <span>{activeLang === 'ar' ? 'مفتوحة مجاناً (FTA)' : 'En clair (FTA)'}</span>
+                <span>{activeLang === 'ar' ? 'في القنوات المفتوحة (FTA)' : 'En clair (FTA)'}</span>
                 {onlyFree && <span className="text-[10px] font-bold">✓</span>}
               </button>
 
@@ -1052,6 +1119,29 @@ export const SportsView: React.FC<SportsViewProps> = ({
             </div>
           )}
         </div>
+
+        {/* Ruban horizontal de sélection de dates pour les matchs À venir */}
+        {viewTab === 'upcoming' && (
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-2 border-t border-[#1e293b]/70">
+            <span className="text-[11px] font-semibold text-[#94a3b8] shrink-0 me-1">
+              📅 {activeLang === 'ar' ? 'التاريخ :' : 'Date :'}
+            </span>
+            {upcomingDateOptions.map((opt) => (
+              <button
+                key={String(opt.id)}
+                type="button"
+                onClick={() => setUpcomingDateOffset(opt.id)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium shrink-0 transition-all cursor-pointer ${
+                  upcomingDateOffset === opt.id
+                    ? 'bg-[#38bdf8]/20 border border-[#38bdf8] text-[#ffffff] font-bold shadow-[0_0_8px_rgba(56,189,248,0.25)]'
+                    : 'bg-[#141c2c] text-[#94a3b8] hover:text-[#ffffff] border border-[#1e293b]'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Ruban horizontal des compétitions cibles à forte audience */}
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1">
@@ -1719,9 +1809,16 @@ export const SportsView: React.FC<SportsViewProps> = ({
                                   <span className="text-[#f1f5f9] font-medium group-hover/ch:text-[#ffffff]">
                                     {airing.channel.displayName}
                                   </span>
-                                  {isLoadedInGuide && (
+                                  {isLoadedInGuide ? (
                                     <span className="text-[9px] px-1 py-0.2 rounded bg-[#2563eb]/20 text-[#38bdf8] font-mono">
                                       {activeLang === 'ar' ? 'دليل القنوات' : 'Guide TV'}
+                                    </span>
+                                  ) : (
+                                    <span
+                                      className="text-[9px] px-1 py-0.2 rounded bg-[#334155]/40 text-[#94a3b8] font-sans"
+                                      title={activeLang === 'ar' ? 'بث تقديري وفق البرمجة العامة للبطولة' : 'Correspondance générale par compétition'}
+                                    >
+                                      {activeLang === 'ar' ? 'إرشادي' : 'Indicatif'}
                                     </span>
                                   )}
                                   <span className="text-[9px] text-[#64748b] font-mono">
