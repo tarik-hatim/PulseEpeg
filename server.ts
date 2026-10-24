@@ -1029,79 +1029,82 @@ async function startServer() {
     res.json(fixtures);
   });
 
-  // Endpoint de vérification sécurisée pour le Guide EPG étendu (J+1 à J+7) et le Replay / Catch-up (Server-Side Auth Guard via JWT)
+  // Endpoint sécurisé : l'accès Pro échoue fermé si la configuration ou la vérification Supabase échoue.
   app.get('/api/epg/extended', async (req, res) => {
     const authHeader = req.headers.authorization || '';
-    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-    const dayOffset = parseInt(String(req.query.dayOffset || '1'), 10);
+    const tokenMatch = authHeader.match(/^Bearer\s+(.+)$/i);
+    const token = tokenMatch?.[1]?.trim() || '';
+    const rawDayOffset = String(req.query.dayOffset ?? '1');
+    const dayOffset = Number(rawDayOffset);
     const isCatchUp = req.query.isCatchUp === 'true' || dayOffset < 0;
+    const requiresPro = dayOffset !== 0 || isCatchUp;
 
-    // Jours J+1 à J+7 ou Catch-up exigent une authentification Pro valide
-    if (dayOffset !== 0 || isCatchUp) {
+    if (!Number.isInteger(dayOffset) || dayOffset < -7 || dayOffset > 7) {
+      res.status(400).json({ error: 'dayOffset doit être un entier compris entre -7 et 7.', isPro: false });
+      return;
+    }
+
+    if (requiresPro) {
       if (!token) {
-        res.status(401).json({
-          error: 'Authentification requise pour accéder au Guide EPG étendu ou Catch-up (Token manquant).',
-          isPro: false,
-        });
+        res.status(401).json({ error: 'Authentification requise pour le guide étendu ou Catch-up.', isPro: false });
         return;
       }
 
-      // Si Supabase URL / Key sont configurés, validation du JWT via Supabase
       const supabaseUrl = process.env.VITE_SUPABASE_URL;
       const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
+      if (!supabaseUrl || !supabaseKey || supabaseUrl.includes('placeholder')) {
+        // Ne jamais accorder les droits Pro quand la vérification ne peut pas être effectuée.
+        res.status(503).json({ error: 'Vérification des droits Pro temporairement indisponible.', isPro: false });
+        return;
+      }
 
-      if (supabaseUrl && supabaseKey && !supabaseUrl.includes('placeholder')) {
-        try {
-          const userRes = await fetch(`${supabaseUrl}/auth/v1/user`, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              apikey: supabaseKey,
-            },
-          });
+      try {
+        const userRes = await fetch(`${supabaseUrl.replace(/\/$/, '')}/auth/v1/user`, {
+          headers: { Authorization: `Bearer ${token}`, apikey: supabaseKey },
+          signal: AbortSignal.timeout(5000),
+        });
 
-          if (!userRes.ok) {
-            res.status(401).json({ error: 'Token utilisateur invalide ou expiré.', isPro: false });
-            return;
-          }
-
-          const userData = (await userRes.json()) as { id?: string };
-          if (!userData?.id) {
-            res.status(401).json({ error: 'Utilisateur non identifié.', isPro: false });
-            return;
-          }
-
-          // Vérification stricte dans public.profiles (is_pro = true ou role in ('admin', 'superuser', 'pro'))
-          const profileRes = await fetch(
-            `${supabaseUrl}/rest/v1/profiles?id=eq.${userData.id}&select=is_pro,role`,
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-                apikey: supabaseKey,
-              },
-            }
-          );
-
-          if (profileRes.ok) {
-            const profiles = (await profileRes.json()) as Array<{ is_pro?: boolean; role?: string }>;
-            const profile = profiles[0];
-            const isPro = Boolean(
-              profile?.is_pro === true ||
-              profile?.role === 'superuser' ||
-              profile?.role === 'admin' ||
-              profile?.role === 'pro'
-            );
-
-            if (!isPro) {
-              res.status(403).json({
-                error: 'Accès réservé aux abonnés PulseEPG Pro (is_pro: true requis dans public.profiles).',
-                isPro: false,
-              });
-              return;
-            }
-          }
-        } catch {
-          // Erreur réseau Supabase
+        if (!userRes.ok) {
+          res.status(401).json({ error: 'Token utilisateur invalide ou expiré.', isPro: false });
+          return;
         }
+
+        const userData = (await userRes.json()) as { id?: string };
+        if (!userData?.id || !/^[0-9a-f-]{16,64}$/i.test(userData.id)) {
+          res.status(401).json({ error: 'Utilisateur non identifié.', isPro: false });
+          return;
+        }
+
+        const profileUrl = new URL('/rest/v1/profiles', supabaseUrl);
+        profileUrl.searchParams.set('id', `eq.${userData.id}`);
+        profileUrl.searchParams.set('select', 'is_pro,role');
+        const profileRes = await fetch(profileUrl, {
+          headers: { Authorization: `Bearer ${token}`, apikey: supabaseKey },
+          signal: AbortSignal.timeout(5000),
+        });
+
+        // Toute erreur de lecture du profil doit refuser l'accès, pas le valider.
+        if (!profileRes.ok) {
+          res.status(503).json({ error: 'Impossible de vérifier les droits Pro.', isPro: false });
+          return;
+        }
+
+        const profiles = (await profileRes.json()) as Array<{ is_pro?: boolean; role?: string }>;
+        const profile = Array.isArray(profiles) ? profiles[0] : undefined;
+        const isPro = Boolean(
+          profile?.is_pro === true ||
+          profile?.role === 'superuser' ||
+          profile?.role === 'admin' ||
+          profile?.role === 'pro'
+        );
+
+        if (!isPro) {
+          res.status(403).json({ error: 'Accès réservé aux abonnés PulseEPG Pro.', isPro: false });
+          return;
+        }
+      } catch {
+        res.status(503).json({ error: 'Vérification des droits Pro temporairement indisponible.', isPro: false });
+        return;
       }
     }
 
@@ -1109,46 +1112,89 @@ async function startServer() {
       authorized: true,
       dayOffset,
       isCatchUp,
-      status: 'verified_server_pro',
+      status: requiresPro ? 'verified_server_pro' : 'current_day',
     });
   });
 
-  // Proxy streaming endpoint for Web environment (bypasses browser CORS while keeping raw .xml.gz stream for client Web Worker decompression)
+  // Proxy EPG sécurisé : liste blanche de domaines, HTTPS uniquement et redirections revalidées.
   app.get('/api/epg-proxy', async (req, res) => {
-    const rawUrl = ((req.query.url as string) || DEFAULT_EPG_URL)
-      .trim()
-      .replace(/^http:\/\//i, 'https://');
+    const rawUrl = String(req.query.url || DEFAULT_EPG_URL).trim();
+    if (rawUrl.length > 2048) {
+      res.status(400).json({ error: 'URL EPG trop longue.' });
+      return;
+    }
 
-    let parsedUrl: URL;
-    try {
-      parsedUrl = new URL(rawUrl);
-      if (parsedUrl.protocol !== 'https:') {
-        res
-          .status(400)
-          .json({ error: 'Protocole URL invalide. Utilisez exclusivement HTTPS.' });
-        return;
+    const configuredHosts = (process.env.EPG_PROXY_ALLOWED_HOSTS || 'epgshare01.online')
+      .split(',')
+      .map((host) => host.trim().toLowerCase())
+      .filter(Boolean);
+    const allowedHosts = new Set(configuredHosts);
+    let currentUrl: URL;
+
+    const validateTarget = (value: string): URL => {
+      const target = new URL(value);
+      if (
+        target.protocol !== 'https:' ||
+        target.username ||
+        target.password ||
+        (target.port && target.port !== '443') ||
+        !allowedHosts.has(target.hostname.toLowerCase())
+      ) {
+        throw new Error('Destination EPG non autorisée. Configurez EPG_PROXY_ALLOWED_HOSTS.');
       }
-    } catch {
-      res.status(400).json({ error: 'URL EPG invalide.' });
+      target.hash = '';
+      return target;
+    };
+
+    try {
+      // Accepter les anciennes sources HTTP en les promouvant en HTTPS, mais jamais un autre protocole.
+      const normalizedUrl = rawUrl.replace(/^http:\/\//i, 'https://');
+      currentUrl = validateTarget(normalizedUrl);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'URL EPG invalide.';
+      res.status(400).json({ error: message });
       return;
     }
 
     try {
       const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
       req.on('close', () => {
-        if (!res.writableEnded) {
-          controller.abort();
+        if (!res.writableEnded) controller.abort();
+      });
+
+      let upstream: Response | undefined;
+      try {
+        // Redirections manuelles : chaque destination est contrôlée avant toute nouvelle requête.
+        for (let redirectCount = 0; redirectCount <= 3; redirectCount++) {
+          upstream = await fetch(currentUrl, {
+            redirect: 'manual',
+            headers: {
+              'Accept-Encoding': 'identity',
+              'User-Agent': 'PulseEPG-Capacitor/1.0 (Android; Mobile)',
+            },
+            signal: controller.signal,
+          });
+
+          if (![301, 302, 303, 307, 308].includes(upstream.status)) break;
+          const location = upstream.headers.get('location');
+          if (!location || redirectCount === 3) {
+            throw new Error('Redirection EPG invalide ou trop nombreuse.');
+          }
+          currentUrl = validateTarget(new URL(location, currentUrl).toString());
         }
-      });
+      } finally {
+        clearTimeout(timeout);
+      }
 
-      const upstream = await fetch(parsedUrl.toString(), {
-        headers: {
-          'Accept-Encoding': 'identity',
-          'User-Agent': 'PulseEPG-Capacitor/1.0 (Android; Mobile)',
-        },
-        signal: controller.signal,
-      });
-
+      if (!upstream) {
+        res.status(502).json({ error: 'Aucune réponse de la source EPG.' });
+        return;
+      }
+      if (upstream.status >= 300 && upstream.status < 400) {
+        res.status(502).json({ error: 'Redirection EPG non autorisée.' });
+        return;
+      }
       if (!upstream.ok) {
         res.status(upstream.status).json({
           error: `Erreur serveur EPG source (${upstream.status} ${upstream.statusText})`,
@@ -1156,44 +1202,50 @@ async function startServer() {
         return;
       }
 
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Content-Type', 'application/octet-stream');
-      res.setHeader('Cache-Control', 'public, max-age=1800');
-
-      const contentLength = upstream.headers.get('content-length');
-      if (contentLength) {
-        res.setHeader('Content-Length', contentLength);
-        res.setHeader('X-EPG-Total-Bytes', contentLength);
+      const contentLength = Number(upstream.headers.get('content-length') || 0);
+      const maxBytes = 100 * 1024 * 1024;
+      if (contentLength > maxBytes) {
+        res.status(413).json({ error: 'Flux EPG trop volumineux.' });
+        return;
       }
-
-      const lastModified = upstream.headers.get('last-modified');
-      if (lastModified) {
-        res.setHeader('X-EPG-Last-Modified', lastModified);
-      }
-
       if (!upstream.body) {
         res.status(502).json({ error: 'Flux EPG vide.' });
         return;
       }
 
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Cache-Control', 'public, max-age=1800');
+      if (contentLength > 0) {
+        res.setHeader('Content-Length', String(contentLength));
+        res.setHeader('X-EPG-Total-Bytes', String(contentLength));
+      }
+      const lastModified = upstream.headers.get('last-modified');
+      if (lastModified) res.setHeader('X-EPG-Last-Modified', lastModified);
+
       const nodeStream = Readable.fromWeb(
         upstream.body as import('stream/web').ReadableStream
       );
+      let bytesSent = 0;
+      nodeStream.on('data', (chunk: Buffer | string) => {
+        bytesSent += Buffer.byteLength(chunk);
+        if (bytesSent > maxBytes) {
+          nodeStream.destroy(new Error('Flux EPG trop volumineux.'));
+        }
+      });
       nodeStream.on('error', (err) => {
         if (!res.headersSent) {
           res.status(502).json({ error: err.message });
         } else {
-          res.end();
+          res.destroy(err);
         }
       });
       nodeStream.pipe(res);
     } catch (err: unknown) {
       if (!res.headersSent) {
-        const message =
-          err instanceof Error
-            ? err.message
-            : 'Erreur réseau lors de la récupération EPG';
-        res.status(500).json({ error: message });
+        const message = err instanceof Error ? err.message : 'Erreur réseau lors de la récupération EPG';
+        const isAbort = err instanceof Error && err.name === 'AbortError';
+        res.status(isAbort ? 504 : 502).json({ error: message });
       }
     }
   });
