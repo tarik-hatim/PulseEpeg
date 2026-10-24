@@ -76,6 +76,9 @@ service cloud.firestore {
       allow create: if isOwner(userId) &&
         isValidId(userId) &&
         isValidUserProfile(incoming(), userId) &&
+        // Les clients peuvent créer uniquement un profil gratuit. Les droits Pro sont attribués côté serveur.
+        incoming().plan == 'free' &&
+        incoming().isPremium == false &&
         incoming().createdAt == request.time &&
         incoming().updatedAt == request.time;
 
@@ -84,10 +87,13 @@ service cloud.firestore {
         isValidUserProfile(incoming(), userId) &&
         incoming().uid == existing().uid &&
         incoming().createdAt == existing().createdAt &&
+        // Le client ne peut ni promouvoir son compte ni modifier le statut premium.
+        incoming().plan == existing().plan &&
+        incoming().isPremium == existing().isPremium &&
         incoming().updatedAt == request.time &&
         (
-          incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'plan', 'isPremium', 'updatedAt']) ||
-          incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'email', 'plan', 'isPremium', 'updatedAt'])
+          incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'updatedAt']) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'email', 'updatedAt'])
         );
 
       allow delete: if isOwner(userId) && isValidId(userId);
@@ -100,6 +106,8 @@ service cloud.firestore {
       allow create: if isOwner(userId) &&
         isValidId(userId) &&
         isValidUserSettings(incoming(), userId) &&
+        // Le statut premium est géré côté serveur, jamais par le client.
+        incoming().is_premium == false &&
         incoming().created_at == request.time &&
         incoming().updated_at == request.time;
 
@@ -108,10 +116,12 @@ service cloud.firestore {
         isValidUserSettings(incoming(), userId) &&
         incoming().user_id == existing().user_id &&
         incoming().created_at == existing().created_at &&
+        // Une mise à jour cliente doit conserver strictement le statut premium existant.
+        incoming().is_premium == existing().is_premium &&
         incoming().updated_at == request.time &&
         (
           // Action 1: Sync selected_bouquets and/or favorite_channels
-          incoming().diff(existing()).affectedKeys().hasOnly(['selected_bouquets', 'favorite_channels', 'is_premium', 'updated_at']) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['selected_bouquets', 'favorite_channels', 'updated_at']) ||
           // Action 2: Sync only selected_bouquets
           incoming().diff(existing()).affectedKeys().hasOnly(['selected_bouquets', 'updated_at']) ||
           // Action 3: Sync only favorite_channels
