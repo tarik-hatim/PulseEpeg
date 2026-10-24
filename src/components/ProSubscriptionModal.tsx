@@ -2,21 +2,18 @@ import React, { useState } from 'react';
 import {
   Crown,
   Check,
-  Sparkles,
   Zap,
   ShieldCheck,
-  CreditCard,
   Calendar,
   Trophy,
   Tv,
   X,
   Lock,
-  ArrowRight,
   Layers,
   Cloud,
 } from 'lucide-react';
 import { AppLanguage } from '../types/epg';
-import { AuthSessionState, supabaseService } from '../services/supabaseService';
+import { AuthSessionState } from '../services/supabaseService';
 
 interface ProSubscriptionModalProps {
   isOpen: boolean;
@@ -33,54 +30,10 @@ export const ProSubscriptionModal: React.FC<ProSubscriptionModalProps> = ({
   authState,
   language,
   proReason,
-  onProActivated,
 }) => {
   const [selectedPlan, setSelectedPlan] = useState<'yearly' | 'monthly'>('yearly');
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
-  const [cardNumber, setCardNumber] = useState('•••• •••• •••• 4242');
-  const [expiry, setExpiry] = useState('12/28');
-  const [cvc, setCvc] = useState('•••');
-
+  
   if (!isOpen) return null;
-
-  const handleSubscribe = async () => {
-    setIsProcessing(true);
-    try {
-      // Si l'utilisateur n'est pas encore connecté, connecter en mode Pro ou mettre à jour son profil
-      if (authState.isLoggedIn) {
-        await supabaseService.setPremiumStatus(true);
-      } else {
-        await supabaseService.signInOrRegisterWithEmail({
-          email: 'vip.pro@pulseepg.com',
-          displayName: 'Abonné PulseEPG Pro',
-          mode: 'register',
-          activatePro: true,
-        });
-      }
-
-      setIsSuccess(true);
-      onProActivated?.();
-      setTimeout(() => {
-        setIsSuccess(false);
-        onClose();
-      }, 1500);
-    } catch {
-      // Ignorer erreur
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleCancelSubscription = async () => {
-    setIsProcessing(true);
-    try {
-      await supabaseService.setPremiumStatus(false);
-      onClose();
-    } finally {
-      setIsProcessing(false);
-    }
-  };
 
   return (
     <div
@@ -167,11 +120,10 @@ export const ProSubscriptionModal: React.FC<ProSubscriptionModalProps> = ({
 
               <button
                 type="button"
-                onClick={handleCancelSubscription}
-                disabled={isProcessing}
-                className="w-full py-2.5 rounded-xl border border-[#475569] text-xs text-[#94a3b8] hover:text-[#ef4444] hover:border-[#ef4444] transition-colors cursor-pointer font-medium"
+                disabled
+                className="w-full py-2.5 rounded-xl border border-[#475569] text-xs text-[#94a3b8] cursor-not-allowed font-medium opacity-70"
               >
-                Gérer ou résilier l'abonnement
+                Gestion de l'abonnement bientôt disponible
               </button>
             </div>
           ) : (
@@ -281,75 +233,22 @@ export const ProSubscriptionModal: React.FC<ProSubscriptionModalProps> = ({
                 </div>
               </div>
 
-              {/* Simulation Paiement sécurisé (SSL 256 bits) */}
-              <div className="p-3.5 rounded-2xl bg-[#090d16] border border-[#1e293b] space-y-2.5">
-                <div className="flex items-center justify-between text-xs text-[#94a3b8]">
-                  <span className="flex items-center gap-1.5 font-semibold text-[#f1f5f9]">
-                    <CreditCard className="w-3.5 h-3.5 text-[#38bdf8]" />
-                    Paiement sécurisé crypté SSL
-                  </span>
-                  <span className="flex items-center gap-1 text-[11px] text-[#10b981]">
-                    <ShieldCheck className="w-3 h-3" />
-                    Garanti satisfait
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="col-span-2">
-                    <input
-                      type="text"
-                      value={cardNumber}
-                      onChange={(e) => setCardNumber(e.target.value)}
-                      className="w-full px-3 py-1.5 rounded-lg bg-[#141a26] border border-[#334155] text-xs font-mono text-[#ffffff]"
-                    />
-                  </div>
-                  <div className="flex gap-1.5">
-                    <input
-                      type="text"
-                      value={expiry}
-                      onChange={(e) => setExpiry(e.target.value)}
-                      className="w-1/2 px-2 py-1.5 rounded-lg bg-[#141a26] border border-[#334155] text-xs font-mono text-[#ffffff] text-center"
-                    />
-                    <input
-                      type="text"
-                      value={cvc}
-                      onChange={(e) => setCvc(e.target.value)}
-                      className="w-1/2 px-2 py-1.5 rounded-lg bg-[#141a26] border border-[#334155] text-xs font-mono text-[#ffffff] text-center"
-                    />
-                  </div>
-                </div>
+              <div className="p-3.5 rounded-xl bg-[#090d16] border border-[#1e293b] text-xs leading-relaxed text-[#cbd5e1]">
+                <ShieldCheck className="w-4 h-4 text-[#38bdf8] inline-block me-2 align-middle" />
+                Le paiement sécurisé n'est pas encore intégré. Aucun paiement ni activation Pro ne sera simulé.
               </div>
 
-              {/* Bouton d'activation Pro */}
+              {/* Activation Pro désactivée jusqu'à l'intégration du paiement */}
               <button
                 type="button"
-                onClick={handleSubscribe}
-                disabled={isProcessing || isSuccess}
-                className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-[#f59e0b] via-[#ec4899] to-[#8b5cf6] hover:opacity-95 text-[#ffffff] font-extrabold text-sm shadow-[0_0_25px_rgba(236,72,153,0.45)] transition-all flex items-center justify-center gap-2 cursor-pointer"
+                disabled
+                className="w-full py-3.5 px-4 rounded-2xl bg-[#334155] text-[#cbd5e1] font-extrabold text-sm cursor-not-allowed opacity-80"
               >
-                {isProcessing ? (
-                  <>
-                    <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                    <span>Activation du statut Pro...</span>
-                  </>
-                ) : isSuccess ? (
-                  <>
-                    <Check className="w-5 h-5 text-white" />
-                    <span>Statut Pro activé avec succès !</span>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4 fill-current" />
-                    <span>
-                      Passer à PulseEPG Pro ({selectedPlan === 'yearly' ? '19,99 € / an' : '2,99 € / mois'})
-                    </span>
-                    <ArrowRight className="w-4 h-4 ms-1" />
-                  </>
-                )}
+                Paiement Pro indisponible pour le moment
               </button>
 
               <p className="text-[10px] text-center text-[#64748b]">
-                Paiement récurrent sécurisé. Déblocage immédiat de toutes les fonctionnalités.
+                L'activation Pro sera disponible après intégration et validation d'un prestataire de paiement.
               </p>
             </>
           )}

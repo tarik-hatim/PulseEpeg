@@ -1158,44 +1158,45 @@ async function startServer() {
 
     try {
       const controller = new AbortController();
+      // Le délai reste actif pendant toute la réception du corps, pas uniquement des en-têtes.
       const timeout = setTimeout(() => controller.abort(), 15000);
-      req.on('close', () => {
+      res.on('close', () => {
         if (!res.writableEnded) controller.abort();
+        clearTimeout(timeout);
       });
 
       let upstream: Response | undefined;
-      try {
-        // Redirections manuelles : chaque destination est contrôlée avant toute nouvelle requête.
-        for (let redirectCount = 0; redirectCount <= 3; redirectCount++) {
-          upstream = await fetch(currentUrl, {
-            redirect: 'manual',
-            headers: {
-              'Accept-Encoding': 'identity',
-              'User-Agent': 'PulseEPG-Capacitor/1.0 (Android; Mobile)',
-            },
-            signal: controller.signal,
-          });
+      // Redirections manuelles : chaque destination est contrôlée avant toute nouvelle requête.
+      for (let redirectCount = 0; redirectCount <= 3; redirectCount++) {
+        upstream = await fetch(currentUrl, {
+          redirect: 'manual',
+          headers: {
+            'Accept-Encoding': 'identity',
+            'User-Agent': 'PulseEPG-Capacitor/1.0 (Android; Mobile)',
+          },
+          signal: controller.signal,
+        });
 
-          if (![301, 302, 303, 307, 308].includes(upstream.status)) break;
-          const location = upstream.headers.get('location');
-          if (!location || redirectCount === 3) {
-            throw new Error('Redirection EPG invalide ou trop nombreuse.');
-          }
-          currentUrl = validateTarget(new URL(location, currentUrl).toString());
+        if (![301, 302, 303, 307, 308].includes(upstream.status)) break;
+        const location = upstream.headers.get('location');
+        if (!location || redirectCount === 3) {
+          throw new Error('Redirection EPG invalide ou trop nombreuse.');
         }
-      } finally {
-        clearTimeout(timeout);
+        currentUrl = validateTarget(new URL(location, currentUrl).toString());
       }
 
       if (!upstream) {
+        clearTimeout(timeout);
         res.status(502).json({ error: 'Aucune réponse de la source EPG.' });
         return;
       }
       if (upstream.status >= 300 && upstream.status < 400) {
+        clearTimeout(timeout);
         res.status(502).json({ error: 'Redirection EPG non autorisée.' });
         return;
       }
       if (!upstream.ok) {
+        clearTimeout(timeout);
         res.status(upstream.status).json({
           error: `Erreur serveur EPG source (${upstream.status} ${upstream.statusText})`,
         });
@@ -1205,10 +1206,12 @@ async function startServer() {
       const contentLength = Number(upstream.headers.get('content-length') || 0);
       const maxBytes = 100 * 1024 * 1024;
       if (contentLength > maxBytes) {
+        clearTimeout(timeout);
         res.status(413).json({ error: 'Flux EPG trop volumineux.' });
         return;
       }
       if (!upstream.body) {
+        clearTimeout(timeout);
         res.status(502).json({ error: 'Flux EPG vide.' });
         return;
       }
@@ -1233,7 +1236,10 @@ async function startServer() {
           nodeStream.destroy(new Error('Flux EPG trop volumineux.'));
         }
       });
+      nodeStream.on('end', () => clearTimeout(timeout));
+      nodeStream.on('close', () => clearTimeout(timeout));
       nodeStream.on('error', (err) => {
+        clearTimeout(timeout);
         if (!res.headersSent) {
           res.status(502).json({ error: err.message });
         } else {

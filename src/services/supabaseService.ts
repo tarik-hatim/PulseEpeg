@@ -606,27 +606,19 @@ export class SupabaseService {
     try {
       const raw = localStorage.getItem(LOCAL_SESSION_STORAGE_KEY);
       if (!raw) {
-        // Auto-provision Premium Account for tester / user Tarik Hatim
-        const testerAccount: PulseUserAccount = {
-          id: 'pro_tester_tarik_hatim',
-          email: 'tarik.hatim@gmail.com',
-          displayName: 'Tarik Hatim',
-          isPremium: true,
-          plan: 'pro',
-          provider: 'local_sim',
-        };
-        this.emitState(testerAccount);
+        // Aucun compte ni statut Pro n'est créé automatiquement sur l'appareil.
+        this.emitState(null);
         return;
       }
       const parsed = JSON.parse(raw) as Partial<PulseUserAccount>;
       if (parsed && parsed.id && parsed.email) {
-        const isTester = parsed.email.toLowerCase() === 'tarik.hatim@gmail.com';
-        const isPro = Boolean(isTester || parsed.isPremium || parsed.plan === 'pro');
+        // Le stockage local n'est jamais une source d'autorité pour les droits Pro.
+        const isPro = false;
         const restoredAccount: PulseUserAccount = {
           id: sanitizeId(parsed.id),
           email: sanitizeEmail(parsed.email),
           displayName: sanitizeDisplayName(
-            parsed.displayName || (isTester ? 'Tarik Hatim' : ''),
+            parsed.displayName || '',
             parsed.email
           ),
           isPremium: isPro,
@@ -683,7 +675,7 @@ export class SupabaseService {
         if (supaUser) {
           const isProServer = await this.fetchServerSideProStatus(supaUser.id);
           const meta = supaUser.user_metadata || {};
-          const isPro = isProServer || Boolean(meta.is_premium || meta.plan === 'pro');
+          const isPro = isProServer;
           const account: PulseUserAccount = {
             id: sanitizeId(supaUser.id),
             email: sanitizeEmail(supaUser.email || 'user@pulseepg.app'),
@@ -707,7 +699,7 @@ export class SupabaseService {
       if (session?.user) {
         const isProServer = await this.fetchServerSideProStatus(session.user.id);
         const meta = session.user.user_metadata || {};
-        const isPro = isProServer || Boolean(meta.is_premium || meta.plan === 'pro');
+        const isPro = isProServer;
         const account: PulseUserAccount = {
           id: sanitizeId(session.user.id),
           email: sanitizeEmail(session.user.email || 'user@pulseepg.app'),
@@ -728,17 +720,17 @@ export class SupabaseService {
   private buildSimulatedLocalAccount(
     cleanEmail: string,
     cleanName: string,
-    isPro: boolean
+    _isPro: boolean
   ): PulseUserAccount {
-    const isTester = cleanEmail.toLowerCase() === 'tarik.hatim@gmail.com';
-    const effectivePro = isTester || isPro;
+    // Les comptes simulés servent uniquement aux tests UI et ne disposent jamais de droits Pro.
+    const effectivePro = false;
     const deterministicId = sanitizeId(
       `supa_local_${cleanEmail.replace(/[^a-z0-9]/g, '_')}`
     );
     return {
       id: deterministicId,
       email: cleanEmail,
-      displayName: cleanName || (isTester ? 'Tarik Hatim' : ''),
+      displayName: cleanName,
       isPremium: effectivePro,
       plan: effectivePro ? 'pro' : 'free',
       provider: 'local_sim',
@@ -756,12 +748,9 @@ export class SupabaseService {
     activatePro?: boolean;
   }): Promise<PulseUserAccount> {
     const cleanEmail = sanitizeEmail(params.email);
-    const isTester = cleanEmail.toLowerCase() === 'tarik.hatim@gmail.com';
-    const cleanName = sanitizeDisplayName(
-      params.displayName || (isTester ? 'Tarik Hatim' : ''),
-      cleanEmail
-    );
-    const isPro = isTester || Boolean(params.activatePro);
+    const cleanName = sanitizeDisplayName(params.displayName || '', cleanEmail);
+    // activatePro est une donnée client non fiable et n'accorde aucun privilège.
+    const isPro = false;
     const effectivePassword =
       params.password && params.password.trim().length >= 6
         ? params.password.trim()
@@ -775,8 +764,6 @@ export class SupabaseService {
           options: {
             data: {
               full_name: cleanName,
-              is_premium: isPro,
-              plan: isPro ? 'pro' : 'free',
             },
           },
         });
@@ -784,12 +771,13 @@ export class SupabaseService {
           throw new Error(error.message);
         }
         if (data.user) {
+          const serverIsPro = await this.fetchServerSideProStatus(data.user.id);
           const account: PulseUserAccount = {
             id: sanitizeId(data.user.id),
             email: cleanEmail,
             displayName: cleanName,
-            isPremium: isPro,
-            plan: isPro ? 'pro' : 'free',
+            isPremium: serverIsPro,
+            plan: serverIsPro ? 'pro' : 'free',
             provider: 'supabase',
           };
           this.emitState(account);
@@ -837,12 +825,9 @@ export class SupabaseService {
     activatePro?: boolean;
   }): Promise<PulseUserAccount> {
     const cleanEmail = sanitizeEmail(params.email);
-    const isTester = cleanEmail.toLowerCase() === 'tarik.hatim@gmail.com';
-    const cleanName = sanitizeDisplayName(
-      params.displayName || (isTester ? 'Tarik Hatim' : ''),
-      cleanEmail
-    );
-    const isPro = isTester || Boolean(params.activatePro);
+    const cleanName = sanitizeDisplayName(params.displayName || '', cleanEmail);
+    // activatePro est une donnée client non fiable et n'accorde aucun privilège.
+    const isPro = false;
     const effectivePassword =
       params.password && params.password.trim().length >= 1
         ? params.password.trim()
@@ -860,11 +845,7 @@ export class SupabaseService {
         if (data.user) {
           const isProServer = await this.fetchServerSideProStatus(data.user.id);
           const meta = data.user.user_metadata || {};
-          const userPro =
-            isTester ||
-            (params.activatePro !== undefined
-              ? isPro
-              : (isProServer || Boolean(meta.is_premium || meta.plan === 'pro')));
+          const userPro = isProServer;
           const account: PulseUserAccount = {
             id: sanitizeId(data.user.id),
             email: cleanEmail,
@@ -936,7 +917,7 @@ export class SupabaseService {
     isSimulated: boolean;
     infoMessage?: string;
   }> {
-    const isPro = Boolean(params?.activatePro);
+    const isPro = false; // L'authentification Google ne peut pas accorder le statut Pro.
     const cleanEmail = sanitizeEmail(
       params?.email?.trim() || 'google.user@gmail.com'
     );
@@ -1001,33 +982,26 @@ export class SupabaseService {
    */
   public async setPremiumStatus(isPremium: boolean): Promise<void> {
     if (!this.state.user) return;
+    if (isPremium) {
+      throw new Error('Le statut Pro doit être accordé côté serveur après validation du paiement.');
+    }
+
+    // Le client ne modifie pas les droits d'abonnement en base. Il relit la source autoritaire.
+    const userId = this.state.user.id;
+    const confirmedPro = this.isConfigured
+      ? await this.fetchServerSideProStatus(userId)
+      : false;
     const updatedUser: PulseUserAccount = {
       ...this.state.user,
-      isPremium,
-      plan: isPremium ? 'pro' : 'free',
+      isPremium: confirmedPro,
+      plan: confirmedPro ? 'pro' : 'free',
     };
     this.emitState(updatedUser);
-
-    if (this.isConfigured && this.state.user.id) {
-      try {
-        await this.supabase.from('profiles').upsert(
-          {
-            id: this.state.user.id,
-            is_pro: isPremium,
-            role: isPremium ? 'pro' : 'user',
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'id' }
-        );
-      } catch {
-        // Ignorer en mode offline/non configuré
-      }
-    }
 
     const currentSettings = loadAppSettings();
     const enforcedBouquets = sanitizeBouquetsList(
       currentSettings.selectedBouquets,
-      isPremium
+      confirmedPro
     );
     const synced = await this.saveHybridUserSettings({
       selected_bouquets: enforcedBouquets,
