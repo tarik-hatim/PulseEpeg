@@ -30,7 +30,6 @@ export const ProSubscriptionModal: React.FC<ProSubscriptionModalProps> = ({
   authState,
   language,
   proReason,
-  onProActivated,
 }) => {
   const [selectedPlan, setSelectedPlan] = useState<'yearly' | 'monthly'>('yearly');
   
