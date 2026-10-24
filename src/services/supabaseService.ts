@@ -683,8 +683,8 @@ export class SupabaseService {
               String(meta.full_name || meta.name || ''),
               supaUser.email || 'Utilisateur'
             ),
-            isPremium: await this.fetchServerSideProStatus(data.user.id),
-            plan: (await this.fetchServerSideProStatus(data.user.id)) ? 'pro' : 'free',
+            isPremium: isPro,
+            plan: isPro ? 'pro' : 'free',
             provider: 'supabase',
           };
           this.emitState(account);
