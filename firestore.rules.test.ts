@@ -179,6 +179,14 @@ export const DIRTY_DOZEN_TEST_CASES: DirtyDozenTestCase[] = [
     expected: 'PERMISSION_DENIED',
   },
   {
+    id: 14,
+    name: 'Cross-User user_settings Read',
+    operation: 'get',
+    path: '/user_settings/user_456',
+    auth: { uid: 'user_123', email_verified: true },
+    expected: 'PERMISSION_DENIED',
+  },
+  {
     id: 15,
     name: 'Self-grant Pro on Profile Create',
     operation: 'create',
