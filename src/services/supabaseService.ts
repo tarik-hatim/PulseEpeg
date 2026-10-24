@@ -771,12 +771,13 @@ export class SupabaseService {
           throw new Error(error.message);
         }
         if (data.user) {
+          const serverIsPro = await this.fetchServerSideProStatus(data.user.id);
           const account: PulseUserAccount = {
             id: sanitizeId(data.user.id),
             email: cleanEmail,
             displayName: cleanName,
-            isPremium: await this.fetchServerSideProStatus(data.user.id),
-            plan: (await this.fetchServerSideProStatus(data.user.id)) ? 'pro' : 'free',
+            isPremium: serverIsPro,
+            plan: serverIsPro ? 'pro' : 'free',
             provider: 'supabase',
           };
           this.emitState(account);
