@@ -39,7 +39,7 @@ jobs:
         bun add @capacitor/core @capacitor/cli @capacitor/android
 
     # Vérification TypeScript avant compilation du bundle
-    - name: TypeScript Check
+    - name: TypeScript Type Check
       run: bun run lint
 
     # 3. Build de l'application Web (Vite)
