@@ -83,6 +83,31 @@ create trigger protect_profile_entitlements
 before insert or update on public.profiles
 for each row execute function public.prevent_client_profile_entitlement_changes();
 
+-- Legacy settings premium flag is not authoritative. Preserve its existing value
+-- on updates and force false on inserts from authenticated clients.
+create or replace function public.prevent_client_settings_premium_changes()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $
+begin
+  if auth.role() = 'authenticated' then
+    if tg_op = 'INSERT' then
+      new.is_premium := false;
+    else
+      new.is_premium := old.is_premium;
+    end if;
+  end if;
+  return new;
+end;
+$;
+
+drop trigger if exists protect_user_settings_premium on public.user_settings;
+create trigger protect_user_settings_premium
+before insert or update on public.user_settings
+for each row execute function public.prevent_client_settings_premium_changes();
+
 -- Create a free profile automatically for both email/password and Google OAuth
 -- because both flows create a row in auth.users.
 create or replace function public.create_free_profile_for_auth_user()
