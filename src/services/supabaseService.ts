@@ -352,7 +352,6 @@ export class SupabaseService {
             selected_bouquets: nextBouquets,
             favorite_channels: nextFavorites,
             watch_habits: nextHabits,
-            is_premium: isPro,
             updated_at: nowIso,
           },
           { onConflict: 'user_id' }
@@ -366,7 +365,6 @@ export class SupabaseService {
               user_id: uid,
               selected_bouquets: nextBouquets,
               favorite_channels: nextFavorites,
-              is_premium: isPro,
               updated_at: nowIso,
             },
             { onConflict: 'user_id' }
