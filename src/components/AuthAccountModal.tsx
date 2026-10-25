@@ -121,10 +121,17 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
     } catch (err) {
       if (err instanceof Error && err.message === 'CONFIRMATION_EMAIL_SENT') {
         setInfoNotification(language === 'ar'
-          ? 'تم إنشاء الحساب. تحقق من بريدك الإلكتروني واضغط على رابط التأكيد قبل تسجيل الدخول.'
+          ? 'تم إنشاء الحساب. تحقق من بريدك الإلكتروني واضغط على رابط التأكيد قبل تسجيل الدخول. يمكنك طلب إعادة الإرسال أدناه.'
           : language === 'fr'
-          ? 'Votre compte a été créé. Consultez votre boîte e-mail et cliquez sur le lien de confirmation avant de vous connecter.'
-          : 'Your account has been created. Check your inbox and click the confirmation link before signing in.');
+          ? 'La demande d’inscription a été acceptée. Vérifiez votre boîte e-mail et le dossier spam. Si nécessaire, vous pouvez demander un nouvel envoi ci-dessous.'
+          : 'Signup was accepted. Check your inbox and spam folder. If needed, you can request another email below.');
+        setPassword('');
+      } else if (err instanceof Error && err.message === 'AUTH_EMAIL_ALREADY_REGISTERED') {
+        setInfoNotification(language === 'ar'
+          ? 'Cette adresse semble déjà associée à un compte. Connectez-vous si vous avez déjà confirmé votre adresse, ou demandez un nouvel e-mail de confirmation ci-dessous.'
+          : language === 'fr'
+          ? 'Cette adresse semble déjà associée à un compte. Connectez-vous si vous avez déjà confirmé votre adresse, ou demandez un nouvel e-mail de confirmation ci-dessous.'
+          : 'This email may already be associated with an account. Sign in if it is already confirmed, or request another confirmation email below.');
         setPassword('');
       } else {
         setErrorMessage(
@@ -133,6 +140,23 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
             : t('auth.errorSupabase', language)
         );
       }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResendConfirmation = async () => {
+    setIsLoading(true);
+    setErrorMessage(null);
+    try {
+      await supabaseService.resendSignupConfirmation(email.trim());
+      setInfoNotification(language === 'ar'
+        ? 'تم طلب إعادة إرسال رسالة التأكيد. تحقق من البريد الوارد ومجلد الرسائل غير المرغوب فيها.'
+        : language === 'fr'
+        ? 'Demande de renvoi effectuée. Vérifiez votre boîte de réception et le dossier spam. Si aucun e-mail n’arrive, vérifiez la configuration SMTP et les journaux Supabase.'
+        : 'Confirmation resend requested. Check your inbox and spam folder. If no email arrives, check SMTP configuration and Supabase logs.');
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : t('auth.errorSupabase', language));
     } finally {
       setIsLoading(false);
     }
@@ -279,14 +303,25 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
                   {infoNotification}
                 </span>
               </div>
-              <button
-                type="button"
-                data-tv-focusable="true"
-                onClick={onClose}
-                className="tv-dpad-btn px-3 py-1.5 rounded-lg bg-[#2563eb] hover:bg-[#1d4ed8] text-[11px] font-bold text-[#ffffff] shrink-0 cursor-pointer"
-              >
-                OK
-              </button>
+              <div className="flex flex-col gap-2 shrink-0">
+                <button
+                  type="button"
+                  data-tv-focusable="true"
+                  onClick={handleResendConfirmation}
+                  disabled={isLoading || !email.trim()}
+                  className="tv-dpad-btn px-3 py-1.5 rounded-lg bg-[#2563eb] hover:bg-[#1d4ed8] text-[11px] font-bold text-[#ffffff] disabled:opacity-50 cursor-pointer"
+                >
+                  {language === 'ar' ? 'إعادة الإرسال' : language === 'fr' ? 'Renvoyer l’e-mail' : 'Resend email'}
+                </button>
+                <button
+                  type="button"
+                  data-tv-focusable="true"
+                  onClick={() => setInfoNotification(null)}
+                  className="tv-dpad-btn px-3 py-1.5 rounded-lg bg-[#1e293b] hover:bg-[#334155] text-[11px] font-bold text-[#ffffff] cursor-pointer"
+                >
+                  OK
+                </button>
+              </div>
             </div>
           )}
 
