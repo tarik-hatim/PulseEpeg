@@ -74,7 +74,7 @@ export class AuthService {
     try {
       const { data, error } = await client
         .from('profiles')
-        .select('id, email, full_name, is_pro, role, updated_at')
+        .select('id, is_pro, role, updated_at')
         .eq('id', targetUid)
         .maybeSingle();
 
