@@ -1,4 +1,8 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { App } from '@capacitor/app';
+
+// Schéma déclaré dans AndroidManifest.xml pour revenir dans PulseEPG après confirmation e-mail.
+export const AUTH_DEEP_LINK = 'com.pulseepg.tvguide://auth/callback';
 import { EpgBouquetId } from '../types/epg';
 import {
   ALL_BOUQUET_IDS,
@@ -196,6 +200,24 @@ export class SupabaseService {
 
     this.restoreOptionalSession();
     this.initSupabaseAuthListener();
+
+    // Supabase renvoie les jetons dans le fragment de l'URL après la confirmation.
+    // Capacitor reçoit le lien Android et restaure la session dans l'application.
+    void App.addListener('appUrlOpen', async ({ url }) => {
+      if (!url.startsWith(AUTH_DEEP_LINK)) return;
+      const fragment = url.split('#')[1] || '';
+      const query = url.split('?')[1]?.split('#')[0] || '';
+      const params = new URLSearchParams(fragment || query);
+      const accessToken = params.get('access_token');
+      const refreshToken = params.get('refresh_token');
+      if (accessToken && refreshToken && this.isConfigured) {
+        const { error } = await this.supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+        if (error) console.warn('PulseEPG: impossible de restaurer la session après confirmation e-mail.', error.message);
+      }
+    });
   }
 
   public get supabaseClient(): SupabaseClient {
@@ -767,6 +789,7 @@ export class SupabaseService {
           email: cleanEmail,
           password: effectivePassword,
           options: {
+            emailRedirectTo: AUTH_DEEP_LINK,
             data: {
               full_name: cleanName,
               accepted_terms: true,
