@@ -218,11 +218,19 @@ jobs:
         cd android
         ./gradlew assembleDebug --no-daemon
 
-    # 7. Génération de l'Artifact (Téléchargement de l'APK)
+    # 7. Renommer l'APK avec la version unique définie dans package.json
+    - name: Prepare versioned APK
+      run: |
+        VERSION="$(node -p "require('./package.json').version")"
+        mkdir -p dist-apk
+        cp android/app/build/outputs/apk/debug/app-debug.apk "dist-apk/PulseEPG-v${VERSION}.apk"
+        echo "APK_VERSION=${VERSION}" >> "$GITHUB_ENV"
+
+    # 8. Génération de l'Artifact (Téléchargement de l'APK)
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: PulseEPG-Debug-APK
-        path: android/app/build/outputs/apk/debug/app-debug.apk
+        name: PulseEPG-v${{ env.APK_VERSION }}-APK
+        path: dist-apk/PulseEPG-v${{ env.APK_VERSION }}.apk
         retention-days: 7
         
