@@ -74,7 +74,7 @@ export class AuthService {
     try {
       const { data, error } = await client
         .from('profiles')
-        .select('id, email, full_name, is_pro, role, updated_at')
+        .select('id, is_pro, role, updated_at')
         .eq('id', targetUid)
         .maybeSingle();
 
@@ -87,8 +87,8 @@ export class AuthService {
         );
         return {
           id: data.id,
-          email: data.email || supabaseService.currentUser?.email,
-          full_name: data.full_name || supabaseService.currentUser?.displayName,
+          email: supabaseService.currentUser?.email,
+          full_name: supabaseService.currentUser?.displayName,
           is_pro: isPro,
           role: data.role || (isPro ? 'pro' : 'user'),
           updated_at: data.updated_at,
@@ -116,10 +116,10 @@ export class AuthService {
       };
     }
 
+    // Le statut Pro ne doit jamais donner des privilèges d'administration.
     const isSuperuser = Boolean(
       profile.role === 'superuser' ||
-      profile.role === 'admin' ||
-      profile.is_pro === true
+      profile.role === 'admin'
     );
 
     return {

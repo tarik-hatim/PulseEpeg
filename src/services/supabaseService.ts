@@ -352,7 +352,6 @@ export class SupabaseService {
             selected_bouquets: nextBouquets,
             favorite_channels: nextFavorites,
             watch_habits: nextHabits,
-            is_premium: isPro,
             updated_at: nowIso,
           },
           { onConflict: 'user_id' }
@@ -366,7 +365,6 @@ export class SupabaseService {
               user_id: uid,
               selected_bouquets: nextBouquets,
               favorite_channels: nextFavorites,
-              is_premium: isPro,
               updated_at: nowIso,
             },
             { onConflict: 'user_id' }
@@ -751,10 +749,10 @@ export class SupabaseService {
     const cleanName = sanitizeDisplayName(params.displayName || '', cleanEmail);
     // activatePro est une donnée client non fiable et n'accorde aucun privilège.
     const isPro = false;
-    const effectivePassword =
-      params.password && params.password.trim().length >= 6
-        ? params.password.trim()
-        : 'pulseepg_default_pass';
+    if (!params.password || params.password.trim().length < 6) {
+      throw new Error('Le mot de passe doit contenir au moins 6 caractères.');
+    }
+    const effectivePassword = params.password.trim();
 
     if (this.isConfigured) {
       try {
@@ -785,20 +783,7 @@ export class SupabaseService {
           return account;
         }
       } catch (err) {
-        // Si erreur de configuration / réseau Supabase, bascule proprement sur la simulation locale pour le test UI
-        if (
-          err instanceof Error &&
-          !/invalid login|already registered|weak password/i.test(err.message)
-        ) {
-          const simulated = this.buildSimulatedLocalAccount(
-            cleanEmail,
-            cleanName,
-            isPro
-          );
-          this.emitState(simulated);
-          await this.fetchAndMergeUserSettingsFromCloud(simulated);
-          return simulated;
-        }
+        // Lorsque Supabase est configuré, une erreur réelle ne doit jamais devenir une fausse connexion locale.
         throw err;
       }
     }
@@ -828,10 +813,10 @@ export class SupabaseService {
     const cleanName = sanitizeDisplayName(params.displayName || '', cleanEmail);
     // activatePro est une donnée client non fiable et n'accorde aucun privilège.
     const isPro = false;
-    const effectivePassword =
-      params.password && params.password.trim().length >= 1
-        ? params.password.trim()
-        : 'pulseepg_default_pass';
+    if (!params.password || params.password.trim().length === 0) {
+      throw new Error('Veuillez saisir votre mot de passe.');
+    }
+    const effectivePassword = params.password.trim();
 
     if (this.isConfigured) {
       try {
@@ -862,19 +847,7 @@ export class SupabaseService {
           return account;
         }
       } catch (err) {
-        if (
-          err instanceof Error &&
-          !/invalid login credentials/i.test(err.message)
-        ) {
-          const simulated = this.buildSimulatedLocalAccount(
-            cleanEmail,
-            cleanName,
-            isPro
-          );
-          this.emitState(simulated);
-          await this.fetchAndMergeUserSettingsFromCloud(simulated);
-          return simulated;
-        }
+        // En configuration réelle, ne jamais masquer une erreur d'authentification par un compte simulé.
         throw err;
       }
     }
@@ -944,20 +917,9 @@ export class SupabaseService {
           user: this.state.user,
           isSimulated: false,
         };
-      } catch {
-        const simulated = this.buildSimulatedLocalAccount(
-          cleanEmail,
-          cleanName,
-          isPro
-        );
-        this.emitState(simulated);
-        await this.fetchAndMergeUserSettingsFromCloud(simulated);
-        return {
-          user: simulated,
-          isSimulated: true,
-          infoMessage:
-            'Mode test local : Authentification Google simulée avec succès (vérifiez la configuration Google OAuth dans Supabase).',
-        };
+      } catch (err) {
+        // Supabase configuré : signaler les erreurs OAuth réelles au lieu de simuler une réussite.
+        throw err;
       }
     }
 
