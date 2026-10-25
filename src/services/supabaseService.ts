@@ -1,4 +1,8 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { App } from '@capacitor/app';
+
+// Schéma déclaré dans AndroidManifest.xml pour revenir dans PulseEPG après confirmation e-mail.
+export const AUTH_DEEP_LINK = 'com.pulseepg.tvguide://auth/callback';
 import { EpgBouquetId } from '../types/epg';
 import {
   ALL_BOUQUET_IDS,
@@ -196,6 +200,24 @@ export class SupabaseService {
 
     this.restoreOptionalSession();
     this.initSupabaseAuthListener();
+
+    // Supabase renvoie les jetons dans le fragment de l'URL après la confirmation.
+    // Capacitor reçoit le lien Android et restaure la session dans l'application.
+    void App.addListener('appUrlOpen', async ({ url }) => {
+      if (!url.startsWith(AUTH_DEEP_LINK)) return;
+      const fragment = url.split('#')[1] || '';
+      const query = url.split('?')[1]?.split('#')[0] || '';
+      const params = new URLSearchParams(fragment || query);
+      const accessToken = params.get('access_token');
+      const refreshToken = params.get('refresh_token');
+      if (accessToken && refreshToken && this.isConfigured) {
+        const { error } = await this.supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+        if (error) console.warn('PulseEPG: impossible de restaurer la session après confirmation e-mail.', error.message);
+      }
+    });
   }
 
   public get supabaseClient(): SupabaseClient {
@@ -737,6 +759,19 @@ export class SupabaseService {
     };
   }
 
+  /** Renvoie l'e-mail de confirmation pour un compte en attente de validation. */
+  public async resendSignupConfirmation(email: string): Promise<void> {
+    if (!this.isConfigured) {
+      throw new Error('AUTH_NOT_CONFIGURED');
+    }
+    const { error } = await this.supabase.auth.resend({
+      type: 'signup',
+      email: sanitizeEmail(email),
+      options: { emailRedirectTo: AUTH_DEEP_LINK },
+    });
+    if (error) throw new Error(error.message);
+  }
+
   /**
    * 1. Inscription via `supabase.auth.signUp()`
    * Si les identifiants Supabase ne sont pas configurés, simule une inscription/connexion locale réussie sans erreur réseau.
@@ -746,15 +781,20 @@ export class SupabaseService {
     password?: string;
     displayName?: string;
     activatePro?: boolean;
+    acceptedTerms?: boolean;
+    partnerMarketingConsent?: boolean;
   }): Promise<PulseUserAccount> {
     const cleanEmail = sanitizeEmail(params.email);
     const cleanName = sanitizeDisplayName(params.displayName || '', cleanEmail);
     // activatePro est une donnée client non fiable et n'accorde aucun privilège.
     const isPro = false;
-    const effectivePassword =
-      params.password && params.password.trim().length >= 6
-        ? params.password.trim()
-        : 'pulseepg_default_pass';
+    if (!params.password || params.password.length < 12) {
+      throw new Error('Password must be at least 12 characters long.');
+    }
+    if (!params.acceptedTerms) {
+      throw new Error('Acceptance of the Terms of Use and Privacy Policy is required.');
+    }
+    const effectivePassword = params.password;
 
     if (this.isConfigured) {
       try {
@@ -762,13 +802,24 @@ export class SupabaseService {
           email: cleanEmail,
           password: effectivePassword,
           options: {
+            emailRedirectTo: AUTH_DEEP_LINK,
             data: {
               full_name: cleanName,
+              accepted_terms: true,
+              partner_marketing_consent: Boolean(params.partnerMarketingConsent),
             },
           },
         });
         if (error) {
           throw new Error(error.message);
+        }
+        if (data.user && !data.session) {
+          // Supabase peut renvoyer un faux utilisateur sans erreur pour une adresse déjà inscrite.
+          // identities vide permet d'éviter d'afficher à tort « e-mail envoyé ».
+          if (Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+            throw new Error('AUTH_EMAIL_ALREADY_REGISTERED');
+          }
+          throw new Error('CONFIRMATION_EMAIL_SENT');
         }
         if (data.user) {
           const serverIsPro = await this.fetchServerSideProStatus(data.user.id);
@@ -785,19 +836,9 @@ export class SupabaseService {
           return account;
         }
       } catch (err) {
-        // Si erreur de configuration / réseau Supabase, bascule proprement sur la simulation locale pour le test UI
-        if (
-          err instanceof Error &&
-          !/invalid login|already registered|weak password/i.test(err.message)
-        ) {
-          const simulated = this.buildSimulatedLocalAccount(
-            cleanEmail,
-            cleanName,
-            isPro
-          );
-          this.emitState(simulated);
-          await this.fetchAndMergeUserSettingsFromCloud(simulated);
-          return simulated;
+        // Aucune erreur Supabase ne doit être masquée par une fausse session locale.
+        if (err instanceof Error && err.message === 'CONFIRMATION_EMAIL_SENT') {
+          throw err;
         }
         throw err;
       }

@@ -2,7 +2,7 @@ name: Build Android APK (Capacitor)
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ "main", "master", "build/auth-versioned-apk" ]
   pull_request:
     branches: [ "main", "master" ]
   workflow_dispatch:
@@ -44,6 +44,9 @@ jobs:
 
     # 3. Build de l'application Web (Vite)
     - name: Build Web App
+      env:
+        VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+        VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
       run: bun run build
 
     # 4. Génération et synchronisation du projet Android via Bun + Icônes multi-terminaux (Smartphone, Tablette, Android TV, TV Box)
@@ -94,6 +97,14 @@ jobs:
                         <action android:name="android.intent.action.MAIN" />
                         <category android:name="android.intent.category.LAUNCHER" />
                         <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+                    </intent-filter>
+
+                    <!-- Ouvre PulseEPG depuis le lien de confirmation e-mail Supabase. -->
+                    <intent-filter>
+                        <action android:name="android.intent.action.VIEW" />
+                        <category android:name="android.intent.category.DEFAULT" />
+                        <category android:name="android.intent.category.BROWSABLE" />
+                        <data android:scheme="com.pulseepg.tvguide" android:host="auth" android:path="/callback" />
                     </intent-filter>
 
                 </activity>
@@ -218,11 +229,19 @@ jobs:
         cd android
         ./gradlew assembleDebug --no-daemon
 
-    # 7. Génération de l'Artifact (Téléchargement de l'APK)
+    # 7. Renommer l'APK avec la version unique définie dans package.json
+    - name: Prepare versioned APK
+      run: |
+        VERSION="$(node -p "require('./package.json').version")"
+        mkdir -p dist-apk
+        cp android/app/build/outputs/apk/debug/app-debug.apk "dist-apk/PulseEPG-v${VERSION}.apk"
+        echo "APK_VERSION=${VERSION}" >> "$GITHUB_ENV"
+
+    # 8. Génération de l'Artifact (Téléchargement de l'APK)
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: PulseEPG-Debug-APK
-        path: android/app/build/outputs/apk/debug/app-debug.apk
+        name: PulseEPG-v${{ env.APK_VERSION }}-APK
+        path: dist-apk/PulseEPG-v${{ env.APK_VERSION }}.apk
         retention-days: 7
         
