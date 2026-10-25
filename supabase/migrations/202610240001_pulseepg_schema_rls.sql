@@ -90,7 +90,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path = ''
-as $
+as $$
 begin
   if auth.role() = 'authenticated' then
     if tg_op = 'INSERT' then
@@ -101,7 +101,7 @@ begin
   end if;
   return new;
 end;
-$;
+$$;
 
 drop trigger if exists protect_user_settings_premium on public.user_settings;
 create trigger protect_user_settings_premium
