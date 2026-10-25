@@ -6130,6 +6130,44 @@ export function App() {
               </button>
 
               <button
+                type="button"
+                data-tv-focusable="true"
+                onClick={() => {
+                  setProFeatureReason(null);
+                  setIsAuthModalOpen(true);
+                }}
+                className="w-9 h-9 rounded-xl bg-[#141a26] hover:bg-[#1a202c] text-[#cbd5e1] hover:text-white border border-[#1e293b] flex items-center justify-center transition-colors cursor-pointer"
+                title={
+                  authState.isLoggedIn
+                    ? activeLang === 'ar'
+                      ? 'حسابي'
+                      : activeLang === 'fr'
+                      ? 'Mon compte'
+                      : 'My account'
+                    : activeLang === 'ar'
+                    ? 'تسجيل الدخول أو إنشاء حساب'
+                    : activeLang === 'fr'
+                    ? 'Se connecter / S’inscrire'
+                    : 'Sign in / Sign up'
+                }
+                aria-label={
+                  authState.isLoggedIn
+                    ? activeLang === 'ar'
+                      ? 'حسابي'
+                      : activeLang === 'fr'
+                      ? 'Mon compte'
+                      : 'My account'
+                    : activeLang === 'ar'
+                    ? 'تسجيل الدخول أو إنشاء حساب'
+                    : activeLang === 'fr'
+                    ? 'Se connecter ou s’inscrire'
+                    : 'Sign in or create an account'
+                }
+              >
+                <User className="w-4 h-4 text-[#cbd5e1]" />
+              </button>
+
+              <button
                 ref={settingsBtnRef}
                 id="header-settings-btn"
                 type="button"
