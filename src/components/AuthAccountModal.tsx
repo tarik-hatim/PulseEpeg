@@ -37,6 +37,8 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
   );
   const [email, setEmail] = useState(authState.user?.email || '');
   const [password, setPassword] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [partnerMarketingConsent, setPartnerMarketingConsent] = useState(false);
   const [selectProOnSubmit, setSelectProOnSubmit] = useState<boolean>(
     Boolean(proFeatureReason)
   );
@@ -84,6 +86,10 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
       setErrorMessage(language === 'ar' ? 'يرجى إدخال كلمة المرور.' : language === 'fr' ? 'Veuillez saisir votre mot de passe.' : 'Please enter your password.');
       return;
     }
+    if (mode === 'register' && !acceptedTerms) {
+      setErrorMessage(language === 'ar' ? 'يرجى الموافقة على شروط الاستخدام وسياسة الخصوصية.' : language === 'fr' ? 'Veuillez accepter les conditions d’utilisation et la politique de confidentialité.' : 'Please accept the Terms of Use and Privacy Policy.');
+      return;
+    }
     if (mode === 'register' && password.length < 12) {
       setErrorMessage(language === 'ar' ? 'يجب أن تتكون كلمة المرور من 12 حرفًا على الأقل.' : language === 'fr' ? 'Le mot de passe doit contenir au moins 12 caractères.' : 'Password must be at least 12 characters long.');
       return;
@@ -99,6 +105,8 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
           password: password || undefined,
           displayName: displayName.trim() || undefined,
           activatePro: selectProOnSubmit,
+          acceptedTerms,
+          partnerMarketingConsent,
         });
       } else {
         // Connexion via supabase.auth.signInWithPassword() (ou simulation locale réussie si clefs manquantes)
@@ -632,6 +640,20 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
                     </p>
                   )}
                 </div>
+
+                {mode === 'register' && (
+                  <div className="space-y-3 rounded-xl border border-[#334155] bg-[#0a0e17] p-3.5 text-xs text-[#cbd5e1]">
+                    <label className="flex items-start gap-2.5 cursor-pointer leading-relaxed">
+                      <input type="checkbox" checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} required className="mt-0.5 h-4 w-4 shrink-0 accent-blue-500" />
+                      <span>{language === 'ar' ? 'أوافق على شروط الاستخدام وسياسة الخصوصية (إلزامي).' : language === 'fr' ? 'J’accepte les conditions d’utilisation et la politique de confidentialité (obligatoire).' : 'I accept the Terms of Use and Privacy Policy (required).'}</span>
+                    </label>
+                    <label className="flex items-start gap-2.5 cursor-pointer leading-relaxed">
+                      <input type="checkbox" checked={partnerMarketingConsent} onChange={(e) => setPartnerMarketingConsent(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-blue-500" />
+                      <span>{language === 'ar' ? 'أوافق على تلقي رسائل تسويقية عبر البريد الإلكتروني من PulseEPG وشركائه (اختياري).' : language === 'fr' ? 'J’accepte de recevoir par e-mail des communications marketing de PulseEPG et de ses partenaires (facultatif).' : 'I agree to receive marketing emails from PulseEPG and its partners (optional).'}</span>
+                    </label>
+                    <p className="text-[10px] text-[#94a3b8]">{language === 'ar' ? 'يمكنك سحب موافقتك التسويقية في أي وقت.' : language === 'fr' ? 'Vous pourrez retirer votre consentement marketing à tout moment.' : 'You can withdraw marketing consent at any time.'}</p>
+                  </div>
+                )}
 
                 {/* Choix du Statut (Gratuit ou PulseEPG Pro 👑) */}
                 <div
