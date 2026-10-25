@@ -2,7 +2,7 @@ name: Build Android APK (Capacitor)
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ "main", "master", "build/auth-versioned-apk" ]
   pull_request:
     branches: [ "main", "master" ]
   workflow_dispatch:
@@ -97,6 +97,14 @@ jobs:
                         <action android:name="android.intent.action.MAIN" />
                         <category android:name="android.intent.category.LAUNCHER" />
                         <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+                    </intent-filter>
+
+                    <!-- Ouvre PulseEPG depuis le lien de confirmation e-mail Supabase. -->
+                    <intent-filter>
+                        <action android:name="android.intent.action.VIEW" />
+                        <category android:name="android.intent.category.DEFAULT" />
+                        <category android:name="android.intent.category.BROWSABLE" />
+                        <data android:scheme="com.pulseepg.tvguide" android:host="auth" android:path="/callback" />
                     </intent-filter>
 
                 </activity>
