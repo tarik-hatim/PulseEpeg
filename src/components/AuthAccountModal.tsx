@@ -119,11 +119,20 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
       }
       onClose();
     } catch (err) {
-      setErrorMessage(
-        err instanceof Error
-          ? err.message
-          : t('auth.errorSupabase', language)
-      );
+      if (err instanceof Error && err.message === 'CONFIRMATION_EMAIL_SENT') {
+        setInfoNotification(language === 'ar'
+          ? 'تم إنشاء الحساب. تحقق من بريدك الإلكتروني واضغط على رابط التأكيد قبل تسجيل الدخول.'
+          : language === 'fr'
+          ? 'Votre compte a été créé. Consultez votre boîte e-mail et cliquez sur le lien de confirmation avant de vous connecter.'
+          : 'Your account has been created. Check your inbox and click the confirmation link before signing in.');
+        setPassword('');
+      } else {
+        setErrorMessage(
+          err instanceof Error
+            ? err.message
+            : t('auth.errorSupabase', language)
+        );
+      }
     } finally {
       setIsLoading(false);
     }
