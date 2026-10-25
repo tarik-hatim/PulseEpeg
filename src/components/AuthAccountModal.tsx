@@ -37,6 +37,8 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
   );
   const [email, setEmail] = useState(authState.user?.email || '');
   const [password, setPassword] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [partnerMarketingConsent, setPartnerMarketingConsent] = useState(false);
   const [selectProOnSubmit, setSelectProOnSubmit] = useState<boolean>(
     Boolean(proFeatureReason)
   );
@@ -80,6 +82,18 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
       setErrorMessage(t('auth.errorInvalidEmail', language));
       return;
     }
+    if (!password) {
+      setErrorMessage(language === 'ar' ? 'يرجى إدخال كلمة المرور.' : language === 'fr' ? 'Veuillez saisir votre mot de passe.' : 'Please enter your password.');
+      return;
+    }
+    if (mode === 'register' && !acceptedTerms) {
+      setErrorMessage(language === 'ar' ? 'يرجى الموافقة على شروط الاستخدام وسياسة الخصوصية.' : language === 'fr' ? 'Veuillez accepter les conditions d’utilisation et la politique de confidentialité.' : 'Please accept the Terms of Use and Privacy Policy.');
+      return;
+    }
+    if (mode === 'register' && password.length < 12) {
+      setErrorMessage(language === 'ar' ? 'يجب أن تتكون كلمة المرور من 12 حرفًا على الأقل.' : language === 'fr' ? 'Le mot de passe doit contenir au moins 12 caractères.' : 'Password must be at least 12 characters long.');
+      return;
+    }
 
     setIsLoading(true);
     setErrorMessage(null);
@@ -91,6 +105,8 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
           password: password || undefined,
           displayName: displayName.trim() || undefined,
           activatePro: selectProOnSubmit,
+          acceptedTerms,
+          partnerMarketingConsent,
         });
       } else {
         // Connexion via supabase.auth.signInWithPassword() (ou simulation locale réussie si clefs manquantes)
@@ -103,11 +119,20 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
       }
       onClose();
     } catch (err) {
-      setErrorMessage(
-        err instanceof Error
-          ? err.message
-          : t('auth.errorSupabase', language)
-      );
+      if (err instanceof Error && err.message === 'CONFIRMATION_EMAIL_SENT') {
+        setInfoNotification(language === 'ar'
+          ? 'تم إنشاء الحساب. تحقق من بريدك الإلكتروني واضغط على رابط التأكيد قبل تسجيل الدخول.'
+          : language === 'fr'
+          ? 'Votre compte a été créé. Consultez votre boîte e-mail et cliquez sur le lien de confirmation avant de vous connecter.'
+          : 'Your account has been created. Check your inbox and click the confirmation link before signing in.');
+        setPassword('');
+      } else {
+        setErrorMessage(
+          err instanceof Error
+            ? err.message
+            : t('auth.errorSupabase', language)
+        );
+      }
     } finally {
       setIsLoading(false);
     }
@@ -604,14 +629,40 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
                       data-tv-focusable="true"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
+                      placeholder={mode === 'register' ? (language === 'fr' ? '12 caractères minimum' : language === 'ar' ? '12 حرفًا على الأقل' : 'At least 12 characters') : '••••••••'}
+                      minLength={mode === 'register' ? 12 : 1}
+                      required
+                      autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
                       dir="ltr"
                       className={`w-full ${
                         isRtl ? 'pr-9 pl-3.5 text-right' : 'pl-9 pr-3.5 text-left'
                       } py-2.5 rounded-xl bg-[#0a0e17] border border-[#334155] text-xs text-[#ffffff] placeholder-[#cbd5e1]/50`}
                     />
                   </div>
+                  {mode === 'register' && (
+                    <p className="mt-1.5 text-[11px] leading-relaxed text-[#94a3b8]">
+                      {language === 'fr'
+                        ? 'Utilise au moins 12 caractères. Une phrase de passe longue est recommandée ; évite les codes courts de 6 chiffres.'
+                        : language === 'ar'
+                        ? 'استخدم 12 حرفًا على الأقل. يُنصح بعبارة مرور طويلة وتجنب الرموز القصيرة المكونة من 6 أرقام.'
+                        : 'Use at least 12 characters. A long passphrase is recommended; avoid short 6-digit codes.'}
+                    </p>
+                  )}
                 </div>
+
+                {mode === 'register' && (
+                  <div className="space-y-3 rounded-xl border border-[#334155] bg-[#0a0e17] p-3.5 text-xs text-[#cbd5e1]">
+                    <label className="flex items-start gap-2.5 cursor-pointer leading-relaxed">
+                      <input type="checkbox" checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} required className="mt-0.5 h-4 w-4 shrink-0 accent-blue-500" />
+                      <span>{language === 'ar' ? 'أوافق على شروط الاستخدام وسياسة الخصوصية (إلزامي).' : language === 'fr' ? 'J’accepte les conditions d’utilisation et la politique de confidentialité (obligatoire).' : 'I accept the Terms of Use and Privacy Policy (required).'}</span>
+                    </label>
+                    <label className="flex items-start gap-2.5 cursor-pointer leading-relaxed">
+                      <input type="checkbox" checked={partnerMarketingConsent} onChange={(e) => setPartnerMarketingConsent(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-blue-500" />
+                      <span>{language === 'ar' ? 'أوافق على تلقي رسائل تسويقية عبر البريد الإلكتروني من PulseEPG وشركائه (اختياري).' : language === 'fr' ? 'J’accepte de recevoir par e-mail des communications marketing de PulseEPG et de ses partenaires (facultatif).' : 'I agree to receive marketing emails from PulseEPG and its partners (optional).'}</span>
+                    </label>
+                    <p className="text-[10px] text-[#94a3b8]">{language === 'ar' ? 'يمكنك سحب موافقتك التسويقية في أي وقت.' : language === 'fr' ? 'Vous pourrez retirer votre consentement marketing à tout moment.' : 'You can withdraw marketing consent at any time.'}</p>
+                  </div>
+                )}
 
                 {/* Choix du Statut (Gratuit ou PulseEPG Pro 👑) */}
                 <div
