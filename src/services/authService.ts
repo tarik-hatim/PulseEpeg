@@ -116,10 +116,10 @@ export class AuthService {
       };
     }
 
+    // Le statut Pro ne doit jamais donner des privilèges d'administration.
     const isSuperuser = Boolean(
       profile.role === 'superuser' ||
-      profile.role === 'admin' ||
-      profile.is_pro === true
+      profile.role === 'admin'
     );
 
     return {
