@@ -746,15 +746,20 @@ export class SupabaseService {
     password?: string;
     displayName?: string;
     activatePro?: boolean;
+    acceptedTerms?: boolean;
+    partnerMarketingConsent?: boolean;
   }): Promise<PulseUserAccount> {
     const cleanEmail = sanitizeEmail(params.email);
     const cleanName = sanitizeDisplayName(params.displayName || '', cleanEmail);
     // activatePro est une donnée client non fiable et n'accorde aucun privilège.
     const isPro = false;
-    const effectivePassword =
-      params.password && params.password.trim().length >= 6
-        ? params.password.trim()
-        : 'pulseepg_default_pass';
+    if (!params.password || params.password.length < 12) {
+      throw new Error('Password must be at least 12 characters long.');
+    }
+    if (!params.acceptedTerms) {
+      throw new Error('Acceptance of the Terms of Use and Privacy Policy is required.');
+    }
+    const effectivePassword = params.password;
 
     if (this.isConfigured) {
       try {
@@ -764,11 +769,16 @@ export class SupabaseService {
           options: {
             data: {
               full_name: cleanName,
+              accepted_terms: true,
+              partner_marketing_consent: Boolean(params.partnerMarketingConsent),
             },
           },
         });
         if (error) {
           throw new Error(error.message);
+        }
+        if (data.user && !data.session) {
+          throw new Error('CONFIRMATION_EMAIL_SENT');
         }
         if (data.user) {
           const serverIsPro = await this.fetchServerSideProStatus(data.user.id);
@@ -785,11 +795,11 @@ export class SupabaseService {
           return account;
         }
       } catch (err) {
-        // Si erreur de configuration / réseau Supabase, bascule proprement sur la simulation locale pour le test UI
-        if (
-          err instanceof Error &&
-          !/invalid login|already registered|weak password/i.test(err.message)
-        ) {
+        // Les erreurs Supabase ne doivent jamais créer une fausse session locale.
+        if (err instanceof Error && /CONFIRMATION_EMAIL_SENT/.test(err.message)) {
+          throw new Error('CONFIRMATION_EMAIL_SENT');
+        }
+        if (err instanceof Error && /invalid login|already registered|weak password|password must be|acceptance of the terms/i.test(err.message)) {
           const simulated = this.buildSimulatedLocalAccount(
             cleanEmail,
             cleanName,
