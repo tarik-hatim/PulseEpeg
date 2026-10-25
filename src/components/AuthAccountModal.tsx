@@ -271,7 +271,7 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
             <div
               role="status"
               data-tv-row="auth-notification"
-              className="p-3.5 rounded-xl bg-[#1d4ed8]/25 border border-[#60a5fa] text-xs text-[#ffffff] flex items-start justify-between gap-3 shadow-[0_0_14px_rgba(37,99,235,0.3)] w-full box-border"
+              className="sticky top-0 z-20 p-3.5 rounded-xl bg-[#172b52] border border-[#60a5fa] text-xs text-[#ffffff] flex items-start justify-between gap-3 shadow-[0_0_14px_rgba(37,99,235,0.3)] w-full box-border"
             >
               <div className="flex items-start gap-2.5 min-w-0 flex-1">
                 <ShieldCheck className="w-4 h-4 text-[#38bdf8] shrink-0 mt-0.5" />
