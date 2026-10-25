@@ -6135,16 +6135,24 @@ export function App() {
                   setProFeatureReason(null);
                   setIsAuthModalOpen(true);
                 }}
-                className="w-9 h-9 rounded-xl bg-[#141a26] hover:bg-[#1a202c] text-[#cbd5e1] hover:text-white border border-[#1e293b] flex items-center justify-center transition-colors cursor-pointer"
+                className={`relative h-9 rounded-xl bg-[#141a26] hover:bg-[#1a202c] text-[#cbd5e1] hover:text-white border border-[#1e293b] flex items-center justify-center gap-2 transition-colors cursor-pointer ${authState.isLoggedIn ? 'px-3 min-w-9 max-w-[180px]' : 'w-9'}`}
                 title={authState.isLoggedIn
-                  ? (activeLang === 'ar' ? 'حسابي' : activeLang === 'fr' ? 'Mon compte' : 'My account')
+                  ? (authState.user?.displayName || authState.user?.email?.split('@')[0] || (activeLang === 'ar' ? 'حسابي' : activeLang === 'fr' ? 'Mon compte' : 'My account'))
                   : (activeLang === 'ar' ? 'تسجيل الدخول أو إنشاء حساب' : activeLang === 'fr' ? 'Connexion / Inscription' : 'Sign in / Sign up')}
                 aria-label={authState.isLoggedIn
-                  ? (activeLang === 'ar' ? 'حسابي' : activeLang === 'fr' ? 'Mon compte' : 'My account')
+                  ? `${activeLang === 'ar' ? 'متصل' : activeLang === 'fr' ? 'Connecté' : 'Signed in'} : ${authState.user?.displayName || authState.user?.email || ''}`
                   : (activeLang === 'ar' ? 'تسجيل الدخول أو إنشاء حساب' : activeLang === 'fr' ? 'Connexion / Inscription' : 'Sign in / Sign up')}
                 data-tv-focusable="true"
               >
-                <User className="w-4 h-4 text-[#cbd5e1]" />
+                <span className="relative shrink-0">
+                  <User className="w-4 h-4 text-[#cbd5e1]" />
+                  {authState.isLoggedIn && <span aria-hidden="true" className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-[#141a26]" />}
+                </span>
+                {authState.isLoggedIn && (
+                  <span className="hidden sm:inline max-w-[120px] truncate text-xs font-semibold">
+                    {authState.user?.displayName || authState.user?.email?.split('@')[0] || (activeLang === 'ar' ? 'حسابي' : activeLang === 'fr' ? 'Mon compte' : 'My account')}
+                  </span>
+                )}
               </button>
 
               <button
