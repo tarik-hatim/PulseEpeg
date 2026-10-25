@@ -759,6 +759,19 @@ export class SupabaseService {
     };
   }
 
+  /** Renvoie l'e-mail de confirmation pour un compte en attente de validation. */
+  public async resendSignupConfirmation(email: string): Promise<void> {
+    if (!this.isConfigured) {
+      throw new Error('AUTH_NOT_CONFIGURED');
+    }
+    const { error } = await this.supabase.auth.resend({
+      type: 'signup',
+      email: sanitizeEmail(email),
+      options: { emailRedirectTo: AUTH_DEEP_LINK },
+    });
+    if (error) throw new Error(error.message);
+  }
+
   /**
    * 1. Inscription via `supabase.auth.signUp()`
    * Si les identifiants Supabase ne sont pas configurés, simule une inscription/connexion locale réussie sans erreur réseau.
@@ -801,6 +814,11 @@ export class SupabaseService {
           throw new Error(error.message);
         }
         if (data.user && !data.session) {
+          // Supabase peut renvoyer un faux utilisateur sans erreur pour une adresse déjà inscrite.
+          // identities vide permet d'éviter d'afficher à tort « e-mail envoyé ».
+          if (Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+            throw new Error('AUTH_EMAIL_ALREADY_REGISTERED');
+          }
           throw new Error('CONFIRMATION_EMAIL_SENT');
         }
         if (data.user) {
