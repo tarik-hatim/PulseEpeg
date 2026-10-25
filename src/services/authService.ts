@@ -87,8 +87,8 @@ export class AuthService {
         );
         return {
           id: data.id,
-          email: data.email || supabaseService.currentUser?.email,
-          full_name: data.full_name || supabaseService.currentUser?.displayName,
+          email: supabaseService.currentUser?.email,
+          full_name: supabaseService.currentUser?.displayName,
           is_pro: isPro,
           role: data.role || (isPro ? 'pro' : 'user'),
           updated_at: data.updated_at,
