@@ -795,19 +795,9 @@ export class SupabaseService {
           return account;
         }
       } catch (err) {
-        // Les erreurs Supabase ne doivent jamais créer une fausse session locale.
-        if (err instanceof Error && /CONFIRMATION_EMAIL_SENT/.test(err.message)) {
-          throw new Error('CONFIRMATION_EMAIL_SENT');
-        }
-        if (err instanceof Error && /invalid login|already registered|weak password|password must be|acceptance of the terms/i.test(err.message)) {
-          const simulated = this.buildSimulatedLocalAccount(
-            cleanEmail,
-            cleanName,
-            isPro
-          );
-          this.emitState(simulated);
-          await this.fetchAndMergeUserSettingsFromCloud(simulated);
-          return simulated;
+        // Aucune erreur Supabase ne doit être masquée par une fausse session locale.
+        if (err instanceof Error && err.message === 'CONFIRMATION_EMAIL_SENT') {
+          throw err;
         }
         throw err;
       }
