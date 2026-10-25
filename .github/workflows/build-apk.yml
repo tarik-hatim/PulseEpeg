@@ -44,6 +44,9 @@ jobs:
 
     # 3. Build de l'application Web (Vite)
     - name: Build Web App
+      env:
+        VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+        VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
       run: bun run build
 
     # 4. Génération et synchronisation du projet Android via Bun + Icônes multi-terminaux (Smartphone, Tablette, Android TV, TV Box)
