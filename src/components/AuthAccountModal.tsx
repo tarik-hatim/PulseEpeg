@@ -80,6 +80,14 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
       setErrorMessage(t('auth.errorInvalidEmail', language));
       return;
     }
+    if (!password) {
+      setErrorMessage(language === 'ar' ? 'يرجى إدخال كلمة المرور.' : language === 'fr' ? 'Veuillez saisir votre mot de passe.' : 'Please enter your password.');
+      return;
+    }
+    if (mode === 'register' && password.length < 12) {
+      setErrorMessage(language === 'ar' ? 'يجب أن تتكون كلمة المرور من 12 حرفًا على الأقل.' : language === 'fr' ? 'Le mot de passe doit contenir au moins 12 caractères.' : 'Password must be at least 12 characters long.');
+      return;
+    }
 
     setIsLoading(true);
     setErrorMessage(null);
@@ -604,13 +612,25 @@ export const AuthAccountModal: React.FC<AuthAccountModalProps> = ({
                       data-tv-focusable="true"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
+                      placeholder={mode === 'register' ? (language === 'fr' ? '12 caractères minimum' : language === 'ar' ? '12 حرفًا على الأقل' : 'At least 12 characters') : '••••••••'}
+                      minLength={mode === 'register' ? 12 : 1}
+                      required
+                      autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
                       dir="ltr"
                       className={`w-full ${
                         isRtl ? 'pr-9 pl-3.5 text-right' : 'pl-9 pr-3.5 text-left'
                       } py-2.5 rounded-xl bg-[#0a0e17] border border-[#334155] text-xs text-[#ffffff] placeholder-[#cbd5e1]/50`}
                     />
                   </div>
+                  {mode === 'register' && (
+                    <p className="mt-1.5 text-[11px] leading-relaxed text-[#94a3b8]">
+                      {language === 'fr'
+                        ? 'Utilise au moins 12 caractères. Une phrase de passe longue est recommandée ; évite les codes courts de 6 chiffres.'
+                        : language === 'ar'
+                        ? 'استخدم 12 حرفًا على الأقل. يُنصح بعبارة مرور طويلة وتجنب الرموز القصيرة المكونة من 6 أرقام.'
+                        : 'Use at least 12 characters. A long passphrase is recommended; avoid short 6-digit codes.'}
+                    </p>
+                  )}
                 </div>
 
                 {/* Choix du Statut (Gratuit ou PulseEPG Pro 👑) */}
